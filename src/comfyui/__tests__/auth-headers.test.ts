@@ -89,17 +89,17 @@ describe("ComfyUIHttpClient with configured headers", () => {
     });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     baseUrl = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
-    process.env.KONTE_TEST_COMFY_TOKEN = "live-value";
+    process.env.KTEST_COMFY_TOKEN = "live-value";
   });
 
   afterAll(async () => {
-    delete process.env.KONTE_TEST_COMFY_TOKEN;
+    delete process.env.KTEST_COMFY_TOKEN;
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
   const client = () =>
     new ComfyUIHttpClient(baseUrl, {
-      headers: { Authorization: "Bearer ${KONTE_TEST_COMFY_TOKEN}" },
+      headers: { Authorization: "Bearer ${KTEST_COMFY_TOKEN}" },
     });
 
   it("sends the resolved credential on a request", async () => {
@@ -204,12 +204,12 @@ describe("ComfyUIWsClient handshake", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("carries the resolved credential", async () => {
-    process.env.KONTE_TEST_WS_TOKEN = "handshake-secret";
+    process.env.KTEST_WS_TOKEN = "handshake-secret";
     try {
-      const init = await connect({ Authorization: "Bearer ${KONTE_TEST_WS_TOKEN}" });
+      const init = await connect({ Authorization: "Bearer ${KTEST_WS_TOKEN}" });
       expect(init?.headers).toEqual({ Authorization: "Bearer handshake-secret" });
     } finally {
-      delete process.env.KONTE_TEST_WS_TOKEN;
+      delete process.env.KTEST_WS_TOKEN;
     }
   });
 
@@ -236,17 +236,17 @@ describe("ComfyUIManagerClient with configured headers", () => {
     });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     baseUrl = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
-    process.env.KONTE_TEST_MANAGER_TOKEN = "manager-live-value";
+    process.env.KTEST_MANAGER_TOKEN = "manager-live-value";
   });
 
   afterAll(async () => {
-    delete process.env.KONTE_TEST_MANAGER_TOKEN;
+    delete process.env.KTEST_MANAGER_TOKEN;
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
   const manager = () => {
     const http = new ComfyUIHttpClient(baseUrl, {
-      headers: { Authorization: "Bearer ${KONTE_TEST_MANAGER_TOKEN}" },
+      headers: { Authorization: "Bearer ${KTEST_MANAGER_TOKEN}" },
     });
     return new ComfyUIManagerClient(baseUrl, http);
   };
@@ -307,7 +307,7 @@ describe("ComfyUIManagerClient with configured headers", () => {
     } catch (err) {
       const message = (err as Error).message;
       expect(message).not.toContain("manager-live-value");
-      expect(message).toContain("${KONTE_TEST_MANAGER_TOKEN}");
+      expect(message).toContain("${KTEST_MANAGER_TOKEN}");
     }
   });
 });

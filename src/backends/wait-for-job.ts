@@ -175,6 +175,9 @@ export async function waitForJob(
     } finally {
       stopHeartbeat();
     }
+    // Also null where the finalize's state write failed: this waiter still owns the job and would
+    // re-claim it at once.
+    await sleep(POLL_INTERVAL_MS);
   }
 }
 

@@ -1,3 +1,4 @@
+import { rosterReferenceNames } from "../../../core/roots.js";
 import * as path from "node:path";
 import { ratioOf } from "../../../core/aspect.js";
 import { cachedClipStudy } from "../../../core/study-clip.js";
@@ -151,7 +152,7 @@ export async function handleGetDirectionState(
   const state = manager.getState();
 
   const check = checkDirection(direction, {
-    referenceAssetNames: reference?.exposedAssetNames ?? [],
+    referenceAssetNames: rosterReferenceNames(videoRoot, reference),
     ...(await loadDirectionStageInputs(videoRoot, direction, reference)),
   });
   const currentHash = directionHash(direction);

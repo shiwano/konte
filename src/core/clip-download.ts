@@ -217,7 +217,9 @@ export async function fetchVideoFile(url: string, dir: string): Promise<string |
     return null;
   }
   const segment = path.posix.basename(new URL(url).pathname);
-  const ext = path.extname(segment).replace(/[^A-Za-z0-9.]/g, "");
+  // Only a video extension survives: the file is served back from the review origin.
+  const named = path.extname(segment).toLowerCase();
+  const ext = Object.values(VIDEO_EXTENSIONS).includes(named) ? named : "";
   const stem = path.basename(segment, path.extname(segment)).replace(/[^A-Za-z0-9_-]/g, "_");
   const file = path.join(
     dir,

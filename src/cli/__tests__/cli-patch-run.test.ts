@@ -183,7 +183,9 @@ describe("patch command", () => {
       expect(variants[sourceId]!.status).toBe("none");
 
       // …so dropping the patch leaves a usable take behind.
-      await run(["patch", "remove", sourceId, "-y"], projectDir);
+      const { stdout } = await run(["patch", "remove", sourceId, "-y"], projectDir);
+      expect(stdout).toContain(`${producedId} accepted — reference:latentA is left unaccepted`);
+      expect(stdout).toContain("take(s) of its chain steps");
       const sm = await StateManager.load(projectDir);
       expect(sm.resolveReference("reference:latentA")?.variantId).toBe(sourceId);
     });

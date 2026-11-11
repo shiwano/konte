@@ -62,6 +62,7 @@ import { findUnplacedStems } from "./heard-stem.js";
 import { findUnmouthedStems } from "./stem-mouth-check.js";
 import { type Accepted, signedOffBy, withAwaitingAccept } from "./sign-off.js";
 import { isVendorBackendAsset } from "./vendor-backend.js";
+import { rosterReferenceNames } from "./roots.js";
 import { unvouchedFindings } from "./variant-check.js";
 
 // The prompts and pins one outstanding patch script would spend on, and its steps.
@@ -80,6 +81,9 @@ export type CheckContext = {
   // null: no direction.ts at all; a broken one never reaches a context.
   direction: Direction | null;
   directionAccepted: boolean;
+  // The direction has been accepted whole once: what an `after-direction-accepted` finding waits
+  // for, and an edit since does not take back.
+  directionUnlocked: boolean;
   reference: ReferenceDefinition | null;
   animatic: AnimaticDefinition | null;
   video: VideoDefinition | null;
@@ -175,7 +179,7 @@ function directionCheckOf(ctx: CheckContext): ReturnType<typeof checkDirection> 
   let result = directionResult.get(ctx);
   if (!result) {
     result = checkDirection(ctx.direction, {
-      referenceAssetNames: ctx.reference?.exposedAssetNames ?? [],
+      referenceAssetNames: rosterReferenceNames(ctx.videoRoot, ctx.reference),
       animaticSetups: ctx.animaticSetups,
       stagingStage: ctx.stagingStage,
       songVariant: ctx.songVariant,
@@ -564,7 +568,7 @@ export async function collectFindings(
     for (const raw of await check.run(ctx)) {
       const traits = findingTraits(raw.code);
       if (!want(traits)) continue;
-      if (traits.onset === "after-direction-accepted" && !ctx.directionAccepted) continue;
+      if (traits.onset === "after-direction-accepted" && !ctx.directionUnlocked) continue;
       const f = signOffFinding(raw, acceptedOf(ctx));
       if (f.targets?.length === 0 && f.signedOff && !opts.signedOff) continue;
       findings.push(f);

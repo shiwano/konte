@@ -590,7 +590,7 @@ describe("export delivery gate", () => {
       comfy: {
         comfyui: {
           url: "http://127.0.0.1:8188",
-          headers: { Authorization: "Bearer ${KONTE_TEST_EXPORT_TOKEN}" },
+          headers: { Authorization: "Bearer ${KTEST_EXPORT_TOKEN}" },
         },
       },
     });
@@ -598,7 +598,7 @@ describe("export delivery gate", () => {
     await seedAcceptedCut(projectDir);
 
     await expect(run(["export", "video"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("KONTE_TEST_EXPORT_TOKEN"),
+      stderr: expect.stringContaining("KTEST_EXPORT_TOKEN"),
     });
     expect(await new JobManager(projectDir).listJobs()).toEqual([]);
   });

@@ -70,6 +70,40 @@ describe("workspace new command", () => {
     await fs.access(path.join(workspace, "konte.config.json"));
   });
 
+  it("names the files it overwrites in the confirmation", async () => {
+    const workspace = path.join(ctx.dir, "existing");
+    await fs.mkdir(workspace);
+    await fs.writeFile(path.join(workspace, "AGENTS.md"), "mine\n");
+    await fs.writeFile(path.join(workspace, "tsconfig.json"), "{}\n");
+
+    await expect(run(["workspace", "new"], workspace)).rejects.toMatchObject({
+      stderr: expect.stringContaining("overwriting AGENTS.md, tsconfig.json"),
+    });
+    expect(await fs.readFile(path.join(workspace, "AGENTS.md"), "utf8")).toBe("mine\n");
+  });
+
+  it("refuses a directory inside a workspace", async () => {
+    const workspace = path.join(ctx.dir, "outer");
+    await fs.mkdir(workspace);
+    await run(["workspace", "new"], workspace);
+    await fs.mkdir(path.join(workspace, "inner"));
+
+    await expect(run(["workspace", "new"], path.join(workspace, "inner"))).rejects.toMatchObject({
+      stderr: expect.stringContaining("WORKSPACE_ALREADY_EXISTS"),
+    });
+    await expect(fs.access(path.join(workspace, "inner", "konte.config.json"))).rejects.toThrow();
+  });
+
+  it("reports the managed files a setup overwrites", async () => {
+    const workspace = path.join(ctx.dir, "edited");
+    await fs.mkdir(workspace);
+    await run(["workspace", "new"], workspace);
+    await fs.writeFile(path.join(workspace, "AGENTS.md"), "edited\n");
+
+    const { stderr } = await run(["workspace", "setup"], workspace);
+    expect(stderr).toContain("konte: overwrote 1 managed file(s): AGENTS.md");
+  });
+
   it("makes the video it creates current", async () => {
     const workspace = path.join(ctx.dir, "myworkspace");
     await fs.mkdir(workspace);

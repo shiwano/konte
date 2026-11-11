@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import * as fsp from "node:fs/promises";
 import * as path from "node:path";
 import { KonteError } from "./errors.js";
@@ -24,6 +25,18 @@ export const STAGE_ENTRY_FILE = {
   animatic: "animatic.tsx",
   video: "video.tsx",
 } as const;
+
+/**
+ * The reference asset names a direction's rosters are checked against: none where the video has no
+ * reference.tsx, undefined — the roster findings unevaluated — where it has one that did not load.
+ */
+export function rosterReferenceNames(
+  videoRoot: string,
+  reference: { exposedAssetNames?: readonly string[] } | null,
+): readonly string[] | undefined {
+  if (reference) return reference.exposedAssetNames ?? [];
+  return existsSync(stageEntryPath(videoRoot, "reference")) ? undefined : [];
+}
 
 export function stageEntryPath(videoRoot: string, stage: keyof typeof STAGE_ENTRY_FILE): string {
   return path.resolve(videoRoot, STAGE_ENTRY_FILE[stage]);
@@ -70,7 +83,7 @@ async function findUp(from: string, marker: string, stopAt?: string): Promise<st
   }
 }
 
-function findWorkspaceRoot(from: string): Promise<string | null> {
+export function findWorkspaceRoot(from: string): Promise<string | null> {
   return findUp(from, WORKSPACE_MARKER);
 }
 

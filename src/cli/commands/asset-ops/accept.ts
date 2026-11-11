@@ -1085,7 +1085,19 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
     }
     await closeSignedOffFeedback(videoRoot, since);
   } finally {
-    if (!committed) await removeRenderedLeaves(videoRoot, rendered);
+    if (!committed) {
+      // A save that wrote the state and then failed has committed the accept: the leaves it
+      // recorded stay.
+      const recorded = await StateManager.load(videoRoot)
+        .then((m) => m.getRecordedState())
+        .catch(() => null);
+      await removeRenderedLeaves(
+        videoRoot,
+        rendered.filter(
+          (leaf) => recorded?.assets[leaf.address]?.variants?.[leaf.variantId] === undefined,
+        ),
+      );
+    }
   }
 }
 

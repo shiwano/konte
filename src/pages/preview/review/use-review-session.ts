@@ -202,6 +202,8 @@ export function useReviewSession(opts: { hasExtraChanges?: boolean } = {}) {
   // close-window handshake on success, error surfacing on failure.
   const runSubmit = useCallback(
     async (run: SubmitRun) => {
+      // The keyboard confirm fires again before React commits `submitting`.
+      if (isSubmittingRef.current) return;
       setSubmitting(true);
       isSubmittingRef.current = true;
       // Our own submit rewrites the state file, which the App banner would
@@ -234,6 +236,7 @@ export function useReviewSession(opts: { hasExtraChanges?: boolean } = {}) {
           window.close();
         } else {
           isSubmittingRef.current = false;
+          window.dispatchEvent(new CustomEvent("konte:submit-failed"));
         }
       } finally {
         setSubmitting(false);

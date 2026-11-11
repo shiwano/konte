@@ -41,6 +41,7 @@ export async function loadCheckContext(opts: {
     directionAccepted:
       direction !== null &&
       isDirectionSpendGateSatisfied(direction, manager?.getDirectionAcceptance() ?? null),
+    directionUnlocked: direction !== null && manager?.getDirectionAcceptance()?.whole != null,
     reference,
     animatic,
     video,

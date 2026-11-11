@@ -583,7 +583,11 @@ export function registerGenerateCommand(program: Command): void {
       if (songReadings.length > 0) {
         console.log(`\nReading the song: ${songReadings.join(", ")}`);
       }
-      const hasWork = summary.started > 0 || summary.waiting > 0 || songReadings.length > 0;
+      const hasWork =
+        summary.started > 0 ||
+        summary.waiting > 0 ||
+        songReadings.length > 0 ||
+        patchApplications.some((p) => p.status !== "failed");
       const variantsNotice = formatUndecidedUpstreamVariantsNotice(undecidedUpstreamVariants);
       if (variantsNotice) console.warn(`\n${variantsNotice}`);
       const staleNotice = formatAcceptedStaleNotice(acceptedStale);

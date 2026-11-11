@@ -392,7 +392,7 @@ type CharacterRef = AnchoredEntityRef;
 
 // The anchored-entity checks — a distinct pass from the arc engine because they cross-reference the
 // reference stage and the shot-action prose, neither of which `checkArc` sees. Two safe, exact-match
-// findings (both waivable via `direction.waivers`):
+// findings (the first waivable via `direction.waivers`, the second fixed):
 //   - <noun>-unreferenced: a declared entity with no matching reference asset to anchor on.
 //   - unused-<noun>: a declared entity never named in any shot action (and, for a character, never
 //     given a script line) — drift between the roster and the shots. Deliberately one-directional —
@@ -494,8 +494,8 @@ export type CharacterVoiceRef = {
 };
 
 // The voice checks — a pass of their own rather than part of `checkAnchoredEntities`, because what
-// makes a voice required is a script line, not a name in the prose. Three waivable findings per cast
-// member: `<noun>-voice-missing` (they speak, nothing is cast), `<noun>-voice-unreferenced` (the cast
+// makes a voice required is a script line, not a name in the prose. Three findings per cast
+// member, the first two waivable: `<noun>-voice-missing` (they speak, nothing is cast), `<noun>-voice-unreferenced` (the cast
 // sample is not exposed), and `unused-<noun>-voice` (a sample for someone who never speaks — which
 // the `unused-character` prose scan misses, a character named in an action reading as used there).
 export function checkCharacterVoices(
@@ -1316,7 +1316,43 @@ export function checkLineups(
   const findings: DirectionFinding[] = [];
   const byLocation = new Map<string, PairState>();
 
+  // Both lanes of a shot read before either writes its `lineupTo`, as in `offscreenFigures`.
+  const pending: (LineupShot & { location: string })[] = [];
+  const flush = () => {
+    const frames = pending.splice(0);
+    const stateOf = (shot: { location: string }): PairState => byLocation.get(shot.location)!;
+    for (const shot of frames) {
+      const exits = shot.lineupTo;
+      if (exits) {
+        dropSubjects(stateOf(shot), new Set(shot.lineup.filter((id) => !exits.includes(id))));
+      }
+    }
+    for (const shot of frames)
+      if (shot.lineupTo) writePairs(stateOf(shot), shot.lineupTo, shot.shotId);
+    for (const location of new Set(frames.map((f) => f.location))) {
+      const here = frames.filter((f) => f.location === location);
+      const last = here[here.length - 1]!;
+      const state = stateOf(last);
+      const cycle = findCycle(state);
+      if (cycle) {
+        findings.push({
+          code: "lineup-inconsistent",
+          subject: frameSubject(last),
+          message:
+            `after ${frameName(last)} the order in "${location}" cannot be laid out on a line: ` +
+            `${cycle.join(" → ")} → ${cycle[0]}`,
+        });
+        // Restart the place from the order these frames leave, so later shots do not report the
+        // same ring again.
+        state.clear();
+        for (const shot of here) writePairs(state, shot.lineupTo ?? shot.lineup, shot.shotId);
+      }
+      if (here.some((f) => f.coverage)) byLocation.delete(location);
+    }
+  };
+
   for (const [index, shot] of shots.entries()) {
+    if (shots[index - 1]?.shotId !== shot.shotId) flush();
     if (opensJump(shots, index)) byLocation.clear();
 
     const subject = frameSubject(shot);
@@ -1352,9 +1388,10 @@ export function checkLineups(
 
     // One accumulation per place whichever frame reads it: a main frame and a wipe taken in the same
     // room are two claims about the same seating.
-    if (shot.location === undefined) continue;
-    const state = byLocation.get(shot.location) ?? new Map();
-    byLocation.set(shot.location, state);
+    const location = shot.location;
+    if (location === undefined) continue;
+    const state = byLocation.get(location) ?? new Map();
+    byLocation.set(location, state);
 
     const flipped = lineupPairs(shot.lineup).flatMap(({ a, b, key }) => {
       const held = state.get(key);
@@ -1383,18 +1420,12 @@ export function checkLineups(
       });
     }
 
-    const cycle = writeFrame(state, shot);
-    if (cycle) {
-      findings.push({
-        code: "lineup-inconsistent",
-        subject,
-        message:
-          `after ${name} the order in "${shot.location}" cannot be laid out on a line: ` +
-          `${cycle.join(" → ")} → ${cycle[0]}`,
-      });
-    }
-    if (shot.coverage) byLocation.delete(shot.location);
+    // The opening is written at once, so the other lane of this shot reads beside it; what the
+    // frame leaves waits for the flush.
+    writePairs(state, shot.lineup, shot.shotId);
+    pending.push({ ...shot, location });
   }
+  flush();
 
   if (options.panelSlots) findings.push(...checkSlotOrder(shots, options.panelSlots));
   if (options.panelReach) {
@@ -1909,11 +1940,16 @@ export function checkLandmarkNaming(
  * One setup as the landmark accumulation reads it: the place it is set in, and what its frame holds
  * left to right.
  */
-export type HoldsSetupRef = { id: string; location: string; holds: readonly string[] };
+export type HoldsSetupRef = {
+  id: string;
+  location: string;
+  view?: string | undefined;
+  holds: readonly string[];
+};
 
 // The `lineup-flipped` of things that do not move. A landmark's screen position is a property of the
 // camera, not of a shot, so this reads the setups roster alone: every frame of one place is a claim
-// about the same axis, and two frames disagreeing about which side the desk is on means one of them
+// about the same axis — of one view, since a reverse view mirrors it — and two frames disagreeing about which side the desk is on means one of them
 // crossed the set's line. An intended reverse angle is exactly what the waiver is for.
 export function checkLandmarkOrder(setups: readonly HoldsSetupRef[]): DirectionFinding[] {
   const findings: DirectionFinding[] = [];
@@ -1922,8 +1958,9 @@ export function checkLandmarkOrder(setups: readonly HoldsSetupRef[]): DirectionF
   // pair is blamed against — and therefore which waiver key answers for it — must not change when the
   // author reorders the record.
   for (const setup of [...setups].sort((a, b) => a.id.localeCompare(b.id))) {
-    const state = byLocation.get(setup.location) ?? new Map();
-    byLocation.set(setup.location, state);
+    const side = `${setup.location}\0${setup.view ?? ""}`;
+    const state = byLocation.get(side) ?? new Map();
+    byLocation.set(side, state);
     const flipped = lineupPairs(setup.holds).flatMap(({ a, b, key }) => {
       const held = state.get(key);
       return held && held.left !== a ? [{ a, b, source: held.source }] : [];

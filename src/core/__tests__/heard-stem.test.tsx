@@ -569,6 +569,7 @@ describe("the video delivers the board's off-frame lines", () => {
         videoRoot: "",
         direction: null,
         directionAccepted: true,
+        directionUnlocked: true,
         reference: null,
         animatic: board,
         video: videoOver(board, false),

@@ -226,7 +226,20 @@ type RenderResult = { outputFile: string; warnings: string[] };
 // #delivery layers when the video has delivery config), stitches the shots, and writes
 // metadata. Loads its own fresh state (the job may run long after registration). It does
 // NOT submit any jobs or print — the caller (export command / job runner) owns those.
-export async function renderVideoToFile(opts: {
+export async function renderVideoToFile(
+  opts: Parameters<typeof renderVideoFile>[0],
+): Promise<RenderResult> {
+  try {
+    return await renderVideoFile(opts);
+  } catch (err) {
+    // The per-shot intermediates of a render that did not finish.
+    const fs = await import("node:fs/promises");
+    await fs.rm(path.join(opts.outputDir, "shots"), { recursive: true, force: true });
+    throw err;
+  }
+}
+
+async function renderVideoFile(opts: {
   onLog?: (line: string) => void;
   videoRoot: string;
   video: VideoDefinition;
@@ -426,7 +439,7 @@ export async function renderVideoToFile(opts: {
       // A lone composite still inherits its upscaler's fps; conform to format.fps if it drifted,
       // otherwise copy as-is to avoid a needless re-encode. A crop is a re-encode either way.
       const probed = await probeVideo(shotFiles[0]!);
-      if (Math.round(probed.fps) !== plan.fps || frameDeliveryCrop) {
+      if (Math.abs(probed.fps - plan.fps) > 0.01 || frameDeliveryCrop) {
         await concatenateShots({
           inputFiles: shotFiles,
           outputFile: finalOutput,
@@ -779,7 +792,17 @@ async function applyTimelineAudio(opts: {
 
   const fs = await import("node:fs/promises");
   const tmpOutput = `${finalOutput}.mux.mp4`;
-  await muxTimelineAudio({ videoFile: finalOutput, outputFile: tmpOutput, tracks, videoDuration });
+  try {
+    await muxTimelineAudio({
+      videoFile: finalOutput,
+      outputFile: tmpOutput,
+      tracks,
+      videoDuration,
+    });
+  } catch (err) {
+    await fs.rm(tmpOutput, { force: true });
+    throw err;
+  }
   await fs.rm(finalOutput, { force: true });
   await fs.rename(tmpOutput, finalOutput);
 }

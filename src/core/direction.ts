@@ -702,7 +702,8 @@ function checkFusedShots(direction: Direction): DirectionFinding[] {
 
 // A shot whose span is off its grid, or not positive. A shot's span is a window the render cuts the
 // take to: in seconds the grid is the one every legal `fps` (a multiple of 8) lands a whole frame on;
-// on the song it is the beat, asides included. A waivable finding (`off-grid-duration_<shotId>`).
+// on the song it is the beat, asides included; off the song an aside owes only a positive span. A
+// span off the beat is waivable (`off-beat-cut_<shotId>`); `off-grid-duration` is fixed.
 export const DURATION_GRID = 0.5;
 
 function checkDurations(direction: Direction): DirectionFinding[] {
@@ -725,6 +726,14 @@ function checkDurations(direction: Direction): DirectionFinding[] {
       }
     }
     return findings;
+  }
+  for (const s of collectShots(direction)) {
+    if (!isAsideShot(s) || s.duration === undefined || s.duration > 0) continue;
+    findings.push({
+      code: "off-grid-duration",
+      subject: s.id,
+      message: `aside ${s.id} runs ${s.duration}s`,
+    });
   }
   for (const s of collectArcShots(direction)) {
     if (s.duration === undefined) continue;
@@ -974,9 +983,11 @@ function propRefs(direction: Direction): PropNamingRef[] {
 // is `setup-unknown-location`; it still files under its own raw id here, which is the only place its
 // own frames could contradict each other.
 function holdsSetupRefs(direction: Direction): HoldsSetupRef[] {
-  return Object.entries(direction.setups ?? {}).map(([id, s]) => ({
+  const setups = direction.setups ?? {};
+  return Object.entries(setups).map(([id, s]) => ({
     id,
     location: s.location,
+    view: setupView(setups, id),
     holds: s.holds ?? [],
   }));
 }
@@ -1087,20 +1098,8 @@ function axisCuts(direction: Direction): AxisCut[] {
     const pair = [from, to].sort() as [string, string];
     if (chain) out.push({ pair, chain });
   };
-  for (const leaf of collectLeaves(direction.sequence)) {
-    let previous: NarrativeShot | undefined;
-    for (const shot of leaf.shots ?? []) {
-      if (isAsideShot(shot) || isGraphicShot(shot)) {
-        previous = undefined;
-        continue;
-      }
-      const before = previous;
-      previous = shot;
-      if (before !== undefined) push(before.setup, shot.setup);
-    }
-  }
   for (const { frame, previousFrame } of joinBoundaries(direction)) {
-    if (frame.lane === "cutin" && previousFrame) push(previousFrame.setup, frame.setup);
+    if (previousFrame) push(previousFrame.setup, frame.setup);
   }
   return out;
 }
@@ -1341,6 +1340,7 @@ function withinCandidates(setups: Record<string, Setup>, id: string, setup: Setu
   return Object.entries(setups)
     .filter(([otherId, other]) => {
       if (otherId === id || other.location !== setup.location) return false;
+      if (setupView(setups, otherId) !== setup.view) return false;
       const otherWidth = FRAMING_WIDTH[other.framing];
       return otherWidth !== undefined && otherWidth < width;
     })

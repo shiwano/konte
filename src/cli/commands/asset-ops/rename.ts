@@ -130,10 +130,12 @@ Examples:
           throw new KonteError("ASSET_NOT_FOUND", `"${from}" holds no takes`);
         }
         for (const target of moves.values()) {
-          if (Object.keys(recorded.assets[target]?.variants ?? {}).length > 0) {
+          const taken = Object.entries(recorded.assets[target]?.variants ?? {});
+          if (taken.length > 0) {
+            const accepted = taken.find(([, v]) => v.status === "accepted")?.[0];
             throw new KonteError(
               "RENAME_TARGET_TAKEN",
-              `"${target}" already holds takes — konte clean ${target} to drop them first`,
+              `"${target}" already holds takes — ${accepted ? `konte accept ${accepted} --off, then ` : ""}konte clean ${target} --delete-undecided to drop them first`,
             );
           }
         }

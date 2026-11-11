@@ -105,8 +105,21 @@ Examples:
       if (doomed.length > 0) {
         subjects.push(`${doomed.length} variant(s) it produced (${doomed.join(", ")})`);
       }
+      if (stepTargets.length > 0) {
+        subjects.push(
+          `${stepTargets.length} take(s) of its chain steps (${stepTargets.map((t) => t.variantId).join(", ")})`,
+        );
+      }
+      const accepted = address
+        ? doomed.filter((vid) => state.assets[address]?.variants?.[vid]?.status === "accepted")
+        : [];
       const proceed = await confirmDeletion({
         subjects,
+        ...(accepted.length > 0
+          ? {
+              note: `${accepted.join(", ")} accepted — ${address} is left unaccepted and its consumers stale`,
+            }
+          : {}),
         totalSize: bytes,
         yes: opts.yes,
         no: opts.no,

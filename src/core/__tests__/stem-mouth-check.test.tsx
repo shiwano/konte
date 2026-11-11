@@ -247,6 +247,7 @@ describe("stem-unmouthed", () => {
         videoRoot: "",
         direction,
         directionAccepted: true,
+        directionUnlocked: true,
         reference: null,
         animatic: animatic(),
         video: video(),

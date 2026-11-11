@@ -616,7 +616,14 @@ function serveContainedFile(filePath: string, root: string): Response {
   if (!fs.existsSync(filePath)) {
     return errorResponse("File not found", "NOT_FOUND", 404);
   }
-  return new NativeResponse(Bun.file(filePath));
+  // A file konte did not author — a downloaded clip, a vendor's output — is never a document of
+  // this origin.
+  return new NativeResponse(Bun.file(filePath), {
+    headers: {
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "sandbox",
+    },
+  });
 }
 
 const serveSpa = createAssetHandler(UI_ASSETS.preview, {

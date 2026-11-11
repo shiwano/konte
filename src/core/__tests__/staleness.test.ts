@@ -251,6 +251,48 @@ describe("computeVariantStaleness", () => {
       expect(isVariantStale(state, "animatic:shot.13.first", v13, null)).toBe(true);
     });
 
+    it("leaves a dependent out of collectStaleDependents over a dismissed or older take", () => {
+      const state = patchedUpstream();
+      const first = state.assets["animatic:shot.12.first"]!.variants!;
+      first["v-first"]!.status = "dismissed";
+      first["v-old"] = variant({
+        file: "old.png",
+        createdAt: "2025-01-01T00:00:00.000Z",
+        inputFingerprints: { "animatic:shot.12.last": "long-gone" },
+      });
+      first["v-current"] = variant({
+        file: "current.png",
+        createdAt: "2026-06-01T00:00:00.000Z",
+        inputFingerprints: { "animatic:shot.12.last": "after" },
+      });
+      const dependents = new Map<string, readonly string[]>([
+        ["animatic:shot.12.last", ["animatic:shot.12.first"]],
+      ]);
+      expect(collectStaleDependents(state, "animatic:shot.12.last", dependents)).toEqual([]);
+    });
+
+    it("reports a dependent whose older take is the one that resolved", () => {
+      const state = patchedUpstream();
+      const first = state.assets["animatic:shot.12.first"]!.variants!;
+      first["v-first"]!.definitionHash = "def1";
+      first["v-newer"] = variant({
+        file: "newer.png",
+        definitionHash: "def0",
+        createdAt: "2026-06-01T00:00:00.000Z",
+        inputFingerprints: { "animatic:shot.12.last": "after" },
+      });
+      const dependents = new Map<string, readonly string[]>([
+        ["animatic:shot.12.last", ["animatic:shot.12.first"]],
+      ]);
+      const cache = createStalenessCache({
+        definitionHash: () => "def1",
+        isDeterministic: () => false,
+      });
+      expect(collectStaleDependents(state, "animatic:shot.12.last", dependents, cache)).toEqual([
+        "animatic:shot.12.first",
+      ]);
+    });
+
     it("reports the same stale dependents to collectStaleDependents", () => {
       const state = patchedUpstream();
       const dependents = new Map<string, readonly string[]>([

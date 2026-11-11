@@ -1134,11 +1134,11 @@ describe("ComfyUIBackend model auto-install", () => {
   it("redacts the resolved token out of the Manager's failure text", async () => {
     // The Manager returns `Model installation error: {model_url}` — the URL it was handed, with
     // any ${VAR} already expanded. That text must not reach the job file with the secret in it.
-    process.env.KONTE_TEST_HF_TOKEN = "hf_supersecret";
+    process.env.KTEST_HF_TOKEN = "hf_supersecret";
     try {
       const decl = {
         ...MODEL_DECL,
-        url: "https://h.example/x.safetensors?t=${KONTE_TEST_HF_TOKEN}",
+        url: "https://h.example/x.safetensors?t=${KTEST_HF_TOKEN}",
       };
       mock.objectInfoModels = [];
       mock.installAddsModel = false;
@@ -1166,7 +1166,7 @@ describe("ComfyUIBackend model auto-install", () => {
       // Still names the URL it failed on, minus the query the secret rode in.
       expect(error?.message).toContain("https://h.example/x.safetensors");
     } finally {
-      delete process.env.KONTE_TEST_HF_TOKEN;
+      delete process.env.KTEST_HF_TOKEN;
     }
   });
 

@@ -71,14 +71,19 @@ export function App(): React.ReactElement {
     function handleSubmitting() {
       submittingRef.current = true;
     }
+    function handleSubmitFailed() {
+      submittingRef.current = false;
+    }
     function handleStateChanged() {
       if (submittingRef.current) return;
       setBanner({ type: "update", message: "New takes available" });
     }
     window.addEventListener("konte:submitting", handleSubmitting);
+    window.addEventListener("konte:submit-failed", handleSubmitFailed);
     window.addEventListener("konte:state-changed", handleStateChanged);
     return () => {
       window.removeEventListener("konte:submitting", handleSubmitting);
+      window.removeEventListener("konte:submit-failed", handleSubmitFailed);
       window.removeEventListener("konte:state-changed", handleStateChanged);
     };
   }, []);

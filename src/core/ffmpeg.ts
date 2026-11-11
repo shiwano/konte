@@ -212,7 +212,7 @@ function trackFilter(track: MuxAudioTrack, inputIdx: number, label: string): str
   const volume = track.duck
     ? `volume=volume='${duckVolumeExpr(track.volume, track.duck.steps, track.duck.depth)}':eval=frame`
     : `volume=${track.volume}`;
-  return `[${inputIdx}:a]${tempo}${trim}${volume},${fade}adelay=${startMs}|${startMs}[${label}]`;
+  return `[${inputIdx}:a]${tempo}${trim}${volume},${fade}adelay=${startMs}:all=1[${label}]`;
 }
 
 // Build the ffmpeg args that lay timeline audio tracks over a video's picture. Video is taken

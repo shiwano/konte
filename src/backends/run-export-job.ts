@@ -109,8 +109,10 @@ export async function runExportJob(
     return { id, status: job.status, outputFile: job.outputFile };
   }
 
-  const manager = await StateManager.load(videoRoot);
+  // Jobs before state, as the generation pass reads them: an upscale finishing in between is then
+  // a job still running over a state that already has its take, never the reverse.
   const allJobs = await jobManager.listJobs();
+  const manager = await StateManager.load(videoRoot);
   const evaluation = evaluateExportJob(job, manager.getState(), new JobIndex(allJobs));
   if (evaluation.action === "wait") {
     return { id, status: "pending", outputFile: null };

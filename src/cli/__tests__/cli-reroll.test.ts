@@ -75,7 +75,7 @@ describe("reroll command", () => {
       comfy: {
         comfyui: {
           url: "http://127.0.0.1:8188",
-          headers: { Authorization: "Bearer ${KONTE_TEST_ABSENT_TOKEN}" },
+          headers: { Authorization: "Bearer ${KTEST_ABSENT_TOKEN}" },
           autoInstallModels: false,
           autoInstallNodes: false,
         },
@@ -83,7 +83,7 @@ describe("reroll command", () => {
     });
 
     const { stderr } = await runCapture(["reroll", "reference:plate"], projectDir);
-    expect(stderr).toContain("KONTE_TEST_ABSENT_TOKEN");
+    expect(stderr).toContain("KTEST_ABSENT_TOKEN");
     await expectNothingReserved(projectDir);
   });
 

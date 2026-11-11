@@ -1257,6 +1257,32 @@ describe("checkDirection setups", () => {
     expect(findings[0]?.message).toContain('"wide", "medium"');
   });
 
+  it("demands them for an axial cut across a sequence boundary", () => {
+    const dir = axis([]);
+    dir.sequence = {
+      sequences: [
+        { ...dir.sequence, shots: [{ ...shot("01", "ordinary", 3), setup: "wide" }] },
+        { ...dir.sequence, shots: [{ ...shot("02", "disruption", 2), setup: "medium" }] },
+      ],
+    } as unknown as Direction["sequence"];
+    expect(found(dir).map((f) => f.subject)).toEqual(["medium.wide"]);
+  });
+
+  it("reports an aside that runs no time, off the song", () => {
+    const dir = axis([{ ...shot("01", "ordinary", 3), setup: "wide" }]);
+    (dir.sequence.shots as unknown[]).push({
+      id: "card",
+      kind: "aside",
+      label: "card",
+      duration: -2,
+    });
+    expect(
+      checkDirection(dir)
+        .active.filter((f) => f.code === "off-grid-duration")
+        .map((f) => f.subject),
+    ).toEqual(["card"]);
+  });
+
   it("names only the end that is missing one", () => {
     expect(found(axial, ["wide"])[0]?.message).toContain('"medium" has no plate');
   });

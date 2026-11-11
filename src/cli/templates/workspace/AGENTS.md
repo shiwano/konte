@@ -44,7 +44,7 @@ The workspace, shared by every video in it:
 - `AGENTS.md` and skills named `konte-*` or `*-guide` — managed by konte; do not edit.
 - `HOUSE_RULES.md` — what every piece here holds to; create or edit it to record the human's instructions.
 - `konte.config.json` — non-secret settings.
-- `adapters/` — model adapters.
+- `adapters/` — model adapters; the bundled ones are managed by konte, do not edit.
 - `videos/<name>/` — one video each.
 - `.konte/` — managed by konte; do not edit anything under it.
 

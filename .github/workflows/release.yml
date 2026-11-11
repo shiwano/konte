@@ -20,8 +20,19 @@ jobs:
         shell: nix develop --command bash -e {0}
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
       - uses: cachix/install-nix-action@v31.11.1
       - run: bun install --frozen-lockfile
+
+      - name: Check tag is on main
+        if: github.ref_type == 'tag'
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || {
+            echo "tag $GITHUB_REF_NAME is not on main" >&2
+            exit 1
+          }
 
       # `konte --version` and the update check read package.json, so a tag that
       # disagrees with it would ship a binary that reports itself outdated forever.
@@ -29,8 +40,8 @@ jobs:
         if: github.ref_type == 'tag'
         run: |
           pkg="v$(jq -r .version package.json)"
-          [ "$pkg" = "${{ github.ref_name }}" ] || {
-            echo "tag ${{ github.ref_name }} does not match package.json version $pkg" >&2
+          [ "$pkg" = "$GITHUB_REF_NAME" ] || {
+            echo "tag $GITHUB_REF_NAME does not match package.json version $pkg" >&2
             exit 1
           }
 
@@ -39,7 +50,8 @@ jobs:
       - name: Prepare embeds
         run: |
           bun run build:embeds
-          bun run typecheck
+          bun run check
+          git diff --exit-code
 
       - name: Test
         run: bun run test:run
@@ -179,13 +191,15 @@ jobs:
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
         run: |
-          gh release create "${{ github.ref_name }}" \
-            --repo "${{ github.repository }}" \
-            --title "${{ github.ref_name }}" \
+          gh release create "$TAG" \
+            --repo "$REPO" \
+            --title "$TAG" \
             --notes-file notes.md \
             --draft \
             dist-assets/*
-          gh release edit "${{ github.ref_name }}" \
-            --repo "${{ github.repository }}" \
+          gh release edit "$TAG" \
+            --repo "$REPO" \
             --draft=false

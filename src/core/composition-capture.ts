@@ -498,7 +498,10 @@ async function captureCompositionFramesUnwrapped(
         plan.filter((p) => !p.cached).map((p) => p.ts),
         workspace,
         compositionResult.fps,
-      );
+      ).catch((err) => {
+        server.close();
+        throw err;
+      });
 
       const session = await createCaptureSession(
         server.url,
@@ -514,7 +517,10 @@ async function captureCompositionFramesUnwrapped(
           skipReadinessVideoIds: suppliedVideoIds,
         },
         injector,
-      );
+      ).catch((err) => {
+        server.close();
+        throw err;
+      });
 
       try {
         await initializeSession(session);

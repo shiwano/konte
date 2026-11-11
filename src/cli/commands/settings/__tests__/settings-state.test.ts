@@ -84,15 +84,15 @@ describe("credentialEntries", () => {
   // override.
   it("does not call a stored key an environment override after the CLI loaded it", async () => {
     // A konte-only name, so a contributor who exports FAL_KEY does not fail this.
-    await saveCredentials(ws.root, { KONTE_TEST_CRED: "from-file" });
+    await saveCredentials(ws.root, { KTEST_CRED: "from-file" });
     await applyCredentials(ws.root);
 
     try {
-      const found = entry(await credentialEntries(ws.root), "KONTE_TEST_CRED");
+      const found = entry(await credentialEntries(ws.root), "KTEST_CRED");
       expect(found.isSet).toBe(true);
       expect(found.fromEnvironment).toBe(false);
     } finally {
-      delete process.env.KONTE_TEST_CRED;
+      delete process.env.KTEST_CRED;
     }
   });
 });

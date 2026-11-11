@@ -299,8 +299,24 @@ describe("syncWorkspace retired adapters and guides", () => {
     for (const key of RETIRED) expect(await exists(key)).toBe(true);
     const files = await lockFiles();
     expect(files.length).toBeGreaterThan(0);
-    expect(files.every((key) => /^(adapters|\.konte\/guides)\//.test(key))).toBe(true);
+    expect(
+      files.every((key) =>
+        /^(adapters|\.konte\/guides|\.agents\/skills|\.claude\/(skills|agents)|\.codex\/agents)\//.test(
+          key,
+        ),
+      ),
+    ).toBe(true);
     expect(files).not.toContain(OLD_ADAPTER);
+  });
+
+  it("deletes a retired skill with the directory it leaves empty", async () => {
+    const OLD_SKILL = ".agents/skills/old-guide/SKILL.md";
+    await writeFileAt(tmpDir, OLD_SKILL, "# old");
+    await writeLock(tmpDir, { hash: "stale", files: [OLD_SKILL] });
+    const result = await syncWorkspace(tmpDir);
+    expect(result?.removed).toEqual([OLD_SKILL]);
+    expect(await exists(".agents/skills/old-guide")).toBe(false);
+    expect(await exists(".agents/skills")).toBe(true);
   });
 });
 

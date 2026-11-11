@@ -50,6 +50,7 @@ const ctx: CheckContext = {
   videoRoot: "",
   direction: null,
   directionAccepted: false,
+  directionUnlocked: false,
   reference: null,
   animatic,
   video,

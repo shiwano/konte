@@ -5,7 +5,16 @@ import type { BackendKind } from "./job.js";
 // shell, from CI, and inside an adapter's `${VAR}` model URL.
 const CREDENTIAL_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
-const CredentialKeySchema = z.string().regex(CREDENTIAL_KEY_RE);
+// A name the loader, the runtime or konte itself reads as a path or an option is no credential:
+// stored, it would be injected into every later process.
+const STEERING_KEY_RE = /^(LD_|DYLD_|NODE_|BUN_|KONTE_|PATH$)/i;
+
+const CredentialKeySchema = z
+  .string()
+  .regex(CREDENTIAL_KEY_RE)
+  .refine((key) => !STEERING_KEY_RE.test(key), {
+    message: "names a variable the runtime or konte reads as configuration, not a credential",
+  });
 
 export const KonteCredentialsSchema = z.record(CredentialKeySchema, z.string());
 export type KonteCredentials = z.infer<typeof KonteCredentialsSchema>;

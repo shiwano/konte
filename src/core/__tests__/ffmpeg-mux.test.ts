@@ -36,7 +36,7 @@ describe("buildMuxArgs", () => {
     const fc = args[args.indexOf("-filter_complex") + 1];
     expect(fc).toContain("atrim=0:4");
     expect(fc).toContain("volume=0.35");
-    expect(fc).toContain("adelay=3000|3000");
+    expect(fc).toContain("adelay=3000:all=1");
     // clip-prevention limiter, no loudness normalization.
     expect(fc).toContain("alimiter=level=false:limit=0.95");
   });
@@ -161,6 +161,6 @@ describe("buildAudioMixArgs", () => {
     expect(fc).toContain("atrim=0:4");
     expect(fc).toContain("afade=t=in:st=0:d=0.5");
     expect(fc).toContain("afade=t=out:st=3:d=1");
-    expect(fc).toContain("adelay=1000|1000");
+    expect(fc).toContain("adelay=1000:all=1");
   });
 });

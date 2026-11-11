@@ -845,8 +845,8 @@ export function isAcceptedStale(
 }
 
 /**
- * Transitive downstream addresses whose accepted variant is now input-stale,
- * given the current state. Walks the dependents graph from `address`. Used to
+ * Transitive downstream addresses whose accepted variant is now input-stale, or that no take
+ * resolves for with an undismissed one input-stale, given the current state. Walks the dependents graph from `address`. Used to
  * surface "what this accept/reject made stale" without storing flags.
  *
  * The dependents graph is keyed by address, so each reached node is a concrete address — no
@@ -868,12 +868,21 @@ export function collectStaleDependents(
     if (visited.has(currentAddr)) continue;
     visited.add(currentAddr);
 
+    // Read through resolution: the accepted take, else — where no take resolves — any take still
+    // standing for the address.
     const variants = state.assets[currentAddr]?.variants ?? {};
-    const anyInputStale = Object.values(variants).some(
-      (v) =>
-        computeVariantStalenessInternal(state, currentAddr, v, null, undefined, ctx).inputStale,
-    );
-    if (anyInputStale) {
+    const core = resolveCore(state, currentAddr, ctx);
+    const standing = core.acceptedId
+      ? [variants[core.acceptedId]!]
+      : core.newestFreshId
+        ? []
+        : Object.values(variants).filter((v) => v.file && v.status !== "dismissed");
+    if (
+      standing.some(
+        (v) =>
+          computeVariantStalenessInternal(state, currentAddr, v, null, undefined, ctx).inputStale,
+      )
+    ) {
       marked.add(currentAddr);
     }
 

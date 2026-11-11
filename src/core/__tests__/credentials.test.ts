@@ -1,3 +1,4 @@
+import { KonteCredentialsSchema } from "../types/credentials.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -23,7 +24,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  delete process.env.KONTE_TEST_CRED;
+  delete process.env.KTEST_CRED;
   await ws.cleanup();
 });
 
@@ -63,28 +64,39 @@ describe("loadCredentials", () => {
   });
 });
 
+describe("a credential key", () => {
+  it("refuses a name the runtime or konte reads as configuration", () => {
+    for (const key of ["LD_PRELOAD", "NODE_OPTIONS", "KONTE_CHROMIUM_PATH", "PATH"]) {
+      expect(KonteCredentialsSchema.safeParse({ [key]: "x" }).success).toBe(false);
+    }
+    expect(KonteCredentialsSchema.safeParse({ FAL_KEY: "x", PATHFINDER_TOKEN: "y" }).success).toBe(
+      true,
+    );
+  });
+});
+
 describe("applyCredentials", () => {
   it("puts a stored credential into the environment", async () => {
-    await saveCredentials(ws.root, { KONTE_TEST_CRED: "from-file" });
+    await saveCredentials(ws.root, { KTEST_CRED: "from-file" });
     await applyCredentials(ws.root);
-    expect(process.env.KONTE_TEST_CRED).toBe("from-file");
+    expect(process.env.KTEST_CRED).toBe("from-file");
   });
 
   it("leaves a real environment variable alone, so a shell or CI overrides the file", async () => {
-    process.env.KONTE_TEST_CRED = "from-shell";
-    await saveCredentials(ws.root, { KONTE_TEST_CRED: "from-file" });
+    process.env.KTEST_CRED = "from-shell";
+    await saveCredentials(ws.root, { KTEST_CRED: "from-file" });
     await applyCredentials(ws.root);
-    expect(process.env.KONTE_TEST_CRED).toBe("from-shell");
+    expect(process.env.KTEST_CRED).toBe("from-shell");
   });
 
   // An exported-but-empty variable is not a credential. Treating it as one would leave the
   // backend with "" — reported as unset — while the settings page shows the stored key as set.
   it("overwrites an empty environment variable with the stored value", async () => {
-    process.env.KONTE_TEST_CRED = "";
-    await saveCredentials(ws.root, { KONTE_TEST_CRED: "from-file" });
+    process.env.KTEST_CRED = "";
+    await saveCredentials(ws.root, { KTEST_CRED: "from-file" });
     await applyCredentials(ws.root);
-    expect(process.env.KONTE_TEST_CRED).toBe("from-file");
-    expect(hasEnvironmentOverride("KONTE_TEST_CRED")).toBe(false);
+    expect(process.env.KTEST_CRED).toBe("from-file");
+    expect(hasEnvironmentOverride("KTEST_CRED")).toBe(false);
   });
 
   // The worker loads credentials once at startup and then lives as long as its wait, so a key
@@ -93,71 +105,71 @@ describe("applyCredentials", () => {
   it("picks up a key added after it first ran, and reports the change", async () => {
     expect(await applyCredentials(ws.root)).toBe(false);
 
-    await saveCredentials(ws.root, { KONTE_TEST_CRED: "added-later" });
+    await saveCredentials(ws.root, { KTEST_CRED: "added-later" });
 
     expect(await applyCredentials(ws.root)).toBe(true);
-    expect(process.env.KONTE_TEST_CRED).toBe("added-later");
+    expect(process.env.KTEST_CRED).toBe("added-later");
     // Nothing moved the second time round.
     expect(await applyCredentials(ws.root)).toBe(false);
   });
 
   it("follows a rotated value", async () => {
-    await saveCredentials(ws.root, { KONTE_TEST_CRED: "first" });
+    await saveCredentials(ws.root, { KTEST_CRED: "first" });
     await applyCredentials(ws.root);
 
-    await saveCredentials(ws.root, { KONTE_TEST_CRED: "second" });
+    await saveCredentials(ws.root, { KTEST_CRED: "second" });
 
     expect(await applyCredentials(ws.root)).toBe(true);
-    expect(process.env.KONTE_TEST_CRED).toBe("second");
+    expect(process.env.KTEST_CRED).toBe("second");
   });
 
   it("takes a deleted credential back out of the environment", async () => {
-    await saveCredentials(ws.root, { KONTE_TEST_CRED: "from-file" });
+    await saveCredentials(ws.root, { KTEST_CRED: "from-file" });
     await applyCredentials(ws.root);
 
     await saveCredentials(ws.root, {});
 
     expect(await applyCredentials(ws.root)).toBe(true);
-    expect(process.env.KONTE_TEST_CRED).toBeUndefined();
+    expect(process.env.KTEST_CRED).toBeUndefined();
   });
 
   // The override rule holds whenever the shell's variable arrived — before konte's first pass or
   // between two of them.
   it("never overwrites a real environment variable on a later pass", async () => {
-    await saveCredentials(ws.root, { KONTE_TEST_CRED: "from-file" });
+    await saveCredentials(ws.root, { KTEST_CRED: "from-file" });
     await applyCredentials(ws.root);
 
-    process.env.KONTE_TEST_CRED = "from-shell";
-    await saveCredentials(ws.root, { KONTE_TEST_CRED: "rotated" });
+    process.env.KTEST_CRED = "from-shell";
+    await saveCredentials(ws.root, { KTEST_CRED: "rotated" });
 
     expect(await applyCredentials(ws.root)).toBe(false);
-    expect(process.env.KONTE_TEST_CRED).toBe("from-shell");
+    expect(process.env.KTEST_CRED).toBe("from-shell");
   });
 
   it("leaves a shell variable behind when the file's own copy is deleted", async () => {
-    await saveCredentials(ws.root, { KONTE_TEST_CRED: "from-file" });
+    await saveCredentials(ws.root, { KTEST_CRED: "from-file" });
     await applyCredentials(ws.root);
-    process.env.KONTE_TEST_CRED = "from-shell";
+    process.env.KTEST_CRED = "from-shell";
 
     await saveCredentials(ws.root, {});
     await applyCredentials(ws.root);
 
-    expect(process.env.KONTE_TEST_CRED).toBe("from-shell");
+    expect(process.env.KTEST_CRED).toBe("from-shell");
   });
 });
 
 describe("hasEnvironmentOverride", () => {
   it("is false for a key konte itself loaded, and true for one the shell exported", async () => {
-    await saveCredentials(ws.root, { KONTE_TEST_CRED: "from-file" });
+    await saveCredentials(ws.root, { KTEST_CRED: "from-file" });
     await applyCredentials(ws.root);
-    expect(hasEnvironmentOverride("KONTE_TEST_CRED")).toBe(false);
+    expect(hasEnvironmentOverride("KTEST_CRED")).toBe(false);
 
-    process.env.KONTE_TEST_CRED = "changed-since";
-    expect(hasEnvironmentOverride("KONTE_TEST_CRED")).toBe(true);
+    process.env.KTEST_CRED = "changed-since";
+    expect(hasEnvironmentOverride("KTEST_CRED")).toBe(true);
   });
 
   it("is false for a key nothing has set", () => {
-    expect(hasEnvironmentOverride("KONTE_TEST_CRED")).toBe(false);
+    expect(hasEnvironmentOverride("KTEST_CRED")).toBe(false);
   });
 });
 
@@ -218,17 +230,17 @@ describe("missingCredentialMessage", () => {
 
 describe("rejectedCredentialMessage", () => {
   it("points at konte settings for a key from the credentials file", async () => {
-    await saveCredentials(ws.root, { KONTE_TEST_CRED: "stored" });
+    await saveCredentials(ws.root, { KTEST_CRED: "stored" });
     await applyCredentials(ws.root);
-    expect(rejectedCredentialMessage("KONTE_TEST_CRED")).toContain("in `konte settings`");
+    expect(rejectedCredentialMessage("KTEST_CRED")).toContain("in `konte settings`");
   });
 
   it("points at the environment variable when it overrides the file", async () => {
-    await saveCredentials(ws.root, { KONTE_TEST_CRED: "stored" });
-    process.env.KONTE_TEST_CRED = "from-env";
+    await saveCredentials(ws.root, { KTEST_CRED: "stored" });
+    process.env.KTEST_CRED = "from-env";
     await applyCredentials(ws.root);
-    expect(rejectedCredentialMessage("KONTE_TEST_CRED")).toContain(
-      "Replace the KONTE_TEST_CRED environment variable",
+    expect(rejectedCredentialMessage("KTEST_CRED")).toContain(
+      "Replace the KTEST_CRED environment variable",
     );
   });
 });

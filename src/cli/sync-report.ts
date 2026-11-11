@@ -1,5 +1,11 @@
 import pkg from "../../package.json" with { type: "json" };
 
+export function updateLines(sync: { updated: string[] }): string[] {
+  return sync.updated.length > 0
+    ? [`konte: overwrote ${sync.updated.length} managed file(s): ${sync.updated.join(", ")}`]
+    : [];
+}
+
 export function retirementLines(sync: { removed: string[]; retained: string[] }): string[] {
   const lines: string[] = [];
   if (sync.removed.length > 0) {

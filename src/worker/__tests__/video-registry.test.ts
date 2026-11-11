@@ -41,7 +41,7 @@ afterEach(async () => {
   await registry?.stop();
   vi.restoreAllMocks();
   registry = null;
-  delete process.env.KONTE_TEST_CRED;
+  delete process.env.KTEST_CRED;
   await ws.cleanup();
 });
 
@@ -49,12 +49,12 @@ describe("VideoRegistry", () => {
   it.each(["updated", undefined])(
     "refreshes credentials before its first scan (%s)",
     async (value) => {
-      await saveCredentials(ws.root, { KONTE_TEST_CRED: "old" });
+      await saveCredentials(ws.root, { KTEST_CRED: "old" });
       await applyCredentials(ws.root);
-      await saveCredentials(ws.root, value ? { KONTE_TEST_CRED: value } : {});
+      await saveCredentials(ws.root, value ? { KTEST_CRED: value } : {});
       let observed: string | undefined = "not-scanned";
       vi.spyOn(JobWatcher.prototype, "start").mockImplementation(async () => {
-        observed = process.env.KONTE_TEST_CRED;
+        observed = process.env.KTEST_CRED;
       });
       registry = new VideoRegistry(ws.root);
       await registry.start();
@@ -122,9 +122,9 @@ describe("VideoRegistry", () => {
     const watcher = watchers(registry)[0]!;
     backendCache(watcher).set("fal", {});
 
-    await saveCredentials(ws.root, { KONTE_TEST_CRED: "set-after-start" });
+    await saveCredentials(ws.root, { KTEST_CRED: "set-after-start" });
 
-    await waitFor(() => process.env.KONTE_TEST_CRED === "set-after-start");
+    await waitFor(() => process.env.KTEST_CRED === "set-after-start");
     expect(backendCache(watcher).size).toBe(0);
   });
 

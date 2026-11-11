@@ -9,7 +9,7 @@ import {
   loadWorkspaceTemplate,
   WORKSPACE_BINARY_FILES,
 } from "../../../core/generated/template-assets.js";
-import { resolveRoots } from "../../../core/roots.js";
+import { findWorkspaceRoot, resolveRoots } from "../../../core/roots.js";
 import { assertKonteCurrent, syncWorkspace } from "../../../core/template-sync.js";
 import { setWorkspaceRoot } from "../../../core/workspace-context.js";
 import { confirmAction, printAborted, NO_FLAG_DESCRIPTION } from "../../confirm.js";
@@ -17,7 +17,7 @@ import { declareScope } from "../../scope.js";
 import { pathExists, writeTemplateFiles } from "../../template-files.js";
 import { prefetchManagedRuntimes } from "./prefetch.js";
 import { printNextSteps } from "../../next-steps.js";
-import { retirementLines } from "../../sync-report.js";
+import { retirementLines, updateLines } from "../../sync-report.js";
 
 const FRESH_REPO_ENTRIES = new Set([
   ".git",
@@ -44,9 +44,9 @@ async function foreignEntries(dir: string): Promise<string[]> {
   return foreign.sort();
 }
 
-async function scaffold(root: string, existing: boolean): Promise<void> {
-  // Ahead of any write: settings it cannot merge refuse the whole scaffold.
-  await prepareAgentSettings(root);
+// The template files a scaffold writes: every one on a new workspace bar an existing README.md,
+// only the missing ones on an existing workspace.
+async function scaffoldFiles(root: string, existing: boolean): Promise<Record<string, string>> {
   const template = await loadWorkspaceTemplate();
   const files: Record<string, string> = {};
   for (const [key, content] of Object.entries(template)) {
@@ -55,8 +55,22 @@ async function scaffold(root: string, existing: boolean): Promise<void> {
     if ((existing || key === "README.md") && (await pathExists(path.join(root, key)))) continue;
     files[key] = content;
   }
-  await writeTemplateFiles(root, files, WORKSPACE_BINARY_FILES);
+  return files;
+}
+
+// The files already in `root` that `workspace new` replaces.
+async function overwrittenByNew(root: string): Promise<string[]> {
+  const keys = [...Object.keys(await scaffoldFiles(root, false)), ".claude/settings.json"];
+  const present = await Promise.all(keys.map((key) => pathExists(path.join(root, key))));
+  return keys.filter((_, i) => present[i]).sort();
+}
+
+async function scaffold(root: string, existing: boolean): Promise<void> {
+  // Ahead of any write: settings it cannot merge refuse the whole scaffold.
+  await prepareAgentSettings(root);
+  await writeTemplateFiles(root, await scaffoldFiles(root, existing), WORKSPACE_BINARY_FILES);
   const sync = await syncWorkspace(root);
+  if (existing) for (const line of updateLines(sync)) console.error(line);
   for (const line of retirementLines(sync)) console.error(line);
   const unwritable = sync.unwritable;
   if (unwritable.length > 0) {
@@ -93,7 +107,8 @@ export function registerWorkspaceCommand(program: Command): void {
         "after",
         `
 Creates shared workspace files and agent settings, then fetches managed runtimes.
-An existing workspace is an error. Other project files require confirmation (-y).
+An existing workspace, here or enclosing, is an error. Other project files require
+confirmation (-y), which names each file it overwrites.
 The .konte/bin directory placed by setup.sh or setup.ps1 is allowed.
 A konte installed elsewhere is linked into .konte/bin, which agent settings launch.
 
@@ -109,11 +124,20 @@ Examples:
             "The current directory is already a konte workspace; run konte workspace setup",
           );
         }
+        const enclosing = await findWorkspaceRoot(root);
+        if (enclosing) {
+          throw new KonteError(
+            "WORKSPACE_ALREADY_EXISTS",
+            `The current directory is inside the konte workspace ${enclosing}; run konte workspace setup there, or create the workspace outside it`,
+          );
+        }
         const foreign = await foreignEntries(root);
+        const overwritten = await overwrittenByNew(root);
+        const overwrites = overwritten.length > 0 ? `, overwriting ${overwritten.join(", ")}` : "";
         if (
           foreign.length &&
           !(await confirmAction(
-            `The current directory already holds ${foreign.slice(0, 5).join(", ")}; the workspace will be created beside them.`,
+            `The current directory already holds ${foreign.slice(0, 5).join(", ")}; the workspace will be created beside them${overwrites}.`,
             options,
           ))
         ) {

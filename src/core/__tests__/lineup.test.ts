@@ -138,6 +138,49 @@ describe("the accumulated order", () => {
     expect(codes(dir, "lineup-flipped")).toEqual([]);
   });
 
+  it("reads a cutin beside its shot's opening, not the lineupTo it leaves", () => {
+    const dir = direction({
+      shots: [
+        shot("01", "deck", {
+          lineup: ["ane", "imouto"],
+          lineupTo: ["imouto", "ane"],
+          cutin: { setup: "stern", lineup: ["ane", "imouto"] },
+        } as Partial<NarrativeShot>),
+      ],
+    });
+    expect(codes(dir, "lineup-flipped")).toEqual([]);
+  });
+
+  it("flags a cutin that opens the other way round from its own shot", () => {
+    const dir = direction({
+      shots: [
+        shot("01", "deck", {
+          lineup: ["ane", "imouto"],
+          cutin: { setup: "stern", lineup: ["imouto", "ane"] },
+        } as Partial<NarrativeShot>),
+      ],
+    });
+    expect(codes(dir, "lineup-flipped").map((f) => f.subject)).toEqual(["01.cutin"]);
+  });
+
+  it("reads both lanes' exits together before calling the order inconsistent", () => {
+    const dir = direction({
+      shots: [
+        shot("01", "deck", {
+          lineup: ["ane", "imouto"],
+          lineupTo: ["imouto", "ane"],
+          cutin: {
+            setup: "stern",
+            lineup: ["ane", "mother", "imouto"],
+            lineupTo: ["imouto", "mother", "ane"],
+          },
+        } as Partial<NarrativeShot>),
+      ],
+    });
+    expect(codes(dir, "lineup-inconsistent")).toEqual([]);
+    expect(codes(dir, "lineup-flipped")).toEqual([]);
+  });
+
   it("flags a later shot that reverses a pair, naming the shot that said otherwise", () => {
     const dir = direction({
       shots: [
@@ -1275,6 +1318,14 @@ describe("landmark-flipped", () => {
     expect(codes(dir, "landmark-flipped")).toEqual([]);
   });
 
+  it("says nothing of a frame of another view, which mirrors the order", () => {
+    const dir = direction({
+      shots: [shot("01", "deck", { lineup: [] })],
+      setups: { deck, stern, shore, sternReverse: { ...sternReverse, view: "back" } },
+    });
+    expect(codes(dir, "landmark-flipped")).toEqual([]);
+  });
+
   // The first frame to state a pair fixes the axis. Overwriting it would make one waived reverse
   // angle report every frame after it — each agreeing with the original and each needing a waiver.
   // The ids sort normal / reversed / normal, so the third frame is the one an overwrite would flag.
@@ -2249,6 +2300,14 @@ describe("the within axis", () => {
       const dir = direction({
         shots: [shot("01", "deck", { lineup: [] })],
         setups: { deck: { ...deck, within: null }, stern, shore },
+      });
+      expect(errorCodes(dir)).not.toContain("within-undeclared");
+    });
+
+    it("says nothing about a frame of another view than the wider one", () => {
+      const dir = direction({
+        shots: [shot("01", "deck", { lineup: [] })],
+        setups: { deck: { ...deck, view: "back" }, stern, shore },
       });
       expect(errorCodes(dir)).not.toContain("within-undeclared");
     });

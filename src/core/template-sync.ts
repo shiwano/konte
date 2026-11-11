@@ -128,7 +128,13 @@ function shippedSince(introducedIn: string | null, previous: string | null): boo
   return isNewer(introducedIn, previous);
 }
 
-const RETIRABLE_PREFIXES = ["adapters/", ".konte/guides/"];
+const RETIRABLE_AGENT_PREFIXES = [
+  ".agents/skills/",
+  ".claude/skills/",
+  ".claude/agents/",
+  ".codex/agents/",
+];
+const RETIRABLE_PREFIXES = ["adapters/", ".konte/guides/", ...RETIRABLE_AGENT_PREFIXES];
 
 function isRetirable(key: string): boolean {
   return path.posix.normalize(key) === key && RETIRABLE_PREFIXES.some((p) => key.startsWith(p));
@@ -156,11 +162,25 @@ async function listSourceFiles(workspaceRoot: string, dir = ""): Promise<string[
 }
 
 function referenceNeedles(key: string): string[] {
+  if (RETIRABLE_AGENT_PREFIXES.some((p) => key.startsWith(p))) return [];
   if (key.startsWith(".konte/guides/"))
     return [`konte/guides/${key.slice(".konte/guides/".length)}`];
   const base = path.posix.basename(key).replace(/\.[^.]+$/, "");
   if (key.endsWith(".json")) return [`${base}.json`, `"${base}"`];
   return [".js", ".ts", ".jsx", ".tsx", '"', "'"].map((end) => `/${base}${end}`);
+}
+
+// The directories a retired skill leaves empty, up to its retirable root.
+async function removeEmptyParents(workspaceRoot: string, key: string): Promise<void> {
+  const prefix = RETIRABLE_AGENT_PREFIXES.find((p) => key.startsWith(p));
+  if (!prefix) return;
+  for (let dir = path.posix.dirname(key); `${dir}/` !== prefix; dir = path.posix.dirname(dir)) {
+    try {
+      await fs.rmdir(path.join(workspaceRoot, dir));
+    } catch {
+      return;
+    }
+  }
 }
 
 /** A name inside another unused retired file does not count. */
@@ -317,6 +337,7 @@ export async function syncWorkspace(workspaceRoot: string): Promise<WorkspaceSyn
       continue;
     }
     removed.push(key);
+    await removeEmptyParents(workspaceRoot, key);
   }
 
   await appendMissingIgnores(workspaceRoot, template[".gitignore"]!);

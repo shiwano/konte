@@ -28,6 +28,8 @@ jobs:
       - run: bun run build:embeds
 
       - run: bun run check
+      # `check` regenerates tracked files; a diff is a commit that shipped them stale.
+      - run: git diff --exit-code
 
   # A commit pushed straight to main never met pr-message, and the commit-msg hook is only
   # installed by the dev shell.

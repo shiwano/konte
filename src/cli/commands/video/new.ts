@@ -87,8 +87,14 @@ Examples:
         if (!files) throw new KonteError("INVALID_TEMPLATE", `Unknown template "${template}"`);
 
         await fs.mkdir(videoDir, { recursive: true });
-        await writeTemplateFiles(videoDir, files, VIDEO_BINARY_FILES);
-        await StateManager.init(videoDir);
+        try {
+          await writeTemplateFiles(videoDir, files, VIDEO_BINARY_FILES);
+          await StateManager.init(videoDir);
+        } catch (err) {
+          // A directory with no state file is no video, and would refuse this name on a retry.
+          await fs.rm(videoDir, { recursive: true, force: true });
+          throw err;
+        }
         await writeCurrentVideo(workspaceRoot, name);
 
         console.log(`Video "${name}" created from the "${template}" template, and is now current.`);

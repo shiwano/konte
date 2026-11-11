@@ -1,3 +1,4 @@
+import { rosterReferenceNames } from "../../core/roots.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import {
@@ -119,18 +120,20 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
 
   // Only a finding a person can act on: a roster finding before the direction is accepted is
   // premature (see reportableDirectionFindings), and the reference pool is what the roster is
-  // checked against — a missing/broken reference.tsx leaves it empty rather than failing the read.
+  // checked against — a missing reference.tsx leaves it empty rather than failing the read.
   const reference = await loadReference(videoRoot).catch(() => null);
   const check = checkDirection(direction, {
-    referenceAssetNames: reference?.exposedAssetNames ?? [],
+    referenceAssetNames: rosterReferenceNames(videoRoot, reference),
     ...(await loadDirectionStageInputs(videoRoot, direction, reference)),
   });
-  const findings = reportableDirectionFindings(check.active, view.gateSatisfied).map((f) => ({
-    code: f.code,
-    key: directionWaiverKey(f),
-    class: classifyDirectionFinding(f.code),
-    message: f.message,
-  }));
+  const findings = reportableDirectionFindings(check.active, acceptance?.whole != null).map(
+    (f) => ({
+      code: f.code,
+      key: directionWaiverKey(f),
+      class: classifyDirectionFinding(f.code),
+      message: f.message,
+    }),
+  );
 
   const parts = [...view.parts].map(([address, status]) => entryOf(address, status));
   // An accepted part that left the direction is invisible in the live part set, so it is listed

@@ -46,7 +46,7 @@ async function stealStaleLock(lockPath: string, staleMs: number): Promise<void> 
     return;
   }
 
-  const asidePath = `${lockPath}.${process.pid}.stale`;
+  const asidePath = `${lockPath}.${process.pid}.${randomBytes(4).toString("hex")}.stale`;
   try {
     await fs.rename(lockPath, asidePath);
   } catch {
