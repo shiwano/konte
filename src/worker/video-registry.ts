@@ -2,6 +2,7 @@ import { type FSWatcher, watch } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { applyCredentials } from "../core/credentials.js";
+import { errorMessage } from "../core/errors.js";
 import { closeJobDatabase } from "../core/job-manager.js";
 import { listVideos, VIDEOS_DIR } from "../core/roots.js";
 import type { WorkerLog } from "./worker-log.js";
@@ -25,6 +26,7 @@ export class VideoRegistry {
   private readonly watchers = new Map<string, JobWatcher>();
   // Watchers stopped with jobs possibly still in flight.
   private readonly retiring = new Set<JobWatcher>();
+  private readonly starting = new Map<JobWatcher, Promise<void>>();
 
   private videosWatcher: FSWatcher | null = null;
   private reconcileTimer: ReturnType<typeof setInterval> | null = null;
@@ -95,6 +97,8 @@ export class VideoRegistry {
 
   private async retire(watcher: JobWatcher): Promise<void> {
     watcher.stop();
+    await this.starting.get(watcher);
+    watcher.stop();
     await watcher.settled();
     this.retiring.delete(watcher);
     closeJobDatabase(watcher.videoRoot);
@@ -156,13 +160,38 @@ export class VideoRegistry {
         });
         this.watchers.set(name, jobs);
         this.log?.write("info", { video: name, event: "video_watched" });
-        await jobs.start();
-        if (this.stopped) jobs.stop();
+        this.starting.set(jobs, this.startWatcher(name, jobs));
       }
     } catch {
       // Best-effort: a transient readdir failure is retried on the next poll.
     } finally {
       this.reconciling = false;
     }
+  }
+
+  // Not awaited by reconcile: a start runs the video's first submit pass, which must not hold up
+  // the other videos. A watcher that failed to start leaves the set, so the next poll retries it.
+  private async startWatcher(name: string, jobs: JobWatcher): Promise<void> {
+    let failed = false;
+    try {
+      await jobs.start();
+    } catch (err) {
+      failed = true;
+      this.log?.write("warning", {
+        video: name,
+        event: "video_watch_failed",
+        error: errorMessage(err),
+      });
+    } finally {
+      this.starting.delete(jobs);
+    }
+    if (this.watchers.get(name) !== jobs) {
+      jobs.stop();
+      return;
+    }
+    if (!failed) return;
+    this.watchers.delete(name);
+    this.retiring.add(jobs);
+    await this.retire(jobs);
   }
 }

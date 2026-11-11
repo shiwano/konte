@@ -88,8 +88,31 @@ describe("VideoRegistry", () => {
     expect(watched(registry)).toEqual(["opening"]);
   });
 
-  it("picks up a video created while the worker is running", async () => {
+  it("watches a video again after its watcher failed to start", async () => {
+    vi.spyOn(JobWatcher.prototype, "start").mockRejectedValueOnce(new Error("no .konte"));
+    registry = new VideoRegistry(ws.root, { reconcileIntervalMs: 50 });
+    await registry.start();
+
+    const r = registry;
+    await waitFor(() => watched(r).length === 0);
+    await waitFor(() => watched(r).includes("opening"));
+  });
+
+  it("starts a video's watcher while another's start is still running", async () => {
+    await fs.mkdir(path.join(ws.root, "videos", "ending"), { recursive: true });
+    await fs.writeFile(path.join(ws.root, "videos", "ending", "konte.state.json"), "{}");
+    const held = Promise.withResolvers<void>();
+    const start = vi.spyOn(JobWatcher.prototype, "start").mockReturnValue(held.promise);
     registry = new VideoRegistry(ws.root);
+    await registry.start();
+
+    expect(start).toHaveBeenCalledTimes(2);
+    held.resolve();
+  });
+
+  it("picks up a video created while the worker is running", async () => {
+    // The 5s production poll outruns waitFor under a loaded suite.
+    registry = new VideoRegistry(ws.root, { reconcileIntervalMs: 50 });
     await registry.start();
 
     const ending = path.join(ws.root, "videos", "ending");
