@@ -126,6 +126,8 @@ export type KonteErrorCode =
   | "SPEND_HELD"
   // A review or an accept that a finding holds.
   | "REVIEW_HELD"
+  // `konte preview video` while `konte generate video` would still submit work.
+  | "GENERATION_UNSUBMITTED"
   // `konte accept --off` was pointed at a direction part carrying no sign-off to clear. The variant
   // path's VARIANT_NOT_ACCEPTED, for the stage that has no variants.
   | "DIRECTION_PART_NOT_ACCEPTED"

@@ -228,6 +228,35 @@ function describeNotReady(
   return reasons.join(", ");
 }
 
+/**
+ * Whether a shot draws `ref` from a take strict resolution refuses. A take stale only under its
+ * adapter is shown when it is one of the shot's own pictures, the takes the shot's accept lands on
+ * before materializing.
+ */
+export function drawsStaleRefAsWritten(
+  manager: StateManager,
+  video: StageDefinition,
+  shot: StageDefinition["shots"][number],
+  ref: string,
+): boolean {
+  const take = resolveCompositionRef(manager, ref, { includeStale: true });
+  if (!take) return false;
+  const staleness = manager.variantStaleness(ref, take.variantId);
+  if (
+    staleness === null ||
+    staleness.inputStale ||
+    staleness.patchStale ||
+    !manager.registeredAdapterDrift(ref, take.variantId)
+  ) {
+    return false;
+  }
+  return (
+    shownShotAssetNames(video.stage, video.shots, shot).some(
+      (name) => formatAddress(video.stage, shot.id, name) === ref,
+    ) && variantMediaKind(manager, ref, take.variantId) !== "audio"
+  );
+}
+
 export function buildRenderPlan(
   video: StageDefinition,
   manager: StateManager,
@@ -237,28 +266,8 @@ export function buildRenderPlan(
   const standInPlan = options.standIn ?? null;
   const stage = video.stage;
 
-  // Whether this shot's delivered composition can be drawn at all — the same question the review UI
-  // answers for the reviewer, so a shot flips from its stand-in to its real picture the moment its
-  // last upstream lands, one shot at a time. A take stale only under its adapter is shown when it is
-  // one of the shot's own pictures, the takes the shot's accept lands on before materializing.
-  const drawsAsWritten = (shot: StageDefinition["shots"][number], ref: string): boolean => {
-    const take = resolveCompositionRef(manager, ref, { includeStale: true });
-    if (!take) return false;
-    const staleness = manager.variantStaleness(ref, take.variantId);
-    if (
-      staleness === null ||
-      staleness.inputStale ||
-      staleness.patchStale ||
-      !manager.registeredAdapterDrift(ref, take.variantId)
-    ) {
-      return false;
-    }
-    return (
-      shownShotAssetNames(stage, video.shots, shot).some(
-        (name) => formatAddress(stage, shot.id, name) === ref,
-      ) && variantMediaKind(manager, ref, take.variantId) !== "audio"
-    );
-  };
+  const drawsAsWritten = (shot: StageDefinition["shots"][number], ref: string): boolean =>
+    drawsStaleRefAsWritten(manager, video, shot, ref);
   const buildUnready = (shot: StageDefinition["shots"][number]): boolean =>
     (shot.compositionRefs ?? []).some(
       (ref) => !resolveCompositionRef(manager, ref) && !drawsAsWritten(shot, ref),

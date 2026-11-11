@@ -5,6 +5,8 @@ import { loadDirectionIfPresent, loadVideoAndAnimatic } from "../../../core/stag
 import { loadReference } from "../../../core/loader.js";
 import { requireVideoRoot } from "../../context.js";
 import type { HandoffNote } from "../../../core/types/index.js";
+import { openVideoSession } from "../../../core/video-session.js";
+import { assertVideoGenerationSubmitted } from "./generation-gate.js";
 import { writeHandoff, parseNoteOption } from "./handoff.js";
 
 export function registerPreviewCommand(program: Command): void {
@@ -102,6 +104,10 @@ Examples:
 
         // Both stage pages stand on the board, so a missing or broken animatic.tsx is refused here.
         const { video, animatic } = await loadVideoAndAnimatic(videoRoot);
+        if (stage === "video") {
+          const session = await openVideoSession(videoRoot, { sync: "memory" });
+          await assertVideoGenerationSubmitted({ videoRoot, ...session });
+        }
         const handoff =
           (await writeHandoff(videoRoot, { stage, video, animatic }, note, summary)) ?? handoffOpt;
 
