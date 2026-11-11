@@ -1291,7 +1291,10 @@ async function applyOverlayDecision(
     overlayAwaitsAccept(await StateManager.load(submit.ctx.videoRoot), video, submit.counterpart)
       ? "accepted"
       : undefined);
-  const overlayHeld = overlayDecision === "accepted" ? submit.heldFor([overlayAddress]) : [];
+  const overlayHeld =
+    overlayDecision === "accepted"
+      ? submit.heldFor([overlayAddress, ...overlayTimelineRefs(video)])
+      : [];
   if (overlayHeld.length > 0) {
     ledger.skippedDecisions.push({ address: overlayAddress, reason: heldReason(overlayHeld) });
     return undefined;
