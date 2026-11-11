@@ -278,6 +278,7 @@ describe("song analysis", () => {
     });
     expect(await jobManager.claimJobForRun(id!, "w-dead", -1)).toBeTruthy();
     const result = await runSongAnalysisJob(jobManager, videoRoot, id!);
+    expect(await jobManager.getJob(id!)).toMatchObject({ status: "completed", error: null });
     expect(result).toMatchObject({ status: "completed" });
   });
 });
