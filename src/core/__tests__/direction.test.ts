@@ -687,6 +687,9 @@ describe("checkDirection waivers", () => {
       "missing-role_disruption": "stale — disruption now exists",
     });
     expect(checkDirection(dir).staleWaivers.map((w) => w.key)).toContain("missing-role_disruption");
+    expect([...checkDirection(dir).waiverCoverage.stale]).toEqual([
+      "direction:waivers.missing-role_disruption",
+    ]);
   });
 
   it("flags a waiver key naming no finding code stale, never a structural error", () => {
@@ -1643,7 +1646,7 @@ describe("checkDirection setups", () => {
       },
     );
     expect(waived.map((f) => f.code)).toEqual(["setup-unconsumed"]);
-    expect([...waiverCoverage]).toEqual([
+    expect([...waiverCoverage.covers]).toEqual([
       ["direction:waivers.setup-unconsumed_wall", ["01", "02"]],
     ]);
   });

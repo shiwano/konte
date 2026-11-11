@@ -14,7 +14,7 @@ import {
   summarizeDirectionAcceptance,
 } from "../direction-acceptance.js";
 import { directionHash, directionPartHashes } from "../direction-hash.js";
-import { directionShotWaivers } from "../direction.js";
+import { type WaiverCoverage, directionShotWaivers } from "../direction.js";
 import type { RoleFunction } from "../direction-check.js";
 import type { Direction, NarrativeShot } from "../dsl/direction.js";
 
@@ -1090,12 +1090,62 @@ describe("applyDirectionShotCascade", () => {
 
 describe("waiver coverage", () => {
   const address = "direction:waivers.setup-unconsumed_bedroom-wide";
-  const covering = (...shotIds: string[]) => new Map([[address, shotIds]]);
+  const covering = (...shotIds: string[]): WaiverCoverage => ({
+    covers: new Map([[address, shotIds]]),
+    stale: new Set(),
+  });
   const waived = () => {
     const direction = makeDirection();
     direction.waivers!["setup-unconsumed_bedroom-wide"] = "drawn by hand";
     return direction;
   };
+
+  const cancelsNothing: WaiverCoverage = { covers: new Map(), stale: new Set([address]) };
+
+  it("asks no one to sign a waiver that cancels nothing, until it cancels a finding", () => {
+    const direction = waived();
+    const accepted = applyDirectionSectionDecisions(
+      direction,
+      null,
+      ALL_SECTIONS,
+      new Date(),
+      cancelsNothing,
+    );
+    expect(accepted.parts[address]).toBeUndefined();
+    const view = directionAcceptanceView(direction, accepted, cancelsNothing);
+    expect(view.parts.has(address)).toBe(false);
+    expect(view.complete).toBe(true);
+    expect(shotWaiversAwaitingAccept(direction, accepted, cancelsNothing)).toEqual([]);
+
+    expect(directionAcceptanceView(direction, accepted, covering("02")).parts.get(address)).toBe(
+      "unaccepted",
+    );
+    expect(
+      shotWaiversAwaitingAccept(direction, accepted, covering("02")).map((w) => w.address),
+    ).toEqual([address]);
+  });
+
+  it("asks for a fresh sign-off of a waiver that cancelled nothing for a while", () => {
+    const direction = waived();
+    const signed = applyDirectionSectionDecisions(
+      direction,
+      null,
+      ALL_SECTIONS,
+      new Date(),
+      covering("02"),
+    );
+    const swept = applyDirectionPartDecisions(
+      direction,
+      signed,
+      new Map(),
+      new Date(),
+      cancelsNothing,
+    ).acceptance;
+    expect(swept.parts[address]).toBeUndefined();
+    expect(directionAcceptanceView(direction, swept, covering("02")).parts.get(address)).toBe(
+      "unaccepted",
+    );
+  });
 
   it("ages a signed waiver out once it lets through a subject it did not when signed", () => {
     const direction = waived();
@@ -1126,7 +1176,10 @@ describe("waiver coverage", () => {
       covering("02", "03"),
     );
     expect(directionAcceptanceView(direction, accepted, covering("03")).complete).toBe(true);
-    expect(directionAcceptanceView(direction, accepted, new Map()).complete).toBe(true);
+    expect(
+      directionAcceptanceView(direction, accepted, { covers: new Map(), stale: new Set() })
+        .complete,
+    ).toBe(true);
     expect(directionAcceptanceView(direction, accepted).complete).toBe(true);
   });
 

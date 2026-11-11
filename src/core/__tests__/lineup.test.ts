@@ -202,7 +202,7 @@ describe("the accumulated order", () => {
       ],
       waivers: { "lineup-flipped_02": "seen from behind" },
     });
-    expect([...checkDirection(dir).waiverCoverage]).toEqual([
+    expect([...checkDirection(dir).waiverCoverage.covers]).toEqual([
       ["direction:waivers.lineup-flipped_02", ["imouto<ane", "imouto<mother", "ane<mother"]],
     ]);
   });

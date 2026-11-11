@@ -553,7 +553,7 @@ export async function project(animaticLine = "here we go", videoTsx = VIDEO_TSX)
 }
 
 // Sign the direction off whole, then write a waiver on a shot — what an agent does after a setup edit.
-export async function waiveAfterWhole(videoRoot: string, key: string): Promise<void> {
+export async function waiveAfterWhole(videoRoot: string, shotId: string): Promise<void> {
   const defs = await loadPreviewDefinitions({
     videoRoot,
     mode: "video-preview",
@@ -569,7 +569,13 @@ export async function waiveAfterWhole(videoRoot: string, key: string): Promise<v
   await manager.save();
   await fs.writeFile(
     path.join(videoRoot, "direction.ts"),
-    DIRECTION_TS.replace("  sequence: {", `  waivers: { "${key}": "one breath" },\n  sequence: {`),
+    DIRECTION_TS.replace(
+      new RegExp(`(id: "${shotId}", [^}]*action: "[^"]*)"`),
+      '$1. She looks back."',
+    ).replace(
+      "  sequence: {",
+      `  waivers: { "multi-sentence-action_${shotId}": "one breath" },\n  sequence: {`,
+    ),
   );
   await generateAll(videoRoot);
 }

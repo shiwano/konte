@@ -78,16 +78,28 @@ function orphanOwesReview(address: string): boolean {
   return isDirectionScope(address) && directionSectionOf(address) !== "waivers";
 }
 
+// The parts a human signs, by address: every part `directionPartHashes` declares, bar a waiver that
+// cancels nothing in this pass.
+function signableParts(
+  direction: Direction,
+  coverage: WaiverCoverage | undefined,
+): Map<string, string> {
+  const live = directionPartHashes(direction);
+  for (const address of coverage?.stale ?? []) live.delete(address);
+  return live;
+}
+
 // The sections the spend gate is still waiting on — every one until the direction has been accepted
 // whole, then only the piece-wide ones. The review page reads this to say which of its boxes hold a
 // generation, since a box that no longer does still accepts and still shows what changed.
 export function directionGatingSections(
   direction: Direction,
   acceptance: DirectionAcceptance | null,
+  coverage?: WaiverCoverage,
 ): DirectionSection[] {
   if (acceptance?.whole == null) return [...DIRECTION_SECTIONS];
   const onShot = new Set(directionShotWaivers(direction).map((w) => w.address));
-  const pieceWideWaivers = [...directionPartHashes(direction).keys()].some(
+  const pieceWideWaivers = [...signableParts(direction, coverage).keys()].some(
     (address) => directionSectionOf(address) === "waivers" && !onShot.has(address),
   );
   return DIRECTION_SECTIONS.filter(
@@ -146,7 +158,7 @@ function partStatus(
 ): DirectionPartStatus {
   const accepted = acceptance?.parts[address];
   if (!accepted) return "unaccepted";
-  return standing(accepted, liveHash, coverage?.get(address)) ? "accepted" : "stale";
+  return standing(accepted, liveHash, coverage?.covers.get(address)) ? "accepted" : "stale";
 }
 
 // The weakest status wins: a box holding one rewritten shot is not a signed-off box.
@@ -161,7 +173,7 @@ export function directionAcceptanceView(
   acceptance: DirectionAcceptance | null,
   coverage?: WaiverCoverage,
 ): DirectionAcceptanceView {
-  const live = directionPartHashes(direction);
+  const live = signableParts(direction, coverage);
   const parts = new Map<string, DirectionPartStatus>();
   const blocking: DirectionAcceptanceView["blocking"] = [];
   for (const [address, liveHash] of live) {
@@ -337,7 +349,7 @@ export function applyDirectionSectionDecisions(
   now: Date = new Date(),
   coverage?: WaiverCoverage,
 ): DirectionAcceptance {
-  const live = directionPartHashes(direction);
+  const live = signableParts(direction, coverage);
   const acceptedAt = now.toISOString();
   const parts: DirectionAcceptance["parts"] = {};
   const decisionFor = (address: string) => decisions[directionSectionOf(address)];
@@ -353,7 +365,7 @@ export function applyDirectionSectionDecisions(
     parts[address] = stamp(
       liveHash,
       acceptedAt,
-      coverage?.get(address),
+      coverage?.covers.get(address),
       acceptance?.parts[address],
     );
   }
@@ -385,7 +397,7 @@ export function applyDirectionPartDecisions(
   now: Date = new Date(),
   coverage?: WaiverCoverage,
 ): { acceptance: DirectionAcceptance; accepted: string[]; revoked: string[] } {
-  const live = directionPartHashes(direction);
+  const live = signableParts(direction, coverage);
   const parts = { ...(acceptance?.parts ?? {}) };
   const acceptedAt = now.toISOString();
   const accepted: string[] = [];
@@ -396,7 +408,7 @@ export function applyDirectionPartDecisions(
       const liveHash = live.get(address);
       // Not a live part (a cut shot, a typo'd address) — an accept resurrects nothing. A sign-off
       // still standing — nothing moved, so it is not reported as a fresh accept.
-      const covers = coverage?.get(address);
+      const covers = coverage?.covers.get(address);
       if (liveHash === undefined || standing(parts[address], liveHash, covers)) continue;
       if (!directionSectionAcceptable(direction, directionSectionOf(address))) continue;
       parts[address] = stamp(liveHash, acceptedAt, covers, parts[address]);
@@ -641,7 +653,7 @@ function restampDirectionParts(
   now: Date,
   coverage: WaiverCoverage | undefined,
 ): { acceptance: DirectionAcceptance | null; restamped: string[] } {
-  const live = directionPartHashes(direction);
+  const live = signableParts(direction, coverage);
   const parts = { ...acceptance.parts };
   const acceptedAt = now.toISOString();
   const restamped: string[] = [];
@@ -651,7 +663,7 @@ function restampDirectionParts(
     const liveHash = live.get(address);
     if (liveHash === undefined) continue;
     const prior = parts[address];
-    const covers = coverage?.get(address);
+    const covers = coverage?.covers.get(address);
     if (prior ? standing(prior, liveHash, covers) : !mayStampUnread) continue;
     parts[address] = stamp(liveHash, acceptedAt, covers, prior);
     restamped.push(address);
@@ -700,7 +712,7 @@ function finalizeAcceptance(
   const covers =
     directionHasShots(direction) &&
     [...live].every(([address, liveHash]) =>
-      standing(parts[address], liveHash, coverage?.get(address)),
+      standing(parts[address], liveHash, coverage?.covers.get(address)),
     ) &&
     Object.keys(parts).every((address) => live.has(address));
   const whole = covers

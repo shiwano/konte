@@ -281,7 +281,7 @@ describe("video review closure", () => {
   it("re-opens a settled shot for a waiver written on it, and its accept signs the waiver off", async () => {
     const videoRoot = await project();
     expect(await settle(videoRoot)).toBe(2);
-    await waiveAfterWhole(videoRoot, "multi-sentence-action_02");
+    await waiveAfterWhole(videoRoot, "02");
     expect(await settledShotIds(videoRoot)).toEqual(["01"]);
     expect((await run(["status"], videoRoot)).stdout).toContain("konte preview video");
 
@@ -311,7 +311,7 @@ describe("video review closure", () => {
       ).replace("import { Composition, Video,", "import { Composition, Image, Video,"),
     );
     expect(await settle(videoRoot)).toBe(2);
-    await waiveAfterWhole(videoRoot, "multi-sentence-action_01");
+    await waiveAfterWhole(videoRoot, "01");
     expect(await settledShotIds(videoRoot)).toEqual(["02"]);
     expect((await run(["status"], videoRoot)).stdout).toContain("konte preview video");
   });
