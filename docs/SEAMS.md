@@ -43,8 +43,8 @@ An omitted join between two setups sharing a `within` root: the opening keyframe
 | Case                                                   | Direction                                  | Board                                             | Video | Result                   |
 | ------------------------------------------------------ | ------------------------------------------ | ------------------------------------------------- | ----- | ------------------------ |
 | Push in, handed the frame before                       | 01 wide [a] → 02 medium [a]                | on the board: 01, 02; 02 previous panel ← 01.last | none  | none                     |
-| Push in, handed no previous panel                      | 01 wide [a] → 02 medium [a]                | on the board: 01, 02; 02 handed no previous panel | none  | `panel-unlinked` (01-02) |
-| Push in, handed another shot's frame                   | 01 wide [a] → 02 medium [a]                | on the board: 01, 02; 02 previous panel ← 07.last | none  | `panel-unlinked` (01-02) |
+| Push in, handed no previous panel                      | 01 wide [a] → 02 medium [a]                | on the board: 01, 02; 02 handed no previous panel | none  | `panel-unlinked` (01.02) |
+| Push in, handed another shot's frame                   | 01 wide [a] → 02 medium [a]                | on the board: 01, 02; 02 previous panel ← 07.last | none  | `panel-unlinked` (01.02) |
 | Push in, a model that reads no previous panel          | 01 wide [a] → 02 medium [a]                | on the board: 01, 02                              | none  | none                     |
 | Push in, the shot before not yet on the board          | 01 wide [a] → 02 medium [a]                | on the board: 02; 02 handed no previous panel     | none  | none                     |
 | Push in across a story-time jump                       | 01 wide [a] → 02 medium `jump-forward` [a] | on the board: 01, 02; 02 handed no previous panel | none  | none                     |
@@ -61,13 +61,13 @@ A frame cut back to a setup across a cutaway returns to the latest frame of its 
 | Case                                               | Direction                                                 | Board                                                                              | Video | Result                    |
 | -------------------------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------- | ----- | ------------------------- |
 | Back after a cutaway, handed the frame returned to | 01 wide [a] → 02 reverse [b] → 03 wide [a]                | on the board: 01, 03; 03 previous panel ← 01.last                                  | none  | none                      |
-| Back after a cutaway, handed no previous panel     | 01 wide [a] → 02 reverse [b] → 03 wide [a]                | on the board: 01, 03; 03 handed no previous panel                                  | none  | `return-unlinked` (01-03) |
-| Back after a graphic shot                          | 01 wide [a] → card (graphic) → 03 wide [a]                | on the board: 01, 03; 03 handed no previous panel                                  | none  | `return-unlinked` (01-03) |
+| Back after a cutaway, handed no previous panel     | 01 wide [a] → 02 reverse [b] → 03 wide [a]                | on the board: 01, 03; 03 handed no previous panel                                  | none  | `return-unlinked` (01.03) |
+| Back after a graphic shot                          | 01 wide [a] → card (graphic) → 03 wide [a]                | on the board: 01, 03; 03 handed no previous panel                                  | none  | `return-unlinked` (01.03) |
 | Back across a story-time jump                      | 01 wide [a] → 02 reverse [b] → 03 wide `jump-forward` [a] | on the board: 01, 03; 03 handed no previous panel                                  | none  | none                      |
 | Back after a cutaway to another place              | 01 wide [a] → 02 yard [b] → 03 wide [a]                   | on the board: 01, 03; 03 handed no previous panel                                  | none  | none                      |
 | Back after a cutaway that holds the subject        | 01 wide [a] → 02 reverse [b,a] → 03 wide [a]              | on the board: 01, 03; 03 handed no previous panel                                  | none  | none                      |
-| Back after an insert along the axis                | 01 wide [a] → 02 medium [] → 03 wide [a]                  | on the board: 01, 02, 03; 02 previous panel ← 01.last; 03 handed no previous panel | none  | `panel-unlinked` (02-03)  |
-| Back after a push in on the subject                | 01 wide [a] → 02 medium [a] → 03 wide [a]                 | on the board: 01, 02, 03; 02 previous panel ← 01.last; 03 handed no previous panel | none  | `panel-unlinked` (02-03)  |
+| Back after an insert along the axis                | 01 wide [a] → 02 medium [] → 03 wide [a]                  | on the board: 01, 02, 03; 02 previous panel ← 01.last; 03 handed no previous panel | none  | `panel-unlinked` (02.03)  |
+| Back after a push in on the subject                | 01 wide [a] → 02 medium [a] → 03 wide [a]                 | on the board: 01, 02, 03; 02 previous panel ← 01.last; 03 handed no previous panel | none  | `panel-unlinked` (02.03)  |
 
 ## The video's frame across a long take
 

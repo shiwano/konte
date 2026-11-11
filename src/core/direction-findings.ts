@@ -95,7 +95,7 @@ export function isDirectionFindingCode(code: string): code is DirectionFindingCo
 }
 
 // Where what a waiver of the code lets through plays, read off its subject: inside one shot (the
-// shot, one of its frames, or a subject in one), across the boundary `<from>-<to>` between two, in
+// shot, one of its frames, or a subject in one), across the boundary `<from>.<to>` between two, in
 // every shot with a frame on the setup it names, or in no one shot (null).
 type WaiverShotScope = "shot" | "boundary" | "setup" | null;
 

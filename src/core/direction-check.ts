@@ -1809,7 +1809,7 @@ function checkSeamLinks(
     return [
       {
         code,
-        subject: `${seam.from}-${seam.id}${seam.lane === "cutin" ? ".cutin" : ""}`,
+        subject: `${seam.from}.${seam.id}${seam.lane === "cutin" ? ".cutin" : ""}`,
         message: `${frame}'s opening keyframe ${took} — pass \`${seam.fromPanel}\``,
         judgedBy: [seam.opening],
       },

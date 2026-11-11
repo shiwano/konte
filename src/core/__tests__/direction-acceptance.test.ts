@@ -295,7 +295,7 @@ describe("isDirectionSpendGateSatisfied", () => {
 
     for (const edit of [
       (d: Direction) => (d.waivers!["multi-sentence-action_02"] = "reconsidered"),
-      (d: Direction) => (d.waivers!["panel-unlinked_01-02"] = "the cut re-opens the frame"),
+      (d: Direction) => (d.waivers!["panel-unlinked_01.02"] = "the cut re-opens the frame"),
       (d: Direction) => (d.waivers!["setup-unconsumed_bedroom-wide"] = "drawn by hand"),
     ]) {
       const edited = makeDirection();
@@ -309,10 +309,10 @@ describe("isDirectionSpendGateSatisfied", () => {
     const direction = makeDirection();
     const partial = applyDirectionSectionDecisions(direction, null, ALL_SECTIONS);
     const unread = makeDirection();
-    unread.waivers!["panel-unlinked_01-02"] = "the cut re-opens the frame";
+    unread.waivers!["panel-unlinked_01.02"] = "the cut re-opens the frame";
     const view = directionAcceptanceView(unread, { ...partial, whole: null });
     expect(view.gateBlocking.map((b) => b.address)).toEqual([
-      "direction:waivers.panel-unlinked_01-02",
+      "direction:waivers.panel-unlinked_01.02",
     ]);
   });
 
@@ -778,8 +778,8 @@ describe("directionShotWaivers", () => {
     direction.waivers = {
       "multi-sentence-action_02": "a quiet shot",
       "subject-unnamed_02.cutin.alice": "named by her coat",
-      "panel-unlinked_01-02": "a fresh angle",
-      "panel-unlinked_01-02.cutin": "no cutin cuts here",
+      "panel-unlinked_01.02": "a fresh angle",
+      "panel-unlinked_01.02.cutin": "no cutin cuts here",
       "multi-sentence-action_99": "a cut shot",
       "setup-unconsumed_bedroom-wide": "drawn by hand",
       "no-payoff": "an open ending",
@@ -787,7 +787,7 @@ describe("directionShotWaivers", () => {
     expect(directionShotWaivers(direction).map((w) => [w.subject, w.shotIds])).toEqual([
       ["02", ["02"]],
       ["02.cutin.alice", ["02"]],
-      ["01-02", ["01", "02"]],
+      ["01.02", ["01", "02"]],
       ["bedroom-wide", ["02"]],
     ]);
   });
@@ -810,7 +810,7 @@ describe("directionShotWaivers", () => {
     const direction = withThirdShot();
     direction.sequence.shots![2]!.id = "01-02";
     direction.waivers = {
-      "panel-unlinked_01-02": "the cut re-opens the frame",
+      "panel-unlinked_01.02": "the cut re-opens the frame",
       "multi-sentence-action_01-02": "a quiet shot",
     };
     expect(directionShotWaivers(direction).map((w) => [w.code, w.shotIds])).toEqual([
@@ -819,12 +819,18 @@ describe("directionShotWaivers", () => {
     ]);
   });
 
-  it("reads a boundary off the cut it names, not the first pair that spells it", () => {
+  it("tells apart two boundaries whose shot ids join to the same string", () => {
     const direction = makeDirection();
     const shot = direction.sequence.shots![0]!;
-    direction.sequence.shots = ["a", "a-b", "c", "b-c"].map((id) => ({ ...shot, id }));
-    direction.waivers = { "panel-unlinked_a-b-c": "a fresh angle" };
-    expect(directionShotWaivers(direction).map((w) => w.shotIds)).toEqual([["a-b", "c"]]);
+    direction.sequence.shots = ["a", "b-c", "a-b", "c"].map((id) => ({ ...shot, id }));
+    direction.waivers = {
+      "panel-unlinked_a.b-c": "a fresh angle",
+      "panel-unlinked_a-b.c": "a fresh angle",
+    };
+    expect(directionShotWaivers(direction).map((w) => w.shotIds)).toEqual([
+      ["a", "b-c"],
+      ["a-b", "c"],
+    ]);
   });
 });
 
@@ -865,10 +871,10 @@ describe("applyDirectionShotCascade", () => {
     const accepted = acceptAll(makeDirection());
 
     const waived = makeDirection();
-    waived.waivers!["panel-unlinked_01-02"] = "the cut re-opens the frame";
+    waived.waivers!["panel-unlinked_01.02"] = "the cut re-opens the frame";
     for (const shotId of ["01", "02"]) {
       const { acceptance, restamped } = applyDirectionShotCascade(waived, accepted, [shotId]);
-      expect(restamped).toContain("direction:waivers.panel-unlinked_01-02");
+      expect(restamped).toContain("direction:waivers.panel-unlinked_01.02");
       expect(directionAcceptanceView(waived, acceptance!).complete).toBe(true);
     }
   });

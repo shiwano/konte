@@ -950,7 +950,7 @@ describe("panel-unlinked", () => {
 
   it("flags a cut along one axis whose opening keyframe takes no frame at all", () => {
     const findings = found(pushIn(), board({ shotId: "01" }, { shotId: "02" }));
-    expect(findings.map((f) => f.subject)).toEqual(["01-02"]);
+    expect(findings.map((f) => f.subject)).toEqual(["01.02"]);
     expect(findings[0]?.message).toContain("takes no frame");
     expect(findings[0]?.message).toContain("animatic:shot.01.last");
   });
@@ -995,7 +995,7 @@ describe("panel-unlinked", () => {
       ],
     });
     expect(found(dir, board({ shotId: "01" }, { shotId: "02" })).map((f) => f.subject)).toEqual([
-      "01-02",
+      "01.02",
     ]);
   });
 
@@ -1005,7 +1005,7 @@ describe("panel-unlinked", () => {
       shots: [shot("01", "stern", { lineup: ["ane"] }), shot("02", "deck")],
     });
     expect(found(dir, board({ shotId: "01" }, { shotId: "02" })).map((f) => f.subject)).toEqual([
-      "01-02",
+      "01.02",
     ]);
   });
 
@@ -1041,7 +1041,7 @@ describe("panel-unlinked", () => {
     const waived = direction({
       setups: axis,
       shots: [shot("01", "stern"), shot("02", "deck")],
-      waivers: { "panel-unlinked_01-02": "the cut re-opens the frame on purpose" },
+      waivers: { "panel-unlinked_01.02": "the cut re-opens the frame on purpose" },
     });
     const stagingStage = board({ shotId: "01" }, { shotId: "02" });
     expect(found(waived, stagingStage)).toEqual([]);
@@ -1260,7 +1260,7 @@ describe("return-unlinked", () => {
 
   it("flags a return whose opening keyframe takes no frame", () => {
     const findings = found(dir(cutaway()), board({ shotId: "01" }, { shotId: "09" }));
-    expect(findings.map((f) => f.subject)).toEqual(["01-09"]);
+    expect(findings.map((f) => f.subject)).toEqual(["01.09"]);
     expect(findings[0]?.message).toContain("animatic:shot.01.last");
   });
 
@@ -1291,14 +1291,14 @@ describe("return-unlinked", () => {
 
   it("binds a waiver only under its own code", () => {
     const d = dir(cutaway(), {
-      "return-unlinked_01-09": "she sat back while he spoke",
-      "panel-unlinked_01-09": "no axis cut here",
+      "return-unlinked_01.09": "she sat back while he spoke",
+      "panel-unlinked_01.09": "no axis cut here",
     });
     expect(directionShotWaivers(d).map((w) => w.code)).toEqual(["return-unlinked"]);
   });
 
   it("is waived by the return's key", () => {
-    const waived = dir(cutaway(), { "return-unlinked_01-09": "she sat back while he spoke" });
+    const waived = dir(cutaway(), { "return-unlinked_01.09": "she sat back while he spoke" });
     const stagingStage = board({ shotId: "01" }, { shotId: "09" });
     expect(found(waived, stagingStage)).toEqual([]);
     expect(checkDirection(waived, { stagingStage }).waived.map((f) => f.code)).toContain(

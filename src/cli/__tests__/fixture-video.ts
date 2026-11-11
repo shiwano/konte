@@ -86,8 +86,8 @@ export default defineDirection({
     "axis-unrealized_deskMedium.deskWide": "fixture board declares no plates",
     // Wiring the previous panel would chain each shot's board to the one before it, which every plan and
     // cascade count in the suite would then see.
-    "panel-unlinked_01-02": "fixture shots are boarded independently",
-    "panel-unlinked_02-03": "fixture shots are boarded independently",
+    "panel-unlinked_01.02": "fixture shots are boarded independently",
+    "panel-unlinked_02.03": "fixture shots are boarded independently",
   },
   sequence: {
     lens: "satisfying-process",

@@ -3,8 +3,8 @@ import { type Finding, formatFindingBlockLines, formatFindingBlocks } from "../f
 
 const unlinked = (from: string, id: string): Finding => ({
   code: "return-unlinked",
-  subject: `${from}-${id}`,
-  key: `return-unlinked_${from}-${id}`,
+  subject: `${from}.${id}`,
+  key: `return-unlinked_${from}.${id}`,
   fixIn: { stage: "direction" },
   message: `shot ${id}'s opening keyframe takes no frame — pass \`animatic:shot.${from}.key\``,
   judgedBy: [`animatic:shot.${id}.key`],
@@ -26,9 +26,9 @@ describe("formatFindingBlocks", () => {
     expect(lines).toHaveLength(5);
     expect(lines[0]).toMatch(/^return-unlinked ×2 — .*`jump-forward`/);
     expect(lines[1]).toBe(
-      "  [return-unlinked_03-05] shot 05's opening keyframe takes no frame — pass `animatic:shot.03.key`",
+      "  [return-unlinked_03.05] shot 05's opening keyframe takes no frame — pass `animatic:shot.03.key`",
     );
-    expect(lines[2]).toMatch(/^ {2}\[return-unlinked_25-28\] shot 28/);
+    expect(lines[2]).toMatch(/^ {2}\[return-unlinked_25.28\] shot 28/);
     expect(lines[3]).toMatch(/^multi-sentence-action — /);
     expect(lines[4]).toBe("  [multi-sentence-action_01] shot 01's action is two sentences");
   });

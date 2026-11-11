@@ -126,7 +126,7 @@ export type ShotWaiver = {
 function boundaryShots(pairs: readonly FramePair[]): Map<string, [string, string]> {
   return new Map(
     pairs.map(({ frame, from }) => [
-      `${from.shotId}-${frame.shotId}${frame.lane === "cutin" ? ".cutin" : ""}`,
+      `${from.shotId}.${frame.shotId}${frame.lane === "cutin" ? ".cutin" : ""}`,
       [from.shotId, frame.shotId],
     ]),
   );
