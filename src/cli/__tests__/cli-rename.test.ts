@@ -285,7 +285,7 @@ describe("rename command (a patched reference)", () => {
     const sourceId = await generateSource(projectDir);
     await writePatch(projectDir, sourceId);
     await run(["patch", "apply"], projectDir);
-    await run(["job", "wait"], projectDir).catch(() => undefined);
+    await run(["job", "run"], projectDir).catch(() => undefined);
 
     const referenceFile = path.join(projectDir, "reference.tsx");
     const source = await fs.readFile(referenceFile, "utf-8");

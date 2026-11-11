@@ -18,40 +18,35 @@ import { loadDirectionIfPresent, loadStageDefinitions } from "../../../core/stag
 
 const POLL_INTERVAL_MS = 1000;
 
-export function registerJobWaitCommand(program: Command, pollIntervalMs = POLL_INTERVAL_MS): void {
+export function registerJobRunCommand(program: Command, pollIntervalMs = POLL_INTERVAL_MS): void {
   program
-    .command("wait [jobIds...]")
-    .description("Wait for jobs to complete — every active one, or the ids given")
+    .command("run")
+    .description("Run the video's jobs until every one settles")
     .option("--timeout <seconds>", "Timeout in seconds")
     .addHelpText(
       "after",
       `
-Blocks until the jobs settle, then prints what broke — a failed job, or a variant finding: a
-take silent, or heard to drop or change its line — and, on the last line, the outcome and the
-command that answers it.
+Blocks until every active job of the video settles, then prints what broke — a failed job, or a
+variant finding: a take silent, or heard to drop or change its line — and, on the last line, the
+outcome and the command that answers it.
 
-Jobs run only while a wait is running: the first wait in a workspace runs every video's jobs,
-and a later one takes over when it ends. With no arguments it waits on every active job of the
-video; naming ids waits on exactly those.
+Jobs run only while a \`konte job run\` lasts. The first in a workspace runs every video's jobs
+until its own video's settle; a later one, in any video, takes over when it ends.
 
---timeout is a deadline on the whole command. On expiry it stops
-waiting, names everything still in flight and exits 1; nothing is cancelled, and the work in
-hand resumes on the next wait.
+--timeout is a deadline on the whole command. On expiry it stops, names everything still in
+flight and exits 1; nothing is cancelled, and the work in hand resumes on the next run.
 
 Examples:
-  konte job wait                    Wait for every active job, then summarize the batch
-  konte job wait v-a1b2c3d4         Wait for one job and report its outcome
-  konte job wait --timeout 600      Give up after 10 minutes, naming what is still running
+  konte job run                     Run every active job, then summarize the batch
+  konte job run --timeout 600       Give up after 10 minutes, naming what is still running
 `,
     )
-    .action(async (jobIds: string[], opts: { timeout?: string }) => {
+    .action(async (opts: { timeout?: string }) => {
       const roots = requireVideoRoots();
       const jobManager = new JobManager(roots.video);
       const deadline = new Deadline(
         opts.timeout ? parsePositiveInt(opts.timeout, "--timeout") * 1000 : undefined,
       );
-      // An unknown id fails here, before anything is started for it.
-      for (const id of jobIds) await jobManager.getJob(id);
 
       const live = new LiveProgress({ renderRegion: Boolean(process.stderr.isTTY) });
       const runner = new JobRunnerGuard(roots.workspace);
@@ -60,15 +55,7 @@ Examples:
       const startedAt = Date.now();
       let observed: Observed;
       try {
-        observed = await observe(
-          jobManager,
-          jobIds.length > 0 ? jobIds : null,
-          deadline,
-          live,
-          runner,
-          warnings,
-          pollIntervalMs,
-        );
+        observed = await observe(jobManager, deadline, live, runner, warnings, pollIntervalMs);
       } finally {
         live.stop();
         await runner.stop();
@@ -77,18 +64,13 @@ Examples:
       const { results, settledBefore } = observed;
       const found = await findingsOf(roots.video, results);
 
-      if (jobIds.length > 0) {
-        // Named ids get a line each: the caller asked about exactly these jobs.
-        for (const r of results) printResultLine(r, found.get(r.id));
-        console.log("");
-        console.log(formatWaitSummary(results, elapsedMs, 0));
-      } else if (results.length === 0) {
+      if (results.length === 0) {
         console.log("No running, queued, or pending jobs — run `konte status`");
       } else {
         // Problems first, outcome last: the outcome line is the one a piped caller keeps.
         if (printProblemLines(results, found)) console.log("");
         for (const r of results) printExportOutput(r);
-        console.log(formatWaitSummary(results, elapsedMs, settledBefore));
+        console.log(formatRunSummary(results, elapsedMs, settledBefore));
       }
       await jobManager.markReported(results.filter((r) => !r.timedOut).map((r) => r.id));
       if (results.some((r) => r.timedOut || r.status === "failed")) process.exitCode = 1;
@@ -115,32 +97,30 @@ interface Observed {
 
 async function observe(
   jobManager: JobManager,
-  ids: readonly string[] | null,
   deadline: Deadline,
   live: LiveProgress,
   runner: JobRunnerGuard,
   warnings: WorkerWarnings,
   pollIntervalMs: number,
 ): Promise<Observed> {
-  // An outcome already reported is history. One terminal but unreported is this wait's to report,
+  // An outcome already reported is history. One terminal but unreported is this run's to report,
   // counted as settled before it.
   const jobsAtStart = await jobManager.listJobs();
   const terminalAtStart = new Set(
     jobsAtStart.filter((j) => isJobTerminal(j.status)).map((j) => j.id),
   );
-  // Another wait may report a job this one watched in flight; it is still this wait's outcome.
+  // Another run may report a job this one watched in flight; it is still this run's outcome.
   const observedActive = new Set<string>();
   const timedOut = new Set<string>();
-  const named = ids ? new Set(ids) : null;
 
   let jobs = jobsAtStart;
   while (true) {
-    // A take of the song is read by a job the worker queues once the take lands; a wait that ended
-    // in between would leave the song unread with nothing active to keep a wait for.
-    if (!named && (await queueSongReadings(jobManager)).length > 0) {
+    // A take of the song is read by a job the worker queues once the take lands; a run that ended
+    // in between would leave the song unread with nothing active to keep a run for.
+    if ((await queueSongReadings(jobManager)).length > 0) {
       jobs = await jobManager.listJobs();
     }
-    const active = jobs.filter((j) => (named ? named.has(j.id) : true) && !isJobTerminal(j.status));
+    const active = jobs.filter((j) => !isJobTerminal(j.status));
     for (const j of active) observedActive.add(j.id);
     await warnings.drain();
     if (active.length === 0) break;
@@ -151,7 +131,7 @@ async function observe(
       break;
     }
     await runner.ensure();
-    live.setHeader(formatWaitHeader(active));
+    live.setHeader(formatRunHeader(active));
     live.setJobs(
       active
         .filter((j) => j.kind === "generation" && j.backendJobId != null)
@@ -162,21 +142,14 @@ async function observe(
   }
 
   const results: Outcome[] = [];
-  if (named) {
-    for (const id of ids!) {
-      const job = jobs.find((j) => j.id === id);
-      if (job) results.push(outcomeOf(job, timedOut.has(id), jobManager.videoRoot));
+  for (const job of jobs) {
+    if (timedOut.has(job.id)) {
+      results.push(outcomeOf(job, true, jobManager.videoRoot));
+      continue;
     }
-  } else {
-    for (const job of jobs) {
-      if (timedOut.has(job.id)) {
-        results.push(outcomeOf(job, true, jobManager.videoRoot));
-        continue;
-      }
-      if (!isJobTerminal(job.status)) continue;
-      if (job.reportedAt != null && !observedActive.has(job.id)) continue;
-      results.push(outcomeOf(job, false, jobManager.videoRoot));
-    }
+    if (!isJobTerminal(job.status)) continue;
+    if (job.reportedAt != null && !observedActive.has(job.id)) continue;
+    results.push(outcomeOf(job, false, jobManager.videoRoot));
   }
   const settledBefore = results.filter((r) => terminalAtStart.has(r.id)).length;
   return { results, settledBefore };
@@ -243,8 +216,8 @@ class Deadline {
   }
 }
 
-// The worker's warnings about this video since the wait began — a status check failing, a job it
-// cannot watch — printed where the agent reads them: in the wait's own output.
+// The worker's warnings about this video since the run began — a status check failing, a job it
+// cannot watch — printed where the agent reads them: in the run's own output.
 class WorkerWarnings {
   private offset = 0;
   private readonly printed = new Set<string>();
@@ -290,7 +263,7 @@ function formatWorkerWarning(data: Record<string, unknown>): string {
   return `Warning: ${subject ? `${subject} — ` : ""}${what}${error}`;
 }
 
-interface WaitSummary {
+interface RunSummary {
   total: number;
   completed: number;
   failed: number;
@@ -298,7 +271,7 @@ interface WaitSummary {
   stillRunning: number;
 }
 
-function summarize(results: Outcome[]): WaitSummary {
+function summarize(results: Outcome[]): RunSummary {
   return {
     total: results.length,
     completed: results.filter((r) => !r.timedOut && r.status === "completed").length,
@@ -308,7 +281,7 @@ function summarize(results: Outcome[]): WaitSummary {
   };
 }
 
-function formatWaitSummary(results: Outcome[], elapsedMs: number, settledBefore: number): string {
+function formatRunSummary(results: Outcome[], elapsedMs: number, settledBefore: number): string {
   const s = summarize(results);
   const parts = [
     `${s.completed} completed`,
@@ -318,7 +291,7 @@ function formatWaitSummary(results: Outcome[], elapsedMs: number, settledBefore:
   ].filter((p) => p !== null);
   // The outcome and the one command that answers it share a line, so a caller piping through
   // `tail -1` keeps both.
-  const before = settledBefore > 0 ? `, ${settledBefore} of them before this wait` : "";
+  const before = settledBefore > 0 ? `, ${settledBefore} of them before this run` : "";
   return `${s.total} job(s) settled: ${parts.join(", ")} (${formatDuration(elapsedMs)}${before}) — run \`konte status\``;
 }
 
@@ -356,7 +329,7 @@ async function findingsOf(
       (variant.media?.kind === "video" && variant.media.audio === null),
   );
   if (checkable.length === 0) return new Map();
-  // The lines are the definition's: a wait that cannot load it has nothing to read the takes against.
+  // The lines are the definition's: a run that cannot load it has nothing to read the takes against.
   const definitions = await loadStageDefinitions(videoRoot).catch(() => null);
   if (!definitions) return new Map();
   const lang = speechLangOf(definitions);
@@ -379,9 +352,9 @@ async function findingsOf(
 
 function printResultLine(r: Outcome, found?: string): void {
   if (r.timedOut) {
-    console.log(`Job ${r.id}: still running (stopped waiting — timeout reached)`);
+    console.log(`Job ${r.id}: still running (timeout reached)`);
     console.log(
-      `  Re-run "konte job wait ${r.id}" to keep waiting, or "konte job cancel ${r.id}" to stop it.`,
+      `  Run "konte job run" again to resume it, or "konte job cancel ${r.id}" to stop it.`,
     );
     return;
   }
@@ -410,7 +383,7 @@ function formatJobLine(job: JobRecord): string {
 }
 
 // The live region's header: the total still in flight and its breakdown.
-function formatWaitHeader(active: readonly JobRecord[]): string {
+function formatRunHeader(active: readonly JobRecord[]): string {
   let running = 0;
   let pending = 0;
   let installing = 0;
@@ -429,7 +402,7 @@ function formatWaitHeader(active: readonly JobRecord[]): string {
   if (exporting > 0) parts.push(`${exporting} exporting`);
   const total = active.length;
   const breakdown = parts.length > 0 ? ` — ${parts.join(", ")}` : "";
-  return `Waiting on ${total} job${total === 1 ? "" : "s"}${breakdown}`;
+  return `${total} job${total === 1 ? "" : "s"} in flight${breakdown}`;
 }
 
 // A bottom-anchored live status region on stderr: an optional header plus one line per active

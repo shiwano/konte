@@ -28,7 +28,7 @@ export default definePatch<"image">(({ source }) => {
     const sourceId = await generateSource(projectDir);
     await writePatch(projectDir, sourceId, CHAIN);
     await run(["patch", "apply", sourceId], projectDir);
-    await run(["job", "wait"], projectDir).catch(() => undefined);
+    await run(["job", "run"], projectDir).catch(() => undefined);
     return { projectDir, sourceId };
   }
 
@@ -37,8 +37,8 @@ export default definePatch<"image">(({ source }) => {
     const cardAddress = `reference:patch.${sourceId}.card`;
 
     const { stdout } = await run(["reroll", cardAddress, "--count", "2"], projectDir);
-    expect(stdout).toContain("2 correction(s) from 1 patch step(s) — run `konte job wait`");
-    await run(["job", "wait"], projectDir).catch(() => undefined);
+    expect(stdout).toContain("2 correction(s) from 1 patch step(s) — run `konte job run`");
+    await run(["job", "run"], projectDir).catch(() => undefined);
 
     const cards = Object.values(await variantsOf(projectDir, cardAddress)).filter((v) => v.file);
     expect(cards).toHaveLength(3);

@@ -35,12 +35,12 @@ Activation:
 - `submissionStartedAt` is persisted under the submit lease before calling a backend. A reclaimed external job with that stamp and no backend id fails with `SUBMISSION_UNCONFIRMED` — check the backend before rerolling. A claim that never began submission, and a local operation, may retry.
 - A vendor submit asks `shouldCancel` right before each send (`SUBMIT_CANCELLED`). A submit whose commit is refused — a `job cancel` or a lost lease — cancels its backend job, unless a reclaimer on a resubmit-safe backend adopts it.
 - A committed submit keeps the submit lease, and the worker submits and waits under one `workerId`, so its waiter takes that lease over and the job is never unwatched between submit and wait.
-- A spend command submits the ready jobs it registered before returning (`submitRegisteredJobs`), scoped to those ids and committed with no lease — `job list` shows `submitted`, and `⚠ unwatched` only an expired lease. A `local` job is the wait's. The command reports a failed submit and exits non-zero.
-- Transient result-fetch and download-stream failures retry against the existing backend id. A wait timeout or a stopping worker (`releaseClaimedLeases`) releases the run lease; the next waiter resumes retrieval.
+- A spend command submits the ready jobs it registered before returning (`submitRegisteredJobs`), scoped to those ids and committed with no lease — `job list` shows `submitted`, and `⚠ unwatched` only an expired lease. A `local` job is the run's. The command reports a failed submit and exits non-zero.
+- Transient result-fetch and download-stream failures retry against the existing backend id. A `job run` timeout or a stopping worker (`releaseClaimedLeases`) releases the run lease; the next waiter resumes retrieval.
 
 ## One worker, every video
 
-- A `job wait` / `song` finding no worker up elects one under a file lock; it ends with that wait, and another wait takes over.
+- A `job run` / `song` finding no worker up elects one under a file lock; it ends with that run, and another run takes over.
 - Registrations use instance ids; local liveness uses pid/start time, foreign PID namespaces a 5s heartbeat (30s expiry).
 - The elected process runs the jobs in a child (`job worker`, own process group) and loads no definition.
 - Registration and heartbeat survive the worker's submit drain; a lost registration stops only the worker.
@@ -61,4 +61,4 @@ Activation:
 - Keyframe normalization — a produced video whose keyframes are sparser than ~2s apart is re-encoded (before hashing) to add a keyframe roughly every second, so HyperFrames seeks reliably. It skips non-videos, already-dense videos, and alpha/HDR sources, logging what it did.
 - Variant check — a take owing a line, bar the song, is heard into `heard.json`; an audio-bearing one is measured `silent` in its media record.
   - `variant-check.ts` finds a silent audio or line take and one whose heard words miss its line (`line-hearing.ts`).
-  - `job wait` names a finding on landing; undecided and unvouched (`konte vouch`), a `take-silent` / `line-misheard` finding holds `konte preview` and its accept.
+  - `job run` names a finding on landing; undecided and unvouched (`konte vouch`), a `take-silent` / `line-misheard` finding holds `konte preview` and its accept.

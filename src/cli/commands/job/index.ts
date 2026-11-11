@@ -4,7 +4,7 @@ import { registerJobListCommand } from "./list.js";
 import { registerJobLogsCommand } from "./logs.js";
 import { registerJobShowCommand } from "./show.js";
 import { registerJobStatsCommand } from "./stats.js";
-import { registerJobWaitCommand } from "./wait.js";
+import { registerJobRunCommand } from "./run.js";
 import { requireWorkspaceRoot } from "../../context.js";
 import { declareScope } from "../../scope.js";
 
@@ -13,7 +13,7 @@ export function registerJobCommand(program: Command, pollIntervalMs?: number): v
   registerJobListCommand(job);
   registerJobShowCommand(job);
   registerJobStatsCommand(job);
-  registerJobWaitCommand(job, pollIntervalMs);
+  registerJobRunCommand(job, pollIntervalMs);
   registerJobLogsCommand(job);
   registerJobCancelCommand(job);
 

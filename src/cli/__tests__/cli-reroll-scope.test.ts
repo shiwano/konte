@@ -99,7 +99,7 @@ describe("reroll command", () => {
     await fs.mkdir(path.join(projectDir, "assets", "files"), { recursive: true });
     await fs.writeFile(path.join(projectDir, "assets", "files", "bad.png"), "not a real png");
     await run(["reroll", "reference:badResize"], projectDir).catch(() => undefined);
-    await run(["job", "wait"], projectDir).catch(() => undefined);
+    await run(["job", "run"], projectDir).catch(() => undefined);
 
     const retry = (await run(["reroll", "--failed", "--yes"], projectDir).catch((e) => e)) as {
       stdout: string;

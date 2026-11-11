@@ -666,7 +666,7 @@ async function checkStuckComfyJobs(config: ComfyUIConfig, videoRoot: string): Pr
       message:
         `${stuck.length} running job(s) absent from ComfyUI's queue and history ` +
         `(ComfyUI likely crashed/restarted): ${preview}${suffix} — ` +
-        "run `konte job wait` to reconcile them to failed",
+        "run `konte job run` to reconcile them to failed",
     };
   } catch {
     return { name: "ComfyUI stuck jobs", status: "PASS", message: "unable to check (skipped)" };

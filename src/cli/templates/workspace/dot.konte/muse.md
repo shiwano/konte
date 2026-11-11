@@ -10,6 +10,6 @@ When a skill says to spawn a konte subagent, read its definition at
 `.claude/agents/<name>.md` and spawn it fresh with the body as its
 instructions.
 
-A VM replacement ends every running process. Rerun a lost `konte job wait`;
+A VM replacement ends every running process. Rerun a lost `konte job run`;
 for a lost `konte preview`, run `konte review record list` instead of a
 second preview.

@@ -20,17 +20,17 @@ export function formatSubmitFailure(failure: SubmitFailure): string {
 
 const SETTLED = new Set(["completed", "failed", "cancelled"]);
 
-/** The last line's step after a spend: a wait while any registered job is still to settle. */
+/** The last line's step after a spend: `konte job run` while any registered job is still to settle. */
 export function nextAfterSpend(rows: readonly { status: string }[]): string {
   return rows.some((row) => !SETTLED.has(row.status))
-    ? "run `konte job wait`"
+    ? "run `konte job run`"
     : "run `konte status`";
 }
 
 /**
  * Submits, before a spend command returns, the jobs it registered whose dependencies are already
  * met, and writes each row's status as it now stands. Everything after the submit — the
- * download, the dependents it unblocks — is the next `konte job wait`'s, as is every `local`
+ * download, the dependents it unblocks — is the next `konte job run`'s, as is every `local`
  * job, whose submit is the whole operation. Returns the jobs that failed here, marked reported.
  */
 export async function submitRegisteredJobs(
@@ -77,7 +77,7 @@ export async function submitRegisteredJobs(
   } catch (err) {
     console.error(
       `Nothing more was submitted: ${errorMessage(err)} — the jobs stay registered for ` +
-        "`konte job wait`.",
+        "`konte job run`.",
     );
   } finally {
     passed = true;

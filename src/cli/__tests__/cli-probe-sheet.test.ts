@@ -121,7 +121,7 @@ export default defineVideo(direction, {
     await fs.writeFile(path.join(projectDir, "video.tsx"), VIDEO_TSX);
     await acceptDirection(projectDir);
     await run(["generate", "reference"], projectDir);
-    await run(["job", "wait"], projectDir).catch(() => undefined);
+    await run(["job", "run"], projectDir).catch(() => undefined);
     // Sign everything off here: each test below starts from "nothing outstanding" and controls what
     // it puts back.
     for (const name of ["character", "studio", "plateA", "clipSrc", "clip", "sfxSrc", "sfx"]) {

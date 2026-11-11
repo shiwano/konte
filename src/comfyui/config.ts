@@ -56,8 +56,7 @@ export type ComfyUIConfig = {
  * re-observable by id across any outage, so "I cannot reach the API" says nothing about the job.
  * A local ComfyUI is the opposite — the prompt lives inside a process on this machine and its
  * queue is in memory, so if it has answered nothing for this long it is gone and took the prompt
- * with it. Polling on is then waiting for something that can never land, which is how a
- * `konte job wait` sat silent for seven hours over a ComfyUI that never came back.
+ * with it. Polling on is then waiting for something that can never land.
  *
  * Set generously: it must clear a long GPU stall, a laptop suspend, or a `docker restart`, and
  * any survivor still reports its real outcome.

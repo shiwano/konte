@@ -16,7 +16,7 @@ export async function runWorker(workspaceRoot: string): Promise<void> {
   if (!process.send) {
     throw new KonteError(
       "WORKER_UNSUPERVISED",
-      "`konte job worker` runs only under `konte job wait`",
+      "`konte job worker` runs only under `konte job run`",
     );
   }
   const log = new WorkerLog(workspaceRoot, { instanceId: process.env[WORKER_INSTANCE_ENV] });

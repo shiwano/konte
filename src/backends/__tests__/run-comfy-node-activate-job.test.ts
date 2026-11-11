@@ -225,7 +225,7 @@ describe("runComfyNodeActivateJob", () => {
   });
 
   // A server answering nothing holds nothing a reboot could destroy, so the gate must not treat an
-  // unreadable queue as "busy" — that would never resolve, and a `job wait` with no ComfyUI
+  // unreadable queue as "busy" — that would never resolve, and a `job run` with no ComfyUI
   // running would spin forever. Refusing to reboot an uninspectable server belongs to
   // activateNodes, which fails with a reason (see the ComfyUIBackend.activateNodes tests).
   it("does not spin on a server whose queue it cannot read", async () => {

@@ -89,7 +89,7 @@ export class JobWatcher {
   private readonly watchFailures = new Map<string, string>();
   // Ids of jobs already terminal when this watcher started — the pre-session backlog, which fires
   // no completion. A terminal job whose id is NOT here was first observed terminal DURING the
-  // session (e.g. finished by a concurrent `konte job wait` before a waiter attached), so it still
+  // session (e.g. finished by a concurrent `konte job run` before a waiter attached), so it still
   // fires. In-memory only; a fresh start re-seeds.
   private readonly startupTerminalIds = new Set<string>();
   private cascadeRunning = false;
@@ -288,7 +288,7 @@ export class JobWatcher {
           continue;
         }
         // A generation job first seen terminal here — never caught running/queued by this watcher
-        // (e.g. finished by a concurrent `konte job wait` before a waiter attached) — is recorded
+        // (e.g. finished by a concurrent `konte job run` before a waiter attached) — is recorded
         // unless it predates the session (startupTerminalIds, skipped). emitCompleted dedups
         // via handledJobs, so this never double-fires with the normal waiter path.
         if (

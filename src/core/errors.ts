@@ -66,7 +66,7 @@ export type KonteErrorCode =
   // A Comfy API deployment with no Build of its current adapters, or no ready deployment of that
   // Build's release.
   | "COMFY_API_DEPLOYMENT_NOT_READY"
-  // The worker a `konte job wait` started to run the jobs kept exiting.
+  // The worker a `konte job run` started to run the jobs kept exiting.
   | "JOB_RUNNER_EXITED"
   // `konte job worker` run without the process that spawns it over IPC.
   | "WORKER_UNSUPERVISED"

@@ -20,7 +20,7 @@ Keep the turn active until generation waits and previews finish and their
 results are read; do not send final while either is pending unless the user
 stops or pauses the task.
 
-On "Unknown process id", rerun a lost `konte job wait`; for a lost
+On "Unknown process id", rerun a lost `konte job run`; for a lost
 `konte preview`, run `konte review record list` instead of a second preview.
 
 When a skill says to spawn a subagent fresh or never as a fork, name the

@@ -76,7 +76,7 @@ A variant is **input-stale** when an input it consumed no longer matches what th
 
 Every take is review work, bar a `#delivery` upscale, which konte accepts on completion; a **deterministic** asset has one outcome — no `reroll` / `dismiss`. A shot **composition**, an audio **stem** and the **overlay** (`<stage>:timeline#overlay`, signed off by shot accepts) are graph leaves with no job: rendered live wherever used, materialized only on accept, by address.
 
-Jobs run in the worker a `konte job wait` elects, for as long as that wait lasts. A spend command submits the ready jobs it registers before returning; everything else, an export included, is the wait's.
+Jobs run in the worker a `konte job run` elects, while it lasts. A spend command submits the ready jobs it registers before returning; everything else, an export included, is the run's.
 
 ### Templates
 

@@ -44,7 +44,7 @@ export async function generateSource(
   address = "reference:latentA",
 ): Promise<string> {
   await run(["generate", "reference"], projectDir);
-  await run(["job", "wait"], projectDir).catch(() => undefined);
+  await run(["job", "run"], projectDir).catch(() => undefined);
   const sm = await StateManager.load(projectDir);
   const variants = sm.getState().assets[address]?.variants ?? {};
   const ready = Object.entries(variants).find(([, v]) => v.file);

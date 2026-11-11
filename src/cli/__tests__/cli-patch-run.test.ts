@@ -62,7 +62,7 @@ describe("patch command", () => {
       const sourceId = await generateSource(projectDir);
       await writePatch(projectDir, sourceId);
       await run(["patch", "apply", sourceId], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
 
       const { stdout } = await run(["generate", "reference"], projectDir);
       expect(stdout).not.toContain("Patches applied:");
@@ -93,7 +93,7 @@ describe("patch command", () => {
 
       await writePatch(projectDir, sourceId);
       await run(["patch", "apply", sourceId], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
       // The correction has to have landed for the consumer to be stale against it at all.
       expect(await patchedVariants(projectDir, sourceId)).toHaveLength(1);
       await dropAccepts();
@@ -113,7 +113,7 @@ describe("patch command", () => {
       const sourceId = await generateSource(projectDir);
       await writePatch(projectDir, sourceId);
       await run(["generate", "reference"], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
 
       const { stdout } = await run(["inspect", "reference:latentA"], projectDir);
       const lines = stdout.split("\n");
@@ -158,7 +158,7 @@ describe("patch command", () => {
       await writePatch(projectDir, sourceId);
       await run(["patch", "apply", sourceId], projectDir);
 
-      // No `job wait`: the chain is in flight.
+      // No `job run`: the chain is in flight.
       const { stdout } = await run(["clean", "--delete-undecided", "-y"], projectDir);
       expect(stdout).toContain("has a patch applying");
       expect((await variantsOf(projectDir, "reference:latentA"))[sourceId]).toBeDefined();
@@ -173,7 +173,7 @@ describe("patch command", () => {
       await run(["accept", sourceId, "--yes"], projectDir);
       await writePatch(projectDir, sourceId);
       await run(["patch", "apply", sourceId], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
       const [producedId] = (await patchedVariants(projectDir, sourceId))[0]!;
 
       await run(["accept", producedId, "--yes"], projectDir);
@@ -195,7 +195,7 @@ describe("patch command", () => {
       const sourceId = await generateSource(projectDir);
       await writePatch(projectDir, sourceId);
       await run(["patch", "apply", sourceId], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
       const [producedId] = (await patchedVariants(projectDir, sourceId))[0]!;
       await run(["accept", producedId], projectDir);
 

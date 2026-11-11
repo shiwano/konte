@@ -26,7 +26,7 @@ describe("patch command", () => {
       expect(before.trim().split("\n")).toEqual([expect.stringContaining(`pending  ${sourceId}`)]);
 
       await run(["patch", "apply", sourceId], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
 
       const { stdout: after } = await run(["patch", "list"], projectDir);
       expect(after).toContain(`applied  ${sourceId}`);
@@ -102,7 +102,7 @@ describe("patch command", () => {
       const sourceId = await generateSource(projectDir);
       await writePatch(projectDir, sourceId);
       await run(["patch", "apply", sourceId], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
       const [producedId] = (await patchedVariants(projectDir, sourceId))[0]!;
 
       const { stdout } = await run(["patch", "remove", sourceId, "-y"], projectDir);
@@ -131,7 +131,7 @@ export default definePatch<"image">(({ source }) => {
 `,
       );
       await run(["patch", "apply", sourceId], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
 
       await run(["patch", "remove", sourceId, "-y"], projectDir);
 
@@ -152,7 +152,7 @@ export default definePatch<"image">(({ source }) => {
       const sourceId = await generateSource(projectDir);
       await writePatch(projectDir, sourceId);
       await run(["patch", "apply", sourceId], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
       const [producedId] = (await patchedVariants(projectDir, sourceId))[0]!;
       await writePatch(projectDir, producedId);
 

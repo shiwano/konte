@@ -155,7 +155,7 @@ describe("diagnoseJob", () => {
   it("calls a submitted job no wait has claimed yet submitted, not unattended", () => {
     const job = generationJob({ lease: null });
     const found = diagnoseJob({ job, now: NOW });
-    expect(has(found, "`konte job wait` collects the result")).toBe(true);
+    expect(has(found, "`konte job run` collects the result")).toBe(true);
     expect(has(found, "No worker holds")).toBe(false);
     expect(jobStatusFlags({ job, now: NOW })).toEqual([]);
   });

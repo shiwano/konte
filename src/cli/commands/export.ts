@@ -31,13 +31,13 @@ import type { VideoRoots } from "../../core/roots.js";
 import { applyResolutionDefinitions } from "../../core/definition-hashes.js";
 import { printNextSteps } from "../next-steps.js";
 
-// Registered, not rendered — nothing pushes the render's outcome, so both paths name the wait.
-const EXPORT_NEXT_ACTIONS = [{ command: "konte job wait" }, { command: "konte probe export" }];
+// Registered, not rendered — nothing pushes the render's outcome, so both paths name `konte job run`.
+const EXPORT_NEXT_ACTIONS = [{ command: "konte job run" }, { command: "konte probe export" }];
 
 // Register an `export` job that renders the video profile to a delivered MP4. The render
 // runs asynchronously through the job pipeline (like `generate`): with delivery config,
 // each video layer's upscale is submitted first and the export job depends on them, so the
-// worker of the next `konte job wait` runs the upscales then the render. Re-running reuses
+// worker of the next `konte job run` runs the upscales then the render. Re-running reuses
 // fresh upscales (staleness cache) and registers a fresh render.
 async function registerVideoExport(opts: {
   roots: VideoRoots;

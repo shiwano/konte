@@ -118,7 +118,7 @@ Examples:
       if (active) {
         throw new KonteError(
           "RENAME_JOB_ACTIVE",
-          `Job ${active.id} is still ${active.status} — konte job wait ${active.id}, then rename`,
+          `Job ${active.id} is still ${active.status} — run \`konte job run\`, then rename`,
         );
       }
 

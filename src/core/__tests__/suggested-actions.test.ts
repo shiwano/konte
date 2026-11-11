@@ -786,13 +786,13 @@ describe("formatSuggestedActions", () => {
         label: "async",
         detail: "Jobs keep running after this command returns",
       },
-      { command: "konte job wait" },
+      { command: "konte job run" },
     ]);
     expect(result).toBe(
       [
         "Next steps:",
         "  (async) — Jobs keep running after this command returns",
-        "  konte job wait",
+        "  konte job run",
       ].join("\n"),
     );
   });
@@ -979,21 +979,21 @@ describe("suggestForStatus — jobs in flight", () => {
       (a) => a.command,
     );
 
-  it("offers the wait ahead of the review while a job runs", () => {
+  it("offers the run ahead of the review while a job runs", () => {
     const offered = commands({ jobsInFlight: true });
-    expect(offered.indexOf("konte job wait")).toBeLessThan(offered.indexOf("konte preview video"));
+    expect(offered.indexOf("konte job run")).toBeLessThan(offered.indexOf("konte preview video"));
   });
 
   it("offers no wait with nothing in flight", () => {
-    expect(commands({})).not.toContain("konte job wait");
+    expect(commands({})).not.toContain("konte job run");
   });
 
-  it("offers each stuck job's diagnosis ahead of the wait", () => {
+  it("offers each stuck job's diagnosis ahead of the run", () => {
     const offered = commands({ jobsInFlight: true, stuckJobIds: ["v-a", "v-b"] });
     expect(offered.slice(0, 3)).toEqual([
       "konte job show v-a",
       "konte job show v-b",
-      "konte job wait",
+      "konte job run",
     ]);
   });
 });

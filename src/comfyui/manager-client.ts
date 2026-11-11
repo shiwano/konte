@@ -125,7 +125,7 @@ export interface WaitOptions {
   expectedTotal: number;
   // Bounds only how long THIS waiter blocks; undefined = wait until the queue settles. Crash
   // recovery is the run lease's job (the heartbeat lapses and another worker reclaims), not this
-  // deadline — so the long-lived watcher and `job wait` loop pass none and just wait to the end.
+  // deadline — so the long-lived watcher and `job run` loop pass none and just wait to the end.
   timeoutMs?: number;
   pollIntervalMs?: number;
   onLog?: (msg: string) => void;

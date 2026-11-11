@@ -27,7 +27,7 @@ class ExitSignal extends Error {
   }
 }
 
-// The worker a `job wait` starts runs in this process, where a test's backend stubs reach it.
+// The worker a `job run` starts runs in this process, where a test's backend stubs reach it.
 jobRunnerHooks.start = (workspaceRoot) => {
   const registry = new VideoRegistry(workspaceRoot);
   const started = registry.start().catch(() => {});

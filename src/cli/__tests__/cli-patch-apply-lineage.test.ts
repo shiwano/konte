@@ -37,7 +37,7 @@ export default definePatch<"image">(({ source }) =>
       );
       const { stdout: applied } = await run(["patch", "apply", sourceId], projectDir);
       expect(applied).not.toContain("Failed:");
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
 
       const { stdout } = await run(["inspect", `reference:patch.${sourceId}.patched`], projectDir);
       const deps = stdout
@@ -69,7 +69,7 @@ export default definePatch<"image">(({ source }) =>
       const sourceId = await generateSource(projectDir);
       await writePatch(projectDir, sourceId);
       await run(["patch", "apply", sourceId], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
 
       const variants = await variantsOf(projectDir, "reference:latentA");
       const [, patched] = (await patchedVariants(projectDir, sourceId))[0]!;
@@ -83,7 +83,7 @@ export default definePatch<"image">(({ source }) =>
       const sourceId = await generateSource(projectDir);
       await writePatch(projectDir, sourceId);
       await run(["patch", "apply", sourceId], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
 
       const [, patched] = (await patchedVariants(projectDir, sourceId))[0]!;
       expect(Object.keys(patched.inputFingerprints)).not.toContain("reference:latentA");
@@ -96,7 +96,7 @@ export default definePatch<"image">(({ source }) =>
       const sourceId = await generateSource(projectDir);
       await writePatch(projectDir, sourceId);
       await run(["patch", "apply", sourceId], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
 
       await writePatch(
         projectDir,
@@ -109,7 +109,7 @@ export default definePatch<"image">(({ source }) =>
 `,
       );
       await run(["patch", "apply", sourceId], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
 
       // Applying again is how another attempt at the same correction is asked for, so the returned
       // step rolls again where an intermediate would have been reused.

@@ -30,7 +30,7 @@ Substitute your stage's `<scope>` / `<address>` into every step below.
 
 After `konte generate` or `konte reroll`:
 
-- `konte job wait` — returns when the queue drains; run it on its own, in the background, without extra confirmation. Never close a turn with jobs in flight.
+- `konte job run` — jobs run only while it does; it returns when the queue drains. Run it on its own, in the background, without extra confirmation. Never close a turn with jobs in flight.
 - Pending jobs wait for dependencies — including model downloads and node installation; do not reroll them.
 - A job stuck running far too long → `konte job show <jobId>` — its diagnosis separates a slow model, a prompt ComfyUI lost in a crash, and a job no worker is watching.
 - Failed job → `konte job show <jobId>`, then `konte job logs <jobId>`; fix the cause and `konte reroll <address>`. Several failed addresses → `konte reroll --failed --yes`.

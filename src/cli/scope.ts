@@ -12,7 +12,7 @@ export type Scope = "none" | "workspace" | "video";
 
 interface CommandScope {
   scope: Scope;
-  /** Skip the managed-file check (`job worker` runs under a wait that already passed it). */
+  /** Skip the managed-file check (`job worker` runs under a `job run` that already passed it). */
   skipSyncCheck?: boolean;
   /** Skip the workspace type-check (`doctor` reports type errors; `adapter comfy` predates them). */
   skipTypeCheck?: boolean;

@@ -76,7 +76,7 @@ jq -s '[.[] | select(.type == "token_usage_record") | .payload]
 - Compare observed reads with `scripts/check-journeys.ts` and the workspace's installed guides, including nested references and model guides reached through `konte adapter show` — current repository text may differ from what the session received.
 - Classify each mismatch and routing miss per `konte-claude-session-analysis` §7–8.
 - A pointer present in context does not prove the agent understood or ignored it. Cite the required artifact/action and what happened before diagnosing the routing mechanism.
-- Trace `preview` and `job wait` through process IDs, `write_stdin`, review submission and the next action. Distinguish human waiting, generation, short polling, lost process handles and an assistant ending its turn.
+- Trace `preview` and `job run` through process IDs, `write_stdin`, review submission and the next action. Distinguish human waiting, generation, short polling, lost process handles and an assistant ending its turn.
 - After compaction, check whether the agent resumed the current objective or reactivated an old check-in. User status questions do not themselves cancel production.
 
 ## CLI friction

@@ -13,7 +13,7 @@ export function workerLogPath(workspaceRoot: string): string {
 }
 
 /**
- * The workspace's worker log, shared by every wait that hosts a worker. A line names its host by
+ * The workspace's worker log, shared by every `konte job run` that hosts a worker. A line names its host by
  * a random instance id: sandboxed clients run them in separate pid namespaces,
  * so the pid alone can collide.
  */

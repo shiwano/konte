@@ -167,8 +167,7 @@ describe("doctor command (ComfyUI-Manager)", () => {
       expect(check?.message).toContain("(+1 more)");
       // The fourth id is the one the preview drops, and no command carries an id list.
       expect(check?.message).not.toContain(ids[3]);
-      expect(check?.message).toContain("konte job wait");
-      expect(check?.message).not.toContain(`konte job wait ${ids[0]}`);
+      expect(check?.message).toContain("konte job run");
     } finally {
       await mock.close();
     }

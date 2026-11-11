@@ -563,7 +563,7 @@ export function registerGenerateCommand(program: Command): void {
       const waitingCount = pendingDetails.length - submittableCount;
 
       // "started" merges the two ways a take gets under way: submitted to the backend by this
-      // run, or registered with its deps already met, which the next wait submits. Only an unmet
+      // run, or registered with its deps already met, which the next `konte job run` submits. Only an unmet
       // dep ("waiting") is a distinct state.
       const summary = {
         started: submittedVariantIds.length + submittableCount,
@@ -639,7 +639,7 @@ export function registerGenerateCommand(program: Command): void {
       }
       // The outcome and the one command that answers it share the last line, so a caller piping
       // through `tail -1` keeps both.
-      const next = hasWork ? "run `konte job wait`" : "nothing to wait on; run `konte status`";
+      const next = hasWork ? "run `konte job run`" : "nothing to wait on; run `konte status`";
       console.log(
         `\n${summary.started} started, ${summary.waiting} waiting, ${summary.synced} synced, ${summary.failed} failed, ${summary.skipped} skipped${skipBreakdown}${heldCount > 0 ? `, ${heldCount} held` : ""} — ${next}`,
       );

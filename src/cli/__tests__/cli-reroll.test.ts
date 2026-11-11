@@ -40,7 +40,7 @@ describe("reroll command", () => {
     expect(err.stdout).toContain("1 failed — run `konte status`");
   });
 
-  it("leaves a local job for the wait and reports a failed remote submit on generate", async () => {
+  it("leaves a local job for the run and reports a failed remote submit on generate", async () => {
     const projectDir = await initComfyRerollProject("generatesubmit", comfy);
     const err = (await run(["generate", "reference"], projectDir).catch((e) => e)) as {
       code: number;
@@ -49,7 +49,7 @@ describe("reroll command", () => {
     expect(err.code).toBe(1);
     expect(err.stdout).toMatch(/^ {2}reference:plate \(v-\S+\) {2}Workflow file not found/m);
     expect(err.stdout).toContain("1 started, 0 waiting, 2 synced, 1 failed");
-    expect(err.stdout).toContain("run `konte job wait`");
+    expect(err.stdout).toContain("run `konte job run`");
     const jobs = await new JobManager(projectDir).listJobs();
     expect(
       jobs.map((job) => [job.kind === "generation" && job.address, job.status]).sort(),
@@ -103,7 +103,7 @@ describe("reroll command", () => {
     const projectDir = await initRerollProject();
     const { stdout } = await run(["reroll", "reference:latentA", "reference:latentB"], projectDir);
     expect(stdout.trimEnd().split("\n").at(-1)).toBe(
-      "2 take(s) across 2 asset(s) — run `konte job wait`",
+      "2 take(s) across 2 asset(s) — run `konte job run`",
     );
   });
 

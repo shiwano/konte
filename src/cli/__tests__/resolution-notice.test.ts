@@ -26,7 +26,7 @@ describe("resolutionNotices", () => {
       [job("v-ZKquO93Y", ADDRESS, "running")],
     );
     expect(notices).toEqual([
-      `${ADDRESS}: v-ZKquO93Y still generating — this is the earlier take v-eI11yofR; \`konte job wait\` for the new one`,
+      `${ADDRESS}: v-ZKquO93Y still generating — this is the earlier take v-eI11yofR; \`konte job run\` for the new one`,
     ]);
   });
 
@@ -53,7 +53,7 @@ describe("sweepNotices", () => {
       job("v-new00002", "video:shot.02.motion", "pending"),
     ]);
     expect(notices).toEqual([
-      "video: v-new00001, v-new00002 still generating — the earlier takes are shown; `konte job wait` for the new ones",
+      "video: v-new00001, v-new00002 still generating — the earlier takes are shown; `konte job run` for the new ones",
     ]);
   });
 

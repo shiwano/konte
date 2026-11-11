@@ -253,7 +253,7 @@ export default defineReference(direction, { references: () => {
     });
     const { stdout } = await run(["generate", "reference", "--plan"], projectDir);
     expect(planEntries(stdout).map((e) => e.address)).toContain("reference:song");
-    await run(["job", "wait"], projectDir);
+    await run(["job", "run"], projectDir);
     await expect(run(["status"], projectDir)).rejects.toMatchObject({
       stderr: expect.stringMatching(/SONG_UNREAD[\s\S]*konte generate reference/),
     });

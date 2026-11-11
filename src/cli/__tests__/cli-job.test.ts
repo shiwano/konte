@@ -18,7 +18,7 @@ vi.setConfig({ testTimeout: 15000 });
 
 useTempWorkspace();
 
-describe("job wait command", () => {
+describe("job run command", () => {
   let projectDir: string;
   const address = "video:shot.01.motion";
 
@@ -62,14 +62,14 @@ describe("job wait command", () => {
     return job.variantId;
   }
 
-  // A model download carries no variant, so it is the one class of work the wait drives without
+  // A model download carries no variant, so it is the one class of work the run drives without
   // a result of its own. Left out, a run whose only failure was a multi-GB download reports
   // "no running, queued, or pending jobs" and exits 0.
-  it("reports a standalone model-download job it drove to failure (no ids)", async () => {
-    // What fails the install is not the subject — that the wait drives it and reports the failure
+  it("reports a standalone model-download job it drove to failure", async () => {
+    // What fails the install is not the subject — that the run drives it and reports the failure
     // is. Stub it, because the honest failure needs a ComfyUI to reach: an unreachable one is
     // deliberately transient (the job stays re-observable, see ComfyUIManagerClient.isAvailable),
-    // so a wait driving a real download would never settle here.
+    // so a run driving a real download would never settle here.
     vi.spyOn(ComfyUIBackend.prototype, "installModel").mockRejectedValue(
       new Error("HTTP 404 Not Found"),
     );
@@ -81,7 +81,7 @@ describe("job wait command", () => {
       url: "https://models.example/nonexistent.safetensors",
     });
 
-    const err = (await run(["job", "wait"], projectDir).catch((e) => e)) as {
+    const err = (await run(["job", "run"], projectDir).catch((e) => e)) as {
       code: number;
       stdout: string;
     };
@@ -92,44 +92,44 @@ describe("job wait command", () => {
   });
 
   // --timeout is a deadline on the command, not a budget handed to each waiter. A foreign-owned
-  // export never settles here, so without one this wait would block forever.
-  it("gives up on the deadline and names what is still in flight (no ids)", async () => {
+  // export never settles here, so without one this run would block forever.
+  it("gives up on the deadline and names what is still in flight", async () => {
     const { id } = await createForeignOwnedExport();
 
     const startedAt = Date.now();
-    const err = (await run(["job", "wait", "--timeout", "2"], projectDir).catch((e) => e)) as {
+    const err = (await run(["job", "run", "--timeout", "2"], projectDir).catch((e) => e)) as {
       code: number;
       stdout: string;
     };
     const elapsed = Date.now() - startedAt;
 
-    expect(err.stdout).toContain(`Job ${id}: still running (stopped waiting — timeout reached)`);
+    expect(err.stdout).toContain(`Job ${id}: still running (timeout reached)`);
     expect(err.stdout).toContain("1 still running");
     expect(err.code).toBe(1);
     // Bounded by the deadline, not by however many cascade passes it took.
     expect(elapsed).toBeLessThan(15_000);
   });
 
-  it("does not re-report jobs that already failed before the wait (no ids)", async () => {
+  it("does not re-report jobs that already failed before the run", async () => {
     await createFailedJob("Backend rejected: bad node", { reported: true });
 
     // A reported failure is prior history. Exit 0 — nothing failed here.
-    const { stdout } = await run(["job", "wait"], projectDir);
+    const { stdout } = await run(["job", "run"], projectDir);
 
     expect(stdout).toContain("No running, queued, or pending jobs — run `konte status`");
     expect(stdout).not.toContain("Job video:shot.01.motion (v-fail0001): failed");
   });
 
-  // The worker finalizes a take nobody blocks on; a fast one lands before the `job wait` that
-  // follows its reroll starts. The wait reports it.
-  it("reports takes that landed before the wait, once (no ids)", async () => {
+  // The worker finalizes a take nobody blocks on; a fast one lands before the `job run` that
+  // follows its reroll starts. The run reports it.
+  it("reports takes that landed before the run, once", async () => {
     await createSettledJob("v-done0001", { status: "completed", reported: false });
     await createSettledJob("v-done0002", { status: "completed", reported: false });
 
-    const { stdout } = await run(["job", "wait"], projectDir);
-    expect(stdout).toMatch(/2 job\(s\) settled: 2 completed \(\S+, 2 of them before this wait\)/);
+    const { stdout } = await run(["job", "run"], projectDir);
+    expect(stdout).toMatch(/2 job\(s\) settled: 2 completed \(\S+, 2 of them before this run\)/);
 
-    const again = await run(["job", "wait"], projectDir);
+    const again = await run(["job", "run"], projectDir);
     expect(again.stdout).toContain("No running, queued, or pending jobs — run `konte status`");
   });
 
@@ -181,31 +181,31 @@ describe("job wait command", () => {
       return variantId;
     }
 
-    it("is named on landing (no ids)", async () => {
+    it("is named on landing", async () => {
       const variantId = await landShortVariant(voice);
-      const { stdout } = await run(["job", "wait"], projectDir);
+      const { stdout } = await run(["job", "run"], projectDir);
       expect(stdout).toContain(
         `Job ${voice} (${variantId}): completed, but heard "she should fill the sky" — line 1: drops the opening "Bigger!"`,
       );
       expect(stdout.trimEnd().split("\n").at(-1)).toContain("1 job(s) settled: 1 completed");
     });
 
-    it("is read against the lines of the take a patch step corrects (no ids)", async () => {
+    it("is read against the lines of the take a patch step corrects", async () => {
       const step = "video:patch.v-src.fixed";
       const variantId = await landShortVariant(step, {
         patchFinalize: {
           output: { sourceAddress: voice, sourceVariantId: "v-src", patchHash: "patch" },
         },
       });
-      const { stdout } = await run(["job", "wait"], projectDir);
+      const { stdout } = await run(["job", "run"], projectDir);
       expect(stdout).toContain(`Job ${step} (${variantId}): completed, but heard`);
     });
   });
 
-  it("reports a failure no command reported yet, then keeps it as history (no ids)", async () => {
+  it("reports a failure no command reported yet, then keeps it as history", async () => {
     const variantId = await createFailedJob("Backend rejected: bad node", { reported: false });
 
-    const err = (await run(["job", "wait"], projectDir).catch((e) => e)) as {
+    const err = (await run(["job", "run"], projectDir).catch((e) => e)) as {
       code: number;
       stdout: string;
     };
@@ -213,13 +213,13 @@ describe("job wait command", () => {
     expect(err.stdout).toContain(`Job ${address} (${variantId}): failed`);
     expect(err.stdout).toContain("1 job(s) settled: 0 completed, 1 failed");
 
-    const { stdout } = await run(["job", "wait"], projectDir);
+    const { stdout } = await run(["job", "run"], projectDir);
     expect(stdout).toContain("No running, queued, or pending jobs — run `konte status`");
   });
 
   // A fresh job sits "queued" with no backendJobId between createJob and its creator's claim, and
   // stays so when the creator dies there.
-  it("submits an unclaimed queued job instead of reporting nothing to do (no ids)", async () => {
+  it("submits an unclaimed queued job instead of reporting nothing to do", async () => {
     vi.spyOn(ComfyUIBackend.prototype, "submit").mockRejectedValue(new Error("comfy down"));
     const jobManager = new JobManager(projectDir);
     await jobManager.createJob({
@@ -229,7 +229,7 @@ describe("job wait command", () => {
       backendKind: "comfy",
     });
 
-    const err = (await run(["job", "wait"], projectDir).catch((e) => e)) as {
+    const err = (await run(["job", "run"], projectDir).catch((e) => e)) as {
       code: number;
       stdout: string;
     };
@@ -238,24 +238,9 @@ describe("job wait command", () => {
     expect((await jobManager.getJob("v-orphan01")).status).not.toBe("queued");
   });
 
-  it("still reports an empty result when there are genuinely no jobs (no ids)", async () => {
-    const { stdout } = await run(["job", "wait"], projectDir);
+  it("still reports an empty result when there are genuinely no jobs", async () => {
+    const { stdout } = await run(["job", "run"], projectDir);
     expect(stdout).toContain("No running, queued, or pending jobs");
-  });
-
-  it("exits 1 on a job that already failed, named by id", async () => {
-    // Same gate as the bare wait: `konte generate && konte job wait <id> && konte export` must
-    // not run export over a failed job.
-    const variantId = await createFailedJob("Backend rejected: bad node", { reported: false });
-
-    const err = (await run(["job", "wait", variantId], projectDir).catch((e) => e)) as {
-      code: number;
-      stdout: string;
-    };
-    expect(err.code).toBe(1);
-
-    expect(err.stdout).toContain(`(${variantId}): failed`);
-    expect(err.stdout).toContain("1 job(s) settled: 0 completed, 1 failed");
   });
 
   // A submitter killed mid-transaction leaves a "running" job with no backendJobId and
@@ -276,20 +261,9 @@ describe("job wait command", () => {
     await jobManager.updateJob(variantId, { status: "running" });
   }
 
-  it("settles a stranded submit through the worker's cascade (single id)", async () => {
-    await createStrandedSubmit("v-strand01", ["video:timeline.character"]);
-
-    const err = (await run(["job", "wait", "v-strand01"], projectDir).catch((e) => e)) as {
-      code: number;
-      stdout: string;
-    };
-    expect(err.code).toBe(1);
-    expect(err.stdout).toContain("v-strand01): failed");
-  });
-
-  // An export rendered by another wait's worker holds a valid run lease, so
-  // `job wait` cannot claim it. It must POLL that running export to completion rather than
-  // report "nothing to do" — the bug was the wait exiting immediately while the watcher rendered.
+  // An export rendered by another run's worker holds a valid run lease, so
+  // `job run` cannot claim it. It must POLL that running export to completion rather than
+  // report "nothing to do".
   async function createForeignOwnedExport(): Promise<{ jobManager: JobManager; id: string }> {
     const jobManager = new JobManager(projectDir);
     const job = await jobManager.createExportJob({
@@ -303,10 +277,10 @@ describe("job wait command", () => {
     return { jobManager, id: job.id };
   }
 
-  // Let the foreign worker "finish" exactly when the waiter has observed the job and been
-  // refused the claim (its lease is live) — the point the wait is committed to polling. A
-  // wall-clock delay races the waiter's own startup: fire too early and the job is already
-  // terminal when the wait begins, so it correctly reports nothing to do and the test fails.
+  // Let the foreign worker "finish" exactly when the run has observed the job and been
+  // refused the claim (its lease is live) — the point the run is committed to polling. A
+  // wall-clock delay races the run's own startup: fire too early and the job is already
+  // terminal when the run begins, so it correctly reports nothing to do and the test fails.
   function settleOnRefusedClaim(
     jobManager: JobManager,
     id: string,
@@ -341,7 +315,7 @@ describe("job wait command", () => {
     return settled;
   }
 
-  it("waits for an export rendered by another worker instead of reporting empty (no ids)", async () => {
+  it("waits for an export rendered by another worker instead of reporting empty", async () => {
     const { jobManager, id } = await createForeignOwnedExport();
     const settle = settleOnRefusedClaim(jobManager, id, {
       status: "completed",
@@ -350,16 +324,16 @@ describe("job wait command", () => {
       completedAt: new Date().toISOString(),
     });
 
-    const { stdout } = await run(["job", "wait"], projectDir);
+    const { stdout } = await run(["job", "run"], projectDir);
     await settle;
 
     expect(stdout).not.toContain("No running, queued, or pending jobs");
     expect(stdout).toContain("1 job(s) settled: 1 completed");
   });
 
-  // The wait's own output is the whole report of the batch: what broke, then one last line
+  // The run's own output is the whole report of the batch: what broke, then one last line
   // carrying the outcome and the step — 60 "completed" lines would bury the two that did not.
-  it("summarizes a finished batch instead of listing each completion (no ids)", async () => {
+  it("summarizes a finished batch instead of listing each completion", async () => {
     const { jobManager, id } = await createForeignOwnedExport();
     const settle = settleOnRefusedClaim(jobManager, id, {
       status: "completed",
@@ -368,7 +342,7 @@ describe("job wait command", () => {
       completedAt: new Date().toISOString(),
     });
 
-    const { stdout } = await run(["job", "wait"], projectDir);
+    const { stdout } = await run(["job", "run"], projectDir);
     await settle;
 
     expect(stdout).toContain("1 job(s) settled: 1 completed");
@@ -377,7 +351,7 @@ describe("job wait command", () => {
     expect(stdout).toContain("run `konte status`");
   });
 
-  it("names the failure, then lands the outcome and the step on one line (no ids)", async () => {
+  it("names the failure, then lands the outcome and the step on one line", async () => {
     const { jobManager, id } = await createForeignOwnedExport();
     const settle = settleOnRefusedClaim(jobManager, id, {
       status: "failed",
@@ -385,7 +359,7 @@ describe("job wait command", () => {
       completedAt: new Date().toISOString(),
     });
 
-    const err = (await run(["job", "wait"], projectDir).catch((e) => e)) as {
+    const err = (await run(["job", "run"], projectDir).catch((e) => e)) as {
       code: number;
       stdout: string;
     };
@@ -401,7 +375,7 @@ describe("job wait command", () => {
     expect(err.stdout).not.toContain(`konte job show ${id}`);
   });
 
-  it("reports a failure it watched even when another wait reported it first (no ids)", async () => {
+  it("reports a failure it watched even when another run reported it first", async () => {
     const { jobManager, id } = await createForeignOwnedExport();
     const now = new Date().toISOString();
     const settle = settleOnRefusedClaim(
@@ -416,7 +390,7 @@ describe("job wait command", () => {
       { afterReread: true },
     );
 
-    const err = (await run(["job", "wait"], projectDir).catch((e) => e)) as {
+    const err = (await run(["job", "run"], projectDir).catch((e) => e)) as {
       code: number;
       stdout: string;
     };
@@ -424,23 +398,6 @@ describe("job wait command", () => {
 
     expect(err.code).toBe(1);
     expect(err.stdout).toContain(`Job ${id}: failed`);
-  });
-
-  it("waits for an export rendered by another worker (single id)", async () => {
-    const { jobManager, id } = await createForeignOwnedExport();
-    const settle = settleOnRefusedClaim(jobManager, id, {
-      status: "completed",
-      progress: 100,
-      outputFile: "dist/video/main/out.mp4",
-      completedAt: new Date().toISOString(),
-    });
-
-    const { stdout } = await run(["job", "wait", id], projectDir);
-    await settle;
-
-    expect(stdout).toContain(`Job ${id}: completed`);
-    expect(stdout).toContain(`Export ${id}: dist/video/main/out.mp4`);
-    expect(stdout).toContain("1 job(s) settled: 1 completed");
   });
 
   it("names the export path from the cwd when run at the workspace root", async () => {
@@ -453,14 +410,14 @@ describe("job wait command", () => {
     });
 
     const workspaceDir = path.resolve(projectDir, "..", "..");
-    const { stdout } = await run(["job", "wait", id], workspaceDir);
+    const { stdout } = await run(["job", "run"], workspaceDir);
     await settle;
 
     const expected = path.join(path.relative(workspaceDir, projectDir), "dist/video/main/out.mp4");
     expect(stdout).toContain(`Export ${id}: ${expected}`);
   });
 
-  it("waits for a node-activate rendered by another worker (single id)", async () => {
+  it("runs until a node-activate rendered by another worker settles", async () => {
     const jobManager = new JobManager(projectDir);
     const job = await jobManager.ensureComfyNodeActivateJob({ dependsOnJobs: [], cnrIds: [] });
     await jobManager.claimJobForRun(job.id, "w-foreignlive", 60_000);
@@ -470,21 +427,20 @@ describe("job wait command", () => {
       completedAt: new Date().toISOString(),
     });
 
-    const { stdout } = await run(["job", "wait", job.id], projectDir);
+    const { stdout } = await run(["job", "run"], projectDir);
     await settle;
 
-    expect(stdout).toContain(`Job ${job.id}: completed`);
     expect(stdout).toContain("1 job(s) settled: 1 completed");
   });
 
-  it("resolves a stranded submit via the cascade instead of deadlocking (no ids)", async () => {
+  it("resolves a stranded submit via the cascade instead of deadlocking", async () => {
     // Dep has no ready variant and no active job, so the reclaim fails it deterministically
-    // (no backend needed). The point is that the wait terminates rather than blocking on the
-    // stranded job in the wait set.
+    // (no backend needed). The point is that the run terminates rather than blocking on the
+    // stranded job in the run set.
     await createStrandedSubmit("v-strand02", ["video:timeline.character"]);
 
     // The stranded job fails deterministically, so the cascade terminates AND exits non-zero.
-    const err = (await run(["job", "wait"], projectDir).catch((e) => e)) as {
+    const err = (await run(["job", "run"], projectDir).catch((e) => e)) as {
       code: number;
       stdout: string;
     };

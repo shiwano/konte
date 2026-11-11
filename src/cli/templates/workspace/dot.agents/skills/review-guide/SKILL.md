@@ -16,7 +16,7 @@ Every human review runs the same two steps — preview with a handoff, read the 
 - The human says they review on another device → `--tunnel` — a public https URL on the startup line, with a 4-digit PIN they must enter. Hand them both; it dies with the command.
 - `konte preview <scope>` runs until the human submits or closes it — run it without extra confirmation, and wait for it to exit. Background it if your harness notifies you when a background command exits; otherwise never close a turn while it has not exited. Never open a browser yourself or start a second one while it's up.
 - Lost a running preview's output → `konte review record list` — a record newer than the preview is its submit.
-- An idle, unanswered preview is normal — don't kill it, and don't `konte job wait` on it.
+- An idle, unanswered preview is normal — don't kill it.
 - What the human sees — per part for `direction`; a flat pool grouped by media kind for `reference`; per shot for `animatic`/`video` (accept toggle + pin/text comments; a pin (`x`/`y` 0-1 of the frame) captures the frame as `[image: <path>]`). The soundtrack is its own target: comments land on `timeline#stem`, timed, never pinned.
 - The `overlay` is signed off by the shot accepts — only one changed after every shot was accepted shows on its own, on the reel page as `<stage>:timeline#overlay`.
 - A video shot badged `Animatic: …` (`not made yet`, `out of date`, `generating`) is standing in with the board — no picture to sign off, so its toggle is closed. Comments stay on the shot and survive into the finished take.

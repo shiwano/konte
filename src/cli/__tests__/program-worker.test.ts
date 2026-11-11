@@ -13,7 +13,7 @@ it.each([
   [["job", "worker", "--help"]],
   [["job", "worker", "-y"]],
   [["job"]],
-  [["job", "wait"]],
+  [["job", "run"]],
   [["status"]],
   [["job", "worker", "--cwd", "/ws"]],
 ])("leaves %j to the full program", (args) => {

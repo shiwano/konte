@@ -41,7 +41,7 @@ Bring each file under `assets/files/` in as `file` kind — no generation. Pick 
 
 - Wire the plates the setups owe → `staging-guide`; every shot stays pending through the bake. None owed → step 7.
 - Spawn `konte-prompt-critic` on `animatic.tsx` before the bake; a rewrite confined to what its findings name bakes without a second pass.
-- `konte generate animatic`, `konte job wait`, then spawn `konte-animatic-critic` on `plates` — recut or reroll a wrong frame before any panel stands on it. Accept nothing: a plate is never review work; the accept of the first panel built on it signs it off.
+- `konte generate animatic`, `konte job run`, then spawn `konte-animatic-critic` on `plates` — recut or reroll a wrong frame before any panel stands on it. Accept nothing: a plate is never review work; the accept of the first panel built on it signs it off.
 
 ## 7. Develop one direction sequence at a time
 

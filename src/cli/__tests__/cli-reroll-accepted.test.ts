@@ -68,7 +68,7 @@ describe("reroll command", () => {
     await fs.writeFile(path.join(projectDir, "assets", "files", "bad.png"), "not a real png");
 
     await run(["reroll", "reference:badResize", "reference:badChild", "--yes"], projectDir);
-    const err = (await run(["job", "wait"], projectDir).catch((e) => e)) as {
+    const err = (await run(["job", "run"], projectDir).catch((e) => e)) as {
       code: number;
       stdout: string;
     };
@@ -109,8 +109,8 @@ describe("reroll command", () => {
   });
 
   // A take that fails in the worker (here: ffmpeg choking on a non-image "bad.png") is surfaced by
-  // the wait with a non-zero exit.
-  it("reports a failed reroll take on the wait", async () => {
+  // the run with a non-zero exit.
+  it("reports a failed reroll take on the run", async () => {
     const projectDir = await initRerollProject();
     const badReference = REROLL_REFERENCE_TS.replace(
       "  return { character, bgm, latentA, latentB, keyed, derived };",
@@ -123,7 +123,7 @@ describe("reroll command", () => {
     await fs.writeFile(path.join(projectDir, "assets", "files", "bad.png"), "not a real png");
 
     await run(["reroll", "reference:badResize"], projectDir);
-    const err = (await run(["job", "wait"], projectDir).catch((e) => e)) as {
+    const err = (await run(["job", "run"], projectDir).catch((e) => e)) as {
       code: number;
       stdout: string;
     };

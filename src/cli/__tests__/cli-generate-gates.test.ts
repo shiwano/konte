@@ -184,7 +184,7 @@ describe("animatic wiring gate", () => {
 
     // The local picture is not a vendor spend, so the gate lets this through.
     await run(["generate", "video"], projectDir);
-    await run(["job", "wait"], projectDir).catch(() => undefined);
+    await run(["job", "run"], projectDir).catch(() => undefined);
     const sm = await StateManager.load(projectDir);
     const variants = sm.getState().assets["video:shot.01.still"]?.variants ?? {};
     const variantId = Object.entries(variants).find(([, v]) => v.file)?.[0];
@@ -234,7 +234,7 @@ export default definePatch<"image">(({ source }) => asset("patched", editComfy, 
 
     // The local picture is not a vendor spend, so the gate lets this through.
     await run(["generate", "video"], projectDir);
-    await run(["job", "wait"], projectDir).catch(() => undefined);
+    await run(["job", "run"], projectDir).catch(() => undefined);
     const sm = await StateManager.load(projectDir);
     const variants = sm.getState().assets["video:timeline.still"]?.variants ?? {};
     const variantId = Object.entries(variants).find(([, v]) => v.file)?.[0];
@@ -737,7 +737,7 @@ describe("animatic acceptance gate (multi-shot)", () => {
     expect(stdout).toContain("video:shot.01.refined  video:shot.01.motion");
     // The outcome and the step share the LAST line: a caller piping through `tail -1` keeps both.
     expect(stdout.trimEnd().split("\n").at(-1)).toBe(
-      "2 started, 1 waiting, 0 synced, 0 failed, 0 skipped — run `konte job wait`",
+      "2 started, 1 waiting, 0 synced, 0 failed, 0 skipped — run `konte job run`",
     );
   });
 
@@ -899,7 +899,7 @@ export default definePatch<"video">(({ source }) => asset("patched", edit, { ima
 
     const { stdout } = await run(["generate", "video"], projectDir);
     expect(stdout.trimEnd().split("\n").at(-1)).toBe(
-      "1 started, 0 waiting, 0 synced, 0 failed, 0 skipped, 2 held — run `konte job wait`",
+      "1 started, 0 waiting, 0 synced, 0 failed, 0 skipped, 2 held — run `konte job run`",
     );
 
     // A named reroll asked for the held shot, so it refuses.

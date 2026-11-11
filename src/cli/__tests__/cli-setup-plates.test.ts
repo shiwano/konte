@@ -90,7 +90,7 @@ export default defineAnimatic(direction, {
   async function generated(shots: string): Promise<string> {
     const projectDir = await project(shots);
     await run(["generate", "animatic"], projectDir);
-    await run(["job", "wait"], projectDir);
+    await run(["job", "run"], projectDir);
     return projectDir;
   }
 
@@ -101,7 +101,7 @@ export default defineAnimatic(direction, {
     const { stdout } = await run(["generate", "animatic"], projectDir);
     expect(stdout).not.toContain("unused");
 
-    await run(["job", "wait"], projectDir);
+    await run(["job", "run"], projectDir);
     const sm = await StateManager.load(projectDir);
     const variants = Object.values(sm.getState().assets["animatic:plate.front"]?.variants ?? {});
     expect(variants.some((v) => v.file)).toBe(true);
@@ -140,7 +140,7 @@ export default defineAnimatic(direction, {
     await fs.writeFile(path.join(projectDir, "animatic.tsx"), TWO_SETUP_ANIMATIC);
     await acceptDirection(projectDir);
     await run(["generate", "animatic"], projectDir);
-    await run(["job", "wait"], projectDir);
+    await run(["job", "run"], projectDir);
 
     const { stdout } = await runCapture(["status", "-v"], projectDir);
     expect(stdout).not.toContain("animatic:plate.side");

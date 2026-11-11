@@ -798,7 +798,7 @@ export function computeStatusSections(
   }
 
   // Running/queued/pending jobs are deliberately absent: nothing to act on (the pipeline submits a
-  // pending job once its deps land, and `konte job wait` is what blocks for the outcome), and
+  // pending job once its deps land, and `konte job run` is what blocks for the outcome), and
   // `konte job list` already reports them with more detail. Their only bearing on a decision here is that
   // `generate` must not be re-run for them — carried by the readiness line's in-flight count.
   return sections;

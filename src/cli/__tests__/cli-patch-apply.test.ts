@@ -29,7 +29,7 @@ describe("patch command", () => {
           "m",
         ),
       );
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
 
       const step = Object.entries(
         await variantsOf(projectDir, `reference:patch.${sourceId}.patched`),
@@ -61,7 +61,7 @@ export default definePatch<"image">(({ source }) => {
 `,
       );
       await run(["patch", "apply", sourceId], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
 
       for (const name of ["wide", "patched"]) {
         const step = await variantsOf(projectDir, `reference:patch.${sourceId}.${name}`);
@@ -94,11 +94,11 @@ export default definePatch<"image">(({ source }) => {
 `,
       );
       await run(["patch", "apply", sourceId], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
       const wideVariants = await variantsOf(projectDir, `reference:patch.${sourceId}.wide`);
 
       await run(["patch", "apply", sourceId], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
 
       expect(Object.keys(await variantsOf(projectDir, `reference:patch.${sourceId}.wide`))).toEqual(
         Object.keys(wideVariants),

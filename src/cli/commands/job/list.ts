@@ -53,7 +53,7 @@ export function registerJobListCommand(program: Command): void {
       "\nLists jobs newest-first. By default only active jobs (pending, queued, running)\n" +
         "and failures are shown; completed and cancelled jobs are hidden. Pass --verbose to\n" +
         "include them, or --status <status> to show exactly one status.\n" +
-        "\nA running job reads `submitted` while it is with its backend and no `konte job wait`\n" +
+        "\nA running job reads `submitted` while it is with its backend and no `konte job run`\n" +
         "has claimed it yet.\n" +
         "\nA ⚠ beside a status marks a job that is not progressing: unconfirmed (the backend\n" +
         "stopped answering), unwatched (its worker stopped renewing its run lease), stranded\n" +

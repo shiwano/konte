@@ -352,7 +352,7 @@ describe("JobWatcher live terminal observation", () => {
   type Scanner = { scanForNewJobs(): Promise<void> };
 
   it("emits for a job first observed terminal during the session", async () => {
-    // Never caught running/queued by this watcher (e.g. finished by a concurrent `konte job wait`
+    // Never caught running/queued by this watcher (e.g. finished by a concurrent `konte job run`
     // before a waiter attached). The scan is the only path that can still emit it, so it must.
     const fake = makeLog();
     const watcher = new JobWatcher(roots, "v1", { log: fake.log });

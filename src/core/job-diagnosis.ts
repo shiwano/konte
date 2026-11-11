@@ -91,7 +91,7 @@ export function comfyQueueAhead(job: JobRecord, peers: readonly JobRecord[]): nu
 }
 
 // A generation job handed to its backend with its lease let go — by the spend command that
-// submitted it, or by a wait that reached its deadline. The next `konte job wait` collects it.
+// submitted it, or by a `konte job run` that reached its deadline. The next `konte job run` collects it.
 export function isSubmittedUnclaimed(job: JobRecord): boolean {
   return (
     job.kind === "generation" &&
@@ -185,14 +185,14 @@ export function diagnoseJob(input: DiagnoseJobInput): string[] {
           : "The next worker can retry submission."),
     );
   } else if (isSubmittedUnclaimed(job)) {
-    out.push("Submitted to its backend; `konte job wait` collects the result.");
+    out.push("Submitted to its backend; `konte job run` collects the result.");
   } else if (isUnwatched(job, now)) {
     const since = job.lease
       ? `expired ${formatDuration(now - Date.parse(job.lease.expiresAt))} ago`
       : "never claimed";
     out.push(
       `No worker holds this job's run lease (${since}), so nothing is currently watching it or ` +
-        "committing its result. Run `konte job wait`.",
+        "committing its result. Run `konte job run`.",
     );
   }
 

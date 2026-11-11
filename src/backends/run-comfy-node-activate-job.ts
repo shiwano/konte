@@ -95,7 +95,7 @@ function isAboutToSubmit(job: JobRecord): boolean {
  * A queue that cannot be read contributes nothing rather than blocking. Deferring on it would be
  * the safer-looking choice and the wrong one: a server that answers nothing is holding nothing
  * this reboot could destroy, and waiting for it to prove itself idle means waiting forever — a
- * `job wait` with no ComfyUI running would never settle. Refusing to reboot an uninspectable
+ * `job run` with no ComfyUI running would never settle. Refusing to reboot an uninspectable
  * server is `activateNodes`' job, and it fails with a reason instead of spinning.
  */
 async function findComfyServerWork(
@@ -113,7 +113,7 @@ async function findComfyServerWork(
  * The job-record half of the survey on its own — no network.
  *
  * Callers poll the gate about once a second, and an absent ComfyUI answers a queue probe only
- * after a connection timeout. Paying that on every pass made a single-id `job wait` on an
+ * after a connection timeout. Paying that on every pass made a `job run` waiting on an
  * activation crawl. So the cheap half screens the common cases (work of ours about to land),
  * and the authoritative half runs once, under the reboot lock, where it decides.
  */

@@ -26,7 +26,7 @@ describe("patch command", () => {
       const sourceId = await generateSource(projectDir);
       await writePatch(projectDir, sourceId);
       await run(["patch", "apply", sourceId], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
 
       // Stands in for editing the script: the CLI runs in-process here and the module-cache bust
       // behind a patch reload is a Bun internal, so an edited script would never be re-read.
@@ -112,7 +112,7 @@ export default definePatch<"image">(() =>
       const sourceId = await generateSource(projectDir);
       await writePatch(projectDir, sourceId);
       await run(["patch", "apply", sourceId], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
       const [producedId] = (await patchedVariants(projectDir, sourceId))[0]!;
       await writePatch(projectDir, producedId);
 
@@ -138,7 +138,7 @@ export default definePatch<"image">(({ source }) => {
 `,
       );
       await run(["patch", "apply", sourceId], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
       const wideAddress = `reference:patch.${sourceId}.wide`;
 
       // Drop the first step's take, so re-applying rebuilds it. `patched` is unchanged and would
@@ -150,7 +150,7 @@ export default definePatch<"image">(({ source }) => {
       });
 
       await run(["patch", "apply", sourceId], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
 
       const patched = await variantsOf(projectDir, `reference:patch.${sourceId}.patched`);
       expect(Object.values(patched).filter((v) => v.file)).toHaveLength(2);
@@ -166,7 +166,7 @@ export default definePatch<"image">(({ source }) => {
       const first = await run(["patch", "apply", sourceId], projectDir);
       const producedId = (out: string) => out.match(/ → (\S+) \(patch of /)?.[1];
 
-      // Before `job wait`, so the returned step's job is still in flight.
+      // Before `job run`, so the returned step's job is still in flight.
       const { stdout } = await run(["patch", "apply", sourceId], projectDir);
       expect(stdout).not.toContain("Failed:");
       expect(producedId(stdout)).toBe(producedId(first.stdout));
@@ -191,7 +191,7 @@ export default definePatch<"image">(({ source }) => {
 
       await writePatch(projectDir, sourceId);
       await run(["patch", "apply", sourceId], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
 
       const [, patched] = (await patchedVariants(projectDir, sourceId))[0]!;
       expect(patched.createdAt > ahead).toBe(true);
@@ -202,7 +202,7 @@ export default definePatch<"image">(({ source }) => {
       const sourceId = await generateSource(projectDir);
       await writePatch(projectDir, sourceId);
       await run(["patch", "apply"], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
 
       const { stdout } = await run(["patch", "apply"], projectDir);
       expect(stdout).not.toContain("(patch of");

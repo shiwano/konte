@@ -5,10 +5,10 @@ import { KonteError } from "../core/errors.js";
 import { WorkerLog } from "../worker/worker-log.js";
 import { startWorkerHost } from "../worker/worker-host.js";
 
-// A worker that dies this many times under one wait is not coming up.
+// A worker that dies this many times under one `konte job run` is not coming up.
 const MAX_STARTS = 3;
 
-/** The workspace's jobs run for one `konte job wait`. */
+/** The workspace's jobs run for one `konte job run`. */
 export interface AttachedRunner {
   /** Settles with the exit code of the worker given up on, or 0 once stopped. */
   readonly exited: Promise<number>;
@@ -41,9 +41,9 @@ function startAttachedRunner(workspaceRoot: string): AttachedRunner {
 }
 
 /**
- * Keeps the workspace's jobs running for as long as a wait lasts: by the worker another wait hosts
- * when one is up, else by a worker this wait hosts. Checked on every pass, since a worker another
- * wait hosts goes away with that wait.
+ * Keeps the workspace's jobs running for as long as a run lasts: by the worker another run hosts
+ * when one is up, else by a worker this run hosts. Checked on every pass, since a worker another
+ * run hosts goes away with that run.
  */
 export class JobRunnerGuard {
   private runner: AttachedRunner | null = null;
@@ -70,8 +70,8 @@ export class JobRunnerGuard {
       const tail = this.runner?.stderrTail();
       throw new KonteError(
         "JOB_RUNNER_EXITED",
-        `The konte worker this wait started exited ${this.starts} times — no job is being run. ` +
-          "Read `.konte/logs/worker.log` in the workspace to see why, then `konte job wait` again",
+        `The konte worker this run started exited ${this.starts} times — no job is being run. ` +
+          "Read `.konte/logs/worker.log` in the workspace to see why, then `konte job run` again",
         tail ? tail.split("\n").map((l) => `  ${l}`) : [],
       );
     }

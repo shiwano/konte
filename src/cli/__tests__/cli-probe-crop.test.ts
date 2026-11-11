@@ -70,7 +70,7 @@ async function initAndGenerate(): Promise<string> {
   await fs.writeFile(path.join(projectDir, "animatic.tsx"), ANIMATIC_TSX);
   await acceptDirection(projectDir);
   await run(["generate", "reference"], projectDir);
-  await run(["job", "wait"], projectDir).catch(() => undefined);
+  await run(["job", "run"], projectDir).catch(() => undefined);
   return projectDir;
 }
 

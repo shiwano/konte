@@ -1484,7 +1484,7 @@ function songUnread(song: string): KonteError {
   return new KonteError(
     "SONG_UNREAD",
     `${address} has no read take, so no shot's beats fall anywhere yet — generate it ` +
-      "(`konte generate reference`, then `konte job wait`), or read a take that has none " +
+      "(`konte generate reference`, then `konte job run`), or read a take that has none " +
       "(`konte song analyze`)",
   );
 }

@@ -115,7 +115,7 @@ describe("patch command", () => {
       const sourceId = await generateSource(projectDir);
       await writePatch(projectDir, sourceId);
       await run(["patch", "apply", sourceId], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
       const [producedId] = (await patchedVariants(projectDir, sourceId))[0]!;
 
       const err = await run(["patch", "new", producedId], projectDir).catch((e) => e);
@@ -143,7 +143,7 @@ export default definePatch<"image">(({ source }) => {
 `,
       );
       await run(["patch", "apply", sourceId], projectDir);
-      await run(["job", "wait"], projectDir).catch(() => undefined);
+      await run(["job", "run"], projectDir).catch(() => undefined);
 
       const err = await run(["patch", "new", `reference:patch.${sourceId}.wide`], projectDir).catch(
         (e) => e,

@@ -83,7 +83,7 @@ function inFlightNotice(
 ): string | undefined {
   const ids = generatingIds(variant, activeJobs);
   if (ids.length === 0) return undefined;
-  return `${variant.address}: ${ids.join(", ")} still generating — this is the earlier take ${variant.variantId}; \`konte job wait\` for the new one`;
+  return `${variant.address}: ${ids.join(", ")} still generating — this is the earlier take ${variant.variantId}; \`konte job run\` for the new one`;
 }
 
 /** A take named by its variant id is the caller's pick and is never asked about. */
@@ -137,7 +137,7 @@ export function sweepNotices(
   if (generating.length > 0) {
     const ids = generating.flatMap((t) => generatingIds(t, activeJobs));
     notices.push(
-      `${scope}: ${ids.join(", ")} still generating — the earlier takes are shown; \`konte job wait\` for the new ones`,
+      `${scope}: ${ids.join(", ")} still generating — the earlier takes are shown; \`konte job run\` for the new ones`,
     );
   }
   if (stale.length > 0) {

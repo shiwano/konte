@@ -104,7 +104,7 @@ export default defineVideo(direction, {
     await acceptDirection(projectDir);
     await acceptFileAssets(projectDir);
     await run(["generate", "video"], projectDir);
-    await run(["job", "wait"], projectDir).catch(() => undefined);
+    await run(["job", "run"], projectDir).catch(() => undefined);
     return projectDir;
   }
 

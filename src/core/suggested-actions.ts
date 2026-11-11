@@ -568,9 +568,9 @@ interface SuggestStatusInput {
   songPending?: SongPending;
   /** What the span's digest still lacks, while the direction is not accepted. */
   sourceGaps?: SourceGaps;
-  /** Takes of the song waiting to be read — their analysis jobs run under `konte job wait`. */
+  /** Takes of the song waiting to be read — their analysis jobs run under `konte job run`. */
   songReadingsPending?: boolean;
-  /** A job is still running or queued — `konte job wait`. */
+  /** A job is still running or queued — `konte job run`. */
   jobsInFlight?: boolean;
   /** Active jobs that are not progressing (`jobStatusFlags`) — `konte job show` diagnoses each. */
   stuckJobIds?: readonly string[];
@@ -695,9 +695,9 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
   // Ahead of the reviews: the song's page lays a take's beats and lines over it, which a take not
   // read yet has neither.
   if (input.songReadingsPending || input.jobsInFlight) {
-    actions.unshift({ command: "konte job wait" });
+    actions.unshift({ command: "konte job run" });
   }
-  // Ahead of the wait, which would block on a job that is not progressing.
+  // Ahead of `konte job run`, which would block on a job that is not progressing.
   for (const id of [...(input.stuckJobIds ?? [])].reverse()) {
     actions.unshift({ command: `konte job show ${id}` });
   }
