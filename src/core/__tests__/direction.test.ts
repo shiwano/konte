@@ -1789,6 +1789,10 @@ describe("checkDirection setups", () => {
         animaticSetups: plates(["wall"]),
       }).staleWaivers.map((w) => w.key),
     ).toContain("setup-unrealized_wall");
+    // A board read beside a reference.tsx that failed to load keeps it: the pool is unread.
+    expect(
+      checkDirection(waived, { animaticSetups: plates(["wall"]) }).staleWaivers.map((w) => w.key),
+    ).not.toContain("setup-unrealized_wall");
   });
 
   it("classifies setup findings as setups findings", () => {

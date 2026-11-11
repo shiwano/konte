@@ -2439,11 +2439,14 @@ export function checkDirection(
   // `setup-unrealized` waiver stale, since `checkSetups` emitted nothing to match it. So the whole
   // class waits for the board — the cost is that a genuinely stale `unused-setup` waiver goes
   // unreported on an animatic-less pass, which is the same conservative trade the rosters make.
-  if (options.animaticSetups !== undefined) evaluatedClasses.add("setups");
+  // Both classes also read the reference pool (the view and anchor findings, the subjects a lineup
+  // and a passer draw on), so a reference.tsx that failed to load holds them back too.
+  const poolRead = options.referenceAssetNames !== undefined;
+  if (options.animaticSetups !== undefined && poolRead) evaluatedClasses.add("setups");
   // The staging class's direction half always runs (it reads the direction alone), but two of its
   // findings need the board — so, like the setups class, the whole class waits for it before a
   // waiver of it may be called stale.
-  if (options.stagingStage !== undefined) evaluatedClasses.add("staging");
+  if (options.stagingStage !== undefined && poolRead) evaluatedClasses.add("staging");
 
   // The arc findings: walk the arc tree, checking each node that has a resolvable lens — a leaf's
   // shot arc, or a branch's arc over its children (recursively). The engine recurses, so the tree,
