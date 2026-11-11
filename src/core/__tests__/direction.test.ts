@@ -1268,6 +1268,14 @@ describe("checkDirection setups", () => {
     expect(found(dir).map((f) => f.subject)).toEqual(["medium.wide"]);
   });
 
+  it.each(["jump-back", "jump-forward"] as const)("demands them across a %s", (join) => {
+    const dir = axis([
+      { ...shot("01", "ordinary", 3), setup: "wide" },
+      { ...shot("02", "disruption", 2), setup: "medium", join },
+    ]);
+    expect(found(dir).map((f) => f.subject)).toEqual(["medium.wide"]);
+  });
+
   it("reports an aside that runs no time, off the song", () => {
     const dir = axis([{ ...shot("01", "ordinary", 3), setup: "wide" }]);
     (dir.sequence.shots as unknown[]).push({
