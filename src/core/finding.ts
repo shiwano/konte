@@ -175,12 +175,35 @@ const ACCEPT_JUDGED_CODES = [
 
 export type AcceptJudgedCode = (typeof ACCEPT_JUDGED_CODES)[number];
 
+// The direction codes only a fix clears; every other direction code is waivable.
+const FIX_ONLY_DIRECTION_CODES = [
+  "lens-role-mismatch",
+  "empty-synopsis",
+  "unused-character",
+  "unused-character-voice",
+  "unused-narrator",
+  "unused-prop",
+  "unused-location",
+  "unused-setup",
+  "off-grid-duration",
+  "lineup-vacuous",
+  "join-lineup-mismatch",
+  "song-unreferenced",
+] as const satisfies readonly DirectionFindingCode[];
+
+export type WaivableCode = Exclude<DirectionFindingCode, (typeof FIX_ONLY_DIRECTION_CODES)[number]>;
+
 // Each code's traits, its `signsOff` agreeing with `ACCEPT_JUDGED_CODES`.
 type TraitsOf<Code extends FindingCode> = {
   [K in Code]: FindingTraits & { signsOff: K extends AcceptJudgedCode ? true : false };
 };
 
-const DIRECTION_FINDING_TRAITS: TraitsOf<DirectionFindingCode> = {
+// A direction code's `clears` agreeing with `FIX_ONLY_DIRECTION_CODES`.
+type DirectionTraitsOf<Code extends DirectionFindingCode> = {
+  [K in Code]: TraitsOf<Code>[K] & { clears: K extends WaivableCode ? "waive" : "fix" };
+};
+
+const DIRECTION_FINDING_TRAITS: DirectionTraitsOf<DirectionFindingCode> = {
   "missing-role": waive("stage+downstream"),
   "no-payoff": waive("stage+downstream"),
   "role-out-of-order": waive("stage+downstream"),

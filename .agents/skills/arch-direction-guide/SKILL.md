@@ -22,7 +22,7 @@ How konte turns `direction.ts` into two verdicts the spend gate acts on: a machi
 
 What a code clears by, holds and sets in with is the finding registry's (`findingTraits`, `finding.ts`); `directionFindings` hands the check's result to it, each finding with the file it is fixed in (`findingFixStage`) and, for one to fix, the part it sits on (`findingPart`), whose accept it holds.
 
-- Clears — `waive` only where following the rule can hurt a piece (the arc heuristics, `off-beat-cut`, …); a contradiction, an empty field or a declaration naming nothing (`lineup-vacuous`, `off-grid-duration`, the `unused-*`, …) is `fix`: a waiver of one is reported stale (`fixOnly`).
+- Clears — `waive` only where following the rule can hurt a piece (the arc heuristics, `off-beat-cut`, …); a contradiction, an empty field or a declaration naming nothing (`lineup-vacuous`, `off-grid-duration`, the `unused-*`, …) is `fix`: `defineDirection` types a waiver key by the waivable codes (`WaivableCode`); a waiver of one that slips past (a widened key) is reported stale (`fixOnly`).
 - Onset — the roster wiring (`*-unreferenced`, the setups class bar `unused-setup` and `view-unanchored`) waits for the direction's acceptance (`reportableDirectionFindings`). The `unused-*` report always, bar a shotless direction.
 - Holds — a direction finding holds the two shot stages, never `reference`; one fixed in a stage file reaches from there (`spendStages`).
 - `pendingShot` — an address into one is minted unchecked; the graph records what is built on it (`pending-reference`, an `edge` hold).

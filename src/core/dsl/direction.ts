@@ -5,6 +5,7 @@ import { ratioOf } from "../aspect.js";
 import type { ScriptLine } from "../types/script.js";
 import type { PanelLane, ShotJoin, Typography } from "../types/definition.js";
 import type { ArcItem, LensSpec } from "../direction-check.js";
+import type { WaivableCode } from "../finding.js";
 import type { PendingShotInput, ShotHandle, ShotInput, StageShots } from "./builders.js";
 import type { DiscoveryResult, ShotFunction } from "./shot-context.js";
 import {
@@ -1114,6 +1115,16 @@ type ClockedOf<D extends DirectionInput> = D["policy"] extends { song: string }
   : "song" extends keyof D["policy"]
     ? boolean
     : false;
+// A key naming a code no reason cancels is blamed here; one naming no finding now is
+// `waiver-stale`. A widened `string` key passes through to it.
+type WaiverKey = WaivableCode | `${WaivableCode}_${string}`;
+type ConstrainWaiverKeys<W> = {
+  [K in keyof W & string as string extends K
+    ? never
+    : K extends WaiverKey
+      ? never
+      : K]: DirectionViolation<`konte: "${K}" names no code a waiver cancels — key it \`<code>\` or \`<code>_<subject>\` as the finding reads`>;
+};
 type ConstrainIds<D extends DirectionInput> = {
   characters: ConstrainRosterIds<D["characters"]> & ConstrainCastVoiceIds<D["characters"]>;
   locations: ConstrainRosterIds<D["locations"]> & ConstrainLandmarkIds<D["locations"]>;
@@ -1125,7 +1136,8 @@ type ConstrainIds<D extends DirectionInput> = {
     DirectionShotTuple<D>,
     ClockedOf<D>
   >;
-} & (D extends { props: infer P } ? { props: ConstrainRosterIds<P> } : unknown) &
+} & (D extends { waivers: infer W } ? { waivers: ConstrainWaiverKeys<W> } : unknown) &
+  (D extends { props: infer P } ? { props: ConstrainRosterIds<P> } : unknown) &
   (D extends { narrator: infer N } ? { narrator: ConstrainVoiceId<N> } : unknown) &
   (D["policy"] extends { song: infer S extends string }
     ? { policy: { song: ValidatedIdentifier<S> } }

@@ -1541,6 +1541,14 @@ export type ClockedOf<D extends DirectionInput> = D["policy"] extends {
   : "song" extends keyof D["policy"]
     ? boolean
     : false;
+export type WaiverKey = WaivableCode | `${WaivableCode}_${string}`;
+export type ConstrainWaiverKeys<W> = {
+  [K in keyof W & string as string extends K
+    ? never
+    : K extends WaiverKey
+      ? never
+      : K]: DirectionViolation<`konte: "${K}" names no code a waiver cancels — key it \`<code>\` or \`<code>_<subject>\` as the finding reads`>;
+};
 export type ConstrainIds<D extends DirectionInput> = {
   characters: ConstrainRosterIds<D["characters"]> & ConstrainCastVoiceIds<D["characters"]>;
   locations: ConstrainRosterIds<D["locations"]> & ConstrainLandmarkIds<D["locations"]>;
@@ -1553,12 +1561,19 @@ export type ConstrainIds<D extends DirectionInput> = {
     ClockedOf<D>
   >;
 } & (D extends {
-  props: infer P;
+  waivers: infer W;
 }
   ? {
-      props: ConstrainRosterIds<P>;
+      waivers: ConstrainWaiverKeys<W>;
     }
   : unknown) &
+  (D extends {
+    props: infer P;
+  }
+    ? {
+        props: ConstrainRosterIds<P>;
+      }
+    : unknown) &
   (D extends {
     narrator: infer N;
   }
@@ -4729,6 +4744,21 @@ declare const ACCEPT_JUDGED_CODES: readonly [
   "stem-unmouthed",
 ];
 export type AcceptJudgedCode = (typeof ACCEPT_JUDGED_CODES)[number];
+declare const FIX_ONLY_DIRECTION_CODES: readonly [
+  "lens-role-mismatch",
+  "empty-synopsis",
+  "unused-character",
+  "unused-character-voice",
+  "unused-narrator",
+  "unused-prop",
+  "unused-location",
+  "unused-setup",
+  "off-grid-duration",
+  "lineup-vacuous",
+  "join-lineup-mismatch",
+  "song-unreferenced",
+];
+export type WaivableCode = Exclude<DirectionFindingCode, (typeof FIX_ONLY_DIRECTION_CODES)[number]>;
 /**
  * The code this check reports.
  *   - pin-unanchored: the pinned image is a reference sheet or a plate.
