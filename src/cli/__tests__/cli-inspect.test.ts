@@ -535,7 +535,7 @@ describe("inspect command (direction scope)", () => {
   });
 
   it("reports acceptance once the direction is signed off", async () => {
-    await acceptDirection(projectDir);
+    await run(["accept", "direction"], projectDir);
     const { stdout } = await run(["inspect", "direction"], projectDir);
     expect(stdout).toMatch(/Acceptance: accepted \(\d+ parts\)/);
     expect(stdout).not.toContain("unaccepted");

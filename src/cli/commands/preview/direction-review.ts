@@ -91,7 +91,7 @@ import {
 import { type ReportOutcome, emptyOutcome } from "./review-outcome.js";
 import { reviewHeldError, reviewHeldFindings } from "../../finding-gates.js";
 import { loadCheckContext } from "../../../core/check-context.js";
-import { collectFindings } from "../../../core/checks.js";
+import { collectFindings, waiverCoverageOf } from "../../../core/checks.js";
 import { sourceViewOf, spanLabelOf } from "../../../core/source-direction.js";
 
 // A direction part's feedback address is `direction:<part>`, the same form a handoff note carries.
@@ -156,7 +156,11 @@ export async function handleGetDirectionState(
     ...(await loadDirectionStageInputs(videoRoot, direction, reference)),
   });
   const currentHash = directionHash(direction);
-  const acceptanceView = directionAcceptanceView(direction, manager.getDirectionAcceptance());
+  const acceptanceView = directionAcceptanceView(
+    direction,
+    manager.getDirectionAcceptance(),
+    check.waiverCoverage,
+  );
   const subjectHashes = directionPartHashes(direction);
 
   const partView = (address: string) => ({
@@ -576,8 +580,9 @@ export async function handleDirectionSubmit(
   // A box holding a part a finding to fix sits on is not signed off. Only that box's accept is dropped; the rest of the review still lands.
   const skippedDecisions: NonNullable<ReviewRecord["skippedDecisions"]> = [];
   const acceptedSections = DIRECTION_SECTIONS.filter((s) => sectionDecisions[s] === true);
+  const ctx = await loadCheckContext({ videoRoot, direction });
+  const waiverCoverage = waiverCoverageOf(ctx);
   if (acceptedSections.length > 0) {
-    const ctx = await loadCheckContext({ videoRoot, direction });
     const findings = await collectFindings(ctx, (t) => t.holds.accept === true);
     for (const section of acceptedSections) {
       const held = reviewHeldError(
@@ -641,10 +646,20 @@ export async function handleDirectionSubmit(
       }
       if (Object.keys(sectionDecisions).length > 0) {
         mgr.setDirectionAcceptance(
-          applyDirectionSectionDecisions(direction, mgr.getDirectionAcceptance(), sectionDecisions),
+          applyDirectionSectionDecisions(
+            direction,
+            mgr.getDirectionAcceptance(),
+            sectionDecisions,
+            new Date(),
+            waiverCoverage,
+          ),
         );
       }
-      summary = summarizeDirectionAcceptance(direction, mgr.getDirectionAcceptance());
+      summary = summarizeDirectionAcceptance(
+        direction,
+        mgr.getDirectionAcceptance(),
+        waiverCoverage,
+      );
       reviewDecisions = [...touchedAddresses].map((address) => ({
         address,
         feedback: recordFeedbackFor(

@@ -194,6 +194,19 @@ describe("the accumulated order", () => {
     expect(found[0]!.message).toContain("shot 01");
   });
 
+  it("reports the pairs a waiver of the flip lets through, whichever shot said otherwise", () => {
+    const dir = direction({
+      shots: [
+        shot("01", "deck", { lineup: ["mother", "ane", "imouto"] }),
+        shot("02", "stern", { lineup: ["imouto", "ane", "mother"] }),
+      ],
+      waivers: { "lineup-flipped_02": "seen from behind" },
+    });
+    expect([...checkDirection(dir).waiverCoverage]).toEqual([
+      ["direction:waivers.lineup-flipped_02", ["imouto<ane", "imouto<mother", "ane<mother"]],
+    ]);
+  });
+
   it("takes a declared `lineupTo` as the change, so the shots after it read against the new order", () => {
     const dir = direction({
       shots: [

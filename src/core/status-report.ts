@@ -30,6 +30,7 @@ import {
   parseAddress,
 } from "./address.js";
 import { assertNever } from "./assert.js";
+import { waiverCoverageIn } from "./board-analysis.js";
 import { staleSettledLeaves } from "./board-leaves.js";
 import { loadCheckContext } from "./check-context.js";
 import { type PatchSubject, type StaleWaiverLine, collectFindings } from "./checks.js";
@@ -732,10 +733,15 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
   // whole-project view always reports the direction; the characters are accepted *in* the reference
   // stage and reported alongside it.
   const acceptance = manager.getDirectionAcceptance();
+  const waiverCoverage = direction
+    ? waiverCoverageIn(videoRoot, direction, { reference, animatic, video }, manager)
+    : undefined;
   const directionAcceptance: DirectionAcceptanceSummary | null = direction
-    ? summarizeDirectionAcceptance(direction, acceptance)
+    ? summarizeDirectionAcceptance(direction, acceptance, waiverCoverage)
     : null;
-  const acceptanceView = direction ? directionAcceptanceView(direction, acceptance) : null;
+  const acceptanceView = direction
+    ? directionAcceptanceView(direction, acceptance, waiverCoverage)
+    : null;
   // The cast gate: a character's look, plus every cast voice sample (the video stage's own
   // gate — surfaced here too, or Next steps would keep offering a `generate video` that aborts).
   // A `file` reference is satisfied by its media landing on disk, never by generating it, so
@@ -781,9 +787,11 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
     pendingShotsByStage,
     waiverShotIds: new Set(
       direction
-        ? shotWaiversAwaitingAccept(direction, manager.getDirectionAcceptance()).flatMap(
-            (w) => w.shotIds,
-          )
+        ? shotWaiversAwaitingAccept(
+            direction,
+            manager.getDirectionAcceptance(),
+            waiverCoverage,
+          ).flatMap((w) => w.shotIds)
         : [],
     ),
   });
@@ -842,7 +850,11 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
     ].every((ref) => manager.resolveReference(ref, { includeStale: true }) !== null);
   };
   const waiverShotAddresses = direction
-    ? shotWaiversAwaitingAccept(direction, manager.getDirectionAcceptance()).flatMap((w) =>
+    ? shotWaiversAwaitingAccept(
+        direction,
+        manager.getDirectionAcceptance(),
+        waiverCoverage,
+      ).flatMap((w) =>
         w.shotIds.flatMap((shotId) => {
           const stage = (["video", "animatic"] as const).find((s) => builtShot(s, shotId));
           return stage ? [formatShotAddress(stage, shotId)] : [];

@@ -66,7 +66,7 @@ import { loadPatchCatalog, patchHashesOf } from "../../../core/patch.js";
 import { JobManager } from "../../../core/job-manager.js";
 import { reviewGate, reviewHeldError, reviewHeldFindings } from "../../finding-gates.js";
 import { loadCheckContext } from "../../../core/check-context.js";
-import { collectFindings } from "../../../core/checks.js";
+import { collectFindings, waiverCoverageOf } from "../../../core/checks.js";
 import { readyUndecidedVariants } from "../../../core/staleness.js";
 import { StateManager } from "../../../core/state/index.js";
 import { variantDir } from "../../../core/variant-dir.js";
@@ -218,7 +218,9 @@ async function runDirectionAcceptance(
 
   const previewManager = await StateManager.load(videoRoot);
   const acceptance = previewManager.getDirectionAcceptance();
-  const view = directionAcceptanceView(direction, acceptance);
+  const checkContext = await loadCheckContext({ videoRoot, direction, manager: previewManager });
+  const waiverCoverage = waiverCoverageOf(checkContext);
+  const view = directionAcceptanceView(direction, acceptance, waiverCoverage);
   const recorded = Object.keys(acceptance?.parts ?? {});
   const inScope = (part: string) =>
     whole || partScopes.some((scope) => matchesAddressScope(part, scope));
@@ -280,7 +282,7 @@ async function runDirectionAcceptance(
 
   if (!opts.off) {
     await reviewGate(
-      await loadCheckContext({ videoRoot, direction, manager: previewManager }),
+      checkContext,
       [...decisions].filter(([, accept]) => accept).map(([address]) => ({ op: "accept", address })),
       "Cannot accept the direction",
     );
@@ -303,15 +305,17 @@ async function runDirectionAcceptance(
       direction,
       manager.getDirectionAcceptance(),
       decisions,
+      new Date(),
+      waiverCoverage,
     );
     manager.setDirectionAcceptance(applied.acceptance);
     return applied;
   });
 
-  const summary = summarizeDirectionAcceptance(direction, result.acceptance);
+  const summary = summarizeDirectionAcceptance(direction, result.acceptance, waiverCoverage);
   // The flow parts a shotless direction holds back are named rather than counted into the tail
   // line, so "42 of 44" does not read as a bug in what just ran.
-  const postView = directionAcceptanceView(direction, result.acceptance);
+  const postView = directionAcceptanceView(direction, result.acceptance, waiverCoverage);
   const held = opts.off
     ? []
     : [...postView.parts]
@@ -762,10 +766,15 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
   // An accept signs off everything the review page shows for that target, so it cannot land while
   // a finding to fix sits on it: a named target is refused, a stage's unit left out and named.
   // A dep the cascade reaches that one holds is left for its own accept.
-  const findings = await collectFindings(
-    await loadCheckContext({ videoRoot, definitions, direction, manager: loaded, graph }),
-    (t) => t.holds.accept === true,
-  );
+  const checkContext = await loadCheckContext({
+    videoRoot,
+    definitions,
+    direction,
+    manager: loaded,
+    graph,
+  });
+  const findings = await collectFindings(checkContext, (t) => t.holds.accept === true);
+  const waiverCoverage = waiverCoverageOf(checkContext);
   const heldFor = (targets: readonly HoldTarget[]) =>
     reviewHeldFindings(
       findings,
@@ -1036,6 +1045,7 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
             direction,
             directionCascadeShotIds(accepted),
             cascadeOpts.held,
+            waiverCoverage,
           ),
           ...cascadeDirectionReferenceAccepts(
             manager,

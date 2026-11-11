@@ -24,6 +24,7 @@ import {
   type SongVariantState,
   type StaleWaiver,
   type StagingStageState,
+  type WaiverCoverage,
   checkDirection,
   checkViewNamings,
   directionFindings,
@@ -188,6 +189,10 @@ function directionCheckOf(ctx: CheckContext): ReturnType<typeof checkDirection> 
     directionResult.set(ctx, result);
   }
   return result;
+}
+
+export function waiverCoverageOf(ctx: CheckContext): WaiverCoverage | undefined {
+  return directionCheckOf(ctx)?.waiverCoverage;
 }
 
 const DIRECTION_CHECK: Check = {

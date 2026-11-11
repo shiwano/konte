@@ -296,11 +296,16 @@ export type StaleWaiver = {
   fixOnly?: true;
 };
 
+// What each waiver lets through now, by its part address. A waiver whose finding names nothing that
+// can grow, or was not evaluated, has no entry.
+export type WaiverCoverage = ReadonlyMap<string, readonly string[]>;
+
 type DirectionCheckResult = {
   structureErrors: DirectionStructureError[];
   active: DirectionFinding[];
   waived: DirectionFinding[];
   staleWaivers: StaleWaiver[];
+  waiverCoverage: WaiverCoverage;
 };
 
 export function resolveLens(
@@ -2530,8 +2535,15 @@ export function checkDirection(
   const active: DirectionFinding[] = [];
   const waived: DirectionFinding[] = [];
   const matched = new Set<string>();
+  const waiverCoverage = new Map<string, readonly string[]>();
   for (const finding of reported) {
     const key = directionWaiverKey(finding);
+    if (finding.covers && key in waivers && isWaivableCode(finding.code)) {
+      const address = formatDirectionWaiverAddress(key);
+      waiverCoverage.set(address, [
+        ...new Set([...(waiverCoverage.get(address) ?? []), ...finding.covers]),
+      ]);
+    }
     if (signedOffBy(finding.judgedBy, options.accepted)) {
       if (key in waivers) matched.add(key);
     } else if (key in waivers && isWaivableCode(finding.code)) {
@@ -2559,7 +2571,7 @@ export function checkDirection(
     });
   }
 
-  return { structureErrors, active, waived, staleWaivers };
+  return { structureErrors, active, waived, staleWaivers, waiverCoverage };
 }
 
 // The part address of every shot and every child node, by id — what a finding on an item sits on.

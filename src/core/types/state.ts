@@ -209,9 +209,11 @@ export const SCHEMA_VERSION = 1;
 
 // One part's sign-off: the part's hash when the human accepted it (see `directionPartHashes`), and
 // when. Once the part hashes to something else, this acceptance is about words that no longer exist.
+// `covers` is a waiver's alone: what it let through when signed (`WaiverCoverage`).
 const DirectionPartAcceptanceSchema = z.object({
   partHash: z.string(),
   acceptedAt: z.string(),
+  covers: z.array(z.string()).optional(),
 });
 
 // The human's sign-off on the direction. Variant-less and project-wide (unlike every

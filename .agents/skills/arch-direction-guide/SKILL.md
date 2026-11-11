@@ -32,6 +32,7 @@ A structural error (`validateDirectionStructure`, `DirectionErrorCode`) is a fix
 
 - `DirectionFindingClass` is what a pass must have read to evaluate a code; stale-waiver detection covers only the classes a pass evaluated.
 - A waiver is keyed `<code>` or `<code>_<subject>` (`directionWaiverKey`) and splits back on its first `_` — no code contains one.
+- A finding whose key can come to cover more carries `covers` (`setup-unconsumed`: the shots, `lineup-flipped`: the pairs); `checkDirection` returns them as `waiverCoverage`, an accept records them on the waiver part, and the part is stale once the live set outgrows the record (`standing`, `direction-acceptance.ts`). Every writer and reader of the acceptance passes the coverage (`waiverCoverageOf`, `waiverCoverageIn`).
 - Below the root a `NODE_SCOPED_CODES` subject is prefixed with the node id (`missing-role_act1.disruption`) — every node shares the top-level `direction.waivers`.
 
 ## Asides

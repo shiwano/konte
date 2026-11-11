@@ -52,6 +52,7 @@ import type {
 import { buildReelReviewPlan, reelShotAcceptability } from "../../../core/review-acceptability.js";
 import { continuousFrameKeys, directionShotWaivers, panelRole } from "../../../core/direction.js";
 import { shotWaiversAwaitingAccept } from "../../../core/direction-acceptance.js";
+import { waiverCoverageIn } from "../../../core/board-analysis.js";
 import type {
   AnimaticDefinition,
   Handoff,
@@ -253,12 +254,23 @@ function shotMoveIndex(
 
 function shotWaiverIndex(
   manager: StateManager,
-  direction: Direction | null,
+  ctx: ReelReviewContext,
+  video: VideoDefinition | null,
 ): Map<string, ShotWaiverInfo[]> {
   const byId = new Map<string, ShotWaiverInfo[]>();
+  const { direction } = ctx;
   if (!direction) return byId;
   const awaiting = new Set(
-    shotWaiversAwaitingAccept(direction, manager.getDirectionAcceptance()).map((w) => w.address),
+    shotWaiversAwaitingAccept(
+      direction,
+      manager.getDirectionAcceptance(),
+      waiverCoverageIn(
+        ctx.videoRoot,
+        direction,
+        { reference: ctx.reference, animatic: ctx.animatic, video },
+        manager,
+      ),
+    ).map((w) => w.address),
   );
   for (const waiver of directionShotWaivers(direction)) {
     const info = {
@@ -509,7 +521,11 @@ function reelShotStates(
   const { ctx, video, stage, manager } = scope;
   const directionShotById = shotFactsIndex(ctx.direction);
   const movesByShotId = shotMoveIndex(ctx.animatic, ctx.direction);
-  const waiversByShotId = shotWaiverIndex(manager, ctx.direction);
+  const waiversByShotId = shotWaiverIndex(
+    manager,
+    ctx,
+    (video.stage === "video" ? video : ctx.downstreamVideo) as VideoDefinition | null,
+  );
   const acceptability = reelShotAcceptability(manager, video, plan);
 
   // A clip may name an address outside the shot's own pool — a board frame an animatic stands on,

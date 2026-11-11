@@ -89,7 +89,8 @@ import type { ReportOutcome } from "./review-outcome.js";
 import type { ReelReviewContext } from "./reel-review.js";
 import { reviewHeldFindings } from "../../finding-gates.js";
 import { loadCheckContext } from "../../../core/check-context.js";
-import { collectFindings } from "../../../core/checks.js";
+import { collectFindings, waiverCoverageOf } from "../../../core/checks.js";
+import type { WaiverCoverage } from "../../../core/direction.js";
 import { type Finding, formatFindingLine } from "../../../core/finding.js";
 
 // ffmpeg mixes run per accepted shot; a whole-reel Accept all must not spawn one per shot at once.
@@ -514,6 +515,7 @@ interface ReelSubmit {
     video: StageDefinition;
     animatic: AnimaticDefinition | null;
     held: (address: string, variantId?: string) => boolean;
+    waiverCoverage: WaiverCoverage | undefined;
   };
 }
 
@@ -693,19 +695,17 @@ async function prepareReelSubmit(
   }
 
   // A shot whose accept a finding holds is not signed off. A dep a cascade reaches that one holds is left for its own accept.
-  const report = await collectFindings(
-    await loadCheckContext({
-      videoRoot,
-      definitions: {
-        reference: ctx.reference,
-        animatic,
-        video: (stage === "video" ? video : downstreamVideo) as VideoDefinition | null,
-      },
-      direction: ctx.direction,
-      manager,
-    }),
-    (t) => t.holds.accept === true,
-  );
+  const checkContext = await loadCheckContext({
+    videoRoot,
+    definitions: {
+      reference: ctx.reference,
+      animatic,
+      video: (stage === "video" ? video : downstreamVideo) as VideoDefinition | null,
+    },
+    direction: ctx.direction,
+    manager,
+  });
+  const report = await collectFindings(checkContext, (t) => t.holds.accept === true);
   const displayed = body.displayedVariants ?? {};
   const heldFor = (addresses: readonly string[]) =>
     reviewHeldFindings(
@@ -733,6 +733,7 @@ async function prepareReelSubmit(
         reviewHeldFindings(report, [
           { op: "accept", address, variantId: variantId ?? displayed[address] },
         ]).length > 0,
+      waiverCoverage: waiverCoverageOf(checkContext),
     },
   };
 }
@@ -1192,6 +1193,7 @@ async function cascadeDirectionParts(
         submit.ctx.direction,
         new Set([shotId]),
         submit.cascade.held,
+        submit.cascade.waiverCoverage,
       );
       ledger.cascadeAccepted.push(...parts.map((address) => ({ address, via })));
     }

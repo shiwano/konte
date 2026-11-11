@@ -9,6 +9,7 @@ import {
   directionCascadeReferenceIds,
   directionCascadeShotIds,
   isDirectionSpendGateSatisfied,
+  shotWaiversAwaitingAccept,
   songGateBlocking,
   summarizeDirectionAcceptance,
 } from "../direction-acceptance.js";
@@ -1078,6 +1079,110 @@ describe("applyDirectionShotCascade", () => {
       const { restamped } = applyDirectionShotCascade(castDirection(), partial, ["01"]);
       expect(restamped).toEqual([]);
     });
+  });
+});
+
+describe("waiver coverage", () => {
+  const address = "direction:waivers.setup-unconsumed_bedroom-wide";
+  const covering = (...shotIds: string[]) => new Map([[address, shotIds]]);
+  const waived = () => {
+    const direction = makeDirection();
+    direction.waivers!["setup-unconsumed_bedroom-wide"] = "drawn by hand";
+    return direction;
+  };
+
+  it("ages a signed waiver out once it lets through a subject it did not when signed", () => {
+    const direction = waived();
+    const accepted = applyDirectionSectionDecisions(
+      direction,
+      null,
+      ALL_SECTIONS,
+      new Date(),
+      covering("02"),
+    );
+    expect(accepted.parts[address]?.covers).toEqual(["02"]);
+    expect(directionAcceptanceView(direction, accepted, covering("02")).complete).toBe(true);
+
+    const grown = directionAcceptanceView(direction, accepted, covering("02", "03"));
+    expect(grown.parts.get(address)).toBe("stale");
+    expect(
+      shotWaiversAwaitingAccept(direction, accepted, covering("02", "03")).map((w) => w.address),
+    ).toEqual([address]);
+  });
+
+  it("keeps the sign-off when the waiver lets through less, or was not evaluated", () => {
+    const direction = waived();
+    const accepted = applyDirectionSectionDecisions(
+      direction,
+      null,
+      ALL_SECTIONS,
+      new Date(),
+      covering("02", "03"),
+    );
+    expect(directionAcceptanceView(direction, accepted, covering("03")).complete).toBe(true);
+    expect(directionAcceptanceView(direction, accepted, new Map()).complete).toBe(true);
+    expect(directionAcceptanceView(direction, accepted).complete).toBe(true);
+  });
+
+  it("re-signs a grown waiver with the accept of a shot on its setup", () => {
+    const direction = waived();
+    const accepted = applyDirectionSectionDecisions(
+      direction,
+      null,
+      ALL_SECTIONS,
+      new Date(),
+      covering("02"),
+    );
+    const now = covering("02", "03");
+    const { acceptance, restamped } = applyDirectionShotCascade(
+      direction,
+      accepted,
+      ["02"],
+      new Date(),
+      undefined,
+      now,
+    );
+    expect(restamped).toEqual([address]);
+    expect(acceptance!.parts[address]?.covers).toEqual(["02", "03"]);
+    expect(directionAcceptanceView(direction, acceptance!, now).complete).toBe(true);
+  });
+
+  it("re-signs a grown waiver named to `accept`, and reports a standing one as no accept", () => {
+    const direction = waived();
+    const accepted = acceptAll(direction);
+    const now = covering("02");
+    const first = applyDirectionPartDecisions(
+      direction,
+      accepted,
+      new Map([[address, true]]),
+      new Date(),
+      now,
+    );
+    expect(first.accepted).toEqual([address]);
+    const second = applyDirectionPartDecisions(
+      direction,
+      first.acceptance,
+      new Map([[address, true]]),
+      new Date(),
+      now,
+    );
+    expect(second.accepted).toEqual([]);
+  });
+
+  // A pass that could not read the board re-signs a reworded reason without forgetting what the
+  // waiver was signed over.
+  it("keeps what was signed when a pass that cannot read the coverage re-signs the waiver", () => {
+    const direction = waived();
+    const accepted = applyDirectionSectionDecisions(
+      direction,
+      null,
+      ALL_SECTIONS,
+      new Date(),
+      covering("02"),
+    );
+    direction.waivers!["setup-unconsumed_bedroom-wide"] = "drawn by hand, on paper";
+    const { acceptance } = applyDirectionShotCascade(direction, accepted, ["02"]);
+    expect(acceptance!.parts[address]?.covers).toEqual(["02"]);
   });
 });
 

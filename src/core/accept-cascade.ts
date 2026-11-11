@@ -14,6 +14,7 @@ import {
   applyDirectionReferenceCascade,
   applyDirectionShotCascade,
 } from "./direction-acceptance.js";
+import type { WaiverCoverage } from "./direction.js";
 import type { Direction } from "./dsl/direction.js";
 import { parsePlaceholder } from "./dsl/shot-context.js";
 import type { JobManager } from "./job-manager.js";
@@ -324,7 +325,8 @@ export function cascadeDirectionShotAccepts(
   direction: Direction | null,
   shotIds: ReadonlySet<string>,
   // A part whose accept a finding holds; left unsigned.
-  held?: (address: string) => boolean,
+  held: ((address: string) => boolean) | undefined,
+  coverage: WaiverCoverage | undefined,
 ): string[] {
   if (!direction || shotIds.size === 0) return [];
   const prior = manager.getDirectionAcceptance();
@@ -334,6 +336,7 @@ export function cascadeDirectionShotAccepts(
     shotIds,
     new Date(),
     held,
+    coverage,
   );
   // Identity, not `restamped.length`: the cascade also sweeps orphans the gate has stopped reading,
   // and a write that only swept has an empty `restamped` with a record that really did change.

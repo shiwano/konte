@@ -7,7 +7,7 @@ import {
   matchesAddressScope,
   tryParseAddress,
 } from "./address.js";
-import type { CheckContext, FindingReport } from "./checks.js";
+import { type CheckContext, type FindingReport, waiverCoverageOf } from "./checks.js";
 import { collectFramedCharacterIds } from "./direction.js";
 import { directionAcceptanceView, songGateBlocking } from "./direction-acceptance.js";
 import type { Character, Direction } from "./dsl/direction.js";
@@ -316,8 +316,13 @@ function partStatus(status: string): string {
 // The direction must be reviewed and accepted by a human before any animatic/video spend. Which
 // parts it demands narrows once the piece has been signed off end to end.
 function directionUnaccepted(ctx: CheckContext, manager: StateManager): Unaccepted[] {
-  if (!ctx.direction || ctx.directionAccepted) return [];
-  const { gateBlocking } = directionAcceptanceView(ctx.direction, manager.getDirectionAcceptance());
+  if (!ctx.direction) return [];
+  const { gateBlocking, gateSatisfied } = directionAcceptanceView(
+    ctx.direction,
+    manager.getDirectionAcceptance(),
+    waiverCoverageOf(ctx),
+  );
+  if (gateSatisfied) return [];
   const clear = "`konte preview direction`, or `konte accept <part>...`";
   if (gateBlocking.length === 0) {
     // Nothing live is blocking, so what re-blocked the gate is a part deleted since it was accepted.

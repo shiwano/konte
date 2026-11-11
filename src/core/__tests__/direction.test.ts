@@ -1634,6 +1634,20 @@ describe("checkDirection setups", () => {
     ]);
   });
 
+  it("reports the shots a waiver of it lets through", () => {
+    const { waived, waiverCoverage } = checkDirection(
+      { ...shared, waivers: { "setup-unconsumed_wall": "drawn by hand" } },
+      {
+        referenceAssetNames: ["here"],
+        animaticSetups: plates(["wall"], { ignoring: { wall: ["01", "02"] } }),
+      },
+    );
+    expect(waived.map((f) => f.code)).toEqual(["setup-unconsumed"]);
+    expect([...waiverCoverage]).toEqual([
+      ["direction:waivers.setup-unconsumed_wall", ["01", "02"]],
+    ]);
+  });
+
   // A one-shot setup owes no plate, so what its keyframe stands on is the location reference itself.
   it("demands the location reference of a shot whose setup has no plate", () => {
     const { active } = checkDirection(shared, {

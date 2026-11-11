@@ -154,6 +154,8 @@ type DirectionFindingFields = {
   // `["sequences", <id>]` pair deeper per level (the same path its review address is built from).
   // The engine itself is path-blind; the caller that walks the tree stamps it.
   path?: readonly string[];
+  // What a waiver of it lets through under the one key, where that can grow without the key moving.
+  covers?: readonly string[];
   message: string;
 };
 
@@ -898,6 +900,7 @@ export function checkSetups(
       findings.push({
         code: "setup-unconsumed",
         subject: setup.id,
+        covers: ignoring,
         message: plated
           ? `shot ${shotList} sits on setup "${setup.id}" but no keyframe is built from its plate — ` +
             `take \`plates.${setup.id}\``
@@ -1401,6 +1404,7 @@ export function checkLineups(
       findings.push({
         code: "lineup-flipped",
         subject,
+        covers: flipped.map((f) => `${f.a}<${f.b}`),
         message:
           `${name} puts ${flipped.map((f) => `${f.a} left of ${f.b}`).join(", ")} in ` +
           `"${shot.location}", the other way round from ${[...new Set(flipped.map((f) => `shot ${f.source}`))].join(", ")}`,

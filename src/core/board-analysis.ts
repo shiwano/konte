@@ -28,10 +28,12 @@ import {
 import { harvestShotPictureCues } from "./composition-builder.js";
 import type { AnimaticSetupState } from "./direction-check.js";
 import {
+  checkDirection,
   collectShotFrames,
   setupView,
   type SongVariantState,
   type StagingStageState,
+  type WaiverCoverage,
 } from "./direction.js";
 import type { Direction } from "./dsl/direction.js";
 import { extractRefs, exposedPlateIdsOf, LANES, lanePanels, platesOf } from "./graph.js";
@@ -39,7 +41,7 @@ import { loadAnimatic, loadVideoDefinition } from "./loader.js";
 import { definitionHashForAddress } from "./composition-resource.js";
 import type { Accepted } from "./sign-off.js";
 import { songVariantState } from "./song-variant.js";
-import { stageEntryPath } from "./roots.js";
+import { rosterReferenceNames, stageEntryPath } from "./roots.js";
 import { StateManager } from "./state/index.js";
 
 /**
@@ -1257,6 +1259,29 @@ type DirectionStageInputs = {
   songVariant: SongVariantState | undefined;
   accepted: Accepted;
 };
+
+// What each waiver lets through now, off the definitions a caller already holds.
+export function waiverCoverageIn(
+  videoRoot: string,
+  direction: Direction,
+  defs: {
+    reference: ReferenceDefinition | null;
+    animatic: AnimaticDefinition | null;
+    video: VideoDefinition | null;
+  },
+  manager: StateManager | null,
+): WaiverCoverage {
+  const { reference, animatic, video } = defs;
+  return checkDirection(direction, {
+    referenceAssetNames: rosterReferenceNames(videoRoot, reference),
+    ...(animatic
+      ? {
+          animaticSetups: animaticSetupState(direction, animatic, reference, manager),
+          stagingStage: stagingStageState(direction, animatic, video),
+        }
+      : {}),
+  }).waiverCoverage;
+}
 
 // What `checkDirection` reads off the stages and state, read tolerantly. The setups and staging
 // halves are **undefined when the board could not be read**, and that distinction is the contract:

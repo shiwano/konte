@@ -341,6 +341,7 @@ export type DirectionFindingCode =
 export type DirectionFindingFields = {
   subject?: string;
   path?: readonly string[];
+  covers?: readonly string[];
   message: string;
 };
 export type DirectionFinding =

@@ -61,7 +61,14 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
 
   const manager = await StateManager.load(videoRoot);
   const acceptance = manager.getDirectionAcceptance();
-  const view = directionAcceptanceView(direction, acceptance);
+  // The reference pool is what the roster is checked against — a missing reference.tsx leaves it
+  // empty rather than failing the read.
+  const reference = await loadReference(videoRoot).catch(() => null);
+  const check = checkDirection(direction, {
+    referenceAssetNames: rosterReferenceNames(videoRoot, reference),
+    ...(await loadDirectionStageInputs(videoRoot, direction, reference)),
+  });
+  const view = directionAcceptanceView(direction, acceptance, check.waiverCoverage);
   const contents = directionPartContents(direction);
   const state = manager.getState();
   const subjectHashes = directionPartHashes(direction);
@@ -119,13 +126,7 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
   }
 
   // Only a finding a person can act on: a roster finding before the direction is accepted is
-  // premature (see reportableDirectionFindings), and the reference pool is what the roster is
-  // checked against — a missing reference.tsx leaves it empty rather than failing the read.
-  const reference = await loadReference(videoRoot).catch(() => null);
-  const check = checkDirection(direction, {
-    referenceAssetNames: rosterReferenceNames(videoRoot, reference),
-    ...(await loadDirectionStageInputs(videoRoot, direction, reference)),
-  });
+  // premature (see reportableDirectionFindings).
   const findings = reportableDirectionFindings(check.active, acceptance?.whole != null).map(
     (f) => ({
       code: f.code,
@@ -141,7 +142,7 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
   // is a record awaiting the next write's sweep.
   const orphans = view.orphans.map((address) => entryOf(address, "orphan"));
 
-  const summary = summarizeDirectionAcceptance(direction, acceptance);
+  const summary = summarizeDirectionAcceptance(direction, acceptance, check.waiverCoverage);
 
   console.log("Stage: direction");
   console.log(`Acceptance: ${acceptanceLine(summary)}`);
