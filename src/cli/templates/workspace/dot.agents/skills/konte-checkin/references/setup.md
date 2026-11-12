@@ -8,5 +8,5 @@ The binary is not installed in this workspace. Stop and hand the human these ste
    - Codex terminal: `codex plugin marketplace add shiwano/konte@plugin`, then `codex plugin add konte@konte`.
    - Codex desktop app: Settings → Plugins → Add plugin marketplace, Source `shiwano/konte`, Git ref `origin/plugin`, Sparse paths empty, install konte, then start a new chat in the workspace.
 2. Run setup in the workspace: `/konte:setup` (Claude Code) / `$konte:setup` (Codex).
-3. Restart the agent as setup instructs.
+3. Start a new session as setup instructs.
 4. Run the check-in again: `/konte-checkin` (Claude Code) / `$konte-checkin` (Codex).

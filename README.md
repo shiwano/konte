@@ -59,13 +59,13 @@ $ claude plugin install konte@konte
 
 Or in the desktop app, open **Settings → Plugins → Add marketplace → Add from a repository**, enter `shiwano/konte@plugin` as **URL**, and install **konte**.
 
-**2. Set up** in a new chat in your workspace, then restart as setup instructs:
+**2. Set up** in a new chat in your workspace, then start a new chat as setup instructs:
 
 ```
 > /konte:setup
 ```
 
-**3. Check in** after the restart:
+**3. Check in** in that new chat:
 
 ```
 > /konte-checkin
@@ -92,13 +92,13 @@ Or in the desktop app, open **Settings → Plugins → Add plugin marketplace**,
 
 Install **konte** from the added marketplace.
 
-**2. Set up** in a new chat in your workspace, then restart as setup instructs:
+**2. Set up** in a new chat in your workspace, then start a new chat as setup instructs:
 
 ```
 > $konte:setup
 ```
 
-**3. Check in** after the restart:
+**3. Check in** in that new chat:
 
 ```
 > $konte-checkin

@@ -3,7 +3,7 @@ name: setup
 description: Create or set up a konte workspace. Use when starting with konte, creating a workspace, or preparing a cloned or moved workspace.
 ---
 
-Done = the workspace's setup script succeeds and the user receives the restart steps.
+Done = the workspace's setup script succeeds and the user receives the hand-off steps.
 
 ## 1. Choose the directory
 
@@ -39,8 +39,8 @@ Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/shiwano/kon
 
 ## 3. Hand off
 
-1. Tell the user to restart the agent in the workspace directory. A GUI app must be fully quit and relaunched — a new chat or a closed window is not a restart.
+1. Tell the user to start a new session in the workspace directory.
 2. Trust the project config (Codex).
 3. Run `/konte-checkin` (Claude Code) / `$konte-checkin` (Codex).
 
-End here — video creation belongs to the workspace's skills after restart.
+End here — video creation belongs to the workspace's skills in the new session.

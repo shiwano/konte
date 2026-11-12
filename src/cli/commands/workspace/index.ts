@@ -89,8 +89,8 @@ async function finish(root: string, message: string): Promise<void> {
   printNextSteps([
     {
       command: null,
-      label: `restart your coding agent in ${root}`,
-      detail: "Agent settings load at startup",
+      label: `start a new agent session in ${root}`,
+      detail: "Agent settings load at session start",
     },
     { command: null, label: "run the konte-checkin skill" },
   ]);
