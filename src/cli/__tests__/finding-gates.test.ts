@@ -148,6 +148,26 @@ describe("judgeSpend on a prompt finding an accept signed off", () => {
   });
 });
 
+describe("line-truncated", () => {
+  const truncated: Finding = {
+    code: "line-truncated",
+    subject: "animatic:shot.01#stem",
+    fixIn: { stage: "direction" },
+    message: "",
+    targets: ["animatic:shot.01#stem"],
+  };
+
+  it("holds the animatic preview when the fix is in direction.ts", () => {
+    expect(reviewHold(truncated, { op: "preview", stage: "animatic" })).toBe(true);
+    expect(reviewHold(truncated, { op: "preview", stage: "direction" })).toBe(false);
+  });
+
+  it("holds the shot's accept, not its lines'", () => {
+    expect(reviewHold(truncated, { op: "accept", address: "animatic:shot.01" })).toBe(true);
+    expect(reviewHold(truncated, { op: "accept", address: "animatic:shot.01.line1" })).toBe(false);
+  });
+});
+
 describe("animatic-unconsumed on a patch", () => {
   const patch = (sourceAddress: string) => ({
     sourceVariantId: "v-patch",

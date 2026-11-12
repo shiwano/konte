@@ -3,7 +3,7 @@
 // property of its code, fixed in FINDING_TRAITS. The gates, `status` and FINDINGS.md all read the
 // table.
 
-import { type AssetStage, type Stage, matchesAddressScope } from "./address.js";
+import { type AssetStage, type Stage, getStage, matchesAddressScope } from "./address.js";
 import type { DirectionFindingCode } from "./direction-check.js";
 import type { DirectionErrorCode } from "./direction.js";
 import { STAGE_ENTRY_FILE } from "./roots.js";
@@ -329,7 +329,13 @@ const OTHER_TRAITS: TraitsOf<Exclude<FindingCode, DirectionFindingCode | Directi
     onset: "always",
     signsOff: false,
   },
-  "line-truncated": { reads: "take", clears: "fix", holds: {}, onset: "always", signsOff: false },
+  "line-truncated": {
+    reads: "take",
+    clears: "fix",
+    holds: { spend: { reach: "edge" }, accept: true, preview: true },
+    onset: "always",
+    signsOff: false,
+  },
   "tail-silent": {
     reads: "take",
     clears: "vouch",
@@ -429,7 +435,12 @@ export type ReviewOp =
 
 export function reviewHold(finding: Finding, op: ReviewOp): boolean {
   const holds = findingTraits(finding.code).holds;
-  if (op.op === "preview") return holds.preview === true && finding.fixIn.stage === op.stage;
+  if (op.op === "preview") {
+    if (holds.preview !== true) return false;
+    const targets = finding.targets;
+    if (!targets?.length) return finding.fixIn.stage === op.stage;
+    return targets.some((target) => getStage(target) === op.stage);
+  }
   if (!holds.accept) return false;
   if (finding.variant !== undefined && finding.variant !== op.variantId) return false;
   const targets = finding.targets;
