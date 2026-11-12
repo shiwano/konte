@@ -88,10 +88,10 @@ async function seedJob(
 // submit further in the past than this test can wait for is written onto the record whole.
 // `createdAt` moves with it: `job list` orders rows by that field, and jobs seeded in one loop
 // otherwise take whatever order the wall clock hands them.
-async function backdateStart(variantId: string, msAgo: number): Promise<void> {
+async function backdateStart(variantId: string, msAgo: number, from = Date.now()): Promise<void> {
   const jm = new JobManager(projectDir);
   const job = await jm.getJob(variantId);
-  const at = new Date(Date.now() - msAgo).toISOString();
+  const at = new Date(from - msAgo).toISOString();
   await jm.putJob({ ...job, createdAt: at, startedAt: at });
 }
 
@@ -188,9 +188,10 @@ describe("job list", () => {
 
   it("caps rows at --limit, newest first, and lifts the cap with --all", async () => {
     const ids: string[] = [];
+    const from = Date.now();
     for (let i = 0; i < 3; i++) {
       ids.push(await seedJob("running"));
-      await backdateStart(ids[i]!, (3 - i) * 1000);
+      await backdateStart(ids[i]!, (3 - i) * 1000, from);
     }
 
     // Newest first: the last job seeded leads.
