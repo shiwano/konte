@@ -573,6 +573,26 @@ export function checkLocations(
   );
 }
 
+/**
+ * `view-unrealized`: each view a location declares other than `front` is owed an image of it, made
+ * from the location's master. Keyed `<locationId>.<view>`.
+ */
+export function checkViewImages(
+  locations: readonly { id: string; views: readonly string[] }[],
+  referenceAssetNames: readonly string[],
+): DirectionFinding[] {
+  const viewImages = viewImagesOf(referenceAssetNames);
+  return locations.flatMap(({ id, views }) =>
+    views
+      .filter((view) => view !== "front" && !viewImages.has(`${id}.${view}`))
+      .map((view) => ({
+        code: "view-unrealized" as const,
+        subject: `${id}.${view}`,
+        message: `"${id}" declares the view "${view}", which has no image`,
+      })),
+  );
+}
+
 // Setups are the fourth roster but not a fourth anchored one: what realizes a setup is its PLATE, an
 // `animatic:plate.<id>` asset, so this cannot reuse `checkAnchoredEntities` — the anchor pool is a
 // different namespace and the demand is conditional.
@@ -901,39 +921,8 @@ export function checkSetups(
   if (plates) findings.push(...checkAxisCuts(axisCuts, plates, judgedBy!, generated!));
   if (animatic) findings.push(...checkUnowedPlates(setups, shotsPerSetup, animatic, axisCuts));
   if (animatic && referenceAssetNames !== undefined) {
-    findings.push(...checkViews(setups, shotsPerSetup, viewImages, anchored!, animatic));
+    findings.push(...checkViewAnchors(animatic.unanchoredViews, anchored!));
   }
-  return findings;
-}
-
-// A way a used setup faces is owed an image of it, made from the location's master. `front` is the
-// master itself. Keyed `<locationId>.<view>`.
-function checkViews(
-  setups: readonly SetupRef[],
-  shotsPerSetup: ReadonlyMap<string, number>,
-  viewImages: ReadonlySet<string>,
-  anchored: ReadonlySet<string>,
-  animatic: AnimaticSetupState,
-): DirectionFinding[] {
-  const facing = new Map<string, string[]>();
-  for (const setup of setups) {
-    if (!setup.view || setup.view === "front" || (shotsPerSetup.get(setup.id) ?? 0) === 0) continue;
-    const key = `${setup.location}.${setup.view}`;
-    facing.set(key, [...(facing.get(key) ?? []), setup.id]);
-  }
-  const findings: DirectionFinding[] = [];
-  for (const [key, ids] of [...facing].sort((a, b) => a[0].localeCompare(b[0]))) {
-    if (viewImages.has(key)) continue;
-    const [location, view] = key.split(".") as [string, string];
-    findings.push({
-      code: "view-unrealized",
-      subject: key,
-      message:
-        `setup ${ids.map((id) => `"${id}"`).join(", ")} ${ids.length === 1 ? "faces" : "face"} ` +
-        `"${view}" in "${location}", which has no image of that view`,
-    });
-  }
-  findings.push(...checkViewAnchors(animatic.unanchoredViews, anchored));
   return findings;
 }
 
@@ -1856,7 +1845,7 @@ export type ViewNaming = {
   view: View;
   image: string;
   texts: readonly string[];
-  holds: readonly (HeldLandmark & { setups: readonly string[] })[];
+  holds: readonly HeldLandmark[];
 };
 
 // Reported per landmark, keyed `<locationId>.<view>.<landmarkId>`.
@@ -1866,14 +1855,13 @@ export function checkViewNaming(namings: readonly ViewNaming[]): DirectionFindin
     for (const landmark of naming.holds) {
       if (landmark.promptDepiction.trim() === "") continue;
       if (namesIn(naming.texts, landmark.promptDepiction)) continue;
-      const setups = landmark.setups.map((id) => `"${id}"`).join(", ");
       findings.push({
         code: "view-unnamed",
         subject: `${naming.location}.${naming.view}.${landmark.id}`,
         message:
           `the prompt \`${naming.image}\` is generated with does not say ` +
-          `"${landmark.promptDepiction}", which setup ${setups} facing "${naming.view}" ` +
-          `${landmark.setups.length === 1 ? "holds" : "hold"}`,
+          `"${landmark.promptDepiction}", which "${naming.location}"'s ` +
+          `\`views.${naming.view}.holds\` declares`,
         judgedBy: [naming.image],
       });
     }

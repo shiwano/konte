@@ -183,7 +183,7 @@ describe("the spend gate's voice scope", () => {
         characters: {
           hero: { name: "Hero", description: "d", voice: { id: "heroVoice", description: "warm" }, promptDepiction: "hero", },
         },
-        locations: { here: { name: "H", description: "h", landmarks: { hereMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
+        locations: { here: { name: "H", description: "h", landmarks: { hereMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } }, views: { front: { holds: ["hereMark"] } } } },
         setups: {
           near: { name: "near", description: "in close", location: "here", framing: "close", view: "front", holds: ["hereMark"], within: null },
           wide: { name: "wide", description: "the room", location: "here", framing: "medium", view: "front", holds: ["hereMark"] },

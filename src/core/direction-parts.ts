@@ -30,6 +30,7 @@ import type {
   Shot,
 } from "./dsl/direction.js";
 import {
+  declaredViews,
   isAsideShot,
   isGraphicShot,
   resolveDirectionFormat,
@@ -94,6 +95,9 @@ export type DirectionPartContent =
       promptDepiction: string | null;
       // What only this place has, in roster order. Null on the two rosters that declare none.
       landmarks: readonly DirectionLandmarkContent[] | null;
+      // Each way a camera faces in this place and the landmark ids it sees. Null on the two rosters
+      // that declare none.
+      views: readonly { view: string; holds: readonly string[] }[] | null;
     }
   // A camera setup. Its own kind rather than a fourth `roster`: it carries the frame's size and place
   // as well as its prose, and unlike the three identity rosters it is not anchored to a
@@ -365,6 +369,7 @@ export function directionPartContents(direction: Direction): Map<string, Directi
       description: c.description,
       promptDepiction: c.promptDepiction ?? null,
       landmarks: null,
+      views: null,
     });
     if (c.voice) {
       out.set(formatDirectionCharacterVoiceAddress(id), {
@@ -408,6 +413,7 @@ export function directionPartContents(direction: Direction): Map<string, Directi
       description: p.description,
       promptDepiction: p.promptDepiction ?? null,
       landmarks: null,
+      views: null,
     });
   }
   for (const [id, l] of Object.entries(direction.locations ?? {})) {
@@ -419,6 +425,7 @@ export function directionPartContents(direction: Direction): Map<string, Directi
       description: l.description,
       promptDepiction: null,
       landmarks: landmarkContents(l.landmarks),
+      views: declaredViews(l.views).map(([view, v]) => ({ view, holds: v.holds ?? [] })),
     });
   }
   for (const [id, s] of Object.entries(direction.setups ?? {})) {

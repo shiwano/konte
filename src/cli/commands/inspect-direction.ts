@@ -298,6 +298,9 @@ function printContent(
           `  Landmark:    ${landmark.name} (${landmark.id}) — "${landmark.promptDepiction}" — ${landmark.description}`,
         );
       }
+      for (const { view, holds } of content.views ?? []) {
+        console.log(`  View:        ${view} — ${holds.join(" | ") || "(nothing)"}`);
+      }
       return;
     case "setup":
       heading(`Setup: ${content.id}`);

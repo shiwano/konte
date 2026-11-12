@@ -28,7 +28,7 @@ Bring each file under `assets/files/` in as `file` kind — no generation. Pick 
 
 - Expose a `reference:<id>` per character, prop, location, and cast voice in `reference.tsx` — the deferred roster findings gate generation from here on.
 - An adapted piece → write each sheet's prompt against how the source describes them too (its looks in `konte source show`); a comic page as a reference → `scenario-guide`'s adaptation.md.
-- Return a view image from `views` for every way but `front` a location's setups face — each is accepted before a plate on it can spend.
+- Return a view image from `views` for each declared view but `front` — each is accepted before a plate on it can spend.
 - Run the reference pool through `generation-loop-guide` and return once accepted.
 
 ## 5. Lay out every shot

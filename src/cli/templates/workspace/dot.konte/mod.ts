@@ -61,6 +61,7 @@ declare namespace z {
 
 declare const VIEWS: readonly ["front", "back", "side", "top"];
 export type View = (typeof VIEWS)[number];
+export type ImagedView = Exclude<View, "front">;
 declare const PROMPT_FINDING_CODES: readonly [
   "prompt-negation",
   "prompt-not-yet",
@@ -736,6 +737,15 @@ type Location$1 = {
   name: string;
   description: string;
   landmarks: Record<string, Landmark>;
+  views: LocationViews;
+};
+export type LocationViews = {
+  front: LocationView;
+} & {
+  [V in ImagedView]?: LocationView;
+};
+export type LocationView = {
+  holds: readonly string[];
 };
 export type Landmark = {
   name: string;
@@ -764,17 +774,16 @@ export type LocationIdOf<D> = D extends {
 }
   ? Extract<keyof L, string>
   : string;
-export type ViewsAtOf<D, L> = D extends {
-  setups: infer S;
+export type ViewsOf<D, L> = D extends {
+  locations: infer M;
 }
-  ? {
-      [K in keyof S]: S[K] extends {
-        location: L;
-        view: infer V extends View;
+  ? L extends keyof M
+    ? M[L] extends {
+        views: infer V;
       }
-        ? V
-        : never;
-    }[keyof S]
+      ? Extract<keyof V, View>
+      : View
+    : View
   : View;
 export type BriefReference = {
   clip: string;
@@ -1481,6 +1490,24 @@ export type ConstrainLandmarkIds<R> = {
       ? {
           landmarks: ConstrainRosterIds<L>;
         }
+      : unknown) &
+    (R[K] extends {
+      landmarks: infer L;
+      views: infer V;
+    }
+      ? string extends keyof L
+        ? unknown
+        : {
+            views: {
+              [W in keyof V]: V[W] extends {
+                holds: infer H;
+              }
+                ? {
+                    holds: ConstrainHolds<H, Extract<keyof L, string>, Extract<keyof L, string>, W>;
+                  }
+                : unknown;
+            };
+          }
       : unknown);
 };
 export type LandmarkIdOf<D extends DirectionInput, S> = S extends {
@@ -1494,26 +1521,59 @@ export type LandmarkIdOf<D extends DirectionInput, S> = S extends {
       : string
     : string
   : string;
+export type SetupViewOf<Setups, S, Depth extends unknown[] = []> = Depth["length"] extends 3
+  ? View
+  : S extends {
+        view: infer V extends View;
+      }
+    ? V
+    : S extends {
+          within: infer W extends keyof Setups;
+        }
+      ? SetupViewOf<Setups, Setups[W], [...Depth, unknown]>
+      : View;
+export type SeenIdOf<D extends DirectionInput, S, V> = S extends {
+  location: infer L;
+}
+  ? L extends keyof D["locations"]
+    ? D["locations"][L] extends {
+        views: infer VS;
+      }
+      ? [V] extends [keyof VS]
+        ? VS[V] extends {
+            holds: infer H extends readonly string[];
+          }
+          ? H[number]
+          : LandmarkIdOf<D, S>
+        : LandmarkIdOf<D, S>
+      : LandmarkIdOf<D, S>
+    : string
+  : string;
 export type HoldsLandmarkViolation<T extends string> = {
-  [P in `konte: holds id "${T}" is not a landmark of this setup's location`]: never;
+  [P in `konte: holds id "${T}" is not a landmark of this location`]: never;
 };
-export type ConstrainHolds<H, Ids extends string> = {
+export type HoldsViewViolation<T extends string, V> = {
+  [P in `konte: holds id "${T}" is not in the location's views.${V & string}.holds`]: never;
+};
+export type ConstrainHolds<H, Landmarks extends string, Seen extends string, V> = {
   [K in keyof H]: string extends H[K]
     ? H[K]
-    : H[K] extends Ids
+    : H[K] extends Seen
       ? H[K]
-      : H[K] extends string
-        ? HoldsLandmarkViolation<H[K]>
-        : never;
+      : H[K] extends Landmarks
+        ? HoldsViewViolation<H[K], V>
+        : H[K] extends string
+          ? HoldsLandmarkViolation<H[K]>
+          : never;
 };
 export type HoldsRequired = {
   "konte: this setup is not an insert, so `holds` must name at least one landmark": never;
 };
-export type ConstrainSetupHolds<S, Ids extends string> = S extends {
+export type ConstrainSetupHolds<S, Landmarks extends string, Seen extends string, V> = S extends {
   holds: infer H;
 }
   ? {
-      holds: ConstrainHolds<H, Ids>;
+      holds: ConstrainHolds<H, Landmarks, Seen, V>;
     } & (S extends {
       framing: infer F;
     }
@@ -1583,9 +1643,33 @@ export type ConstrainSetupWithin<S, Setups> = S extends {
                 : unknown
         : unknown
   : unknown;
+export type ConstrainSetupView<D extends DirectionInput, S> = S extends {
+  view: infer V extends string;
+  location: infer L;
+}
+  ? View extends V
+    ? unknown
+    : L extends keyof D["locations"]
+      ? D["locations"][L] extends {
+          views: infer VS;
+        }
+        ? [V] extends [keyof VS]
+          ? unknown
+          : {
+              view: DirectionViolation<`konte: view "${V}" is not one location "${L & string}" declares in \`views\``>;
+            }
+        : unknown
+      : unknown
+  : unknown;
 export type ConstrainSetupIds<D extends DirectionInput> = ConstrainRosterIds<D["setups"]> & {
-  [K in keyof D["setups"]]: ConstrainSetupHolds<D["setups"][K], LandmarkIdOf<D, D["setups"][K]>> &
-    ConstrainSetupWithin<D["setups"][K], D["setups"]>;
+  [K in keyof D["setups"]]: ConstrainSetupHolds<
+    D["setups"][K],
+    LandmarkIdOf<D, D["setups"][K]>,
+    SeenIdOf<D, D["setups"][K], SetupViewOf<D["setups"], D["setups"][K]>>,
+    SetupViewOf<D["setups"], D["setups"][K]>
+  > &
+    ConstrainSetupWithin<D["setups"][K], D["setups"]> &
+    ConstrainSetupView<D, D["setups"][K]>;
 };
 export type ClockedOf<D extends DirectionInput> = D["policy"] extends {
   song: string;
@@ -8798,21 +8882,21 @@ export type ReferenceRef<TAssets extends ReferenceAssetMap> = {
   readonly [K in keyof TAssets]: TAssets[K];
 };
 /**
- * `reference.view.<locationId>.<view>`: per location, the image of each way its setups face other
- * than `front`, which is `reference.<locationId>` itself.
+ * `reference.view.<locationId>.<view>`: per location, the image of each view it declares other than
+ * `front`, which is `reference.<locationId>` itself.
  */
 export type ReferenceViewRef<D> = {
   readonly [L in LocationIdOf<D>]: {
-    readonly [V in Exclude<ViewsAtOf<D, L>, "front">]: MediaAsset<"image">;
+    readonly [V in Exclude<ViewsOf<D, L>, "front">]: MediaAsset<"image">;
   };
 };
 /**
- * The view images a `views` callback may return: per location, one image per way its setups face
- * other than `front`, which is the location's own `reference:<id>`.
+ * The view images a `views` callback may return: per location, one image per view it declares other
+ * than `front`, which is the location's own `reference:<id>`.
  */
 export type ReferenceViews<D> = {
   [L in LocationIdOf<D>]?: {
-    [V in Exclude<ViewsAtOf<D, L>, "front">]?: MediaAsset<"image">;
+    [V in Exclude<ViewsOf<D, L>, "front">]?: MediaAsset<"image">;
   };
 };
 export interface DefineReferenceOptions<TAssets extends ReferenceAssetMap, D = unknown> {
@@ -8823,7 +8907,7 @@ export interface DefineReferenceOptions<TAssets extends ReferenceAssetMap, D = u
  * Declares the reference stage: the direction, then `references` (a flat callback returning a named
  * map of asset()s) and `views`. The returned object IS both the ReferenceDefinition (loaded by konte)
  * and the ref used by animatic/video to fabricate `reference:<name>` placeholders, with
- * `reference.view` holding the view images the direction's setups face.
+ * `reference.view` holding the view images the direction's locations declare.
  *
  * The direction is taken for its typesetting (`policy.lang` + `policy.fonts`) and for the canvas
  * each sheet is sized off: its long edge, at the shape the asset's roster asks for

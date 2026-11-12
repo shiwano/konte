@@ -602,6 +602,8 @@ export interface DirectionLocationInfo extends DirectionPartInfo {
   // What only this place has, in roster order — the things a setup's `holds` names and a plate's
   // sentence must say.
   landmarks: DirectionLandmarkInfo[];
+  // Each way a camera faces in this place, with the landmarks it sees resolved to their NAMES.
+  views: { view: string; holds: string[] }[];
 }
 
 // One landmark, shown under the location that declares it. It is no part of its own: what a place is

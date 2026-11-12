@@ -59,7 +59,7 @@ export const TEST_VIDEO_WITH_DEPS_TSX = `import { Composition, defineComfyAsset,
 const direction = defineDirection({
   brief: { logline: "test" },
   characters: {},
-  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
+  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } }, views: { front: { holds: ["studioMark"] } } } },
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
   },
@@ -104,7 +104,7 @@ export const TEST_VIDEO_CHAINED_SHOTS_TSX = `import { Composition, Video, define
 const direction = defineDirection({
   brief: { logline: "test" },
   characters: {},
-  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
+  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } }, views: { front: { holds: ["studioMark"] } } } },
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
   },
@@ -153,7 +153,7 @@ export const TEST_VIDEO_WITH_UNUSED_TSX = `import { Composition, Video, defineCo
 const direction = defineDirection({
   brief: { logline: "test" },
   characters: {},
-  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
+  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } }, views: { front: { holds: ["studioMark"] } } } },
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
   },
@@ -195,7 +195,7 @@ export const TEST_VIDEO_TSX = `import { Composition, Video, Audio, defineComfyAs
 const direction = defineDirection({
   brief: { logline: "test" },
   characters: {},
-  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
+  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } }, views: { front: { holds: ["studioMark"] } } } },
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
   },
@@ -240,7 +240,7 @@ export const TEST_EMPTY_ANIMATIC_TSX = `import { defineAnimatic, defineDirection
 const direction = defineDirection({
   brief: { logline: "test" },
   characters: {},
-  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
+  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } }, views: { front: { holds: ["studioMark"] } } } },
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
   },
@@ -291,7 +291,7 @@ export const TEST_VIDEO_WITH_PENDING_TSX = `import { Composition, Video, defineC
 const direction = defineDirection({
   brief: { logline: "test" },
   characters: {},
-  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
+  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } }, views: { front: { holds: ["studioMark"] } } } },
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
     detail: { name: "the detail", description: "in close on the hands", location: "studio", framing: "close", view: "front", holds: ["studioMark"], within: null },
@@ -333,7 +333,7 @@ export const TEST_ANIMATIC_WITH_PENDING_TS = `import { defineComfyAsset, defineA
 const direction = defineDirection({
   brief: { logline: "test" },
   characters: {},
-  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
+  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } }, views: { front: { holds: ["studioMark"] } } } },
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
     detail: { name: "the detail", description: "in close on the hands", location: "studio", framing: "close", view: "front", holds: ["studioMark"], within: null },
@@ -376,7 +376,7 @@ export const TEST_VIDEO_ALL_PENDING_TSX = `import { defineVideo, defineDirection
 const direction = defineDirection({
   brief: { logline: "test" },
   characters: {},
-  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
+  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } }, views: { front: { holds: ["studioMark"] } } } },
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
     detail: { name: "the detail", description: "in close on the hands", location: "studio", framing: "close", view: "front", holds: ["studioMark"], within: null },
@@ -408,7 +408,7 @@ const NO_BACKEND_VIDEO_TSX = `import { Composition, defineVideo, defineDirection
 const direction = defineDirection({
   brief: { logline: "test" },
   characters: {},
-  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
+  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } }, views: { front: { holds: ["studioMark"] } } } },
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
   },
@@ -481,7 +481,7 @@ export const TEST_CROSS_STAGE_ANIMATIC_TS = `import { defineComfyAsset, defineAn
 const direction = defineDirection({
   brief: { logline: "test" },
   characters: {},
-  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
+  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } }, views: { front: { holds: ["studioMark"] } } } },
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
   },
@@ -518,7 +518,7 @@ import animatic from "./animatic";
 const direction = defineDirection({
   brief: { logline: "test" },
   characters: {},
-  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
+  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } }, views: { front: { holds: ["studioMark"] } } } },
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
   },
@@ -637,7 +637,7 @@ export const CROSS_STAGE_DIRECTION_TS = `import { defineDirection } from "konte"
 export default defineDirection({
   brief: { logline: "test" },
   characters: {},
-  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
+  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } }, views: { front: { holds: ["studioMark"] } } } },
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
   },

@@ -5042,6 +5042,18 @@ body.fill-mode .fab-submit-wrap {
   color: var(--text-primary);
 }
 
+/* Each way a camera faces in the place, with the landmarks it sees. */
+.dir-views {
+  margin: 0.35rem 0 0;
+  padding-left: 1rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.dir-views .dir-view {
+  margin: 0 6px 0 0;
+}
+
 /* What a frame carries of its set, left to right — its own column beside the size, since both are
    properties of where the camera stands rather than of the prose. */
 .dir-col-holds {

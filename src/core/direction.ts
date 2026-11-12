@@ -65,6 +65,7 @@ import {
   checkPropNaming,
   checkProps,
   checkSetups,
+  checkViewImages,
   placeRefOf,
   usedSetupIds,
 } from "./direction-check.js";
@@ -73,6 +74,7 @@ import type {
   DirectionNode,
   GraphicShot,
   Landmark,
+  Location,
   NarrativeShot,
   Setup,
   Shot,
@@ -80,6 +82,7 @@ import type {
 } from "./dsl/direction.js";
 import { isView, viewAssetName } from "./view.js";
 import {
+  declaredViews,
   isAsideShot,
   isGraphicShot,
   lineSingers,
@@ -217,6 +220,9 @@ export type DirectionErrorCode =
   | "landmark-empty-name"
   | "landmark-empty-description"
   | "landmark-empty-prompt-depiction"
+  // The ways a camera faces in a place: `front` is always one, every key is one of the four `VIEWS`,
+  // and a view's `holds` names landmarks of its own place (`holds-unknown-id`).
+  | "view-front-missing"
   // A landmark id that collides with a character / prop / location id, or with a landmark of another
   // place. The direction has one id space; unlike the three rosters a landmark maps to no reference
   // asset, so the collision is the id space's, not the namespace's.
@@ -234,9 +240,10 @@ export type DirectionErrorCode =
   | "setup-unknown"
   | "setup-unknown-location"
   // What the frame carries of its set. `insert` is the one framing that may hold nothing; every id
-  // named must be a landmark of the place the setup is set in.
+  // named must be a landmark of the place the setup is set in, seen by the view it faces.
   | "holds-empty"
   | "holds-unknown-id"
+  | "holds-outside-view"
   // The `within` axis's own contract, the `join` pair's twin: a frame that could step in from a
   // wider one and says nothing about whether it does, a `within` no step could have, and a chain of
   // them that closes on itself. None is a creative call, so none is waivable.
@@ -244,9 +251,10 @@ export type DirectionErrorCode =
   | "within-impossible"
   | "within-cyclic"
   // The way the camera faces: declared by every frame that is no window, inherited by every window,
-  // and one of the four `VIEWS`.
+  // and one its location declares. `view-unknown` is a location's `views` key outside the four `VIEWS`.
   | "view-missing"
   | "view-on-window"
+  | "view-undeclared"
   | "view-unknown"
   // A single id declared in more than one of the characters / props / locations rosters — all three
   // share the `reference:<id>` namespace, so a collision names one reference asset for two entities.
@@ -1048,39 +1056,28 @@ function plateNamings(
   return out;
 }
 
-// An image with no prompt — a file, or one not returned — has nothing to read.
+// Each view a location declares, read against the prompt its image is generated with. An image with
+// no prompt — a file, or one not returned — has nothing to read.
 export function checkViewNamings(
   direction: Direction,
   imageTexts: Readonly<Record<string, readonly string[]>>,
 ): DirectionFinding[] {
-  const setups = direction.setups ?? {};
-  const used = usedSetupIds(setupRefs(setups), countShotsPerSetup(direction));
-  const namings = new Map<string, ViewNaming>();
-  for (const id of Object.keys(setups).sort()) {
-    if (!used.has(id)) continue;
-    const view = setupView(setups, id);
-    const location = setups[id]!.location;
-    if (!view) continue;
-    const name = view === "front" ? location : viewAssetName(location, view);
-    const texts = imageTexts[name] ?? [];
-    if (texts.length === 0) continue;
-    const key = `${location}.${view}`;
-    const naming = namings.get(key) ?? {
-      location,
-      view,
-      image: formatReferenceAddress(name),
-      texts,
-      holds: [],
-    };
-    namings.set(key, naming);
-    const holds = naming.holds as (HeldLandmark & { setups: string[] })[];
-    for (const landmark of heldLandmarks(direction, id)) {
-      const held = holds.find((h) => h.id === landmark.id);
-      if (held) held.setups.push(id);
-      else holds.push({ ...landmark, setups: [id] });
+  const namings: ViewNaming[] = [];
+  for (const [location, { landmarks = {}, views }] of Object.entries(direction.locations ?? {})) {
+    for (const [view, declared] of declaredViews(views)) {
+      if (!isView(view)) continue;
+      const name = view === "front" ? location : viewAssetName(location, view);
+      const texts = imageTexts[name] ?? [];
+      if (texts.length === 0) continue;
+      const holds = (declared.holds ?? []).flatMap((id) =>
+        Object.hasOwn(landmarks, id)
+          ? [{ id, location, promptDepiction: landmarks[id]!.promptDepiction ?? "" }]
+          : [],
+      );
+      namings.push({ location, view, image: formatReferenceAddress(name), texts, holds });
     }
   }
-  return checkViewNaming([...namings.values()]);
+  return checkViewNaming(namings);
 }
 
 // The frames whose setup has no returned plate, each with what it holds.
@@ -1460,6 +1457,7 @@ function withinErrors(direction: Direction): DirectionStructureError[] {
 function viewErrors(direction: Direction): DirectionStructureError[] {
   const errors: DirectionStructureError[] = [];
   for (const [id, setup] of Object.entries(direction.setups ?? {})) {
+    const location = direction.locations?.[setup.location];
     const view = (setup as { view?: unknown }).view;
     if (typeof setup.within === "string") {
       if (view === undefined) continue;
@@ -1478,11 +1476,18 @@ function viewErrors(direction: Direction): DirectionStructureError[] {
       });
       continue;
     }
-    if (!isView(view)) {
+    // A place no roster declares is `setup-unknown-location`.
+    if (location === undefined) continue;
+    const declared = declaredViews(location.views)
+      .map(([v]) => v)
+      .filter(isView);
+    if (!declared.includes(view as View)) {
       errors.push({
-        code: "view-unknown",
+        code: "view-undeclared",
         subject: id,
-        message: `declares view "${String(view)}"`,
+        message:
+          `faces view "${String(view)}", which "${setup.location}" does not declare ` +
+          `(its views: ${declared.map((v) => `"${v}"`).join(", ") || "none"})`,
       });
     }
   }
@@ -1819,8 +1824,52 @@ function validateRosters(direction: Direction): DirectionStructureError[] {
         });
       }
     }
+    errors.push(...locationViewErrors(id, location));
   }
   return errors;
+}
+
+function locationViewErrors(id: string, location: Location): DirectionStructureError[] {
+  const errors: DirectionStructureError[] = [];
+  const views = declaredViews(location.views);
+  if (!views.some(([view]) => view === "front")) {
+    errors.push({
+      code: "view-front-missing",
+      subject: id,
+      message: `the location declares no \`views.front\`, the way reference.${id} faces`,
+    });
+  }
+  const landmarks = new Set(Object.keys(location.landmarks ?? {}));
+  for (const [view, declared] of views) {
+    if (!isView(view)) {
+      errors.push({
+        code: "view-unknown",
+        subject: `${id}.${view}`,
+        message: `\`views.${view}\` is not a view`,
+      });
+      continue;
+    }
+    for (const landmarkId of declared.holds ?? []) {
+      if (landmarks.has(landmarkId)) continue;
+      errors.push({
+        code: "holds-unknown-id",
+        subject: `${id}.${view}:${landmarkId}`,
+        message: `\`views.${view}.holds\` names "${landmarkId}", which is not a landmark of "${id}"`,
+      });
+    }
+  }
+  return errors;
+}
+
+// The landmark ids a setup's frame may hold: those the view it faces sees. Undefined where the view
+// or its declaration is unknown — a structural error of its own.
+function seenFromSetup(direction: Direction, id: string): ReadonlySet<string> | undefined {
+  const setups = direction.setups ?? {};
+  const view = setupView(setups, id);
+  const location = direction.locations?.[setups[id]?.location ?? ""];
+  if (view === undefined || location === undefined) return undefined;
+  const declared = declaredViews(location.views).find(([v]) => v === view)?.[1];
+  return declared ? new Set(declared.holds ?? []) : undefined;
 }
 
 function validateIdNamespace(direction: Direction): DirectionStructureError[] {
@@ -2030,12 +2079,24 @@ function validateSetups(direction: Direction): DirectionStructureError[] {
       // Own keys only: `in` would answer true for "toString", letting a computed `holds` name an
       // inherited function that every reader after this then treats as a landmark.
       const declared = new Set(Object.keys(landmarksHere));
+      const seen = seenFromSetup(direction, id);
       for (const landmarkId of holds) {
-        if (declared.has(landmarkId)) continue;
+        if (!declared.has(landmarkId)) {
+          errors.push({
+            code: "holds-unknown-id",
+            subject: `${id}:${landmarkId}`,
+            message: `"${landmarkId}" is not a landmark of "${setup.location}"`,
+          });
+          continue;
+        }
+        if (seen === undefined || seen.has(landmarkId)) continue;
+        const view = setupView(direction.setups ?? {}, id);
         errors.push({
-          code: "holds-unknown-id",
+          code: "holds-outside-view",
           subject: `${id}:${landmarkId}`,
-          message: `"${landmarkId}" is not a landmark of "${setup.location}"`,
+          message:
+            `"${landmarkId}" is not in "${setup.location}"'s \`views.${view}.holds\`, the view ` +
+            `this frame faces`,
         });
       }
     }
@@ -2543,6 +2604,15 @@ export function checkDirection(
         entityRefs(direction.locations),
         options.referenceAssetNames ?? [],
         collectUsedLocationIds(direction),
+      ),
+      ...checkViewImages(
+        Object.entries(direction.locations ?? {}).map(([id, l]) => ({
+          id,
+          views: declaredViews(l.views)
+            .map(([v]) => v)
+            .filter(isView),
+        })),
+        options.referenceAssetNames ?? [],
       ),
     );
   }

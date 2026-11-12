@@ -81,6 +81,7 @@ function direction(opts: {
             description: "the stubby mast amidships",
           },
         },
+        views: { front: { holds: ["bench", "mast"] }, back: { holds: ["mast"] } },
       },
       landing: {
         name: "the landing",
@@ -92,6 +93,7 @@ function direction(opts: {
             description: "the wooden jetty the boat ties to",
           },
         },
+        views: { front: { holds: ["jetty"] } },
       },
     },
     setups: opts.setups ?? { deck, stern, shore },
@@ -1716,13 +1718,19 @@ describe("the set's structure errors", () => {
 
   it("rejects a place with no landmarks", () => {
     const dir = withLocations({
-      ferryDeck: { name: "the ferry deck", description: "a flat-bottomed ferry", landmarks: {} },
+      ferryDeck: {
+        name: "the ferry deck",
+        description: "a flat-bottomed ferry",
+        landmarks: {},
+        views: { front: { holds: [] } },
+      },
       landing: {
         name: "the landing",
         description: "a wooden jetty",
         landmarks: {
           jetty: { name: "the jetty", promptDepiction: "jetty", description: "the jetty" },
         },
+        views: { front: { holds: ["jetty"] } },
       },
     });
     expect(errorCodes(dir)).toContain("landmarks-empty");
@@ -1736,6 +1744,7 @@ describe("the set's structure errors", () => {
         landmarks: {
           bench: { name: "the bench", promptDepiction: "  ", description: "the bench" },
         },
+        views: { front: { holds: ["bench"] } },
       },
       landing: {
         name: "the landing",
@@ -1743,6 +1752,7 @@ describe("the set's structure errors", () => {
         landmarks: {
           jetty: { name: "the jetty", promptDepiction: "jetty", description: "the jetty" },
         },
+        views: { front: { holds: ["jetty"] } },
       },
     });
     expect(errorCodes(dir)).toContain("landmark-empty-prompt-depiction");
@@ -1766,6 +1776,7 @@ describe("the set's structure errors", () => {
         landmarks: {
           jetty: { name: "the bench", promptDepiction: "bench", description: "the bench" },
         },
+        views: { front: { holds: ["jetty"] } },
       },
       landing: {
         name: "the landing",
@@ -1773,6 +1784,7 @@ describe("the set's structure errors", () => {
         landmarks: {
           jetty: { name: "the jetty", promptDepiction: "jetty", description: "the jetty" },
         },
+        views: { front: { holds: ["jetty"] } },
       },
     });
     expect(errorCodes(dir)).toContain("landmark-id-conflict");
@@ -1805,6 +1817,7 @@ describe("the set's structure errors", () => {
             description: "the statue amidships",
           },
         },
+        views: { front: { holds: ["statue"] } },
       },
       landing: {
         name: "the landing",
@@ -1812,6 +1825,7 @@ describe("the set's structure errors", () => {
         landmarks: {
           jetty: { name: "the jetty", promptDepiction: "jetty", description: "the jetty" },
         },
+        views: { front: { holds: ["jetty"] } },
       },
     });
     expect(errorCodes(dir)).toContain("prompt-depiction-conflict");
@@ -2454,9 +2468,56 @@ describe("view", () => {
     expect(errorCodes(dir)).toContain("view-on-window");
   });
 
+  it("refuses a view its location does not declare", () => {
+    const dir = withSetups({ deck: { ...deck, view: "side" } });
+    expect(errorCodes(dir)).toContain("view-undeclared");
+  });
+
   it("refuses a view outside the four", () => {
     const dir = withSetups({ deck: { ...deck, view: "left" } as unknown as Setup });
-    expect(errorCodes(dir)).toContain("view-unknown");
+    expect(errorCodes(dir)).toContain("view-undeclared");
+  });
+
+  it("refuses a landmark the view a frame faces does not see", () => {
+    const dir = withSetups({ deck: { ...deck, view: "back", holds: ["bench"] } });
+    const errors = validateDirectionStructure(dir).filter((e) => e.code === "holds-outside-view");
+    expect(errors.map((e) => e.subject)).toEqual(["deck:bench"]);
+  });
+
+  it("reads a window's holds against its root's view", () => {
+    const dir = withSetups({
+      stern: { ...stern, view: "back", holds: ["mast"], within: null },
+      deck: { ...deck, within: "stern", view: undefined, holds: ["bench"] } as unknown as Setup,
+    });
+    expect(errorCodes(dir)).toContain("holds-outside-view");
+  });
+
+  describe("on a location", () => {
+    const withViews = (views: unknown) => {
+      const dir = withSetups({});
+      return {
+        ...dir,
+        locations: { ...dir.locations, ferryDeck: { ...dir.locations.ferryDeck!, views } },
+      } as unknown as Direction;
+    };
+
+    it("asks for the front view", () => {
+      expect(errorCodes(withViews({ back: { holds: ["mast"] } }))).toContain("view-front-missing");
+    });
+
+    it("refuses a key outside the four", () => {
+      const errors = validateDirectionStructure(
+        withViews({ front: { holds: ["bench", "mast"] }, left: { holds: [] } }),
+      ).filter((e) => e.code === "view-unknown");
+      expect(errors.map((e) => e.subject)).toEqual(["ferryDeck.left"]);
+    });
+
+    it("refuses a view holding an id that is no landmark of the place", () => {
+      const errors = validateDirectionStructure(
+        withViews({ front: { holds: ["bench", "mast", "jetty"] } }),
+      ).filter((e) => e.code === "holds-unknown-id");
+      expect(errors.map((e) => e.subject)).toEqual(["ferryDeck.front:jetty"]);
+    });
   });
 
   it("resolves a window's view through its root", () => {

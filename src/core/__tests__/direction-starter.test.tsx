@@ -333,6 +333,7 @@ describe("defineDirection", () => {
               description: "a plain desk, centre",
             },
           },
+          views: { front: { holds: ["desk"] } },
         },
       },
       sequence: {
@@ -356,6 +357,124 @@ describe("defineDirection", () => {
     });
   });
 
+  describe("views", () => {
+    const studio = {
+      name: "the studio",
+      description: "a plain studio",
+      landmarks: {
+        desk: { name: "the desk", promptDepiction: "desk", description: "a plain desk, centre" },
+        lamp: { name: "the lamp", promptDepiction: "lamp", description: "behind the desk" },
+      },
+      views: { front: { holds: ["desk"] }, back: { holds: ["lamp"] } },
+    } as const;
+    const sequence = {
+      lens: "mini-drama",
+      pleasure: "cute",
+      shots: [
+        { id: "01", role: "ordinary", action: "calm", setup: "front", duration: 3, lineup: [] },
+      ],
+    } as const;
+    const front = {
+      name: "the front angle",
+      description: "straight on",
+      location: "studio",
+      framing: "medium",
+      view: "front",
+      holds: ["desk"],
+    } as const;
+
+    it("takes a setup facing a declared view, holding what it sees", () => {
+      defineDirection({
+        ...directionDefaults,
+        locations: { studio },
+        sequence,
+        setups: {
+          front,
+          reverse: { ...front, view: "back", holds: ["lamp"], within: null },
+        },
+      });
+    });
+
+    it("refuses a `view` the setup's location does not declare", () => {
+      defineDirection({
+        ...directionDefaults,
+        locations: { studio },
+        sequence,
+        setups: {
+          front,
+          side: {
+            name: "the side",
+            description: "from the wall",
+            location: "studio",
+            framing: "wide",
+            // @ts-expect-error "studio" declares no side view
+            view: "side",
+            holds: ["desk"],
+            within: null,
+          },
+        },
+      });
+    });
+
+    it("refuses a `holds` id the view does not see, at the id's own position", () => {
+      defineDirection({
+        ...directionDefaults,
+        locations: { studio },
+        sequence,
+        setups: {
+          front: {
+            name: "the front angle",
+            description: "straight on",
+            location: "studio",
+            framing: "medium",
+            view: "front",
+            // @ts-expect-error the front view does not see "lamp"
+            holds: ["desk", "lamp"],
+          },
+        },
+      });
+    });
+
+    it("reads a window's holds against its root's view", () => {
+      defineDirection({
+        ...directionDefaults,
+        locations: { studio },
+        sequence,
+        setups: {
+          front: { ...front, framing: "wide", within: null },
+          deskClose: {
+            name: "the desk, close",
+            description: "in on the desk",
+            location: "studio",
+            framing: "close",
+            within: "front",
+            // @ts-expect-error the front view does not see "lamp"
+            holds: ["lamp"],
+          },
+        },
+      });
+    });
+
+    it("refuses a view `holds` id that is no landmark of the location", () => {
+      defineDirection({
+        ...directionDefaults,
+        locations: {
+          studio: {
+            ...studio,
+            views: {
+              front: {
+                // @ts-expect-error "sofa" is not a landmark of "studio"
+                holds: ["desk", "sofa"],
+              },
+            },
+          },
+        },
+        sequence,
+        setups: { front },
+      });
+    });
+  });
+
   // The insert exemption is the emptiness demand alone: what an insert holds is still its own place's.
   it("refuses a `holds` id on an insert too", () => {
     defineDirection({
@@ -371,6 +490,7 @@ describe("defineDirection", () => {
               description: "a plain desk, centre",
             },
           },
+          views: { front: { holds: ["desk"] } },
         },
       },
       sequence: {
@@ -657,6 +777,7 @@ describe("defineDirection", () => {
           landmarks: {
             door: { name: "the door", promptDepiction: "door", description: "at the far end" },
           },
+          views: { front: { holds: ["door"] } },
         },
       },
       sequence: oneShotSequence,

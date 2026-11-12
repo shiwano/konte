@@ -46,6 +46,12 @@ const noViews = defineComfyAsset({
 // The studio is boarded from the front and straight down on the desk.
 const direction = defineDirection({
   ...directionDefaults,
+  locations: {
+    studio: {
+      ...directionDefaults.locations.studio!,
+      views: { front: { holds: ["desk"] }, top: { holds: ["desk"] }, back: { holds: [] } },
+    },
+  },
   setups: {
     ...directionDefaults.setups,
     deskTop: {
@@ -150,6 +156,15 @@ describe("defineReference views", () => {
     ).toThrow(/not a location direction.ts declares/);
   });
 
+  it("refuses a view the location does not declare", () => {
+    expect(() =>
+      defineReference(direction, {
+        references: () => ({ studio: asset("studio", imageGen, { prompt: "the studio" }) }),
+        views: () => ({ studio: { side: asset("side", imageGen, { prompt: "x" }) } }) as never,
+      }),
+    ).toThrow(/not a view location "studio" declares/);
+  });
+
   it("refuses a handle declared outside views", () => {
     expect(() =>
       defineReference(direction, {
@@ -188,9 +203,12 @@ describe("defineReference views", () => {
 });
 
 describe("reference.view", () => {
-  it("holds the image of each view a location's setups face other than front", () => {
+  it("holds the image of each view a location declares other than front", () => {
     expect(reference.view).toEqual({
-      studio: { top: { src: "__konte:reference:view.studio.top__" } },
+      studio: {
+        top: { src: "__konte:reference:view.studio.top__" },
+        back: { src: "__konte:reference:view.studio.back__" },
+      },
     });
   });
 
@@ -254,37 +272,17 @@ describe("view-unnamed", () => {
       studio: {
         ...directionDefaults.locations.studio!,
         landmarks: {
-          ...directionDefaults.locations.studio!.landmarks,
+          desk: { name: "the desk", promptDepiction: "desk", description: "a plain desk, centre" },
           lamp: { name: "the lamp", promptDepiction: "floor lamp", description: "behind the desk" },
         },
+        views: { front: { holds: ["desk"] }, back: { holds: ["lamp"] } },
       },
     },
-    setups: {
-      ...directionDefaults.setups,
-      reverse: {
-        name: "the reverse angle",
-        description: "from behind the desk",
-        location: "studio",
-        framing: "medium",
-        view: "back",
-        holds: ["lamp"],
-      },
-      idle: {
-        name: "a frame no shot takes",
-        description: "unused",
-        location: "studio",
-        framing: "wide",
-        view: "front",
-        holds: ["lamp"],
-      },
-    },
+    setups: directionDefaults.setups,
     sequence: {
       lens: "mini-drama",
       pleasure: "cute",
-      shots: [
-        { id: "01", role: "ordinary", action: "a", setup: "front", duration: 3, lineup: [] },
-        { id: "02", role: "disruption", action: "b", setup: "reverse", duration: 3, lineup: [] },
-      ],
+      shots: [{ id: "01", role: "ordinary", action: "a", setup: "front", duration: 3, lineup: [] }],
     },
   });
   const drawn = (master: string | null, back: string) =>
@@ -304,13 +302,13 @@ describe("view-unnamed", () => {
       (f) => `${f.code}_${f.subject}`,
     );
 
-  it("flags a landmark a setup facing front holds that the master's prompt does not say", () => {
+  it("flags a landmark the front view holds that the master's prompt does not say", () => {
     expect(findings(drawn("the studio, empty", "the studio from behind, a Floor Lamp"))).toEqual([
       "view-unnamed_studio.front.desk",
     ]);
   });
 
-  it("flags a landmark a setup facing a view holds that its view image's prompt does not say", () => {
+  it("flags a landmark a view holds that its image's prompt does not say, no setup facing it", () => {
     expect(findings(drawn("the studio and its desk", "the studio from behind"))).toEqual([
       "view-unnamed_studio.back.lamp",
     ]);
@@ -320,36 +318,6 @@ describe("view-unnamed", () => {
     expect(findings(drawn("a desk, a floor lamp", "the studio from behind"))).toEqual([
       "view-unnamed_studio.back.lamp",
     ]);
-  });
-
-  it("reads the setup a used window is cut out of", () => {
-    const windowed = {
-      ...boarded,
-      setups: {
-        ...boarded.setups,
-        front: { ...directionDefaults.setups.front!, holds: ["desk", "lamp"] },
-        deskClose: {
-          name: "the desk, close",
-          description: "the desk top",
-          location: "studio",
-          framing: "close",
-          within: "front",
-          holds: ["desk"],
-        },
-      },
-      sequence: {
-        ...boarded.sequence,
-        shots: [
-          { id: "01", role: "ordinary", action: "a", setup: "deskClose", duration: 3, lineup: [] },
-        ],
-      },
-    } as unknown as Direction;
-    expect(
-      checkViewNamings(
-        windowed,
-        listReferenceImageTexts(drawn("the studio and its desk", "from behind")),
-      ).map((f) => f.subject),
-    ).toEqual(["studio.front.lamp"]);
   });
 
   it("passes a master handed over as a file", () => {

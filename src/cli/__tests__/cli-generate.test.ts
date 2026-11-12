@@ -211,7 +211,7 @@ export default defineReference(direction, { references: () => {
       blank
         .replace(
           "locations: {},",
-          'locations: { studio: { name: "the studio", description: "a studio", landmarks: {} } },',
+          'locations: { studio: { name: "the studio", description: "a studio", landmarks: {}, views: { front: { holds: [] } } } },',
         )
         .replace(
           "setups: {},",

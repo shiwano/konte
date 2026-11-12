@@ -99,6 +99,7 @@ function direction(shots: Shot[], extra: Partial<Direction> = {}): Direction {
           deskTop: { name: "the desk", promptDepiction: "desk", description: "centre" },
           couch: { name: "the sofa", promptDepiction: "sofa", description: "back wall" },
         },
+        views: { front: { holds: ["deskTop", "couch"] } },
       },
     },
     setups,

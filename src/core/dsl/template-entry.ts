@@ -56,6 +56,8 @@ export {
   type Voice,
   type Prop,
   type Location,
+  type LocationView,
+  type LocationViews,
   type Landmark,
   type Setup,
   type Framing,

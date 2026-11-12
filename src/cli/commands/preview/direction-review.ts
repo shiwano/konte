@@ -49,6 +49,7 @@ import type {
   Shot,
 } from "../../../core/dsl/direction.js";
 import {
+  declaredViews,
   isAsideShot,
   isGraphicShot,
   lyricText,
@@ -452,6 +453,10 @@ export async function handleGetDirectionState(
         id: landmarkId,
         name: landmark.name,
         description: landmark.description,
+      })),
+      views: declaredViews(l.views).map(([view, v]) => ({
+        view,
+        holds: (v.holds ?? []).map((holdId) => l.landmarks?.[holdId]?.name ?? holdId),
       })),
       ...partView(formatDirectionLocationAddress(id)),
     })),

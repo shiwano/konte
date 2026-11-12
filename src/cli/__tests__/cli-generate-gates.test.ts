@@ -551,7 +551,7 @@ const TWO_SHOT_DIRECTION_TS = `import { defineDirection } from "konte";
 export default defineDirection({
   brief: { logline: "test" },
   characters: {},
-  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } } } },
+  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } }, views: { front: { holds: ["studioMark"] } } } },
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioMark"] },
     detail: { name: "the detail", description: "in close on the hands", location: "studio", framing: "close", view: "front", holds: ["studioMark"], within: null },

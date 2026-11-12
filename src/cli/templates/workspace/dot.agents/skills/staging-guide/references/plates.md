@@ -17,7 +17,7 @@
 
 ## View images
 
-- A setup facing anything but `front` costs its location a view image (`view-unrealized`) — returned from `views` in reference.tsx, filed at `reference:view.<location>.<view>` whatever the asset is named and reached as `reference.view.<location>.<view>`.
+- Each declared view but `front` costs its location a view image (`view-unrealized`) — returned from `views` in reference.tsx, filed at `reference:view.<location>.<view>` whatever the asset is named and reached as `reference.view.<location>.<view>`.
 
 ```tsx
 views: ({ reference }) => {
@@ -27,7 +27,7 @@ views: ({ reference }) => {
 ```
 
 - One image per view, made from the master (`view-unanchored`); the adapter's craft guide has the prompt.
-- Ask for each landmark the setups facing that view hold by its `promptDepiction` (`view-unnamed`).
+- Ask for each landmark in the view's `holds` by its `promptDepiction` (`view-unnamed`).
 - Write the camera position, and what is in frame near to far with its share of the frame, in things the master shows. Never restate the room wall by wall — layout written against the master moves furniture.
 - What the master does not show (a desk's legs, the wall behind its camera) takes its build only, never a distance or share — left out, it is invented per view.
 - Draw the room at full distance — no close, insert or change of light; those are plates.

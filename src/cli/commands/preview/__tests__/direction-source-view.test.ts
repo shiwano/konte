@@ -40,7 +40,7 @@ function directionTs(withSource: boolean): string {
 export default defineDirection({
   brief: { logline: "test"${withSource ? ', source: { span: "c1-c2", keep: ["切符"] }' : ""} },
   characters: { mio: { name: "澪", promptDepiction: "girl", description: "a girl" } },
-  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { mark: { name: "the mark", promptDepiction: "mark", description: "a mark" } } } },
+  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { mark: { name: "the mark", promptDepiction: "mark", description: "a mark" } }, views: { front: { holds: ["mark"] } } } },
   setups: {
     front: { name: "the front angle", description: "straight on", location: "studio", framing: "medium", view: "front", holds: ["mark"] },
   },

@@ -51,6 +51,7 @@ function flat(): Direction {
             description: "a mark only this place has",
           },
         },
+        views: { front: { holds: ["bedroomMark"] } },
       },
     },
     setups: structuredClone(setups),
@@ -100,6 +101,7 @@ function sequenced(): Direction {
             description: "a mark only this place has",
           },
         },
+        views: { front: { holds: ["bedroomMark"] } },
       },
     },
     setups,
@@ -178,6 +180,12 @@ describe("directionHash", () => {
       const d = flat() as { characters: Record<string, unknown> };
       d.characters = Object.fromEntries(Object.entries(d.characters).reverse());
       expect(directionHash(d as Direction)).toBe(directionHash(flat()));
+    });
+
+    it("reads a view left undefined as undeclared", () => {
+      const d = flat();
+      d.locations.bedroom!.views.back = undefined;
+      expect(directionHash(d)).toBe(directionHash(flat()));
     });
 
     it("ignores custom-lens reordering (a lens registry is a lookup, not a list)", () => {
@@ -711,6 +719,7 @@ describe("directionPartHashes", () => {
               description: "a mark only this place has",
             },
           },
+          views: { front: { holds: ["bedroomMark"] } },
         },
         hall: {
           name: "the hall",
@@ -722,6 +731,7 @@ describe("directionPartHashes", () => {
               description: "a mark only this place has",
             },
           },
+          views: { front: { holds: ["hallMark"] } },
         },
       },
     });

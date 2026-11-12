@@ -149,7 +149,7 @@ const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindingDoc> 
     subject: "location id",
   },
   "view-unrealized": {
-    flags: "A used setup faces a view of its location that has no view image.",
+    flags: "A location declares a view other than `front` that has no view image.",
     subject: "`<locationId>.<view>`",
   },
   "plate-unviewed": {
@@ -163,7 +163,7 @@ const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindingDoc> 
   },
   "view-unnamed": {
     flags:
-      "No prompt the image of a view is generated with — `reference:<locationId>` for `front`, its view image for the rest — contains the `promptDepiction` of a landmark a setup facing that way `holds`, verbatim (case-insensitive). An image handed over whole as a file, and one accepted against its current definition, are exempt.",
+      "No prompt the image of a view is generated with — `reference:<locationId>` for `front`, its view image for the rest — contains the `promptDepiction` of a landmark the location's `views.<view>.holds` declares, verbatim (case-insensitive). An image handed over whole as a file, and one accepted against its current definition, are exempt.",
     subject: "`<locationId>.<view>.<landmarkId>`",
   },
   "multi-sentence-action": {
@@ -314,6 +314,7 @@ const DIRECTION_ERROR_DOCS: Record<DirectionErrorCode, string> = {
   "location-empty-description": "A location has an empty `description`.",
   "location-empty": "The direction declares no location.",
   "landmarks-empty": "A location declares no `landmarks`.",
+  "view-front-missing": "A location declares no `views.front`.",
   "landmark-invalid-id": "A landmark id is not a valid identifier.",
   "landmark-empty-name": "A landmark has an empty `name`.",
   "landmark-empty-description": "A landmark has an empty `description`.",
@@ -329,13 +330,16 @@ const DIRECTION_ERROR_DOCS: Record<DirectionErrorCode, string> = {
   "setup-unknown": "A frame names a setup that is not declared.",
   "setup-unknown-location": "A setup is set in a location that is not declared.",
   "holds-empty": "A setup other than an `insert` holds no landmark.",
-  "holds-unknown-id": "A setup holds an id that is not a landmark of its location.",
+  "holds-unknown-id":
+    "A setup or a location's view holds an id that is not a landmark of its location.",
+  "holds-outside-view": "A setup holds a landmark the view it faces does not.",
   "within-undeclared": "A setup that could be cut from a wider one does not say whether it is.",
   "within-impossible": "A setup's `within` names a frame it could not be cut from.",
   "within-cyclic": "A setup's `within` chain leads back to itself.",
   "view-missing": "A setup that is no window declares no `view`.",
   "view-on-window": "A window declares a `view`, which it inherits.",
-  "view-unknown": "A setup's `view` is not one of the four views.",
+  "view-undeclared": "A setup faces a view its location does not declare.",
+  "view-unknown": "A location's `views` key is not one of the four views.",
   "reference-id-conflict": "One id is declared in two rosters that share `reference:<id>`.",
   "script-empty-text": "A script line has an empty text or `acting` note.",
   "script-unknown-character": "A script line is spoken by an undeclared character.",

@@ -101,6 +101,7 @@ describe("action hinges", () => {
           name: "street",
           description: "street",
           landmarks: { gap: { name: "gap", description: "gap", promptDepiction: "roof gap" } },
+          views: { front: { holds: ["gap"] } },
         },
       },
     };

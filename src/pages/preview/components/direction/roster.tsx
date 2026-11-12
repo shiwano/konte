@@ -135,6 +135,7 @@ export function DirectionLocations({
             label={l.name}
             description={l.description}
             landmarks={l.landmarks}
+            views={l.views}
             setups={setupsOf(l.id)}
             collapsed={collapsed.has(l.id)}
             onToggle={() => toggle(l.id)}
@@ -170,6 +171,7 @@ function LocationGroup({
   unknown = false,
   description,
   landmarks = [],
+  views = [],
   setups,
   collapsed,
   onToggle,
@@ -180,6 +182,7 @@ function LocationGroup({
   unknown?: boolean;
   description: string;
   landmarks?: DirectionLandmarkInfo[];
+  views?: DirectionLocationInfo["views"];
   setups: DirectionSetupInfo[];
   collapsed: boolean;
   onToggle: () => void;
@@ -228,6 +231,16 @@ function LocationGroup({
                 <li key={l.id}>
                   <span className="dir-landmark-name">{l.name}</span>
                   {l.description}
+                </li>
+              ))}
+            </ul>
+          )}
+          {views.length > 0 && (
+            <ul className="dir-views">
+              {views.map((v) => (
+                <li key={v.view}>
+                  <span className="dir-view">{v.view}</span>
+                  {v.holds.join(" · ") || "—"}
                 </li>
               ))}
             </ul>

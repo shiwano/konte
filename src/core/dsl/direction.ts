@@ -123,11 +123,28 @@ export type Prop = { name: string; promptDepiction: string; description: string 
 // `landmarks` is what the set is recognized by — required and non-empty (`landmarks-empty`), since a
 // frame with nothing only this place has in it comes back as another room. Each `setups.<id>.holds`
 // names the ones its frame carries.
+//
+// `views` is every way a camera faces in this place, each with the landmarks seen facing that way.
+// `front` is required: it is the master, `reference:<id>`. Every other view owes an image of its own
+// (`views` in reference.tsx, `view-unrealized`), and a setup faces only a view declared here.
 export type Location = {
   name: string;
   description: string;
   landmarks: Record<string, Landmark>;
+  views: LocationViews;
 };
+
+export type LocationViews = { front: LocationView } & { [V in ImagedView]?: LocationView };
+
+// `holds` is the landmark ids seen facing this way — what that side of the set has, in no order.
+// A setup facing it holds only these (`holds-outside-view`), and its image's prompt names each
+// (`view-unnamed`).
+export type LocationView = { holds: readonly string[] };
+
+// A view left `undefined` declares none.
+export function declaredViews(views: LocationViews | undefined): [string, LocationView][] {
+  return Object.entries(views ?? {}).filter((e): e is [string, LocationView] => e[1] !== undefined);
+}
 
 // A thing only this place has — the desk, the arm lamp, the window it is always shot through. Keyed
 // by its `id` inside its location's `landmarks`, and named left to right by the `holds` of every
@@ -180,10 +197,10 @@ export type Framing = "wide" | "medium" | "close" | "insert";
 // declaration buys is `plate-unnested`: the plate must be built from the parent's plate — a cut from
 // it or a window inside it — so the set's scale is carried rather than re-invented per plate.
 //
-// `view` is the way the camera faces in its location. A setup with no `within: "<id>"` declares it,
-// an insert included (the view is where the camera points); a window inherits its parent's and
-// cannot write one. A location whose setups face anything but `front` owes that view's reference
-// image (`views` in reference.tsx), and a plate stands on its own view's image.
+// `view` is the way the camera faces in its location, one of the location's `views`. A setup with no
+// `within: "<id>"` declares it, an insert included (the view is where the camera points); a window
+// inherits its parent's and cannot write one. `holds` names only landmarks that view sees, and a
+// plate stands on that view's image.
 export type Setup = {
   name: string;
   description: string;
@@ -193,16 +210,18 @@ export type Setup = {
 } & ({ within: string; view?: never } | { within?: null; view: View });
 
 export { type View } from "../view.js";
-import type { View } from "../view.js";
+import type { ImagedView, View } from "../view.js";
 
 // The `locations` roster ids this direction declares.
 export type LocationIdOf<D> = D extends { locations: infer L } ? Extract<keyof L, string> : string;
 
-// The views the setups set in location `L` face, read off the roots — a window faces its parent's.
-export type ViewsAtOf<D, L> = D extends { setups: infer S }
-  ? {
-      [K in keyof S]: S[K] extends { location: L; view: infer V extends View } ? V : never;
-    }[keyof S]
+// The views location `L` declares.
+export type ViewsOf<D, L> = D extends { locations: infer M }
+  ? L extends keyof M
+    ? M[L] extends { views: infer V }
+      ? Extract<keyof V, View>
+      : View
+    : View
   : View;
 
 // The agreed concept — what the piece is, for whom, and how it should feel — captured from the
@@ -1067,10 +1086,24 @@ type ConstrainCastVoiceIds<R> = {
   [K in keyof R]: R[K] &
     (R[K] extends { voice: infer V } ? { voice: ConstrainVoiceId<V> } : unknown);
 };
-// A landmark id is an id like any other, blamed inside the location that declares it.
+// A landmark id is an id like any other, blamed inside the location that declares it. A view's
+// `holds` names landmarks of its own location.
 type ConstrainLandmarkIds<R> = {
   [K in keyof R]: R[K] &
-    (R[K] extends { landmarks: infer L } ? { landmarks: ConstrainRosterIds<L> } : unknown);
+    (R[K] extends { landmarks: infer L } ? { landmarks: ConstrainRosterIds<L> } : unknown) &
+    (R[K] extends { landmarks: infer L; views: infer V }
+      ? string extends keyof L
+        ? unknown
+        : {
+            views: {
+              [W in keyof V]: V[W] extends { holds: infer H }
+                ? {
+                    holds: ConstrainHolds<H, Extract<keyof L, string>, Extract<keyof L, string>, W>;
+                  }
+                : unknown;
+            };
+          }
+      : unknown);
 };
 // The landmark ids one setup's `holds` may name: those of the location it is set in, reached through
 // its own `location` literal. A widened roster or an unknown place answers `string`, so a computed
@@ -1082,19 +1115,47 @@ type LandmarkIdOf<D extends DirectionInput, S> = S extends { location: infer L }
       : string
     : string
   : string;
+// The view a setup faces: its own literal `view`, or its window chain's root's. A framing is strictly
+// narrower than its `within`, so a chain is at most three deep. Anything unresolved answers `View`.
+type SetupViewOf<Setups, S, Depth extends unknown[] = []> = Depth["length"] extends 3
+  ? View
+  : S extends { view: infer V extends View }
+    ? V
+    : S extends { within: infer W extends keyof Setups }
+      ? SetupViewOf<Setups, Setups[W], [...Depth, unknown]>
+      : View;
+// The landmark ids the view `V` of a setup's location sees. An unresolved view, or one the location
+// does not declare (blamed on the `view`), answers every landmark of the place.
+type SeenIdOf<D extends DirectionInput, S, V> = S extends { location: infer L }
+  ? L extends keyof D["locations"]
+    ? D["locations"][L] extends { views: infer VS }
+      ? [V] extends [keyof VS]
+        ? VS[V] extends { holds: infer H extends readonly string[] }
+          ? H[number]
+          : LandmarkIdOf<D, S>
+        : LandmarkIdOf<D, S>
+      : LandmarkIdOf<D, S>
+    : string
+  : string;
 // The `holds` twin of `LineupSubjectViolation` — a branded object in the offending element's own
 // position, so a typo draws its line where it was typed.
 type HoldsLandmarkViolation<T extends string> = {
-  [P in `konte: holds id "${T}" is not a landmark of this setup's location`]: never;
+  [P in `konte: holds id "${T}" is not a landmark of this location`]: never;
 };
-type ConstrainHolds<H, Ids extends string> = {
+type HoldsViewViolation<T extends string, V> = {
+  [P in `konte: holds id "${T}" is not in the location's views.${V & string}.holds`]: never;
+};
+// `Seen` is what the frame's view sees, a subset of the place's `Landmarks`.
+type ConstrainHolds<H, Landmarks extends string, Seen extends string, V> = {
   [K in keyof H]: string extends H[K]
     ? H[K]
-    : H[K] extends Ids
+    : H[K] extends Seen
       ? H[K]
-      : H[K] extends string
-        ? HoldsLandmarkViolation<H[K]>
-        : never;
+      : H[K] extends Landmarks
+        ? HoldsViewViolation<H[K], V>
+        : H[K] extends string
+          ? HoldsLandmarkViolation<H[K]>
+          : never;
 };
 // An `insert` fills the frame with an object and shows no set, so it is the one framing whose
 // `holds` may be empty. Every other frame carries something only its place has: an empty tuple is
@@ -1102,8 +1163,10 @@ type ConstrainHolds<H, Ids extends string> = {
 type HoldsRequired = {
   "konte: this setup is not an insert, so `holds` must name at least one landmark": never;
 };
-type ConstrainSetupHolds<S, Ids extends string> = S extends { holds: infer H }
-  ? { holds: ConstrainHolds<H, Ids> } &
+type ConstrainSetupHolds<S, Landmarks extends string, Seen extends string, V> = S extends {
+  holds: infer H;
+}
+  ? { holds: ConstrainHolds<H, Landmarks, Seen, V> } &
       // A computed `framing` could be `"insert"` at runtime, so it passes through here exactly as a
       // widened id does and `holds-empty` receives it — only a framing that CANNOT be an insert is
       // asked for a first element.
@@ -1160,9 +1223,32 @@ type ConstrainSetupWithin<S, Setups> = S extends { within: infer W }
                 : unknown
         : unknown
   : unknown;
+// A setup's literal `view` against the views its literal location declares.
+type ConstrainSetupView<D extends DirectionInput, S> = S extends {
+  view: infer V extends string;
+  location: infer L;
+}
+  ? View extends V
+    ? unknown
+    : L extends keyof D["locations"]
+      ? D["locations"][L] extends { views: infer VS }
+        ? [V] extends [keyof VS]
+          ? unknown
+          : {
+              view: DirectionViolation<`konte: view "${V}" is not one location "${L & string}" declares in \`views\``>;
+            }
+        : unknown
+      : unknown
+  : unknown;
 type ConstrainSetupIds<D extends DirectionInput> = ConstrainRosterIds<D["setups"]> & {
-  [K in keyof D["setups"]]: ConstrainSetupHolds<D["setups"][K], LandmarkIdOf<D, D["setups"][K]>> &
-    ConstrainSetupWithin<D["setups"][K], D["setups"]>;
+  [K in keyof D["setups"]]: ConstrainSetupHolds<
+    D["setups"][K],
+    LandmarkIdOf<D, D["setups"][K]>,
+    SeenIdOf<D, D["setups"][K], SetupViewOf<D["setups"], D["setups"][K]>>,
+    SetupViewOf<D["setups"], D["setups"][K]>
+  > &
+    ConstrainSetupWithin<D["setups"][K], D["setups"]> &
+    ConstrainSetupView<D, D["setups"][K]>;
 };
 // Whether the piece is cut to `policy.song`, read off the literal policy. A computed policy, whose
 // `song` may or may not be there, is `boolean` and leaves every span to the runtime.

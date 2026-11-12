@@ -43,7 +43,7 @@ export default defineDirection({
     studio: {
       name: "the creative studio",
       description: "A bright, tidy studio desk in a soft purple-and-white palette.",
-      landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } },
+      landmarks: { studioMark: { name: "the mark", promptDepiction: "mark", description: "a mark only this place has" } }, views: { front: { holds: ["studioMark"] } },
     },
   },
   setups: {

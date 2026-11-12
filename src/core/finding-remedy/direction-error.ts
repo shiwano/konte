@@ -36,6 +36,8 @@ export const DIRECTION_ERROR_REMEDY: Record<DirectionErrorCode, string> = {
   "location-empty-description": "give the location a non-empty `description`",
   "location-empty": "declare at least one location",
   "landmarks-empty": "declare the location's `landmarks`: what only this place has",
+  "view-front-missing":
+    "declare `views.front` with the landmarks seen facing the way reference.<locationId> does",
   "landmark-invalid-id": `rename the landmark to a valid identifier (${ASSET_NAME})`,
   "landmark-empty-name": "give the landmark a non-empty `name`",
   "landmark-empty-description":
@@ -52,7 +54,10 @@ export const DIRECTION_ERROR_REMEDY: Record<DirectionErrorCode, string> = {
   "setup-unknown-location": "set the setup's `location` to a declared location",
   "holds-empty":
     "name in `holds` the landmarks of the setup's location the frame carries, left to right",
-  "holds-unknown-id": "name in `holds` only landmarks of the setup's location",
+  "holds-unknown-id": "name in `holds` only landmarks of the location",
+  "holds-outside-view":
+    "drop the landmark from the setup's `holds`, or add it to its location's `views.<view>.holds` " +
+    "if that view sees it",
   "within-undeclared":
     "the setup could be a step in from a wider frame of the same place holding what it holds. " +
     'Say which: `within: "<id>"` for the frame it steps in from, or `within: null` if it is ' +
@@ -65,7 +70,9 @@ export const DIRECTION_ERROR_REMEDY: Record<DirectionErrorCode, string> = {
     "declare `view`, the way the camera faces in its location: one of " +
     `${VIEW_LIST} ("front" is the way reference.<locationId> faces)`,
   "view-on-window": "drop the `view` — a window faces the way the frame it is cut from does",
-  "view-unknown": `set \`view\` to one of ${VIEW_LIST}`,
+  "view-undeclared":
+    "face a view the location declares in `views`, or declare the view there with what it holds",
+  "view-unknown": `key the location's \`views\` by ${VIEW_LIST}`,
   "reference-id-conflict":
     "give each its own id — characters, props, locations and cast voices share `reference:<id>`",
   "script-empty-text":

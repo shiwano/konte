@@ -110,6 +110,7 @@ const defaultLocations: Record<string, Location> = {
         description: "a mark only this place has",
       },
     },
+    views: { front: { holds: ["hereMark"] } },
   },
 };
 
@@ -421,6 +422,7 @@ describe("validateDirectionStructure", () => {
               description: "a mark only this place has",
             },
           },
+          views: { front: { holds: ["roomMark"] } },
         },
       },
       shots: [shot("01", "hero", 3, "shot", undefined, "nowhere")],
@@ -518,6 +520,7 @@ describe("validateDirectionStructure", () => {
               description: "a mark only this place has",
             },
           },
+          views: { front: { holds: ["gardenMark"] } },
         },
       },
       shots: [shot("01", "hero", 3, "shot", undefined, "garden")],
@@ -543,6 +546,7 @@ describe("validateDirectionStructure", () => {
               description: "a mark only this place has",
             },
           },
+          views: { front: { holds: ["badMark"] } },
         },
         empty: {
           name: "  ",
@@ -554,6 +558,7 @@ describe("validateDirectionStructure", () => {
               description: "a mark only this place has",
             },
           },
+          views: { front: { holds: ["emptyMark"] } },
         },
       },
       shots: [shot("01", "hero", 3, "shot", undefined, "empty")],
@@ -578,6 +583,7 @@ describe("validateDirectionStructure", () => {
               description: "a mark only this place has",
             },
           },
+          views: { front: { holds: ["catMark"] } },
         },
       },
       shots: [shot("01", "hero", 3, "the cat sits", undefined, "cat")],
@@ -599,6 +605,7 @@ describe("validateDirectionStructure", () => {
                 description: "a mark only this place has",
               },
             },
+            views: { front: { holds: ["pattyMark"] } },
           },
         },
         shots: [shot("01", "hero", 3, "shot", undefined, "patty")],
@@ -625,6 +632,7 @@ describe("validateDirectionStructure", () => {
               description: "a mark only this place has",
             },
           },
+          views: { front: { holds: ["gardenMark"] } },
         },
       },
       shots: [shot("01", "hero", 3, "shot", undefined, "garden")],
@@ -1683,6 +1691,7 @@ describe("checkDirection setups", () => {
           landmarks: {
             thereMark: { name: "the far mark", promptDepiction: "tower", description: "a tower" },
           },
+          views: { front: { holds: ["thereMark"] } },
         },
       },
       setups: {
@@ -1905,6 +1914,12 @@ describe("checkDirection setups", () => {
     // `desk` faces the master's way; `top` looks straight down on the desk and `topClose` is a
     // window of it, so it faces down too.
     const viewed = leaf({
+      locations: {
+        here: {
+          ...defaultLocations.here!,
+          views: { front: { holds: ["hereMark"] }, top: { holds: ["hereMark"] } },
+        },
+      },
       shots: [
         { ...shot("01", "ordinary", 3), setup: "desk" },
         { ...shot("02", "disruption", 2), setup: "top" },
@@ -1949,19 +1964,31 @@ describe("checkDirection setups", () => {
         ["view-unrealized", "plate-unviewed", "view-unanchored"].includes(f.code),
       );
 
-    it("demands an image of every way a used setup faces but front", () => {
+    it("demands an image of every view a location declares but front", () => {
       const findings = codes(viewed, ["here"]);
       expect(findings.map((f) => [f.code, f.subject])).toEqual([["view-unrealized", "here.top"]]);
-      expect(findings[0]?.message).toContain('"top"');
-      expect(findings[0]?.message).toContain('in "here"');
+      expect(findings[0]?.message).toContain('"here" declares the view "top"');
     });
 
     it("is satisfied by the view image the reference stage files", () => {
       expect(codes(viewed, ["here", "view.here.top"])).toEqual([]);
     });
 
-    it("waits for the board", () => {
-      const findings = checkDirection(viewed, { referenceAssetNames: ["here"] }).active;
+    it("reads no board and no setup", () => {
+      const unfaced = leaf({
+        locations: viewed.locations,
+        shots: [{ ...shot("01", "ordinary", 3), setup: "desk" }],
+        setups: { desk: viewed.setups.desk! },
+      });
+      const findings = checkDirection(unfaced, { referenceAssetNames: ["here"] }).active;
+      expect(findings.map((f) => [f.code, f.subject])).toContainEqual([
+        "view-unrealized",
+        "here.top",
+      ]);
+    });
+
+    it("waits for the reference stage", () => {
+      const findings = checkDirection(viewed).active;
       expect(findings.map((f) => f.code)).not.toContain("view-unrealized");
     });
 
@@ -2024,6 +2051,7 @@ describe("checkDirection locations", () => {
             description: "a mark only this place has",
           },
         },
+        views: { front: { holds: ["gardenMark"] } },
       },
     },
     shots: [
@@ -2064,6 +2092,7 @@ describe("checkDirection locations", () => {
               description: "a mark only this place has",
             },
           },
+          views: { front: { holds: ["gardenMark"] } },
         },
         attic: {
           name: "the attic",
@@ -2075,6 +2104,7 @@ describe("checkDirection locations", () => {
               description: "a mark only this place has",
             },
           },
+          views: { front: { holds: ["atticMark"] } },
         },
       },
       shots: [

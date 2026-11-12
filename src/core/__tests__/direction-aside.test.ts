@@ -51,6 +51,7 @@ function direction(shots: Array<NarrativeShot | AsideShot>): Direction {
             description: "a mark only this place has",
           },
         },
+        views: { front: { holds: ["hereMark"] } },
       },
     },
     setups,

@@ -7,7 +7,7 @@ import { KonteError } from "../errors.js";
 import type { AssetDefinition, Respelling, VideoFormat } from "../types/definition.js";
 import type { PromptOccurrence } from "../prompt-check.js";
 import type { PinOccurrence } from "../pin-check.js";
-import type { DirectionIndex } from "./direction.js";
+import { declaredViews, type DirectionIndex } from "./direction.js";
 import { scriptTexts } from "./shot-script.js";
 import {
   makeReferencePlaceholder,
@@ -18,9 +18,9 @@ import {
 import {
   getDirectionIndex,
   type DirectionEntry,
+  type Location,
   type LocationIdOf,
-  type Setup,
-  type ViewsAtOf,
+  type ViewsOf,
 } from "./direction.js";
 import { IMAGED_VIEWS, isImagedView, viewAssetName } from "../view.js";
 import { deriveReferenceSize } from "../canvas.js";
@@ -36,12 +36,12 @@ export type ReferenceRef<TAssets extends ReferenceAssetMap> = {
 };
 
 /**
- * `reference.view.<locationId>.<view>`: per location, the image of each way its setups face other
- * than `front`, which is `reference.<locationId>` itself.
+ * `reference.view.<locationId>.<view>`: per location, the image of each view it declares other than
+ * `front`, which is `reference.<locationId>` itself.
  */
 export type ReferenceViewRef<D> = {
   readonly [L in LocationIdOf<D>]: {
-    readonly [V in Exclude<ViewsAtOf<D, L>, "front">]: MediaAsset<"image">;
+    readonly [V in Exclude<ViewsOf<D, L>, "front">]: MediaAsset<"image">;
   };
 };
 
@@ -49,11 +49,11 @@ export type ReferenceViewRef<D> = {
 const RESERVED_NAMES = new Set(["shots", "topLevelAssets", "exposedAssetNames", "prompts", "pins"]);
 
 /**
- * The view images a `views` callback may return: per location, one image per way its setups face
- * other than `front`, which is the location's own `reference:<id>`.
+ * The view images a `views` callback may return: per location, one image per view it declares other
+ * than `front`, which is the location's own `reference:<id>`.
  */
 export type ReferenceViews<D> = {
-  [L in LocationIdOf<D>]?: { [V in Exclude<ViewsAtOf<D, L>, "front">]?: MediaAsset<"image"> };
+  [L in LocationIdOf<D>]?: { [V in Exclude<ViewsOf<D, L>, "front">]?: MediaAsset<"image"> };
 };
 
 export interface DefineReferenceOptions<TAssets extends ReferenceAssetMap, D = unknown> {
@@ -70,7 +70,7 @@ export interface DefineReferenceOptions<TAssets extends ReferenceAssetMap, D = u
  * Declares the reference stage: the direction, then `references` (a flat callback returning a named
  * map of asset()s) and `views`. The returned object IS both the ReferenceDefinition (loaded by konte)
  * and the ref used by animatic/video to fabricate `reference:<name>` placeholders, with
- * `reference.view` holding the view images the direction's setups face.
+ * `reference.view` holding the view images the direction's locations declare.
  *
  * The direction is taken for its typesetting (`policy.lang` + `policy.fonts`) and for the canvas
  * each sheet is sized off: its long edge, at the shape the asset's roster asks for
@@ -154,22 +154,22 @@ export function defineReference<const D, TAssets extends ReferenceAssetMap>(
   }) as ReferenceDefinition & ReferenceRef<TAssets> & { readonly view: ReferenceViewRef<D> };
 }
 
-// Per location, every view other than `front` its setups face, each the placeholder of its image —
-// read off the direction, so one `views` has not returned yet is still reachable.
+// Per location, every view other than `front` it declares, each the placeholder of its image — read
+// off the direction, so one `views` has not returned yet is still reachable.
 function viewRefOf(direction: DirectionEntry<unknown>): Record<string, Record<string, MediaAsset>> {
-  const { locations = {}, setups = {} } = direction as {
-    locations?: Record<string, unknown>;
-    setups?: Record<string, Setup>;
-  };
   const out: Record<string, Record<string, MediaAsset>> = {};
-  for (const id of Object.keys(locations)) out[id] = {};
-  for (const setup of Object.values(setups)) {
-    const view = setup.view;
-    const byView = out[setup.location];
-    if (!byView || !isImagedView(view)) continue;
-    byView[view] = makeMediaAsset(makeReferencePlaceholder(viewAssetName(setup.location, view)));
+  for (const [id, location] of Object.entries(locationsOf(direction))) {
+    out[id] = {};
+    for (const [view] of declaredViews(location.views)) {
+      if (!isImagedView(view)) continue;
+      out[id][view] = makeMediaAsset(makeReferencePlaceholder(viewAssetName(id, view)));
+    }
   }
   return out;
+}
+
+function locationsOf(direction: DirectionEntry<unknown>): Record<string, Partial<Location>> {
+  return (direction as { locations?: Record<string, Partial<Location>> }).locations ?? {};
 }
 
 // Every declared asset() is generatable (it lands in `topLevelAssets`); returning it is what
@@ -213,18 +213,17 @@ function fileViews(
       );
     }
   }
-  const locations = new Set(
-    Object.keys((direction as { locations?: Record<string, unknown> }).locations ?? {}),
-  );
+  const locations = locationsOf(direction);
   const filed = new Map<string, string>();
   for (const [locationId, byView] of Object.entries((result ?? {}) as Record<string, unknown>)) {
-    if (!locations.has(locationId)) {
+    if (!Object.hasOwn(locations, locationId)) {
       throw new KonteError(
         "INVALID_VIEW",
         `defineReference: views."${locationId}" is not a location direction.ts declares. A view ` +
-          `image is filed under its location id: ${[...locations].join(", ")}`,
+          `image is filed under its location id: ${Object.keys(locations).join(", ")}`,
       );
     }
+    const viewsHere = declaredViews(locations[locationId]!.views).map(([v]) => v);
     for (const [view, image] of Object.entries((byView ?? {}) as Record<string, unknown>)) {
       // The type lets a view be left `undefined`, which declares none.
       if (image === undefined) continue;
@@ -240,6 +239,13 @@ function fileViews(
         throw new KonteError(
           "INVALID_VIEW",
           `defineReference: ${at} is not a view — return ${IMAGED_VIEWS.join(", ")}`,
+        );
+      }
+      if (!viewsHere.includes(view)) {
+        throw new KonteError(
+          "INVALID_VIEW",
+          `defineReference: ${at} is not a view location "${locationId}" declares — declare ` +
+            `\`views.${view}\` on it in direction.ts`,
         );
       }
       const src = (image as { src?: unknown } | null | undefined)?.src;

@@ -17,6 +17,7 @@ const direction = defineDirection({
         door: { name: "the door", promptDepiction: "door", description: "back" },
         frontDoor: { name: "front door", promptDepiction: "front door", description: "back" },
       },
+      views: { front: { holds: ["chair", "desk", "door", "frontDoor"] } },
     },
   },
   setups: {
@@ -125,6 +126,7 @@ describe("findUnheldLandmarks", () => {
             chair: { name: "椅子", promptDepiction: "椅子", description: "左" },
             desk: { name: "机", promptDepiction: "机", description: "右" },
           },
+          views: { front: { holds: ["chair", "desk"] } },
         },
       },
       setups: {

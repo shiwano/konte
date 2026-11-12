@@ -78,8 +78,8 @@ export const DIRECTION_FINDING_REMEDY: Record<DirectionFindingCode, string> = {
     "waive it by its key where the place is covered in one-off frames",
   "view-unrealized":
     "return `<locationId>: { <view>: asset(…) }` from `views` in reference.tsx, made from " +
-    "`reference.<locationId>`, or waive it by its key where the setup stands on the location's " +
-    "master",
+    "`reference.<locationId>`; drop the view from the location's `views` where no setup faces " +
+    "it; or waive it by its key where the setups facing it stand on the location's master",
   "plate-unviewed":
     "build the plate, or a plate-less setup's keyframe, from the image of the view the setup " +
     "faces (named) — a plate may instead be cut in from a plate that is — or waive it by its key " +
@@ -88,9 +88,9 @@ export const DIRECTION_FINDING_REMEDY: Record<DirectionFindingCode, string> = {
     "take the location's master named as an input image of the view image, or waive it by its " +
     "key where the view is not drawn from the master",
   "view-unnamed":
-    "ask for the landmark by that noun in the image's prompt, drawing the image from the way " +
-    "those setups face — `front` is the way the master faces — or take it out of their `holds` " +
-    "where the frame does not carry it; to call it by other words, change " +
+    "ask for the landmark by that noun in the image's prompt, drawing the image from that view " +
+    "— `front` is the way the master faces — or take it out of the view's `holds` where it does " +
+    "not see it; to call it by other words, change " +
     "`locations.<locationId>.landmarks.<landmarkId>.promptDepiction`; or waive it by its key",
   "multi-sentence-action":
     "land one action per shot: split the shot into two, or waive it by its key where the action " +

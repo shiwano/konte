@@ -144,7 +144,7 @@ export type KonteErrorCode =
   // declared setup, or an asset declared there and not returned as one.
   | "INVALID_PLATE"
   // A `reference.tsx` `views` block that does not file its images by location and view — a key naming
-  // no declared location or no view, or a handle declared outside `views`.
+  // no declared location or no view it declares, or a handle declared outside `views`.
   | "INVALID_VIEW"
   // A `respell()` that names no line the direction wrote, or that hands over a blank spelling.
   | "INVALID_RESPELL"

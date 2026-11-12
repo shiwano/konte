@@ -23,12 +23,18 @@ import type {
   DirectionNode,
   Landmark,
   Location,
+  LocationViews,
   Prop,
   Setup,
   Shot,
   Voice,
 } from "./dsl/direction.js";
-import { isAsideShot, isGraphicShot, resolveDirectionFormat } from "./dsl/direction.js";
+import {
+  declaredViews,
+  isAsideShot,
+  isGraphicShot,
+  resolveDirectionFormat,
+} from "./dsl/direction.js";
 import { shortHash } from "./content-hash.js";
 
 // Two projections of the direction, for two different questions.
@@ -180,11 +186,19 @@ function projectLandmarks(landmarks: Record<string, Landmark> | undefined): unkn
   }));
 }
 
+// A view's `holds` has no order.
+function projectViews(views: LocationViews | undefined): unknown[] {
+  return projectRoster(Object.fromEntries(declaredViews(views)), (v) => ({
+    holds: [...(v.holds ?? [])].sort(),
+  }));
+}
+
 function projectLocations(locations: Record<string, Location> | undefined): unknown[] {
   return projectRoster(locations, (l) => ({
     name: l.name,
     description: l.description,
     landmarks: projectLandmarks(l.landmarks),
+    views: projectViews(l.views),
   }));
 }
 
@@ -449,6 +463,7 @@ export function directionPartHashes(direction: Direction): Map<string, string> {
         name: l.name,
         description: l.description,
         landmarks: projectLandmarks(l.landmarks),
+        views: projectViews(l.views),
       }),
     );
   }

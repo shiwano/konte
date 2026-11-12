@@ -74,6 +74,10 @@ export default defineDirection({
           description: "A round pine table.",
         },
       },
+      views: {
+        front: { holds: ["window", "stove", "table"] },
+        top: { holds: ["stove"] },
+      },
     },
     yard: {
       name: "the yard",
@@ -82,6 +86,7 @@ export default defineDirection({
         gate: { name: "the gate", promptDepiction: "gate", description: "A blue wooden gate." },
         tree: { name: "the tree", promptDepiction: "tree", description: "An old apple tree." },
       },
+      views: { front: { holds: ["gate", "tree"] } },
     },
   },
   setups: {

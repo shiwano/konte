@@ -30,6 +30,7 @@ export const directionDefaults: {
       landmarks: {
         desk: { name: "the desk", promptDepiction: "desk", description: "a plain desk, centre" },
       },
+      views: { front: { holds: ["desk"] } },
     },
   },
   setups: {

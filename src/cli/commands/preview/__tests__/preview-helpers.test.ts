@@ -850,6 +850,7 @@ describe("shotFactsIndex", () => {
             description: "a mark only this place has",
           },
         },
+        views: { front: { holds: ["studioMark"] } },
       },
     },
     setups: {

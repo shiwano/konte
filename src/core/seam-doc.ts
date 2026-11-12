@@ -77,11 +77,13 @@ function direction(shots: readonly Shot[]): Direction {
           desk: { name: "the desk", promptDepiction: "desk", description: "a desk" },
           window: { name: "the window", promptDepiction: "window", description: "a window" },
         },
+        views: { front: { holds: ["desk", "window"] }, back: { holds: ["window"] } },
       },
       yard: {
         name: "the yard",
         description: "a back yard",
         landmarks: { gate: { name: "the gate", promptDepiction: "gate", description: "a gate" } },
+        views: { front: { holds: ["gate"] } },
       },
     },
     setups: SETUPS,

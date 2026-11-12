@@ -27,7 +27,7 @@ describe("setup plates", () => {
 export default defineDirection({
   brief: { logline: "test" },
   characters: {},
-  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioWindow: { name: "the window", promptDepiction: "window", description: "the tall window along the far wall" } } } },
+  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioWindow: { name: "the window", promptDepiction: "window", description: "the tall window along the far wall" } }, views: { front: { holds: ["studioWindow"] } } } },
   setups: {
     front: { name: "the front angle", description: "straight on, eye level", location: "studio", framing: "medium", view: "front", holds: ["studioWindow"] },
   },
@@ -275,7 +275,7 @@ const TWO_SETUP_DIRECTION_TS = `import { defineDirection, defineLens } from "kon
 export default defineDirection({
   brief: { logline: "test" },
   characters: {},
-  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioWindow: { name: "the window", promptDepiction: "window", description: "the tall window along the far wall" }, studioDoor: { name: "the door", promptDepiction: "door", description: "the door in the near wall" } } } },
+  locations: { studio: { name: "the studio", description: "a plain studio", landmarks: { studioWindow: { name: "the window", promptDepiction: "window", description: "the tall window along the far wall" }, studioDoor: { name: "the door", promptDepiction: "door", description: "the door in the near wall" } }, views: { front: { holds: ["studioWindow", "studioDoor"] } } } },
   setups: {
     front: { name: "f", description: "straight on", location: "studio", framing: "medium", view: "front", holds: ["studioWindow"] },
     side: { name: "s", description: "from the side", location: "studio", framing: "wide", view: "front", holds: ["studioDoor"] },
