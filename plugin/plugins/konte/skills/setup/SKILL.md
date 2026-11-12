@@ -31,6 +31,7 @@ Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/shiwano/kon
 & $konteSetupScript
 ```
 
+- Codex → run the script outside the sandbox, with approval.
 - Continue only after a successful download and script exit.
 - Version: `KONTE_VERSION` override → committed `konte.version` → latest. For a requested version, set `KONTE_VERSION` for the script invocation; PowerShell: restore the previous environment value afterward.
 - Nonempty destination approved by the user → pass `--yes` (sh) / `-Yes` (PowerShell).
