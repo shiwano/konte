@@ -261,13 +261,19 @@ export function injectBaseTimeline(
 // schedules only `audio[data-start]` into its WebAudio transport and force-mutes every media
 // element (a <video> included) while that transport is active. Preview-only. The mirror sits outside
 // its shot's composition, so its `data-start` is the shot-local one plus `offset`, the shot's start
-// on the master clock; every other window attribute is copied verbatim. A clip with no
-// `data-start` is not a timed clip to the runtime, so it is not mirrored.
+// on the master clock; its window ends by `shotEnd`, on the same clock; every other window
+// attribute is copied verbatim. A clip with no `data-start` is not a timed clip to the
+// runtime, so it is not mirrored.
 // `duckUnder` gives a clip its duck under the narration as a volume lane, the shape a bed's takes.
 // See the `arch-audio-guide` skill for the preview's remaining audio-parity gaps.
 const HAS_CLIP_AUDIO = /\sdata-has-audio="true"/;
 
-function buildEmbeddedAudioTags(html: string, offset: number, duckUnder?: ClipDuck): string[] {
+function buildEmbeddedAudioTags(
+  html: string,
+  offset: number,
+  shotEnd: number,
+  duckUnder?: ClipDuck,
+): string[] {
   const tags: string[] = [];
   for (const [tag] of html.matchAll(/<video\b[^>]*>/g)) {
     if (!HAS_CLIP_AUDIO.test(tag)) continue;
@@ -277,18 +283,22 @@ function buildEmbeddedAudioTags(html: string, offset: number, duckUnder?: ClipDu
     const localStart = attr("data-start");
     if (localStart == null) continue;
     const start = parseFloat(localStart) + offset;
-    const duration = attr("data-duration");
+    const declared = attr("data-duration");
+    const duration = Math.max(
+      0,
+      Math.min(declared != null ? parseFloat(declared) : Infinity, shotEnd - start),
+    );
     const automation = duckUnder?.({
       src,
       start,
-      duration: duration != null ? parseFloat(duration) : null,
+      duration,
       volume: attr("data-volume") != null ? parseFloat(attr("data-volume")!) : 1,
     });
     const attrs = [
       `data-konte-track="embedded"`,
       `src="${src}"`,
       `data-start="${start}"`,
-      attr("data-duration") != null ? `data-duration="${attr("data-duration")}"` : "",
+      `data-duration="${duration}"`,
       attr("data-media-start") != null ? `data-media-start="${attr("data-media-start")}"` : "",
       attr("data-playback-rate") != null
         ? `data-playback-rate="${attr("data-playback-rate")}"`
@@ -321,21 +331,20 @@ function liftShotAudio(html: string, offset: number): { html: string; tags: stri
 type ClipDuck = (clip: {
   src: string;
   start: number;
-  duration: number | null;
+  duration: number;
   volume: number;
 }) => BedAutomation | null;
 
 /**
  * The duck a shot's clips take under `narration` (spans on the clock the clips' `data-start` is on),
- * each off its own measured loudness. A clip with no `data-duration` plays to `shotEnd`.
+ * each off its own measured loudness.
  */
 function clipDuckUnder(
   narration: readonly Span[],
   loudnessBySrc: Readonly<Record<string, AudioLoudness>> | undefined,
-  shotEnd: number,
 ): ClipDuck {
   return ({ src, start, duration, volume }) => {
-    const end = duration != null ? start + duration : shotEnd;
+    const end = start + duration;
     if (!(end > start)) return null;
     const duck = narrationDuck({
       clip: { start, end },
@@ -381,8 +390,12 @@ function clipLoudnessBySrc(
 }
 
 // Place mirrored clip audio in a standalone shot-level document (the single-shot preview).
-function injectEmbeddedAudio(compositionHtml: string, duckUnder?: ClipDuck): string {
-  const tags = buildEmbeddedAudioTags(compositionHtml, 0, duckUnder);
+function injectEmbeddedAudio(
+  compositionHtml: string,
+  shotDuration: number,
+  duckUnder?: ClipDuck,
+): string {
+  const tags = buildEmbeddedAudioTags(compositionHtml, 0, shotDuration, duckUnder);
   if (tags.length === 0) return compositionHtml;
   const group = `<div id="embedded-audio" style="display:none;">${tags.join("")}</div>`;
   const bodyCloseIdx = compositionHtml.lastIndexOf("</body>");
@@ -1158,7 +1171,6 @@ export async function buildShotCompositionHtml(
     duckUnder = clipDuckUnder(
       narration,
       clipLoudnessBySrc(plan, levelled, resolvedFiles, resolvedVariants, assetBaseUrl),
-      shotPlan.duration,
     );
   }
 
@@ -1167,7 +1179,7 @@ export async function buildShotCompositionHtml(
       resolveAssetPlaceholdersInHtml(
         injectRuntime(
           injectBaseTimeline(
-            injectEmbeddedAudio(html, duckUnder),
+            injectEmbeddedAudio(html, shotPlan.duration, duckUnder),
             shotPlan.shotId,
             shotPlan.duration,
           ),
@@ -1627,7 +1639,8 @@ export async function buildFullCompositionHtml(
       buildEmbeddedAudioTags(
         host.html,
         host.start,
-        clipDuckUnder(narration, host.loudnessBySrc, host.shotEnd),
+        host.shotEnd,
+        clipDuckUnder(narration, host.loudnessBySrc),
       ),
     ),
   ];

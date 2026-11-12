@@ -1353,6 +1353,28 @@ describe("Video/Audio data attributes", () => {
     expect(html).not.toMatch(/<video[^>]*data-end=/);
   });
 
+  it("defaults a late clip's data-duration to the rest of its shot", async () => {
+    const html = await buildSingle(
+      singleShot((motion) => (
+        <Composition>
+          <Video src={motion} start={1} />
+        </Composition>
+      )),
+    );
+    expect(html).toMatch(/<video[^>]*data-duration="4"/);
+  });
+
+  it("ends a mirrored clip's audio at its shot's cut", async () => {
+    const html = await buildSingle(
+      singleShot((motion) => (
+        <Composition>
+          <Video src={motion} hasAudio start={1} duration={6} />
+        </Composition>
+      )),
+    );
+    expect(html).toMatch(/<audio[^>]*data-konte-track="embedded"[^>]*data-duration="4"/);
+  });
+
   it("serializes playbackRate to data-playback-rate", async () => {
     const html = await buildSingle(
       singleShot((motion) => (

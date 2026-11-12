@@ -47,7 +47,7 @@ export function Video({
   className,
   ...rest
 }: VideoProps): React.ReactElement {
-  // Default the clip to span the whole shot. Without an explicit data-duration the
+  // Default the clip to run to the shot's end. Without an explicit data-duration the
   // runtime treats the clip as infinite and keeps re-playing the video past the
   // composition end (last/first frame flicker). An explicit prop still wins.
   const { duration: shotDuration, shotId } = getRenderContext();
@@ -84,7 +84,9 @@ export function Video({
       {...rest}
       className={className ? `konte-clip ${className}` : "konte-clip"}
       data-start={clipStart}
-      data-duration={duration ?? raw["data-duration"] ?? shotDuration}
+      data-duration={
+        duration ?? raw["data-duration"] ?? Math.max(0, shotDuration - Number(clipStart))
+      }
       data-end={undefined}
       data-media-start={window ?? mediaStart ?? raw["data-media-start"]}
       data-playback-rate={rate}

@@ -67,6 +67,17 @@ describe("buildTimelineTracks — playback rate", () => {
     expect(tracks[0]).toMatchObject({ file: "/clip.mp4", rate: 1.6, duration: 3 });
   });
 
+  it("ends a clip's own track at its shot's cut", async () => {
+    const tracks = await buildTimelineTracks({
+      shotOrder: order,
+      actualDurations: durations,
+      audioByShot: new Map([
+        ["02", [cue({ role: "embedded", file: "/clip.mp4", localStart: 1, localEnd: 5 })]],
+      ]),
+    });
+    expect(tracks[0]).toMatchObject({ start: 4, duration: 3 });
+  });
+
   it("plays an open-ended sound out in its source length over its rate", async () => {
     const tracks = await buildTimelineTracks({
       shotOrder: order,

@@ -268,10 +268,11 @@ export async function buildTimelineTracks(opts: {
       if (raw.role === "embedded" && !(await hasAudio(raw.file))) continue;
       const start = offset + raw.localStart;
       let duration: number | null;
-      if (raw.localEnd != null) {
+      if (raw.role === "embedded") {
+        const end = raw.localEnd != null ? Math.min(raw.localEnd, shotDur) : shotDur;
+        duration = Math.max(0, end - raw.localStart);
+      } else if (raw.localEnd != null) {
         duration = Math.max(0, raw.localEnd - raw.localStart);
-      } else if (raw.role === "embedded") {
-        duration = Math.max(0, shotDur - raw.localStart);
       } else {
         const len = await sourceDuration(raw.file);
         duration = len != null ? Math.max(0, len - raw.mediaStart) / raw.rate : null;
