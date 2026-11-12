@@ -8,7 +8,7 @@
     {
       "name": "konte",
       "source": "./plugins/konte",
-      "description": "Install, bootstrap and upgrade konte, the agent-operated AI video production tool"
+      "description": "Install and bootstrap konte, the agent-operated AI video production tool"
     }
   ]
 }

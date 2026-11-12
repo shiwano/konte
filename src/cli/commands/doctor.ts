@@ -1144,7 +1144,7 @@ async function checkKonteRelease(): Promise<CheckResult> {
       return {
         name,
         status: "WARN",
-        message: `v${result.latest} is out (installed v${result.current}) — run /konte:upgrade, or rerun the installer`,
+        message: `v${result.latest} is out (installed v${result.current}) — run the konte-upgrade skill`,
       };
     case "current":
       return { name, status: "PASS", message: `v${result.current} is the latest release` };

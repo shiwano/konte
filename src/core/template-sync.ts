@@ -244,7 +244,7 @@ export async function assertKonteCurrent(workspaceRoot: string): Promise<void> {
   if (recorded === null || !isNewer(recorded, pkg.version)) return;
   throw new KonteError(
     "KONTE_OUTDATED",
-    `${workspaceRoot} was set up by konte v${recorded}, newer than this v${pkg.version}; upgrade it with the konte upgrade skill, or to go back to an older konte, write that version into konte.version and run the konte setup skill`,
+    `${workspaceRoot} was set up by konte v${recorded}, newer than this v${pkg.version}; install v${recorded} with the konte-upgrade skill`,
   );
 }
 

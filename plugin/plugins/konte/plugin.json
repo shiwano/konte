@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "konte",
-  "version": "0.1.1",
-  "description": "Setup and upgrade konte, the agent-operated AI video production tool",
+  "version": "0.2.0",
+  "description": "Set up konte, the agent-operated AI video production tool",
   "homepage": "https://github.com/shiwano/konte",
   "repository": "https://github.com/shiwano/konte",
   "keywords": [
