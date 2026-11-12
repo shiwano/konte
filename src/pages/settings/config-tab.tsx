@@ -111,15 +111,19 @@ function fromDraft(draft: Draft, base: KonteConfig): KonteConfig {
         unreachableTimeoutMinutes: integer("Unreachable timeout", draft.unreachableTimeoutMinutes),
       },
     },
-    local: {
+    local: section({
       ffmpegPath: text(draft.ffmpegPath),
       ffprobePath: text(draft.ffprobePath),
-    },
-    preview: {
+    }),
+    preview: section({
       host: text(draft.previewHost),
       allowedHosts: allowedHosts(draft.previewAllowedHosts),
-    },
+    }),
   };
+}
+
+function section<T extends object>(fields: T): T | undefined {
+  return Object.values(fields).some((v) => v !== undefined) ? fields : undefined;
 }
 
 function HeaderRows(props: { rows: HeaderRow[]; onChange: (rows: HeaderRow[]) => void }) {
