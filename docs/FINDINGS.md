@@ -181,3 +181,29 @@ Reported over what a stage file or a patch script declares, and over the takes t
 | `soundtrack-anchor-unknown`     | A soundtrack's `from` / `until` names a shot the timeline does not hold.                                                                                                                                                                                                                                                                                                   | `animatic.tsx` / `video.tsx`                              | definition | fix    | spend: its stage and downstream; accept             | always     |
 | `pending-reference`             | An asset is built on a shot that is still a `pendingShot`; it and what is built on it wait, the rest of the stage spends.                                                                                                                                                                                                                                                  | the stage file writing the reference                      | definition | fix    | spend: its assets and what is built on them; accept | always     |
 | `source-locator-out-of-range`   | A digest's `at` or `brief.source.span` points past the chunks `konte source import` counted in the original, or the video holds no source.                                                                                                                                                                                                                                 | `source/digest/<chunk>.ts` / `direction.ts`               | definition | fix    | spend: its stage and downstream; accept             | always     |
+
+## Beside a critic
+
+Findings that settle the formal half of a critic's check on the artifact the critic reads; the critic judges what they leave ([CRITICS.md](CRITICS.md)).
+
+| Code                     | Critic checks                                                                                                                               |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `no-payoff`              | [konte-direction-critic](CRITICS.md#konte-direction-critic) `weak-payoff`                                                                   |
+| `unearned-payoff`        | [konte-direction-critic](CRITICS.md#konte-direction-critic) `weak-payoff`                                                                   |
+| `view-unnamed`           | [konte-prompt-critic](CRITICS.md#konte-prompt-critic) `view-unmeasured`                                                                     |
+| `lineup-gap`             | [konte-direction-critic](CRITICS.md#konte-direction-critic) `absent-subject`                                                                |
+| `location-backtrack`     | [konte-direction-critic](CRITICS.md#konte-direction-critic) `illegible-jump`                                                                |
+| `subject-unnamed`        | [konte-prompt-critic](CRITICS.md#konte-prompt-critic) `lineup-mismatch`                                                                     |
+| `landmark-unnamed`       | [konte-prompt-critic](CRITICS.md#konte-prompt-critic) `set-mismatch`                                                                        |
+| `join-lineup-mismatch`   | [konte-direction-critic](CRITICS.md#konte-direction-critic) `unsupported-long-take`                                                         |
+| `holds-outside-view`     | [konte-direction-critic](CRITICS.md#konte-direction-critic) `view-mismatch`                                                                 |
+| `view-undeclared`        | [konte-direction-critic](CRITICS.md#konte-direction-critic) `view-mismatch`                                                                 |
+| `props-missing`          | [konte-direction-critic](CRITICS.md#konte-direction-critic) `absent-subject`                                                                |
+| `join-undeclared`        | [konte-direction-critic](CRITICS.md#konte-direction-critic) `missed-long-take`                                                              |
+| `join-impossible`        | [konte-direction-critic](CRITICS.md#konte-direction-critic) `unsupported-long-take`                                                         |
+| `prompt-negation`        | [konte-prompt-critic](CRITICS.md#konte-prompt-critic) `named-exclusion`                                                                     |
+| `prompt-not-yet`         | [konte-prompt-critic](CRITICS.md#konte-prompt-critic) `time-talk`                                                                           |
+| `prompt-double-negative` | [konte-prompt-critic](CRITICS.md#konte-prompt-critic) `named-exclusion`                                                                     |
+| `landmark-unheld`        | [konte-staging-critic](CRITICS.md#konte-staging-critic) `set-clash`<br>[konte-prompt-critic](CRITICS.md#konte-prompt-critic) `set-mismatch` |
+| `movement-unwritten`     | [konte-animatic-critic](CRITICS.md#konte-animatic-critic) `thin-coverage-note`                                                              |
+| `line-truncated`         | [konte-animatic-critic](CRITICS.md#konte-animatic-critic) `line-misplaced`                                                                  |

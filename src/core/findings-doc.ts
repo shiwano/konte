@@ -1,5 +1,6 @@
 import { format } from "oxfmt";
 import type { Stage } from "./address.js";
+import { CRITICS } from "./critic-checks.js";
 import type { DirectionFindingCode } from "./direction-check.js";
 import { type DirectionErrorCode } from "./direction.js";
 import { findingFixStage } from "./direction-findings.js";
@@ -474,6 +475,31 @@ const STAGE_FINDING_DOCS: Record<OtherCode, { flags: string; fixIn: string }> = 
   },
 };
 
+const DIRECTION_ERROR_CODES = Object.keys(DIRECTION_ERROR_DOCS) as DirectionErrorCode[];
+const STAGE_FINDING_CODES = Object.keys(STAGE_FINDING_DOCS) as OtherCode[];
+
+const FINDING_SECTIONS = [
+  { heading: "Direction findings", codes: DIRECTION_FINDING_CODES },
+  { heading: "Direction structure", codes: DIRECTION_ERROR_CODES },
+  { heading: "Stage and take findings", codes: STAGE_FINDING_CODES },
+] as const satisfies readonly { heading: string; codes: readonly FindingCode[] }[];
+
+export function isFindingCode(code: string): code is FindingCode {
+  return FINDING_SECTIONS.some((section) => (section.codes as readonly string[]).includes(code));
+}
+
+function markdownAnchor(heading: string): string {
+  return heading
+    .toLowerCase()
+    .replace(/[^a-z0-9 -]/g, "")
+    .replace(/ /g, "-");
+}
+
+export function findingLink(code: FindingCode): string {
+  const section = FINDING_SECTIONS.find((s) => (s.codes as readonly string[]).includes(code))!;
+  return `[\`${code}\`](FINDINGS.md#${markdownAnchor(section.heading)})`;
+}
+
 const REACH_WORDS: Record<NonNullable<FindingTraits["holds"]["spend"]>["reach"], string> = {
   stage: "its stage",
   "stage+downstream": "its stage and downstream",
@@ -527,7 +553,7 @@ function renderFindingsMarkdown(): string {
     "- **Holds** — `spend`: `generate` / `reroll` / `patch apply` / `export` on the stages named (`SPEND_HELD`); `accept`: the accept of what it sits on; `preview`: `konte preview` of its stage (both `REVIEW_HELD`).",
     "- **Onset** — `always`; `after-direction-accepted`: silent until the direction is accepted; `after-take`: owed once the take it is written from lands.",
     "",
-    "## Direction findings",
+    `## ${FINDING_SECTIONS[0].heading}`,
     "",
     "Reported by the direction check over `direction.ts` and the stages built on it. A waiver is keyed `<code>` or `<code>_<subject>`; on a child sequence's own arc, a role subject (or none) is prefixed with the sequence id: `missing-role_<sequenceId>.<role>`, `no-payoff_<sequenceId>`. **Type-level**: a literal value is also a type error, so it stops at the startup type-check; a computed value reaches the finding instead.",
     "",
@@ -550,25 +576,22 @@ function renderFindingsMarkdown(): string {
       }),
     ),
     "",
-    "## Direction structure",
+    `## ${FINDING_SECTIONS[1].heading}`,
     "",
     `Definition errors in \`direction.ts\`, each fixed there. Every one reads the definition, clears by a fix, holds ${holdsOf(findingTraits("duplicate-id"), "direction")} of the part it sits on, and is always reported.`,
     "",
     ...table(
       ["Code", "Flags"],
-      (Object.keys(DIRECTION_ERROR_DOCS) as DirectionErrorCode[]).map((code) => [
-        `\`${code}\``,
-        DIRECTION_ERROR_DOCS[code],
-      ]),
+      DIRECTION_ERROR_CODES.map((code) => [`\`${code}\``, DIRECTION_ERROR_DOCS[code]]),
     ),
     "",
-    "## Stage and take findings",
+    `## ${FINDING_SECTIONS[2].heading}`,
     "",
     "Reported over what a stage file or a patch script declares, and over the takes that landed.",
     "",
     ...table(
       ["Code", "Flags", "Fix in", "Reads", "Clears", "Holds", "Onset"],
-      (Object.keys(STAGE_FINDING_DOCS) as OtherCode[]).map((code) => {
+      STAGE_FINDING_CODES.map((code) => {
         const doc = STAGE_FINDING_DOCS[code];
         const traits = findingTraits(code);
         return [
@@ -583,6 +606,27 @@ function renderFindingsMarkdown(): string {
       }),
     ),
     "",
+    "## Beside a critic",
+    "",
+    "Findings that settle the formal half of a critic's check on the artifact the critic reads; the critic judges what they leave ([CRITICS.md](CRITICS.md)).",
+    "",
+    ...table(["Code", "Critic checks"], criticRows()),
+    "",
   ];
   return lines.join("\n");
+}
+
+function criticRows(): string[][] {
+  const rows: string[][] = [];
+  for (const section of FINDING_SECTIONS) {
+    for (const code of section.codes) {
+      const critics = CRITICS.flatMap((critic) =>
+        critic.checks
+          .filter((check) => check.machine?.includes(code))
+          .map((check) => `[${critic.name}](CRITICS.md#${critic.name}) \`${check.code}\``),
+      );
+      if (critics.length > 0) rows.push([`\`${code}\``, critics.join("<br>")]);
+    }
+  }
+  return rows;
 }

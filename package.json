@@ -34,7 +34,8 @@
     "sync:comfy-adapters": "bun run scripts/sync-comfy-adapters.ts",
     "check:comfy-templates": "bun run scripts/check-comfy-templates.ts",
     "update:tool-checksums": "bun run scripts/update-tool-checksums.ts",
-    "check:sunset": "bun run scripts/check-sunset.ts"
+    "check:sunset": "bun run scripts/check-sunset.ts",
+    "build:generate-critics-doc": "bun run scripts/generate-critics-doc.ts"
   },
   "dependencies": {
     "@hyperframes/producer": "^0.8.143",
