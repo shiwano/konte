@@ -393,23 +393,19 @@ export type AnimaticSetupState = {
 type CharacterRef = AnchoredEntityRef;
 
 // The anchored-entity checks — a distinct pass from the arc engine because they cross-reference the
-// reference stage and the shot-action prose, neither of which `checkArc` sees. Two safe, exact-match
-// findings (the first waivable via `direction.waivers`, the second fixed):
+// reference stage, which `checkArc` does not see. Two exact-match findings (the first waivable via
+// `direction.waivers`, the second fixed):
 //   - <noun>-unreferenced: a declared entity with no matching reference asset to anchor on.
-//   - unused-<noun>: a declared entity never named in any shot action (and, for a character, never
-//     given a script line) — drift between the roster and the shots. Deliberately one-directional —
-//     "a prose noun with no declared entity" can't be detected without NL parsing, so that gap is a
-//     guide convention, not a finding.
+//   - unused-<noun>: a declared entity no shot declares it uses — drift between the roster and the
+//     shots. "A prose noun with no declared entity" is the critic's.
 function checkAnchoredEntities(
   entities: readonly AnchoredEntityRef[],
   referenceAssetNames: readonly string[],
-  actions: readonly string[],
-  alwaysUsedIds: ReadonlySet<string>,
+  usedIds: ReadonlySet<string>,
   codes: {
     unreferenced: Exclude<DirectionFindingCode, AcceptJudgedCode>;
     unused: Exclude<DirectionFindingCode, AcceptJudgedCode>;
-    // How the entity is "used" — woven into the `unused` message so it reads true for each roster:
-    // a character/prop is named in a shot action, a location is a shot's `location` field.
+    // How the entity is "used" — woven into the `unused` message.
     usedBy: string;
   },
   noun: string,
@@ -426,12 +422,7 @@ function checkAnchoredEntities(
     }
   }
   for (const e of entities) {
-    // An entity with an "always used" signal (a character's script line) needs no prose scan.
-    if (alwaysUsedIds.has(e.id)) continue;
-    // An empty name would make `.includes` always match; that hollow declaration is a structural
-    // error (validateDirectionStructure), so skip it here rather than reporting a misleading pass.
-    if (e.name.trim() === "") continue;
-    if (!actions.some((a) => a.includes(e.name))) {
+    if (!usedIds.has(e.id)) {
       findings.push({
         code: codes.unused,
         subject: e.id,
@@ -446,40 +437,35 @@ function checkAnchoredEntities(
 export function checkCharacters(
   characters: readonly CharacterRef[],
   referenceAssetNames: readonly string[],
-  actions: readonly string[],
-  scriptCharacterIds: ReadonlySet<string>,
+  usedCharacterIds: ReadonlySet<string>,
   framedCharacterIds: ReadonlySet<string>,
 ): DirectionFinding[] {
   return checkAnchoredEntities(
     characters,
     referenceAssetNames,
-    actions,
-    scriptCharacterIds,
+    usedCharacterIds,
     {
       unreferenced: "character-unreferenced",
       unused: "unused-character",
-      usedBy: "named in no shot action",
+      usedBy: "in no frame and speaks and sings no line",
     },
     "character",
   ).filter((f) => f.code !== "character-unreferenced" || framedCharacterIds.has(f.subject ?? ""));
 }
 
-// Props are anchored like the characters but never speak, so there is no script signal — a prop is "used"
-// only by being named in a shot action.
 export function checkProps(
   props: readonly AnchoredEntityRef[],
   referenceAssetNames: readonly string[],
-  actions: readonly string[],
+  shownPropIds: ReadonlySet<string>,
 ): DirectionFinding[] {
   return checkAnchoredEntities(
     props,
     referenceAssetNames,
-    actions,
-    new Set(),
+    shownPropIds,
     {
       unreferenced: "prop-unreferenced",
       unused: "unused-prop",
-      usedBy: "named in no shot action",
+      usedBy: "in no frame's `props`",
     },
     "prop",
   );
@@ -497,9 +483,9 @@ export type CharacterVoiceRef = {
 
 // The voice checks — a pass of their own rather than part of `checkAnchoredEntities`, because what
 // makes a voice required is a script line, not a name in the prose. Three findings per cast
-// member, the first two waivable: `<noun>-voice-missing` (they speak, nothing is cast), `<noun>-voice-unreferenced` (the cast
-// sample is not exposed), and `unused-<noun>-voice` (a sample for someone who never speaks — which
-// the `unused-character` prose scan misses, a character named in an action reading as used there).
+// member, the first two waivable: `<noun>-voice-missing` (they speak, nothing is cast),
+// `<noun>-voice-unreferenced` (the cast sample is not exposed), and `unused-<noun>-voice` (a sample
+// for someone who never speaks).
 export function checkCharacterVoices(
   characters: readonly CharacterVoiceRef[],
   referenceAssetNames: readonly string[],
@@ -568,11 +554,7 @@ export function checkNarrator(
   return findings;
 }
 
-// Locations are anchored like the characters and props, but a place does not appear in the `action`
-// prose (it does not act) — a shot reaches its location through its setup. So "used" is exact id
-// membership in `usedLocationIds` (the set of ids the setups the shots point at are set in), not a
-// prose scan: passed as `alwaysUsedIds` with an empty `actions`, so a location in the set is used and
-// one outside it raises `unused-location`. The unreferenced check is identical to the other rosters.
+// A location is used by being the place of a setup a shot points at.
 export function checkLocations(
   locations: readonly AnchoredEntityRef[],
   referenceAssetNames: readonly string[],
@@ -581,7 +563,6 @@ export function checkLocations(
   return checkAnchoredEntities(
     locations,
     referenceAssetNames,
-    [],
     usedLocationIds,
     {
       unreferenced: "location-unreferenced",
@@ -1728,33 +1709,35 @@ function checkSubjectNaming(
 
 export type PropNamingRef = { id: string; name: string; promptDepiction: string };
 
-// A prop a shot's `action` names, against the words its keyframes were conditioned on — the prop's
-// twin of `subject-unnamed`. No frame declares which props it holds, so the `action` is the
-// declaration: the same scan `unused-prop` makes. Any one keyframe of the shot, in either lane,
-// answers for it. A shot with no developed panel, or none that generates, has no prompt to name it
-// in. Keyed `<shotId>.<propId>`.
+// A prop a frame's `props` shows, against the words its keyframes were conditioned on — the prop's
+// twin of `subject-unnamed`, cleared as well by the prop's reference standing in the shot's picture.
+// Any one keyframe of the frame answers for it. A frame with no developed panel, or none that
+// generates, has no prompt to name it in. Keyed `<frame>.<propId>`.
 export function checkPropNaming(
-  shots: readonly { id: string; action: string }[],
+  frames: readonly (FrameRef & { props?: readonly string[] })[],
   panelPrompts: readonly PanelPrompts[],
   shownReferences: Readonly<Record<string, readonly string[]>>,
   props: readonly PropNamingRef[],
 ): DirectionFinding[] {
+  const byId = new Map(props.map((p) => [p.id, p]));
   const findings: DirectionFinding[] = [];
-  for (const shot of shots) {
-    const panels = panelPrompts.filter((p) => p.shotId === shot.id && p.generative);
+  for (const frame of frames) {
+    const panels = panelPrompts.filter(
+      (p) => p.shotId === frame.shotId && p.lane === frame.lane && p.generative,
+    );
     if (panels.length === 0) continue;
     const texts = panels.flatMap((p) => p.texts);
-    const shown = shownReferences[shot.id] ?? [];
-    for (const prop of props) {
-      if (prop.name.trim() === "" || prop.promptDepiction.trim() === "") continue;
-      if (!shot.action.includes(prop.name)) continue;
+    const shown = shownReferences[frame.shotId] ?? [];
+    for (const id of frame.props ?? []) {
+      const prop = byId.get(id);
+      if (!prop || prop.promptDepiction.trim() === "") continue;
       if (shown.includes(prop.id)) continue;
       if (namesIn(texts, prop.promptDepiction)) continue;
       findings.push({
         code: "prop-unnamed",
-        subject: `${shot.id}.${prop.id}`,
+        subject: `${frameSubject(frame)}.${prop.id}`,
         message:
-          `shot ${shot.id}'s action names "${prop.name}" but no prompt behind its keyframes contains ` +
+          `${frameName(frame)} shows "${prop.name}" but no prompt behind its keyframes contains ` +
           `"${prop.promptDepiction}"`,
         judgedBy: panels.map((p) => p.panel),
       });

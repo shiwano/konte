@@ -604,10 +604,12 @@ describe("accept direction", () => {
     const source = await fs.readFile(directionPath, "utf-8");
     await fs.writeFile(
       directionPath,
-      source.replace(
-        "  locations: {",
-        '  props: { cup: { name: "the cup", description: "a chipped cup", promptDepiction: "cup" } },\n  locations: {',
-      ),
+      source
+        .replace(
+          "  locations: {",
+          '  props: { cup: { name: "the cup", description: "a chipped cup", promptDepiction: "cup" } },\n  locations: {',
+        )
+        .replace(/lineup: \[[^\]]*\],/g, "$& props: [],"),
     );
 
     await expect(run(["accept", "direction:props.cup"], projectDir)).rejects.toMatchObject({

@@ -14,7 +14,7 @@ The pass you run yourself when the human sends you on without a subagent. Done =
 - Merge _(advisory)_ — are trigger and reaction separate shots that one action would carry?
 - Setup / payoff — every plant collected, every collection planted.
 - Causality — position, possession, movement and state connect across a continuous-space stretch; the world's ledger never resets.
-- Lineup — each shot's `lineup` holds everyone its `action` acts, and a shot that moves someone declares the `lineupTo` it ends on.
+- Lineup — each shot's `lineup` holds everyone its `action` acts, its `props` every prop it shows, and a shot that moves someone declares the `lineupTo` it ends on.
 - Recurrence — a noun several shots' `action` names has a `characters` / `props` / `locations` entry.
 - Set — a thing of the set an `action` leans on (a desk, a window) is one of its location's `landmarks`.
 - Implied presence — a figure the `action` cannot happen without (the rower of a moving boat, whoever serves at a counter) is named and rostered.

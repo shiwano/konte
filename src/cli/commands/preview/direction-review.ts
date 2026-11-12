@@ -179,6 +179,8 @@ export async function handleGetDirectionState(
   // error, so it prints as itself.
   const subjectNames = (ids: readonly string[] | undefined): string[] =>
     (ids ?? []).map((id) => characterNameById.get(id) ?? id);
+  const propNames = (ids: readonly string[] | undefined): string[] =>
+    (ids ?? []).map((id) => direction.props?.[id]?.name ?? id);
   // The shot table's frame and space columns are read through the shot's setup — the reviewer reads
   // the size cadence down one and the space cadence down the other, and neither is declared per shot.
   const frameOf = shotFrameResolver(direction);
@@ -215,6 +217,7 @@ export async function handleGetDirectionState(
         lineup: [],
         lineupTo: [],
         passing: [],
+        props: [],
         join: null,
         coverage: false,
         cutin: null,
@@ -233,6 +236,7 @@ export async function handleGetDirectionState(
           lineup: subjectNames(s.cutin.lineup),
           lineupTo: subjectNames(s.cutin.lineupTo),
           passing: subjectNames(s.cutin.passing),
+          props: propNames(s.cutin.props),
           join: s.cutin.join ?? null,
         }
       : null;
@@ -254,6 +258,7 @@ export async function handleGetDirectionState(
       lineup: subjectNames(own?.lineup),
       lineupTo: subjectNames(own?.lineupTo),
       passing: subjectNames(own?.passing),
+      props: propNames(own?.props),
       join: own?.join ?? null,
       coverage: own?.coverage === true,
       cutin,

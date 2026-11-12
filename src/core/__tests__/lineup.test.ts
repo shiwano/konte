@@ -121,6 +121,7 @@ const shot = (id: string, setup: string, extra: Partial<NarrativeShot> = {}): Na
     setup,
     duration: 3,
     lineup: [],
+    props: [],
     ...extra,
   }) as NarrativeShot;
 
@@ -1503,7 +1504,7 @@ describe("subject-unnamed", () => {
 
 describe("prop-unnamed", () => {
   const dir = direction({
-    shots: [shot("01", "deck", { lineup: ["ane"], action: "the sister unwraps the sweet" })],
+    shots: [shot("01", "deck", { lineup: ["ane"], props: ["ame"] })],
   });
   const prompts = (
     panels: { lane?: "main" | "cutin"; texts: string[]; generative?: boolean }[],
@@ -1522,26 +1523,34 @@ describe("prop-unnamed", () => {
       (f) => f.code === "prop-unnamed",
     );
 
-  it("flags a prop the action names that no keyframe prompt calls by its depiction", () => {
+  it("flags a prop the frame shows that no keyframe prompt calls by its depiction", () => {
     const findings = found(dir, prompts([{ texts: ["the elder sister holds a paper twist"] }]));
     expect(findings.map((f) => f.subject)).toEqual(["01.ame"]);
     expect(findings[0]?.message).toContain('"sweet"');
   });
 
-  it("is answered by any one keyframe of the shot, in either lane", () => {
+  it("is answered by any one keyframe of the frame", () => {
     expect(
       found(
         dir,
-        prompts([
-          { texts: ["the elder sister on the bench"] },
-          { lane: "cutin", texts: ["a sweet in paper, close"] },
-        ]),
+        prompts([{ texts: ["the elder sister on the bench"] }, { texts: ["a sweet in paper"] }]),
       ),
     ).toEqual([]);
   });
 
-  it("asks nothing of a shot whose action does not name the prop", () => {
-    const quiet = direction({ shots: [shot("01", "deck", { lineup: ["ane"] })] });
+  it("is not answered by a keyframe of the other lane", () => {
+    const findings = found(
+      dir,
+      prompts([
+        { texts: ["the elder sister on the bench"] },
+        { lane: "cutin", texts: ["a sweet in paper, close"] },
+      ]),
+    );
+    expect(findings.map((f) => f.subject)).toEqual(["01.ame"]);
+  });
+
+  it("asks nothing of a frame whose props do not hold the prop", () => {
+    const quiet = direction({ shots: [shot("01", "deck", { lineup: ["ane"], props: [] })] });
     expect(found(quiet, prompts([{ texts: ["the elder sister on the bench"] }]))).toEqual([]);
   });
 

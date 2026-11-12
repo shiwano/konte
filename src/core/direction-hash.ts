@@ -103,6 +103,7 @@ function projectShot(shot: Shot): unknown {
           lineup: shot.cutin.lineup ?? [],
           lineupTo: shot.cutin.lineupTo ?? null,
           passing: [...(shot.cutin.passing ?? [])].sort(),
+          props: [...(shot.cutin.props ?? [])].sort(),
         },
       }
     : {};
@@ -126,6 +127,7 @@ function projectShot(shot: Shot): unknown {
     lineup: shot.lineup ?? [],
     lineupTo: shot.lineupTo ?? null,
     passing: [...(shot.passing ?? [])].sort(),
+    props: [...(shot.props ?? [])].sort(),
     ...cutinLineup,
   };
 }

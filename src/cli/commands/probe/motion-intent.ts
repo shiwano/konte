@@ -167,7 +167,7 @@ export function createMotionIntentLoader(
       const figures = offscreen.get(`${frame.shotId}/${frame.lane}`);
       return {
         lane: frame.lane,
-        hinge: deriveShotHinges(direction!, action ?? "", frame.setup),
+        hinge: deriveShotHinges(direction!, action ?? "", frame.setup, frame.props ?? []),
         passing: (frame.passing ?? []).map(label),
         offscreen: figures ? formatOffscreen(figures, label) : null,
       };

@@ -114,6 +114,7 @@ export default defineDirection({
         setup: "counterWide",
         duration: 3,
         lineup: ["owner", "cat"],
+        props: ["mug"],
       },
       {
         id: "02",
@@ -122,6 +123,7 @@ export default defineDirection({
         setup: "mugInsert",
         duration: 2,
         lineup: ["cat"],
+        props: ["mug"],
       },
       {
         id: "03",
@@ -131,6 +133,7 @@ export default defineDirection({
         duration: 1.5,
         lineup: ["owner", "cat"],
         lineupTo: ["owner"],
+        props: [],
         // `join` sits here when the shot before is on the same `setup`.
         script: [{ character: "owner", text: "Don't.", acting: "Flat, barely voiced." }],
       },
@@ -141,6 +144,7 @@ export default defineDirection({
         setup: "ownerClose",
         duration: 2,
         lineup: ["owner"],
+        props: ["mug"],
         script: [{ narration: "Some house rules are enforced by hand." }],
         telop: ["Counter Rules, Rule 1"],
       },

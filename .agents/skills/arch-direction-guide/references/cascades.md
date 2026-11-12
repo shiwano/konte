@@ -8,7 +8,7 @@ How an animatic/video/reference accept carries its sign-off sideways into the di
 
 - Callers go through `cascadeDirectionShotAccepts` (`accept-cascade.ts`), deriving the shot ids from the addresses just accepted with `directionCascadeShotIds`.
 - Wired sites: `konte accept` and the animatic/video review submits, each recording the restamped parts on the review's `cascadeAccepted` (`review record show` renders `direction:… (via video:shot.03)`).
-- `shotRosterTargets` reads the direction alone, never the graph: the `locations` entry of each frame's setup (`shotFrames`, so a cutin's too), the `characters` a `lineup` / `lineupTo` holds, `characters.<id>.voice` for a `{ character }` line's speaker, `narrator` for a `{ narration }` line, and a `props` entry whose `name` is a literal substring of the `action` (the `unused-prop` rule).
+- `shotRosterTargets` reads the direction alone, never the graph: the `locations` entry of each frame's setup (`shotFrames`, so a cutin's too), the `characters` a `lineup` / `lineupTo` / `passing` holds, the `props` entries a frame's `props` shows, `characters.<id>.voice` for a `{ character }` line's speaker, and `narrator` for a `{ narration }` line.
 - A roster entry reworded under an already-accepted image makes nothing stale, so the next accept of a shot declaring it re-signs it; one no later accept reaches stays `stale` and holds no spend.
 
 - R1 — a part with no prior sign-off is stamped only once `acceptance.whole != null`. Before that, the reference stage (exempt from the direction gate) can accept a character image before anyone opens `konte preview direction`; after, a shot added mid-production is settled by the panel and the shot that realize it.

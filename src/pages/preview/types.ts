@@ -515,6 +515,8 @@ export interface DirectionShotInfo extends DirectionPartInfo {
   lineup: string[];
   lineupTo: string[];
   passing: string[];
+  // The props the frame shows, resolved to roster names.
+  props: string[];
   // What the boundary into this shot is — `continuous` for one unbroken take across it, `jump-back`
   // into a flashback, `jump-forward` out of one or past a gap. Null is an ordinary cut. Drawn
   // between the rows, since it is about the boundary rather than the shot.
@@ -530,6 +532,7 @@ export interface DirectionShotInfo extends DirectionPartInfo {
     lineup: string[];
     lineupTo: string[];
     passing: string[];
+    props: string[];
     join: ShotJoin | null;
   } | null;
   // The shot's unspoken on-screen text (titles, lower thirds, speaker-less captions). Bare strings:

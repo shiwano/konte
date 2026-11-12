@@ -77,11 +77,13 @@ export const DIRECTION_ERROR_REMEDY: Record<DirectionErrorCode, string> = {
   "lineup-missing":
     "state in `lineup` who the frame holds, left to right; write `[]` where it holds no one",
   "lineup-unknown-id":
-    "line up only declared characters; a prop is not lined up — write where it sits relative " +
-    "to whoever holds or set it down",
+    "line up only declared characters; a prop the frame shows goes in its `props`",
   "lineup-duplicate": "list each subject once",
   "passing-overlap":
     "drop the subject from `passing` or from the endpoint lineup — a passer is absent at both ends",
+  "props-missing": "state in `props` the props the frame shows; write `[]` where it shows none",
+  "props-unknown-id": "name only declared `props` ids",
+  "props-duplicate": "list each prop once",
   "join-undeclared":
     'say in the `join` what the boundary is: "continuous" for one unbroken take, ' +
     '"jump-forward" for a jump cut or a gap in story time, "jump-back" into a flashback',

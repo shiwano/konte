@@ -75,7 +75,8 @@ const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindingDoc> 
     subject: "character id",
   },
   "unused-character": {
-    flags: "A character is named in no shot action and speaks no line.",
+    flags:
+      "A character is in no frame's `lineup`, `lineupTo` or `passing`, and speaks and sings no line.",
     subject: "character id",
   },
   "character-voice-missing": {
@@ -103,7 +104,7 @@ const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindingDoc> 
     subject: null,
   },
   "prop-unreferenced": { flags: "A prop has no `reference:<id>` asset.", subject: "prop id" },
-  "unused-prop": { flags: "A prop is named in no shot action.", subject: "prop id" },
+  "unused-prop": { flags: "A prop is in no frame's `props`.", subject: "prop id" },
   "location-unreferenced": {
     flags: "A location has no `reference:<id>` asset.",
     subject: "location id",
@@ -243,8 +244,8 @@ const DIRECTION_FINDING_DOCS: Record<DirectionFindingCode, DirectionFindingDoc> 
   },
   "prop-unnamed": {
     flags:
-      "A shot's `action` names a prop, but no prompt behind its keyframes contains the prop's `promptDepiction`, verbatim (case-insensitive), and the shot does not put the prop's reference on screen through no generative step. A keyframe accepted against its current definition is exempt.",
-    subject: "`<shotId>.<propId>`",
+      "A frame's `props` shows a prop, but no prompt behind its keyframes contains the prop's `promptDepiction`, verbatim (case-insensitive), and the shot does not put the prop's reference on screen through no generative step. A keyframe accepted against its current definition is exempt.",
+    subject: "`<frame>.<propId>`",
   },
   "plate-unnamed": {
     flags:
@@ -344,6 +345,9 @@ const DIRECTION_ERROR_DOCS: Record<DirectionErrorCode, string> = {
   "lineup-unknown-id": "A lineup names an id in no roster.",
   "lineup-duplicate": "A lineup lists one subject twice.",
   "passing-overlap": "A subject is both passing and in an endpoint lineup.",
+  "props-missing": "A frame declares no `props` while the direction declares a prop.",
+  "props-unknown-id": "A frame's `props` names an id in no prop roster.",
+  "props-duplicate": "A frame's `props` lists one prop twice.",
   "join-undeclared": "A boundary a long take could cross does not say whether it is one (`join`).",
   "join-impossible": "A `continuous` join sits at a boundary no unbroken take could cross.",
   "coverage-overdeclared": "A coverage shot declares a frame after its opening one.",

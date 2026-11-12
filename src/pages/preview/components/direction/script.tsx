@@ -302,6 +302,12 @@ function ShotStaging({ shot }: { shot: DirectionShotInfo }): React.ReactElement 
           </dd>
         </>
       )}
+      {shot.props.length > 0 && (
+        <>
+          <dt>Props</dt>
+          <dd>{shot.props.join(" · ")}</dd>
+        </>
+      )}
       {shot.cutin && (
         <>
           <dt>Cutin{shot.cutin.join ? ` · ${JOIN_LABEL[shot.cutin.join]}` : ""}</dt>
@@ -316,6 +322,7 @@ function ShotStaging({ shot }: { shot: DirectionShotInfo }): React.ReactElement 
             {shot.cutin.passing.length > 0 && (
               <span>passing: {shot.cutin.passing.join(" · ")}</span>
             )}
+            {shot.cutin.props.length > 0 && <span>props: {shot.cutin.props.join(" · ")}</span>}
           </dd>
         </>
       )}

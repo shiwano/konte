@@ -61,9 +61,10 @@ A `cutin` (`cutin: { setup, lineup, lineupTo?, join? }` on a narrative or graphi
 `characters` (required), `props` (optional) and `locations` (required, non-empty) are `Record<id, { name, description }>`, each id anchored to a `reference:<id>` asset. A character and a prop add a required `promptDepiction`, a character an optional `voice` (Casting voices), a location a required, non-empty `landmarks` roster (Setups). `checkAnchoredEntities` (`direction-check.ts`) sits behind `checkCharacters` / `checkProps` / `checkLocations`, two exact-match findings per roster:
 
 - `<noun>-unreferenced` — no exposed `reference:<id>` matches the `id`. A character only off screen (in no `lineup` / `lineupTo`) owes none.
-- `unused-<noun>` — no shot uses the entity:
-  - character / prop — the `name` is a literal substring of no shot `action`. A character with a `{ character }` script line is exempt (the "always used" set); a prop's set is empty.
-  - location — exact id membership in the locations the used setups are set in (passed as the always-used set, with an empty `actions` list).
+- `unused-<noun>` — the id is in no used set:
+  - character — any frame's `lineup` / `lineupTo` / `passing`, a `{ character }` script line, a lyric singer.
+  - prop — any frame's `props`.
+  - location — the place of a setup a frame names.
 
 The cross-reference runs only when `checkDirection` supplies `referenceAssetNames`, so the roster classes are silent — and their waivers never flagged stale — when the reference stage can't be read.
 
@@ -109,6 +110,7 @@ The plate is neither acceptance-gated (`unacceptedUpstreamDeps` walks self-stage
 ## Lineup: the staging class
 
 - `lineup` holds `characters` ids only — a sleeve in frame counts, there is no off-frame axis, a prop is never lined up.
+- `props` is the frame's unordered `props` ids, read by no order or seam check. Once the roster has a key, every narrative frame and cutin owes it — `ConstrainFrameProps` asks for the field, `props-missing` / `props-unknown-id` / `props-duplicate` catch a computed direction.
 - `lineupTo` is the frame at the shot's end, in full, declared wherever the frame changes inside the shot: whoever it leaves out has walked out.
 - Both reach the build as `ctx.lineup` / `ctx.lineupTo`; `inspect --prompts` prints a `lineup:` line above each prompt, the setup's `holds` as `set:` beneath it, a declared `join` as `join:` above it. konte never expands any into prompt text.
 - `lineup-vacuous` is a `lineupTo` equal to the `lineup`.
@@ -127,7 +129,7 @@ The plate is neither acceptance-gated (`unacceptedUpstreamDeps` walks self-stage
 
 Prompt naming beyond characters:
 
-- `prop-unnamed` (`checkPropNaming`) — an `action` naming a prop (`unused-prop`'s scan) is its declaration; any one generative keyframe chain of the shot, either lane, must carry its `promptDepiction`. A prop whose `reference:<propId>` reaches the shot's `pictureRefs` through deterministic steps only (`listShownReferences` — a `jsxImage` screen, a resize) is on screen as its own picture and owes none. Keyed `<shotId>.<propId>`.
+- `prop-unnamed` (`checkPropNaming`) — a prop in a frame's `props`; any one generative keyframe chain of that frame's lane must carry its `promptDepiction`. A prop whose `reference:<propId>` reaches the shot's `pictureRefs` through deterministic steps only (`listShownReferences` — a `jsxImage` screen, a resize) is on screen as its own picture and owes none. Keyed `<frame>.<propId>`.
 - `plate-unnamed` — `plateTexts` (`listPlateTexts`), the positive prompts on a returned plate's own chain, stopping at another returned plate, must carry the `promptDepiction` of every landmark in its setup's `holds`; keyed `<setupId>.<landmarkId>`. A chain reading no prompt (a crop of the master, a file) has an empty entry and is not read.
 - `landmark-unnamed` (`checkLandmarkNaming`) — the same of the keyframes on a setup with no returned plate (the key `plateTexts` lacks), over the `panelPrompts` chain of each panel that reads a prompt; a frame on a plate owes nothing. Keyed `<frame>.<landmarkId>`.
 - `landmark-flipped` (`checkLandmarkOrder`, no board) — accumulates pairs per location as `checkLineups` does, where two frames of one place disagree about an axis nothing on it can move. Setups are read sorted by id (record order moves no hash and must not decide which frame a waiver key names), and the first frame to state a pair fixes it — overwriting would make one waived reverse angle report every frame after it.

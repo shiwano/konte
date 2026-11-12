@@ -104,11 +104,80 @@ describe("action hinges", () => {
         },
       },
     };
-    expect(deriveShotHinges(d, "cross the desk carrying a bun over a gap", "front")).toEqual([
+    expect(
+      deriveShotHinges(d, "cross the desk carrying a bun over a gap", "front", ["bun"]),
+    ).toEqual([
       { name: "the desk", notInSet: true },
       { name: "bun", notInSet: false },
     ]);
-    expect(deriveShotHinges(d, "cross a desk", "front")).toEqual([]);
+    expect(deriveShotHinges(d, "cross a desk", "front", [])).toEqual([]);
+  });
+});
+
+describe("props", () => {
+  const props = { bun: { name: "bun", promptDepiction: "bun", description: "a bun" } };
+  it("asks every frame for its props once the roster declares one", () => {
+    defineDirection({
+      ...directionDefaults,
+      characters,
+      props,
+      sequence: {
+        lens: "mini-drama",
+        pleasure: "cute",
+        shots: [{ ...shot, props: ["bun"], cutin: { setup: "front", lineup: [], props: [] } }],
+      },
+    });
+    defineDirection({
+      ...directionDefaults,
+      characters,
+      sequence: { lens: "mini-drama", pleasure: "cute", shots: [shot] },
+    });
+    defineDirection({
+      ...directionDefaults,
+      characters,
+      props,
+      sequence: {
+        lens: "mini-drama",
+        pleasure: "cute",
+        // @ts-expect-error the frame states no props
+        shots: [shot],
+      },
+    });
+    defineDirection({
+      ...directionDefaults,
+      characters,
+      props,
+      sequence: {
+        lens: "mini-drama",
+        pleasure: "cute",
+        shots: [
+          {
+            ...shot,
+            props: [],
+            // @ts-expect-error the cutin states no props
+            cutin: { setup: "front", lineup: [] },
+          },
+        ],
+      },
+    });
+  });
+  it("rejects an undeclared prop id at its element", () => {
+    defineDirection({
+      ...directionDefaults,
+      characters,
+      props,
+      sequence: {
+        lens: "mini-drama",
+        pleasure: "cute",
+        shots: [
+          {
+            ...shot,
+            // @ts-expect-error "cup" is no declared prop
+            props: ["bun", "cup"],
+          },
+        ],
+      },
+    });
   });
 });
 

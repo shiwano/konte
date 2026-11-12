@@ -472,10 +472,10 @@ export function directionShotCascadeTargets(direction: Direction): Map<string, s
 }
 
 // The roster entries a shot declares it shows or sounds: the place each of its frames is set in, the
-// characters a `lineup` / `lineupTo` holds, the voice a character line is spoken in, the narrator of
-// a narration line, and a prop its `action` names — the `unused-prop` scan's rule, a literal
-// substring. A `reference:<id>` accept signs the same parts off; this is the route for an entry
-// reworded under an image already accepted, which no reference review is waiting on.
+// characters a `lineup` / `lineupTo` / `passing` holds, the props its `props` shows, the voice a
+// character line is spoken in, and the narrator of a narration line. A `reference:<id>` accept
+// signs the same parts off; this is the route for an entry reworded under an image already
+// accepted, which no reference review is waiting on.
 function shotRosterTargets(direction: Direction, shot: ArcShot): string[] {
   const frames = shotFrames(shot);
   const out = new Set<string>();
@@ -487,15 +487,11 @@ function shotRosterTargets(direction: Direction, shot: ArcShot): string[] {
     for (const id of [...(f.lineup ?? []), ...(f.lineupTo ?? []), ...(f.passing ?? [])]) {
       out.add(formatDirectionCharacterAddress(id));
     }
+    for (const id of f.props ?? []) out.add(formatDirectionPropAddress(id));
   }
   for (const line of shot.script ?? []) {
     if ("character" in line) out.add(formatDirectionCharacterVoiceAddress(line.character));
     else if ("narration" in line) out.add(DIRECTION_NARRATOR_ADDRESS);
-  }
-  for (const [id, prop] of Object.entries(direction.props ?? {})) {
-    if (prop.name.trim() !== "" && shot.action.includes(prop.name)) {
-      out.add(formatDirectionPropAddress(id));
-    }
   }
   return [...out];
 }

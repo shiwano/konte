@@ -25,7 +25,7 @@ export default defineDirection({
   sequence: {
     lens: "mini-drama",
     pleasure: "cute",
-    shots: [{ id: "01", role: "hero", action: "test shot", setup: "front", lineup: [], duration: 5 }],
+    shots: [{ id: "01", role: "hero", action: "test shot", setup: "front", lineup: [], props: [], duration: 5 }],
   },
 });
 `;

@@ -27,8 +27,8 @@ export const DIRECTION_FINDING_REMEDY: Record<DirectionFindingCode, string> = {
     "expose `reference:<id>` in reference.tsx, or waive it by its key where the character is " +
     "drawn from no reference",
   "unused-character":
-    "name the character in a shot action or give them a script line, or remove them from " +
-    "`characters`",
+    "put the character in a frame's `lineup`, `lineupTo` or `passing`, or give them a script or " +
+    "lyric line, or remove them from `characters`",
   "character-voice-missing":
     "declare `voice` on the character's roster entry, or waive it by its key where the lines are " +
     "not spoken aloud",
@@ -43,7 +43,8 @@ export const DIRECTION_FINDING_REMEDY: Record<DirectionFindingCode, string> = {
   "prop-unreferenced":
     "expose `reference:<id>` in reference.tsx, or waive it by its key where the prop is drawn " +
     "from no reference",
-  "unused-prop": "name the prop in a shot action, or remove it from `props`",
+  "unused-prop":
+    "put the prop in the `props` of the frames that show it, or remove it from `props`",
   "location-unreferenced":
     "expose `reference:<id>` in reference.tsx, or waive it by its key where the place is drawn " +
     "from no reference",
@@ -138,8 +139,8 @@ export const DIRECTION_FINDING_REMEDY: Record<DirectionFindingCode, string> = {
     "`characters.<id>.promptDepiction`; or waive it by its key",
   "prop-unnamed":
     "call the prop by its promptDepiction (verbatim, case-insensitive) in a prompt behind the " +
-    "shot's keyframes; to call it by other words, change `props.<id>.promptDepiction`; or waive " +
-    "it by its key",
+    "frame's keyframes, or drop it from the frame's `props`; to call it by other words, change " +
+    "`props.<id>.promptDepiction`; or waive it by its key",
   "passer-unconsumed": "pass the passer's character reference to the take, or waive it by its key",
   "passer-unnamed":
     "name the passer by its promptDepiction (verbatim, case-insensitive) in the take's positive " +

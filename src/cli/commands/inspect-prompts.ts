@@ -364,6 +364,8 @@ function promptShotLines(
   const frameId = cutin ? `${shotId}.cutin` : shotId;
   const passers = promptShots.passing.get(frameId);
   if (passers?.length) out.push(`passing: ${order(passers)}`);
+  const shown = promptShots.props.get(frameId);
+  if (shown?.length) out.push(`props: ${shown.join(" | ")}`);
   const offscreen = promptShots.offscreen.get(frameId);
   if (offscreen?.length) out.push(`offscreen: ${formatOffscreen(offscreen, promptShots.label)}`);
   // An insert holds nothing, so there is no line to print — the

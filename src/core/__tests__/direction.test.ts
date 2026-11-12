@@ -210,10 +210,10 @@ const patty = { name: "the patty", promptDepiction: "patty", description: "a gol
 const withPatty: Direction = {
   ...leaf({
     shots: [
-      shot("01", "ordinary", 3, "the patty rests on a tray"),
-      shot("02", "disruption", 2),
-      shot("03", "pressure"),
-      shot("04", "hero", 4),
+      { ...shot("01", "ordinary", 3, "the patty rests on a tray"), props: ["patty"] },
+      { ...shot("02", "disruption", 2), props: [] },
+      { ...shot("03", "pressure"), props: [] },
+      { ...shot("04", "hero", 4), props: [] },
     ],
   }),
   props: { patty },
@@ -377,6 +377,33 @@ describe("validateDirectionStructure", () => {
 
   it("passes a well-formed props roster", () => {
     expect(validateDirectionStructure(withPatty)).toEqual([]);
+  });
+
+  it("asks every frame for its props once the roster declares one", () => {
+    const dir: Direction = {
+      ...leaf({ shots: [{ ...shot("01", "ordinary"), props: ["patty"] }, shot("02", "hero")] }),
+      props: { patty },
+    };
+    expect(validateDirectionStructure(dir)).toEqual([
+      expect.objectContaining({ code: "props-missing", subject: "02" }),
+    ]);
+  });
+
+  it("asks no frame for props where the roster declares none", () => {
+    expect(validateDirectionStructure(completeMiniDrama).map((e) => e.code)).not.toContain(
+      "props-missing",
+    );
+  });
+
+  it("flags a frame's props naming an undeclared prop, or one prop twice", () => {
+    const dir: Direction = {
+      ...leaf({ shots: [{ ...shot("01", "ordinary"), props: ["patty", "patty", "bun"] }] }),
+      props: { patty },
+    };
+    expect(validateDirectionStructure(dir).map((e) => [e.code, e.subject])).toEqual([
+      ["props-duplicate", "01:patty"],
+      ["props-unknown-id", "01:bun"],
+    ]);
   });
 
   // A shot names no place of its own, so an unknown place is caught one level up: the setup it points
@@ -1025,8 +1052,7 @@ describe("checkCharacters", () => {
     const findings = checkCharacters(
       [{ id: "cat", name: "黒猫" }],
       [],
-      ["黒猫 stretches"],
-      new Set(),
+      new Set(["cat"]),
       new Set(["cat"]),
     );
     expect(findings.map((f) => f.code)).toContain("character-unreferenced");
@@ -1036,63 +1062,39 @@ describe("checkCharacters", () => {
     const findings = checkCharacters(
       [{ id: "singer", name: "歌い手" }],
       [],
-      ["a quiet room"],
       new Set(["singer"]),
       new Set(),
     );
     expect(findings).toEqual([]);
   });
 
-  it("passes a character exposed in the pool and named in an action", () => {
+  it("passes a used character exposed in the pool", () => {
     expect(
-      checkCharacters(
-        [{ id: "cat", name: "黒猫" }],
-        ["cat"],
-        ["黒猫 stretches"],
-        new Set(),
-        new Set(["cat"]),
-      ),
+      checkCharacters([{ id: "cat", name: "黒猫" }], ["cat"], new Set(["cat"]), new Set(["cat"])),
     ).toEqual([]);
   });
 
-  it("flags a character never named in any action, keyed by id", () => {
-    const findings = checkCharacters(
-      [{ id: "cat", name: "黒猫" }],
-      ["cat"],
-      ["a quiet room"],
-      new Set(),
-      new Set(["cat"]),
-    );
+  it("flags a character nothing uses, keyed by id", () => {
+    const findings = checkCharacters([{ id: "cat", name: "黒猫" }], ["cat"], new Set(), new Set());
     const unused = findings.find((f) => f.code === "unused-character");
     expect(unused?.subject).toBe("cat");
-  });
-
-  it("treats a character with a script line as used even if unnamed in any action", () => {
-    const findings = checkCharacters(
-      [{ id: "cat", name: "黒猫" }],
-      ["cat"],
-      ["a quiet room"],
-      new Set(["cat"]),
-      new Set(["cat"]),
-    );
-    expect(findings.map((f) => f.code)).not.toContain("unused-character");
   });
 });
 
 describe("checkProps", () => {
   it("flags a prop with no matching reference asset", () => {
-    const findings = checkProps([{ id: "patty", name: "the patty" }], [], ["the patty on a tray"]);
+    const findings = checkProps([{ id: "patty", name: "the patty" }], [], new Set(["patty"]));
     expect(findings.map((f) => f.code)).toContain("prop-unreferenced");
   });
 
-  it("passes a prop exposed in the pool and named in an action", () => {
-    expect(
-      checkProps([{ id: "patty", name: "the patty" }], ["patty"], ["the patty on a tray"]),
-    ).toEqual([]);
+  it("passes a prop exposed in the pool and shown by a frame", () => {
+    expect(checkProps([{ id: "patty", name: "the patty" }], ["patty"], new Set(["patty"]))).toEqual(
+      [],
+    );
   });
 
-  it("flags a prop never named in any action, keyed by id", () => {
-    const findings = checkProps([{ id: "patty", name: "the patty" }], ["patty"], ["a quiet room"]);
+  it("flags a prop no frame shows, keyed by id", () => {
+    const findings = checkProps([{ id: "patty", name: "the patty" }], ["patty"], new Set());
     const unused = findings.find((f) => f.code === "unused-prop");
     expect(unused?.subject).toBe("patty");
   });
@@ -2120,7 +2122,7 @@ describe("checkDirection props", () => {
     expect(active.map((f) => f.code)).toContain("prop-unreferenced");
   });
 
-  it("clears once the reference asset is exposed and the prop is named", () => {
+  it("clears once the reference asset is exposed and a frame shows the prop", () => {
     const { active } = checkDirection(withPatty, { referenceAssetNames: ["patty"] });
     expect(active.map((f) => f.code)).not.toContain("prop-unreferenced");
     expect(active.map((f) => f.code)).not.toContain("unused-prop");

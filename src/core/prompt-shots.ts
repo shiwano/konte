@@ -60,6 +60,8 @@ export interface PromptShots {
   action: Map<string, string>;
   hinge: Map<string, ReturnType<typeof deriveShotHinges>>;
   passing: Map<string, readonly string[]>;
+  // Keyed as `passing` is: the props the frame shows, labelled `<name> (<id>)`.
+  props: Map<string, readonly string[]>;
   // Keyed as `passing` is: who stands out of the frame at its opening, and on which side.
   offscreen: Map<string, readonly OffscreenFigure[]>;
   span: Map<string, string>;
@@ -110,11 +112,19 @@ export async function loadPromptShots(videoRoot: string): Promise<PromptShots | 
   const nameById = new Map(
     Object.entries(direction.characters ?? {}).map(([id, c]) => [id, c.name]),
   );
+  const propNameById = new Map(
+    Object.entries(direction.props ?? {}).map(([id, p]) => [id, p.name]),
+  );
   // An id the character roster does not hold is a structural error, so it is labelled as itself.
   const label = (id: string): string => {
     const name = nameById.get(id);
     return name ? `${name} (${id})` : id;
   };
+  const propLabels = (ids: readonly string[]): string[] =>
+    ids.map((id) => {
+      const name = propNameById.get(id);
+      return name ? `${name} (${id})` : id;
+    });
   const lineup = new Map<
     string,
     { lineup: readonly string[]; lineupTo: readonly string[] | null }
@@ -134,6 +144,7 @@ export async function loadPromptShots(videoRoot: string): Promise<PromptShots | 
   const action = new Map<string, string>();
   const hinge: PromptShots["hinge"] = new Map();
   const passing: PromptShots["passing"] = new Map();
+  const props: PromptShots["props"] = new Map();
   const span = new Map<string, string>();
   const offscreen: PromptShots["offscreen"] = new Map();
   for (const [key, figures] of offscreenSides(direction)) {
@@ -160,8 +171,12 @@ export async function loadPromptShots(videoRoot: string): Promise<PromptShots | 
       ),
     );
     if (shot.cutin) {
-      hinge.set(`${shot.id}.cutin`, deriveShotHinges(direction, shot.action, shot.cutin.setup));
+      hinge.set(
+        `${shot.id}.cutin`,
+        deriveShotHinges(direction, shot.action, shot.cutin.setup, shot.cutin.props ?? []),
+      );
       passing.set(`${shot.id}.cutin`, shot.cutin.passing ?? []);
+      props.set(`${shot.id}.cutin`, propLabels(shot.cutin.props ?? []));
       cutin.set(shot.id, {
         setup: shot.cutin.setup,
         lineup: shot.cutin.lineup ?? [],
@@ -172,8 +187,9 @@ export async function loadPromptShots(videoRoot: string): Promise<PromptShots | 
     }
     if (!isGraphicShot(shot)) {
       setup.set(shot.id, shot.setup);
-      hinge.set(shot.id, deriveShotHinges(direction, shot.action, shot.setup));
+      hinge.set(shot.id, deriveShotHinges(direction, shot.action, shot.setup, shot.props ?? []));
       passing.set(shot.id, shot.passing ?? []);
+      props.set(shot.id, propLabels(shot.props ?? []));
       if (shot.join) join.set(shot.id, shot.join);
       if (shot.coverage) coverage.add(shot.id);
       if (shot.lineup) {
@@ -198,6 +214,7 @@ export async function loadPromptShots(videoRoot: string): Promise<PromptShots | 
     action,
     hinge,
     passing,
+    props,
     offscreen,
     span,
     lineup,

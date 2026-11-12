@@ -147,11 +147,12 @@ export type DirectionPartContent =
       action: string;
       script: readonly ScriptLine[];
       telop: readonly string[];
-      // Who the frame holds left to right, the order the shot leaves behind, and what the boundary
-      // into this shot is. Empty/null on a shot that declares none.
+      // Who the frame holds left to right, the order the shot leaves behind, the props it shows, and
+      // what the boundary into this shot is. Empty/null on a shot that declares none.
       lineup: readonly string[];
       lineupTo: readonly string[];
       passing: readonly string[];
+      props: readonly string[];
       join: ShotJoin | null;
       // A shot the model cuts inside, its frame columns the opening one.
       coverage: boolean;
@@ -188,6 +189,7 @@ type DirectionCutinContent = {
   lineup: readonly string[];
   lineupTo: readonly string[];
   passing: readonly string[];
+  props: readonly string[];
   join: ShotJoin | null;
 };
 
@@ -198,6 +200,7 @@ function cutinContent(cutin: Cutin | undefined): DirectionCutinContent | null {
         lineup: cutin.lineup ?? [],
         lineupTo: cutin.lineupTo ?? [],
         passing: cutin.passing ?? [],
+        props: cutin.props ?? [],
         join: cutin.join ?? null,
       }
     : null;
@@ -335,6 +338,7 @@ export function directionPartContents(direction: Direction): Map<string, Directi
                   lineup: s.lineup ?? [],
                   lineupTo: s.lineupTo ?? [],
                   passing: s.passing ?? [],
+                  props: s.props ?? [],
                   join: s.join ?? null,
                   coverage: s.coverage === true,
                   cutin: cutinContent(s.cutin),

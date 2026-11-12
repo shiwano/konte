@@ -507,7 +507,14 @@ describe("cutin and graphic hashes", () => {
       action: "screen 02",
       script: [],
       telop: [],
-      cutin: { setup: "desk", lineup: ["nazuna"], lineupTo: [], passing: [], join: null },
+      cutin: {
+        setup: "desk",
+        lineup: ["nazuna"],
+        lineupTo: [],
+        passing: [],
+        props: [],
+        join: null,
+      },
     });
   });
 });

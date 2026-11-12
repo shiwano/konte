@@ -145,6 +145,7 @@ export default defineDirection({
             setup: "kitchenWide",
             duration: 3,
             lineup: ["cook"],
+            props: [],
             telop: ["Morning."],
             script: [{ character: "cook", text: "Almost ready.", acting: "Humming, pleased." }],
           },
@@ -157,6 +158,7 @@ export default defineDirection({
             duration: 4,
             lineup: ["cook"],
             lineupTo: ["rival", "cook"],
+            props: [],
             script: [{ character: "rival", text: "Something is burning." }],
           },
           {
@@ -166,8 +168,9 @@ export default defineDirection({
             setup: "kitchenMedium",
             duration: 2,
             lineup: ["rival", "cook"],
+            props: ["pan"],
             script: [{ speaker: "neighbours", text: "Fire!" }],
-            cutin: { setup: "panInsert", lineup: [] },
+            cutin: { setup: "panInsert", lineup: [], props: ["pan"] },
           },
           {
             kind: "aside",
@@ -183,7 +186,7 @@ export default defineDirection({
             action: "A recipe card fills the screen.",
             duration: 2,
             script: [{ narration: "Step one: watch the pan." }],
-            cutin: { setup: "kitchenClose", lineup: ["cook"] },
+            cutin: { setup: "kitchenClose", lineup: ["cook"], props: [] },
           },
           {
             id: "05",
@@ -193,6 +196,7 @@ export default defineDirection({
             join: "jump-forward",
             duration: 3,
             lineup: ["cook"],
+            props: [],
           },
         ],
       },
@@ -211,6 +215,7 @@ export default defineDirection({
             join: "jump-back",
             duration: 3,
             lineup: ["rival"],
+            props: [],
           },
           {
             id: "07",
@@ -221,6 +226,7 @@ export default defineDirection({
             duration: 3,
             lineup: ["rival"],
             lineupTo: ["cook", "rival"],
+            props: [],
           },
           {
             id: "08",
@@ -230,6 +236,7 @@ export default defineDirection({
             join: "jump-forward",
             duration: 3,
             lineup: ["rival", "cook"],
+            props: [],
           },
         ],
       },

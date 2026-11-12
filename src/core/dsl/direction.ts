@@ -104,21 +104,18 @@ export type Character = {
 // A declared recurring prop — an object (a handheld item, a set piece) whose look must stay
 // consistent across the shots it appears in, so it is anchored to a reference asset exactly like a
 // character. Unlike a character it never speaks, so it carries no script linkage. Keyed by its `id`
-// (must equal an exposed `reference:<id>` asset name); `name` is how every shot `action` refers to
-// it, `description` is the visual brief. The prop `id` shares the reference namespace with the
+// (must equal an exposed `reference:<id>` asset name); `description` is the visual brief. The prop `id` shares the reference namespace with the
 // characters, so it may not collide with a character `id`.
 //
-// `promptDepiction` is the noun a prompt calls it by, exactly as a character's is — a shot whose
-// `action` names the prop owes it in a keyframe's prompt (`prop-unnamed`).
+// `promptDepiction` is the noun a prompt calls it by, exactly as a character's is — a frame whose
+// `props` holds the prop owes it in a keyframe's prompt (`prop-unnamed`).
 export type Prop = { name: string; promptDepiction: string; description: string };
 
 // A declared location — a recurring place (a set, a room, an exterior) a shot happens in, whose look
 // must stay consistent across the shots set there, so it is anchored to a reference asset exactly
 // like a character or prop. Keyed by its `id` (must equal an exposed `reference:<id>` asset name),
 // which shares the reference namespace with the characters and props (a collision is a structural
-// error). Unlike a character/prop, a location is not named in a shot's `action` prose (a place does
-// not act) — a shot reaches its location through its `setup`, so drift between the roster and the
-// shots is caught by exact id membership, not a prose scan. `description` is the visual brief.
+// error). A shot reaches its location through its `setup`. `description` is the visual brief.
 //
 // A location is the place, not a view of it: it anchors what the set is made of, and the `setups`
 // declared in it are the frames taken from it.
@@ -345,6 +342,9 @@ export type NarrativeShot = Omit<ArcItem<string>, "synopsis" | "duration"> & {
   // frame holds them again; the shots after read against what this shot left behind.
   lineupTo?: readonly string[];
   passing?: readonly string[];
+  // The `props` ids this frame shows, in no order. Required on every frame once the roster declares
+  // a prop (`props-missing`), `[]` where the frame shows none.
+  props?: readonly string[];
   // What the boundary INTO this shot is, so the shot after a boundary owns it.
   //
   // Omitted is an ordinary cut with story time running on. `jump-back` and `jump-forward` are cuts
@@ -381,6 +381,7 @@ export type Cutin = {
   lineup: readonly string[];
   lineupTo?: readonly string[];
   passing?: readonly string[];
+  props?: readonly string[];
   join?: ShotJoin;
 };
 
@@ -391,7 +392,7 @@ export type Cutin = {
 // character on screen is a `cutin` over it, never part of the graphic.
 export type GraphicShot = Omit<
   NarrativeShot,
-  "kind" | "setup" | "lineup" | "lineupTo" | "passing" | "join" | "coverage"
+  "kind" | "setup" | "lineup" | "lineupTo" | "passing" | "props" | "join" | "coverage"
 > & {
   kind: "graphic";
   cutin?: Cutin;
@@ -549,6 +550,7 @@ type NarrativeShotShape = {
   lineup: readonly string[];
   lineupTo?: readonly string[];
   passing?: readonly string[];
+  props?: readonly string[];
   join?: ShotJoin;
   cutin?: CutinShape;
   coverage?: true;
@@ -558,6 +560,7 @@ type CutinShape = {
   lineup: readonly string[];
   lineupTo?: readonly string[];
   passing?: readonly string[];
+  props?: readonly string[];
   join?: ShotJoin;
 };
 // The camera fields a graphic shot does not have are `never` rather than merely absent: a const
@@ -577,6 +580,7 @@ type GraphicShotShape = {
   lineup?: never;
   lineupTo?: never;
   passing?: never;
+  props?: never;
   join?: never;
   coverage?: never;
 };
@@ -801,6 +805,34 @@ type ConstrainFrameLineups<F, Subjects extends string> = (F extends {
     : unknown) &
   (F extends { passing: infer P } ? { passing: ConstrainPassing<F, P, Subjects> } : unknown);
 
+// The ids a frame's `props` may name, and whether every frame owes the field: a literal roster with
+// at least one key. A widened roster answers `string` and owes nothing here — `props-missing` and
+// `props-unknown-id` receive it.
+type PropIdOf<D extends DirectionInput> = D extends { props: infer P }
+  ? Extract<keyof P, string>
+  : never;
+type PropsViolation<T extends string> = {
+  [P in `konte: props id "${T}" is not a declared prop id`]: never;
+};
+type ConstrainProps<P, Ids extends string> = {
+  [K in keyof P]: string extends P[K]
+    ? P[K]
+    : P[K] extends Ids
+      ? P[K]
+      : P[K] extends string
+        ? PropsViolation<P[K]>
+        : never;
+};
+type ConstrainFrameProps<F, Ids extends string> = F extends { props: infer P }
+  ? { props: ConstrainProps<P, Ids> }
+  : [Ids] extends [never]
+    ? unknown
+    : string extends Ids
+      ? unknown
+      : {
+          props: DirectionViolation<"konte: this direction declares props, so every frame states the ones it shows in `props` — `[]` where none">;
+        };
+
 // A shot's span is a window the render cuts the take to, so it lands on the 0.5s grid every legal
 // fps divides whole. Read off the literal's decimal digits — a type does no arithmetic — so a
 // negative or computed value passes through to `off-grid-duration`. An aside is outside the check
@@ -948,13 +980,17 @@ type ConstrainCutinJoin<B, Shots> = B extends {
 type ConstrainShotIds<
   Arr,
   Subjects extends string,
+  PropIds extends string,
   Roles extends string,
   Shots,
   Clocked extends boolean,
 > = {
-  [K in keyof Arr]: Omit<Arr[K], "id" | "lineup" | "lineupTo" | "passing" | "cutin"> & {
+  [K in keyof Arr]: Omit<Arr[K], "id" | "lineup" | "lineupTo" | "passing" | "props" | "cutin"> & {
     id: ValidatedIdentifier<Arr[K] extends { id: infer I extends string } ? I : never>;
   } & ConstrainFrameLineups<Arr[K], Subjects> &
+    (Arr[K] extends { kind: "graphic" | "aside" }
+      ? unknown
+      : ConstrainFrameProps<Arr[K], PropIds>) &
     ConstrainSpan<Arr[K], Clocked> &
     ConstrainAction<Arr[K]> &
     ConstrainRole<Arr[K], Roles> &
@@ -962,18 +998,36 @@ type ConstrainShotIds<
     ConstrainCutinJoin<Arr[K], Shots> &
     ConstrainCoverage<Arr[K]> &
     (Arr[K] extends { cutin: infer C }
-      ? { cutin: Omit<C, "lineup" | "lineupTo" | "passing"> & ConstrainFrameLineups<C, Subjects> }
+      ? {
+          cutin: Omit<C, "lineup" | "lineupTo" | "passing" | "props"> &
+            ConstrainFrameLineups<C, Subjects> &
+            ConstrainFrameProps<C, PropIds>;
+        }
       : unknown);
 };
 // Preserve the full node (so the sibling-array covariance check still sees every field) and override
 // only the id-bearing positions, recursing through both node bodies to any depth. `Shots` is the
 // whole arc flattened, for the checks that read the shot before on the clock.
-type ConstrainNodeIds<N, Subjects extends string, Lenses, Shots, Clocked extends boolean> = N &
+type ConstrainNodeIds<
+  N,
+  Subjects extends string,
+  PropIds extends string,
+  Lenses,
+  Shots,
+  Clocked extends boolean,
+> = N &
   (N extends { id: infer I extends string } ? { id: ValidatedIdentifier<I> } : unknown) &
   ConstrainSynopsis<N> &
   (N extends { shots: infer S }
     ? {
-        shots: ConstrainShotIds<S, Subjects, LensRolesOf<LensNameOf<N>, Lenses>, Shots, Clocked>;
+        shots: ConstrainShotIds<
+          S,
+          Subjects,
+          PropIds,
+          LensRolesOf<LensNameOf<N>, Lenses>,
+          Shots,
+          Clocked
+        >;
       }
     : unknown) &
   (N extends { sequences: infer Q }
@@ -981,6 +1035,7 @@ type ConstrainNodeIds<N, Subjects extends string, Lenses, Shots, Clocked extends
         sequences: ConstrainSequenceIds<
           Q,
           Subjects,
+          PropIds,
           Lenses,
           LensRolesOf<LensNameOf<N>, Lenses>,
           Shots,
@@ -994,12 +1049,13 @@ type LensNameOf<N> = N extends { lens: infer L } ? L : string;
 type ConstrainSequenceIds<
   Arr,
   Subjects extends string,
+  PropIds extends string,
   Lenses,
   ParentRoles extends string,
   Shots,
   Clocked extends boolean,
 > = {
-  [K in keyof Arr]: ConstrainNodeIds<Arr[K], Subjects, Lenses, Shots, Clocked> &
+  [K in keyof Arr]: ConstrainNodeIds<Arr[K], Subjects, PropIds, Lenses, Shots, Clocked> &
     ConstrainRole<Arr[K], ParentRoles>;
 };
 // A cast voice's `id` is an address part like any other, but it sits in a value rather than a key, so
@@ -1132,6 +1188,7 @@ type ConstrainIds<D extends DirectionInput> = {
   sequence: ConstrainNodeIds<
     D["sequence"],
     SubjectIdOf<D>,
+    PropIdOf<D>,
     DeclaredLensNameOf<D>,
     DirectionShotTuple<D>,
     ClockedOf<D>
@@ -1178,6 +1235,7 @@ export function deriveShotHinges(
   direction: Direction,
   action: string,
   setupId: string,
+  propIds: readonly string[],
 ): { name: string; notInSet: boolean }[] {
   const setup = direction.setups?.[setupId];
   const landmarks = setup ? (direction.locations?.[setup.location]?.landmarks ?? {}) : {};
@@ -1188,9 +1246,10 @@ export function deriveShotHinges(
         name: landmark.name,
         notInSet: !(setup?.holds ?? []).includes(id),
       })),
-    ...Object.values(direction.props ?? {})
-      .filter((prop) => action.includes(prop.name))
-      .map((prop) => ({ name: prop.name, notInSet: false })),
+    ...propIds.flatMap((id) => {
+      const prop = direction.props?.[id];
+      return prop ? [{ name: prop.name, notInSet: false }] : [];
+    }),
   ];
 }
 
@@ -2245,7 +2304,10 @@ export function defineDirection<const D extends DirectionInput>(
     scriptById.set(s.id, s.script ?? []);
     if (s.cutin) {
       cutinById.set(s.id, s.cutin);
-      hingeById.set(`${s.id}.cutin`, deriveShotHinges(dir, s.action, s.cutin.setup));
+      hingeById.set(
+        `${s.id}.cutin`,
+        deriveShotHinges(dir, s.action, s.cutin.setup, s.cutin.props ?? []),
+      );
       const setup = (dir.setups ?? {})[s.cutin.setup];
       if (setup) cutinFrameById.set(s.id, { framing: setup.framing, location: setup.location });
     }
@@ -2255,7 +2317,7 @@ export function defineDirection<const D extends DirectionInput>(
     }
     setupById.set(s.id, s.setup);
     if (s.coverage) coverageIds.add(s.id);
-    hingeById.set(s.id, deriveShotHinges(dir, s.action, s.setup));
+    hingeById.set(s.id, deriveShotHinges(dir, s.action, s.setup, s.props ?? []));
     const setup = (dir.setups ?? {})[s.setup];
     if (setup) {
       framingById.set(s.id, setup.framing);

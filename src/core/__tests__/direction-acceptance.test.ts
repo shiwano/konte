@@ -92,6 +92,7 @@ function makeDirection(): Direction {
           setup: "bedroom-medium",
           duration: 4,
           lineup: [],
+          props: [],
         },
         {
           id: "02",
@@ -100,6 +101,7 @@ function makeDirection(): Direction {
           setup: "bedroom-wide",
           duration: 6,
           lineup: [],
+          props: [],
         },
       ],
     },
@@ -1010,7 +1012,7 @@ describe("applyDirectionShotCascade", () => {
   // A roster entry reworded under an image already accepted moves no variant, so no reference review
   // is waiting on it; the shot that shows or sounds the entry is where it is next judged.
   describe("the roster entries a shot declares", () => {
-    // Shot 01 holds Alice, names the lantern and carries a line of hers and one of narration; shot 02
+    // Shot 01 holds Alice, shows the lantern and carries a line of hers and one of narration; shot 02
     // declares none of them.
     function castDirection(): Direction {
       const direction = makeDirection();
@@ -1026,6 +1028,7 @@ describe("applyDirectionShotCascade", () => {
       Object.assign(shot, {
         action: "she lifts the lantern",
         lineup: ["alice"],
+        props: ["lantern"],
         script: [{ character: "alice", text: "morning" }, { narration: "the house is still" }],
       });
       return direction;

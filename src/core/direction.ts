@@ -265,6 +265,11 @@ export type DirectionErrorCode =
   | "lineup-unknown-id"
   | "lineup-duplicate"
   | "passing-overlap"
+  // The frame `props` contract, the lineup's twin: a frame silent on the props it shows once the
+  // roster declares one, an id no prop roster holds, and a prop listed twice.
+  | "props-missing"
+  | "props-unknown-id"
+  | "props-duplicate"
   // The join's own contract. Both are definition bugs with no creative reading, so neither is
   // waivable: a boundary where a long take is possible and nothing says whether it is one, and a
   // `continuous` at a boundary no unbroken take could cross.
@@ -362,6 +367,7 @@ export type ShotFrame = {
   lineup: readonly string[];
   lineupTo?: readonly string[];
   passing?: readonly string[];
+  props?: readonly string[];
   join?: ShotJoin;
   // A coverage shot's main frame: its opening frame, with the camera after it the model's.
   coverage?: true;
@@ -409,6 +415,7 @@ export function shotFrames(s: ArcShot): ShotFrame[] {
       lineup: s.lineup,
       ...(s.lineupTo ? { lineupTo: s.lineupTo } : {}),
       ...(s.passing ? { passing: s.passing } : {}),
+      ...(s.props ? { props: s.props } : {}),
       ...(s.join ? { join: s.join } : {}),
       ...(s.coverage ? { coverage: true as const } : {}),
     });
@@ -421,6 +428,7 @@ export function shotFrames(s: ArcShot): ShotFrame[] {
       lineup: s.cutin.lineup,
       ...(s.cutin.lineupTo ? { lineupTo: s.cutin.lineupTo } : {}),
       ...(s.cutin.passing ? { passing: s.cutin.passing } : {}),
+      ...(s.cutin.props ? { props: s.cutin.props } : {}),
       ...(s.cutin.join ? { join: s.cutin.join } : {}),
     });
   }
@@ -438,11 +446,6 @@ function collectShotIds(direction: Direction): string[] {
   return collectShots(direction).map((s) => s.id);
 }
 
-// Every shot action in the direction — the prose the characters' `unused-character` check scans.
-function collectActions(direction: Direction): string[] {
-  return collectArcShots(direction).map((s) => s.action);
-}
-
 export function collectFramedCharacterIds(direction: Direction): Set<string> {
   return new Set(
     collectShotFrames(direction).flatMap((f) => [
@@ -451,6 +454,10 @@ export function collectFramedCharacterIds(direction: Direction): Set<string> {
       ...(f.passing ?? []),
     ]),
   );
+}
+
+function collectShownPropIds(direction: Direction): Set<string> {
+  return new Set(collectShotFrames(direction).flatMap((f) => f.props ?? []));
 }
 
 // How many frames each setup is named by. The `setup-unrealized` check reads it: a frame two or more
@@ -907,7 +914,7 @@ function checkStaging(
     }),
     ...(stage
       ? checkPropNaming(
-          collectArcShots(direction),
+          collectShotFrames(direction),
           stage.panelPrompts,
           stage.shownReferences,
           propRefs(direction),
@@ -1636,8 +1643,7 @@ function validateRosters(direction: Direction): DirectionStructureError[] {
   const errors: DirectionStructureError[] = [];
 
   // The characters are a hard contract: an `id` (the roster key) must be a valid asset name (it maps
-  // to reference:<id>), and `name`/`description` must be non-empty — an empty `name` would make the
-  // `unused-character` action scan silently pass (every string contains ""). The record key makes a
+  // to reference:<id>), and `name`/`description` must be non-empty. The record key makes a
   // duplicate id structurally impossible, so there is no duplicate-id check here.
   // Two members sharing ONE id is deliberate and allowed — a narrator who is the protagonist, twins —
   // and their `description`s are two performance briefs on one sample, not a contradiction.
@@ -2075,6 +2081,7 @@ function validateSetups(direction: Direction): DirectionStructureError[] {
 function validateFrames(direction: Direction): DirectionStructureError[] {
   const errors: DirectionStructureError[] = [];
   const characterIds = new Set(Object.keys(direction.characters ?? {}));
+  const propIds = new Set(Object.keys(direction.props ?? {}));
 
   // The lineups. All three faults are "this declares nothing usable" — a shot with no `lineup` at
   // all, an id no character roster holds, a subject listed twice — so none is a creative call and
@@ -2122,6 +2129,34 @@ function validateFrames(direction: Direction): DirectionStructureError[] {
         }
         seen.add(subjectId);
       }
+    }
+    if (!f.props) {
+      if (propIds.size > 0) {
+        errors.push({
+          code: "props-missing",
+          subject: frameSubject(f),
+          message: "the direction declares props, but the frame does not state the ones it shows",
+        });
+      }
+      continue;
+    }
+    const seenProps = new Set<string>();
+    for (const propId of f.props) {
+      if (!propIds.has(propId)) {
+        errors.push({
+          code: "props-unknown-id",
+          subject: `${frameSubject(f)}:${propId}`,
+          message: `\`props\` names "${propId}", which is not a declared prop`,
+        });
+      }
+      if (seenProps.has(propId)) {
+        errors.push({
+          code: "props-duplicate",
+          subject: `${frameSubject(f)}:${propId}`,
+          message: `\`props\` lists "${propId}" twice`,
+        });
+      }
+      seenProps.add(propId);
     }
   }
 
@@ -2472,7 +2507,6 @@ export function checkDirection(
       ...checkCharacters(
         entityRefs(direction.characters),
         options.referenceAssetNames ?? [],
-        collectActions(direction),
         alwaysUsed,
         collectFramedCharacterIds(direction),
       ),
@@ -2498,7 +2532,7 @@ export function checkDirection(
       ...checkProps(
         entityRefs(direction.props),
         options.referenceAssetNames ?? [],
-        collectActions(direction),
+        collectShownPropIds(direction),
       ),
     );
   }

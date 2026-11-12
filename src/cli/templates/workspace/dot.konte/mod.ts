@@ -825,6 +825,7 @@ export type NarrativeShot = Omit<ArcItem<string>, "synopsis" | "duration"> & {
   lineup: readonly string[];
   lineupTo?: readonly string[];
   passing?: readonly string[];
+  props?: readonly string[];
   join?: ShotJoin;
   cutin?: Cutin;
   coverage?: true;
@@ -834,11 +835,12 @@ export type Cutin = {
   lineup: readonly string[];
   lineupTo?: readonly string[];
   passing?: readonly string[];
+  props?: readonly string[];
   join?: ShotJoin;
 };
 export type GraphicShot = Omit<
   NarrativeShot,
-  "kind" | "setup" | "lineup" | "lineupTo" | "passing" | "join" | "coverage"
+  "kind" | "setup" | "lineup" | "lineupTo" | "passing" | "props" | "join" | "coverage"
 > & {
   kind: "graphic";
   cutin?: Cutin;
@@ -903,6 +905,7 @@ export type NarrativeShotShape = {
   lineup: readonly string[];
   lineupTo?: readonly string[];
   passing?: readonly string[];
+  props?: readonly string[];
   join?: ShotJoin;
   cutin?: CutinShape;
   coverage?: true;
@@ -912,6 +915,7 @@ export type CutinShape = {
   lineup: readonly string[];
   lineupTo?: readonly string[];
   passing?: readonly string[];
+  props?: readonly string[];
   join?: ShotJoin;
 };
 export type GraphicShotShape = {
@@ -928,6 +932,7 @@ export type GraphicShotShape = {
   lineup?: never;
   lineupTo?: never;
   passing?: never;
+  props?: never;
   join?: never;
   coverage?: never;
 };
@@ -1151,6 +1156,36 @@ export type ConstrainFrameLineups<F, Subjects extends string> = (F extends {
         passing: ConstrainPassing<F, P, Subjects>;
       }
     : unknown);
+export type PropIdOf<D extends DirectionInput> = D extends {
+  props: infer P;
+}
+  ? Extract<keyof P, string>
+  : never;
+export type PropsViolation<T extends string> = {
+  [P in `konte: props id "${T}" is not a declared prop id`]: never;
+};
+export type ConstrainProps<P, Ids extends string> = {
+  [K in keyof P]: string extends P[K]
+    ? P[K]
+    : P[K] extends Ids
+      ? P[K]
+      : P[K] extends string
+        ? PropsViolation<P[K]>
+        : never;
+};
+export type ConstrainFrameProps<F, Ids extends string> = F extends {
+  props: infer P;
+}
+  ? {
+      props: ConstrainProps<P, Ids>;
+    }
+  : [Ids] extends [never]
+    ? unknown
+    : string extends Ids
+      ? unknown
+      : {
+          props: DirectionViolation<"konte: this direction declares props, so every frame states the ones it shows in `props` \u2014 `[]` where none">;
+        };
 export type ConstrainDuration<B> = B extends {
   kind: "aside";
 }
@@ -1324,11 +1359,12 @@ export type ConstrainCutinJoin<B, Shots> = B extends {
 export type ConstrainShotIds<
   Arr,
   Subjects extends string,
+  PropIds extends string,
   Roles extends string,
   Shots,
   Clocked extends boolean,
 > = {
-  [K in keyof Arr]: Omit<Arr[K], "id" | "lineup" | "lineupTo" | "passing" | "cutin"> & {
+  [K in keyof Arr]: Omit<Arr[K], "id" | "lineup" | "lineupTo" | "passing" | "props" | "cutin"> & {
     id: ValidatedIdentifier<
       Arr[K] extends {
         id: infer I extends string;
@@ -1337,6 +1373,11 @@ export type ConstrainShotIds<
         : never
     >;
   } & ConstrainFrameLineups<Arr[K], Subjects> &
+    (Arr[K] extends {
+      kind: "graphic" | "aside";
+    }
+      ? unknown
+      : ConstrainFrameProps<Arr[K], PropIds>) &
     ConstrainSpan<Arr[K], Clocked> &
     ConstrainAction<Arr[K]> &
     ConstrainRole<Arr[K], Roles> &
@@ -1347,13 +1388,16 @@ export type ConstrainShotIds<
       cutin: infer C;
     }
       ? {
-          cutin: Omit<C, "lineup" | "lineupTo" | "passing"> & ConstrainFrameLineups<C, Subjects>;
+          cutin: Omit<C, "lineup" | "lineupTo" | "passing" | "props"> &
+            ConstrainFrameLineups<C, Subjects> &
+            ConstrainFrameProps<C, PropIds>;
         }
       : unknown);
 };
 export type ConstrainNodeIds<
   N,
   Subjects extends string,
+  PropIds extends string,
   Lenses,
   Shots,
   Clocked extends boolean,
@@ -1370,7 +1414,14 @@ export type ConstrainNodeIds<
     shots: infer S;
   }
     ? {
-        shots: ConstrainShotIds<S, Subjects, LensRolesOf<LensNameOf<N>, Lenses>, Shots, Clocked>;
+        shots: ConstrainShotIds<
+          S,
+          Subjects,
+          PropIds,
+          LensRolesOf<LensNameOf<N>, Lenses>,
+          Shots,
+          Clocked
+        >;
       }
     : unknown) &
   (N extends {
@@ -1380,6 +1431,7 @@ export type ConstrainNodeIds<
         sequences: ConstrainSequenceIds<
           Q,
           Subjects,
+          PropIds,
           Lenses,
           LensRolesOf<LensNameOf<N>, Lenses>,
           Shots,
@@ -1395,12 +1447,13 @@ export type LensNameOf<N> = N extends {
 export type ConstrainSequenceIds<
   Arr,
   Subjects extends string,
+  PropIds extends string,
   Lenses,
   ParentRoles extends string,
   Shots,
   Clocked extends boolean,
 > = {
-  [K in keyof Arr]: ConstrainNodeIds<Arr[K], Subjects, Lenses, Shots, Clocked> &
+  [K in keyof Arr]: ConstrainNodeIds<Arr[K], Subjects, PropIds, Lenses, Shots, Clocked> &
     ConstrainRole<Arr[K], ParentRoles>;
 };
 export type ConstrainVoiceId<V> = V extends {
@@ -1556,6 +1609,7 @@ export type ConstrainIds<D extends DirectionInput> = {
   sequence: ConstrainNodeIds<
     D["sequence"],
     SubjectIdOf<D>,
+    PropIdOf<D>,
     DeclaredLensNameOf<D>,
     DirectionShotTuple<D>,
     ClockedOf<D>
@@ -1627,6 +1681,7 @@ export declare function deriveShotHinges(
   direction: Direction,
   action: string,
   setupId: string,
+  propIds: readonly string[],
 ): {
   name: string;
   notInSet: boolean;

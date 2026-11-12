@@ -11,7 +11,7 @@ Author the video's direction in `direction.ts` before any stage shot is written.
 - A worked file with the common fields → [skeleton.md](references/skeleton.md).
 - Declaring characters, props, locations or voices → [rosters.md](references/rosters.md).
 - Declaring camera setups → [camera.md](references/camera.md).
-- Declaring who is in frame, a join or a cutin → [lineup.md](references/lineup.md).
+- Declaring who or which props are in frame, a join or a cutin → [lineup.md](references/lineup.md).
 - A piece long enough for acts (several minutes up) → [long-form.md](references/long-form.md).
 - A piece cut to a song — `policy.song`, `lyrics`, spans in beats → [song.md](references/song.md).
 - Writing a Japanese `script` line → [japanese-notation.md](references/japanese-notation.md).
@@ -48,7 +48,7 @@ Author the video's direction in `direction.ts` before any stage shot is written.
 
 ### Writing the shots
 
-- Write an action's relied-on landmark or prop with its exact roster `name`.
+- Write an action's relied-on landmark with its exact roster `name`.
 - One action per shot — one sentence, one mover, one motion — a second sentence, a second mover, or a then-pivot is the next shot's `action`. A role is a phase — expect more shots than the lens has roles. A coverage shot is the one exception.
 - A gag or turn is a shot chain — trigger → reaction (→ collateral): the thing that moves (the rolling tureen) gets its own shot before the subject responds, and the reaction shot is often the stronger one. Expand the chain as you draft, never as a later split of one row.
 - A key action is a chain too — anticipation, the motion elided in the cut, the result landed; this and the other idioms → [cut-idioms.md](references/cut-idioms.md).
