@@ -37,6 +37,7 @@ interface WorkspaceSyncResult {
   /** A bundled adapter or guide the template dropped, left in place because a workspace file names it. */
   retained: string[];
   unwritable: string[];
+  previousVersion: string | null;
 }
 
 function isUnwritable(err: unknown): boolean {
@@ -350,5 +351,5 @@ export async function syncWorkspace(workspaceRoot: string): Promise<WorkspaceSyn
     await writeLock(workspaceRoot, placed.filter(isRetirable));
     await writeVersionFile(workspaceRoot, previousVersion);
   }
-  return { created, updated, removed, retained, unwritable };
+  return { created, updated, removed, retained, unwritable, previousVersion };
 }

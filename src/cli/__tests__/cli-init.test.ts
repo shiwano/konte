@@ -104,6 +104,17 @@ describe("workspace new command", () => {
     expect(stderr).toContain("konte: overwrote 1 managed file(s): AGENTS.md");
   });
 
+  it("names the plugin update only on a setup that changes the konte version", async () => {
+    const workspace = path.join(ctx.dir, "upgraded");
+    await fs.mkdir(workspace);
+    await run(["workspace", "new"], workspace);
+    const step = "if the konte:upgrade plugin skill ran this";
+    expect((await run(["workspace", "setup"], workspace)).stdout).not.toContain(step);
+
+    await fs.writeFile(path.join(workspace, "konte.version"), "0.0.1\n");
+    expect((await run(["workspace", "setup"], workspace)).stdout).toContain(step);
+  });
+
   it("makes the video it creates current", async () => {
     const workspace = path.join(ctx.dir, "myworkspace");
     await fs.mkdir(workspace);

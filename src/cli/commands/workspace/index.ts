@@ -18,6 +18,7 @@ import { pathExists, writeTemplateFiles } from "../../template-files.js";
 import { prefetchManagedRuntimes } from "./prefetch.js";
 import { printNextSteps } from "../../next-steps.js";
 import { retirementLines, updateLines } from "../../sync-report.js";
+import pkg from "../../../../package.json" with { type: "json" };
 
 const FRESH_REPO_ENTRIES = new Set([
   ".git",
@@ -65,7 +66,7 @@ async function overwrittenByNew(root: string): Promise<string[]> {
   return keys.filter((_, i) => present[i]).sort();
 }
 
-async function scaffold(root: string, existing: boolean): Promise<void> {
+async function scaffold(root: string, existing: boolean): Promise<string | null> {
   // Ahead of any write: settings it cannot merge refuse the whole scaffold.
   await prepareAgentSettings(root);
   await writeTemplateFiles(root, await scaffoldFiles(root, existing), WORKSPACE_BINARY_FILES);
@@ -80,13 +81,24 @@ async function scaffold(root: string, existing: boolean): Promise<void> {
       unwritable,
     );
   }
+  return sync.previousVersion;
 }
 
-async function finish(root: string, message: string): Promise<void> {
+async function finish(root: string, message: string, upgraded = false): Promise<void> {
   setWorkspaceRoot(root);
   await prefetchManagedRuntimes();
   console.log(message);
   printNextSteps([
+    // Temporary: for users still on a plugin that ships konte:upgrade. Remove once they have moved.
+    ...(upgraded
+      ? [
+          {
+            command: null,
+            label:
+              "if the konte:upgrade plugin skill ran this, tell the user to update the konte plugin",
+          },
+        ]
+      : []),
     {
       command: null,
       label: `start a new agent session in ${root}`,
@@ -169,8 +181,12 @@ Examples:
       .action(async () => {
         const { workspace: root } = await resolveRoots(process.cwd());
         await assertKonteCurrent(root);
-        await scaffold(root, true);
-        await finish(root, "Workspace setup complete.");
+        const previousVersion = await scaffold(root, true);
+        await finish(
+          root,
+          "Workspace setup complete.",
+          previousVersion !== null && previousVersion !== pkg.version,
+        );
       }),
     { scope: "none" },
   );
