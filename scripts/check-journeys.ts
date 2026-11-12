@@ -47,6 +47,8 @@ import { adapterGuides, GUIDE_SPECIFIER_PREFIX } from "../src/core/dsl/adapter.j
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - dev-render 10,850 → 10,900 (agreed by a human): code marked SUNSET with the version it is
+//   removed in.
 // - adaptation 36,300 → 36,350 (agreed by a human): a prompt revised by a whole rewrite, never naming
 //   the defect it fixes.
 // - konte-prompt-critic 4,000 → 4,050, konte-animatic-critic 3,900 → 4,000, konte-staging-critic
@@ -319,7 +321,7 @@ const DEV_JOURNEYS = [
   // the same render plan chooses between per shot.
   {
     name: "dev-render",
-    budget: 10_850,
+    budget: 10_900,
     files: [
       ...DEV_ALWAYS,
       `${DEV}/arch-delivery-guide/SKILL.md`,

@@ -89,7 +89,7 @@ async function finish(root: string, message: string, upgraded = false): Promise<
   await prefetchManagedRuntimes();
   console.log(message);
   printNextSteps([
-    // Temporary: for users still on a plugin that ships konte:upgrade. Remove once they have moved.
+    // SUNSET(0.6.0): konte:upgrade
     ...(upgraded
       ? [
           {
@@ -181,6 +181,7 @@ Examples:
       .action(async () => {
         const { workspace: root } = await resolveRoots(process.cwd());
         await assertKonteCurrent(root);
+        // SUNSET(0.6.0): konte:upgrade
         const previousVersion = await scaffold(root, true);
         await finish(
           root,

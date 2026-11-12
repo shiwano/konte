@@ -143,6 +143,7 @@ describe("environment-specific agent settings", () => {
     expect(config.model).toBe("custom");
     expect(config.developer_instructions).toBe("personal");
     expect(config.mcp_servers.other.env.TOKEN).toBe("${PRIVATE_TOKEN}");
+    // SUNSET(0.6.0): konte MCP server
     expect(config.mcp_servers.konte).toBeUndefined();
     const settings = JSON.parse(files[".claude/settings.json"]!);
     expect(settings.env.CUSTOM).toBeUndefined();
@@ -152,6 +153,7 @@ describe("environment-specific agent settings", () => {
     expect(await prepareAgentSettings(root)).toEqual(files);
   });
 
+  // SUNSET(0.6.0): konte MCP server
   it("takes an earlier konte's MCP server out of the settings it rendered", async () => {
     await fs.mkdir(path.join(root, ".codex"));
     await fs.writeFile(

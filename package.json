@@ -8,7 +8,7 @@
   "type": "module",
   "scripts": {
     "konte": "bun run src/cli/index.ts",
-    "check": "bun run typecheck && bun run check:templates && bun run check:plugin && bun run check:module-state && bun run check:exports && bun run skills:check && gh-actions-lock --verify-local && oxlint --deny-warnings . && oxfmt --check .",
+    "check": "bun run typecheck && bun run check:templates && bun run check:plugin && bun run check:module-state && bun run check:exports && bun run check:sunset && bun run skills:check && gh-actions-lock --verify-local && oxlint --deny-warnings . && oxfmt --check .",
     "check:fix": "oxlint --fix . && oxfmt --write .",
     "check:templates": "bun run build:generate-template-mod && bun run scripts/check-templates.ts",
     "check:plugin": "bun run scripts/check-plugin.ts",
@@ -33,7 +33,8 @@
     "build:embed-pdfjs-cmaps": "bun run scripts/embed-pdfjs-cmaps.ts",
     "sync:comfy-adapters": "bun run scripts/sync-comfy-adapters.ts",
     "check:comfy-templates": "bun run scripts/check-comfy-templates.ts",
-    "update:tool-checksums": "bun run scripts/update-tool-checksums.ts"
+    "update:tool-checksums": "bun run scripts/update-tool-checksums.ts",
+    "check:sunset": "bun run scripts/check-sunset.ts"
   },
   "dependencies": {
     "@hyperframes/producer": "^0.8.143",

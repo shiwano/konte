@@ -86,6 +86,7 @@ function leadHookPathWithBin(settings: Settings, platform: NodeJS.Platform): voi
   ];
 }
 
+// SUNSET(0.6.0): konte MCP server
 // The server entry an earlier konte rendered for its MCP daemon; a table it leaves empty goes too.
 function dropKonteServer(settings: Settings, key: "mcpServers" | "mcp_servers"): boolean {
   const servers = settings[key];
@@ -95,6 +96,7 @@ function dropKonteServer(settings: Settings, key: "mcpServers" | "mcp_servers"):
   return true;
 }
 
+// SUNSET(0.6.0): konte MCP server
 /**
  * Takes konte's server out of the `.mcp.json` an earlier konte rendered, and the file with it
  * when nothing else is in it. A file konte cannot parse is left as it is.
@@ -151,6 +153,7 @@ export async function prepareAgentSettings(
       if (key === ".claude/settings.json") {
         leadHookPathWithBin(settings, platform);
       } else {
+        // SUNSET(0.6.0): konte MCP server
         dropKonteServer(settings, "mcp_servers");
         // Codex's sandbox confines the konte its shell runs, which reads the credentials at startup.
         const roots = table(table(table(settings, "permissions"), "konte"), "filesystem");

@@ -104,6 +104,7 @@ describe("workspace new command", () => {
     expect(stderr).toContain("konte: overwrote 1 managed file(s): AGENTS.md");
   });
 
+  // SUNSET(0.6.0): konte:upgrade
   it("names the plugin update only on a setup that changes the konte version", async () => {
     const workspace = path.join(ctx.dir, "upgraded");
     await fs.mkdir(workspace);

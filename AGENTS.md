@@ -2,7 +2,7 @@
 
 ## Design Policy
 
-**No backward compatibility yet.** konte is still pre-release and has no users. Do NOT preserve backward compatibility, add migration paths, or keep deprecated APIs. Always pursue the best possible design.
+**No backward compatibility yet.** konte is still pre-release. Do NOT preserve backward compatibility or keep deprecated APIs. Always pursue the best possible design. Code carrying an earlier workspace across a change marks each site `// SUNSET(0.6.0):`, 0.6.0 the version it is removed in.
 
 **The human directs; the agent produces.** The human's one job is taste — watching the cut and deciding what changes. Review work that is not a taste decision (re-accepting a shot whose picture did not change, restating a decision an accept already recorded) is a defect. The CLI is the agent's surface and the review UI is the human's; both get the same design density.
 

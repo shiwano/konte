@@ -37,6 +37,7 @@ interface WorkspaceSyncResult {
   /** A bundled adapter or guide the template dropped, left in place because a workspace file names it. */
   retained: string[];
   unwritable: string[];
+  // SUNSET(0.6.0): konte:upgrade
   previousVersion: string | null;
 }
 
@@ -343,6 +344,7 @@ export async function syncWorkspace(workspaceRoot: string): Promise<WorkspaceSyn
 
   await appendMissingIgnores(workspaceRoot, template[".gitignore"]!);
   await writeAgentSettings(workspaceRoot, settings);
+  // SUNSET(0.6.0): konte MCP server
   const mcpJson = await retireMcpJson(workspaceRoot);
   if (mcpJson) (mcpJson === "removed" ? removed : updated).push(".mcp.json");
   if (linksBinary()) await linkWorkspaceBinary(workspaceRoot, process.execPath);
