@@ -1,15 +1,16 @@
 ---
 name: konte-upgrade
-description: Update or reinstall this workspace's konte binary. Use when the user requests an upgrade, a specific release, or repair of a broken installation.
+description: Update or reinstall this workspace's konte binary and migrate its videos to it. Use when the user requests an upgrade, a specific release, or repair of a broken installation.
 user-invocable: true
 ---
 
-Done = setup.sh succeeds in this workspace, its binary reports the requested version, and the user is told to start a new session.
+Done = setup.sh succeeds in this workspace, its binary reports the requested version, every FAIL the upgrade introduced is fixed or reported, and the user is told to start a new session.
 
-## 1. Record the old version
+## 1. Record the old state
 
 - Workspace root = the directory holding `konte.config.json`; run every step from there.
 - Run `.konte/bin/konte --version` (`konte.exe` on Windows) by its absolute path. It cannot start → read `konte.version`.
+- Run `konte doctor --all-videos` and keep its FAILs as the baseline. It cannot start → no baseline.
 
 ## 2. Pick the version
 
@@ -42,8 +43,19 @@ $env:KONTE_VERSION = '<version>'; & $konteSetupScript
 - Checksum or download failure → retry once; still failing → report and stop.
 - OS security blocks the binary → report the exact error and stop; do not change security settings.
 
-## 4. Verify
+Run the path on the script's final `KONTE_BIN=<absolute path>` line with `--version` (PowerShell: `& "<path>"`).
 
-1. Run the path on the script's final `KONTE_BIN=<absolute path>` line with `--version` (PowerShell: `& "<path>"`).
-2. Report the old and new versions.
-3. Tell the user to start a new session in the workspace directory.
+## 4. Migrate
+
+1. Run `konte doctor --all-videos`; work only the FAILs absent from the baseline (all of them with none).
+2. `type check` → fix the file it names against `.konte/mod.ts`, per `authoring-guide`.
+3. `findings` → fix each in the file it is listed under; one only a waiver clears → report it — the waiver is the human's.
+4. `direction waivers` → remove the waivers it lists.
+5. Rerun `konte doctor --all-videos` until no new FAIL remains.
+
+**Don't `generate`, `reroll`, `patch apply`, `export` or `accept`.**
+
+## 5. Report and hand off
+
+1. Report the old and new versions, and per video what was fixed and what awaits the human: the findings left, and the stale takes `konte status --cwd videos/<name>` lists.
+2. Tell the user to start a new session in the workspace directory.
