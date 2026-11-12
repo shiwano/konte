@@ -58,13 +58,31 @@ let idle: ReturnType<typeof setTimeout> | null = null;
 const docIds = new WeakMap<Buffer, number>();
 let nextDocId = 1;
 
-async function open(): Promise<Session> {
+let sandboxUnavailable = false;
+
+// Chromium's own refusals to start sandboxed: no setuid helper or user namespace, a namespace
+// seccomp forbids (Docker's default profile), or run as root.
+const SANDBOX_REFUSAL =
+  /No usable sandbox|Failed to move to new namespace|Running as root without --no-sandbox/;
+
+async function launchBrowser(): Promise<Browser> {
   const { launch } = await import("puppeteer-core");
-  const browser = await launch({
-    executablePath: await ensureChromium(),
-    headless: true,
-    args: ["--no-sandbox", "--disable-gpu"],
-  });
+  const executablePath = await ensureChromium();
+  const launchWith = (args: string[]) =>
+    launch({ executablePath, headless: true, args: [...args, "--disable-gpu"] });
+  if (!sandboxUnavailable) {
+    try {
+      return await launchWith([]);
+    } catch (err) {
+      if (!SANDBOX_REFUSAL.test(errorMessage(err))) throw err;
+      sandboxUnavailable = true;
+    }
+  }
+  return launchWith(["--no-sandbox"]);
+}
+
+async function open(): Promise<Session> {
+  const browser = await launchBrowser();
   try {
     const page = await browser.newPage();
     const docs = new Map<number, Buffer>();

@@ -12,9 +12,16 @@ type Request = {
 const browsers: { close: ReturnType<typeof vi.fn> }[] = [];
 let onRequest: ((req: Request) => void) | null = null;
 let evaluate: ReturnType<typeof vi.fn>;
+// What each launch is started with, and what a sandboxed launch fails with.
+const launches: string[][] = [];
+let sandboxRefusal: string | null = null;
 
 vi.mock("puppeteer-core", () => ({
-  launch: vi.fn(async () => {
+  launch: vi.fn(async ({ args }: { args: string[] }) => {
+    launches.push(args);
+    if (sandboxRefusal && !args.includes("--no-sandbox")) {
+      throw new Error(`Failed to launch the browser process!\n${sandboxRefusal}`);
+    }
     const browser = {
       close: vi.fn(async () => {}),
       newPage: async () => ({
@@ -44,6 +51,8 @@ function request(url: string): Request {
 beforeEach(() => {
   vi.useFakeTimers();
   browsers.length = 0;
+  launches.length = 0;
+  sandboxRefusal = null;
   onRequest = null;
   evaluate = vi.fn();
 });
@@ -128,6 +137,49 @@ describe("renderPdfPage", () => {
       code: "SOURCE_UNREADABLE",
     });
     expect((await renderPdfPage(Buffer.from("%PDF"), 1)).toString()).toBe("a");
+  });
+});
+
+describe("sandbox", () => {
+  it("starts Chromium sandboxed", async () => {
+    const { renderPdfPage } = await load();
+    evaluate.mockResolvedValue("YQ==");
+    await renderPdfPage(Buffer.from("%PDF"), 1);
+    expect(launches).toEqual([["--disable-gpu"]]);
+  });
+
+  it("falls back to --no-sandbox once Chromium refuses a sandbox, and stays there", async () => {
+    const { renderPdfPage } = await load();
+    sandboxRefusal = "[FATAL:zygote_host_impl_linux.cc] No usable sandbox!";
+    evaluate.mockResolvedValue("YQ==");
+    await renderPdfPage(Buffer.from("%PDF"), 1);
+    await vi.advanceTimersByTimeAsync(1000);
+    await renderPdfPage(Buffer.from("%PDF"), 1);
+    expect(launches).toEqual([
+      ["--disable-gpu"],
+      ["--no-sandbox", "--disable-gpu"],
+      ["--no-sandbox", "--disable-gpu"],
+    ]);
+  });
+
+  it.each([
+    "Running as root without --no-sandbox is not supported.",
+    "Failed to move to new namespace: PID namespaces supported, Network namespace supported, but failed: errno = Operation not permitted",
+  ])("falls back on %s", async (refusal) => {
+    const { renderPdfPage } = await load();
+    sandboxRefusal = refusal;
+    evaluate.mockResolvedValue("YQ==");
+    await renderPdfPage(Buffer.from("%PDF"), 1);
+    expect(launches.at(-1)).toContain("--no-sandbox");
+  });
+
+  it("does not retry without a sandbox on any other launch failure", async () => {
+    const { renderPdfPage } = await load();
+    sandboxRefusal = "spawn /chrome ENOENT";
+    await expect(renderPdfPage(Buffer.from("%PDF"), 1)).rejects.toMatchObject({
+      code: "SOURCE_UNREADABLE",
+    });
+    expect(launches).toEqual([["--disable-gpu"]]);
   });
 });
 
