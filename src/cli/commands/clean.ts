@@ -5,6 +5,7 @@ import {
   assertValidAddressScope,
   isCompositionAddress,
   matchesAddressScope,
+  patchSourceVariantIdOf,
 } from "../../core/address.js";
 import {
   collectDeadCompositionVariants,
@@ -13,8 +14,11 @@ import {
 import {
   activeGenerationVariantIds,
   listPatchVariantIds,
+  loadPatchCatalog,
+  patchAssetAddress,
   patchChainTargets,
   patchFilePath,
+  patchStepEntries,
 } from "../../core/patch.js";
 import { listThumbnailAddressDirs } from "../../core/variant-thumbnails.js";
 import { variantDir, variantsHostedBy } from "../../core/variant-dir.js";
@@ -27,6 +31,7 @@ import { JobManager } from "../../core/job-manager.js";
 import { StateManager } from "../../core/state/index.js";
 import type {
   AnimaticDefinition,
+  KonteState,
   ReferenceDefinition,
   VideoDefinition,
 } from "../../core/types/index.js";
@@ -51,6 +56,7 @@ import {
 import { type CascadeFailedJob, cascadeFailPendingJobs } from "../../core/job-cascade.js";
 import { prerollVariantDir } from "../../core/preview-preroll.js";
 import { requireVideoRoot } from "../context.js";
+import { currentPoolVariant } from "../patch-orchestrator.js";
 
 const KONTE_DIR = ".konte";
 const CACHE_DIR = "cache";
@@ -59,7 +65,7 @@ const THUMBNAILS_DIR = "thumbnails";
 const AUDIO_DIR = "audio";
 const MOTION_DIR = "motion";
 
-// Why a variant is deletable. The last three hold generated media; only `undecided` is added by
+// Why a variant is deletable. The last four hold generated media; only `undecided` is added by
 // --delete-undecided.
 const CLEAN_CATEGORIES = [
   "failed",
@@ -68,6 +74,7 @@ const CLEAN_CATEGORIES = [
   "dead leftover",
   "dismissed",
   "stale",
+  "unused patch step",
   "undecided",
 ] as const;
 type CleanCategory = (typeof CLEAN_CATEGORIES)[number];
@@ -79,6 +86,7 @@ const CATEGORY_LABELS: Record<CleanCategory, string> = {
   "dead leftover": "dead leftover",
   dismissed: "dismissed (has media)",
   stale: "stale beside a current accept (has media)",
+  "unused patch step": "patch step nothing kept uses (has media)",
   undecided: "undecided (has media)",
 };
 
@@ -91,6 +99,8 @@ const KEEP_REASONS = [
   "undecided",
   "file-host",
   "kept-patch-source",
+  "reusable-patch-step",
+  "patch-step-input",
 ] as const;
 type KeepReason = (typeof KEEP_REASONS)[number];
 
@@ -102,6 +112,8 @@ const KEEP_REASON_LABELS: Record<KeepReason, string> = {
   undecided: "undecided take holding generated media",
   "file-host": "holds the file of a kept take",
   "kept-patch-source": "source of a kept patch",
+  "reusable-patch-step": "patch step the next apply reuses",
+  "patch-step-input": "input of a kept take",
 };
 
 type CleanedVariant = {
@@ -144,6 +156,74 @@ function isStaleBesideCurrentAccept(
     isStale(manager, address, accepted, cache) === false &&
     isStale(manager, address, variantId, cache) === true
   );
+}
+
+type PatchStepPolicy = {
+  reusable: Set<string>;
+  unloadedSources: Set<string> | "all";
+};
+
+async function loadPatchStepPolicy(
+  videoRoot: string,
+  manager: StateManager,
+  absent: ReadonlySet<string>,
+): Promise<PatchStepPolicy> {
+  const state = manager.getState();
+  let catalog: Awaited<ReturnType<typeof loadPatchCatalog>>;
+  try {
+    catalog = await loadPatchCatalog(videoRoot, state, absent);
+  } catch {
+    return { reusable: new Set(), unloadedSources: "all" };
+  }
+  const reusable = new Set<string>();
+  for (const patch of catalog.patches.values()) {
+    const source = state.assets[patch.sourceAddress]?.variants?.[patch.sourceVariantId];
+    if (!source) continue;
+    // The returned step runs again on every apply, so its take is never reused.
+    for (const [name, def] of patchStepEntries(patch)) {
+      if (name === patch.outputName) continue;
+      const address = patchAssetAddress(patch, name);
+      const current = currentPoolVariant(manager, address, def, {
+        address: patch.sourceAddress,
+        variant: source,
+      });
+      if (current) reusable.add(`${address} ${current.variantId}`);
+    }
+  }
+  return {
+    reusable,
+    unloadedSources: new Set(catalog.errors.map((e) => e.sourceVariantId)),
+  };
+}
+
+// A pending step's job pins its upstream takes before it records them as inputs.
+function chainBusy(
+  state: KonteState,
+  sourceVariantId: string,
+  active: ReadonlySet<string>,
+): boolean {
+  return patchChainTargets(state, sourceVariantId).some((t) => active.has(t.variantId));
+}
+
+function usedBySurvivor(
+  state: KonteState,
+  address: string,
+  variantId: string,
+  survives: (key: string) => boolean,
+): boolean {
+  if (
+    variantsHostedBy(state, address, variantId).some((r) => survives(`${r.address} ${r.variantId}`))
+  )
+    return true;
+  const outputHash = state.assets[address]?.variants?.[variantId]?.outputHash;
+  if (outputHash == null) return false;
+  for (const [otherAddress, target] of Object.entries(state.assets)) {
+    for (const [otherId, variant] of Object.entries(target.variants ?? {})) {
+      if (variant.inputFingerprints?.[address] !== outputHash) continue;
+      if (survives(`${otherAddress} ${otherId}`)) return true;
+    }
+  }
+  return false;
 }
 
 // `complete` only when every stage entry loaded — a missing definition axis reads a stale take as
@@ -273,6 +353,7 @@ async function executeClean(opts: CleanOptions): Promise<void> {
   const orphanDefs = await loadOrphanDefinitions(videoRoot, loaded);
   const definitions = "unloaded" in orphanDefs ? null : orphanDefs;
   const patchScriptIds = new Set(await listPatchVariantIds(videoRoot));
+  const stepPolicy = await loadPatchStepPolicy(videoRoot, manager, manager.absentVariantIds());
   const plan = await collectOrphans({
     videoRoot,
     manager,
@@ -338,6 +419,23 @@ async function executeClean(opts: CleanOptions): Promise<void> {
 
       const isDeadLeaf = deadLeafKeys.has(`${address} ${variantId}`);
       const isDismissed = variant.status === "dismissed";
+      const stepSource = patchSourceVariantIdOf(address);
+      let isUnusedStep = false;
+      if (stepSource && variant.file && !isDismissed && !opts.deleteUndecided) {
+        const unloaded =
+          stepPolicy.unloadedSources === "all" || stepPolicy.unloadedSources.has(stepSource);
+        if (!unloaded) {
+          if (stepPolicy.reusable.has(`${address} ${variantId}`)) {
+            kept.push("reusable-patch-step");
+            continue;
+          }
+          if (chainBusy(state, stepSource, activeJobVariantIds)) {
+            kept.push("patch-applying");
+            continue;
+          }
+          isUnusedStep = true;
+        }
+      }
       const isStaleLeftover =
         definitionsComplete &&
         !isDeadLeaf &&
@@ -349,7 +447,8 @@ async function executeClean(opts: CleanOptions): Promise<void> {
         variant.file &&
         !isDeadLeaf &&
         !isDismissed &&
-        !isStaleLeftover
+        !isStaleLeftover &&
+        !isUnusedStep
       ) {
         kept.push("undecided");
         continue;
@@ -384,9 +483,11 @@ async function executeClean(opts: CleanOptions): Promise<void> {
               ? "dismissed"
               : isStaleLeftover
                 ? "stale"
-                : variant.file
-                  ? "undecided"
-                  : "incomplete";
+                : isUnusedStep
+                  ? "unused patch step"
+                  : variant.file
+                    ? "undecided"
+                    : "incomplete";
 
       collected.push({ address, variantId, category, paths });
     }
@@ -408,6 +509,19 @@ async function executeClean(opts: CleanOptions): Promise<void> {
     collectedKeys.delete(`${entry.address} ${entry.variantId}`);
     collected.splice(collected.indexOf(entry), 1);
     kept.push("file-host");
+  }
+
+  // Keeping one step can in turn keep the step it was made from.
+  for (let changed = true; changed; ) {
+    changed = false;
+    for (const entry of [...collected]) {
+      if (entry.category !== "unused patch step") continue;
+      if (!usedBySurvivor(state, entry.address, entry.variantId, (k) => !leaving(k))) continue;
+      collectedKeys.delete(`${entry.address} ${entry.variantId}`);
+      collected.splice(collected.indexOf(entry), 1);
+      kept.push("patch-step-input");
+      changed = true;
+    }
   }
 
   // A lineage is deleted as a unit. Anything kept above (accepted, still generating, file-bearing
@@ -524,7 +638,10 @@ async function executeClean(opts: CleanOptions): Promise<void> {
                 .map((e) => `${e.address} ${e.variantId}`)
             : [],
         );
-        const toRemove: CollectedVariant[] = [];
+        const freshStepPolicy = collected.some((e) => e.category === "unused patch step")
+          ? await loadPatchStepPolicy(videoRoot, mgr, mgr.absentVariantIds())
+          : null;
+        const eligible: CollectedVariant[] = [];
         const freshConsumers = acceptedConsumers(freshState);
         for (const entry of collected) {
           const target = freshState.assets[entry.address];
@@ -535,14 +652,25 @@ async function executeClean(opts: CleanOptions): Promise<void> {
             continue;
           }
           // A file-bearing variant collected without --delete-undecided was collected only
-          // because it was dismissed, stale beside a current accept, or a dead composition/stem
-          // leftover; require it to still be so under the lock.
+          // because it was dismissed, stale beside a current accept, an unused patch step, or a
+          // dead composition/stem leftover; require it to still be so under the lock.
           const key = `${entry.address} ${entry.variantId}`;
+          const stepSource = patchSourceVariantIdOf(entry.address);
+          const stillUnusedStep =
+            entry.category === "unused patch step" &&
+            stepSource !== null &&
+            v.status === "none" &&
+            freshStepPolicy !== null &&
+            freshStepPolicy.unloadedSources !== "all" &&
+            !freshStepPolicy.unloadedSources.has(stepSource) &&
+            !freshStepPolicy.reusable.has(key) &&
+            !chainBusy(freshState, stepSource, freshActive);
           if (
             !opts.deleteUndecided &&
             v.file &&
             v.status !== "dismissed" &&
             !(v.status === "none" && freshStaleKeys.has(key)) &&
+            !stillUnusedStep &&
             !freshDeadKeys.has(key)
           ) {
             continue;
@@ -552,16 +680,28 @@ async function executeClean(opts: CleanOptions): Promise<void> {
           // same reason — a reservation created after the first pass has no terminal marker and
           // no file, so only the live jobs can tell it apart from a dead one.
           if (freshActive.has(entry.variantId)) continue;
-          if (
-            collectDescendants(freshState, entry.address, entry.variantId).some(
-              (id) => !collectedKeys.has(`${entry.address} ${id}`),
-            )
-          ) {
-            continue;
-          }
-          mgr.removeVariant(entry.address, entry.variantId);
-          toRemove.push(entry);
+          eligible.push(entry);
         }
+        // What is kept here keeps what it rests on.
+        const removing = new Set(eligible.map((e) => `${e.address} ${e.variantId}`));
+        for (let changed = true; changed; ) {
+          changed = false;
+          for (const entry of eligible) {
+            const key = `${entry.address} ${entry.variantId}`;
+            if (!removing.has(key)) continue;
+            const stranded = collectDescendants(freshState, entry.address, entry.variantId).some(
+              (id) => !removing.has(`${entry.address} ${id}`),
+            );
+            const used =
+              entry.category === "unused patch step" &&
+              usedBySurvivor(freshState, entry.address, entry.variantId, (k) => !removing.has(k));
+            if (!stranded && !used) continue;
+            removing.delete(key);
+            changed = true;
+          }
+        }
+        const toRemove = eligible.filter((e) => removing.has(`${e.address} ${e.variantId}`));
+        for (const entry of toRemove) mgr.removeVariant(entry.address, entry.variantId);
         return toRemove;
       });
 
@@ -682,7 +822,8 @@ export function registerCleanCommand(program: Command): void {
       `
 Removes, freeing their generated files, jobs, logs and caches:
   - variants: failed/cancelled/dismissed ones, undecided takes gone stale beside an accept
-    that is not, and dead composition/stem leftovers. Accepted variants are kept, and so is
+    that is not, a patch step's take nothing kept uses and the next apply does not reuse,
+    and dead composition/stem leftovers. Accepted variants are kept, and so is
     every take an accepted one was made from, and every other undecided take that holds
     generated media — those are reported as kept. --delete-undecided adds them, discarding
     finished takes — including ones whose media is not in this checkout.

@@ -261,7 +261,7 @@ function finalizesAs(job: GenerationJob, output: PatchOutputOrigin): boolean {
  * take itself still catches a source whose bytes changed under a stable variant id, which is what a
  * `file` asset's mirror does.
  */
-function currentPoolVariant(
+export function currentPoolVariant(
   manager: StateManager,
   address: string,
   assetDef: AssetDefinition,

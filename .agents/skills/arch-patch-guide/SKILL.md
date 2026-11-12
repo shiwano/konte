@@ -70,6 +70,7 @@ A patch script names one take and dies with it; a lineage is deleted as a unit �
 
 - `clean` removes `patches/<variantId>.ts` with the variant, and keeps a variant whose descendants it is keeping. Protection travels up the lineage, deletion down.
 - An accepted descendant protects its ancestors — the source file is still its input.
+- A step's take is never undecided — `clean` keeps it while a kept take holds its file or was made from it, its chain has an active job, or the next apply reuses it; otherwise it goes. A script that does not load keeps its whole chain.
 - A variant directory holding another variant's file is kept (`variantsHostedBy`) — the patched take points at the returned step's file. Judged by path, so no field records it; asked of the survivors, so deleting both together still works. `clean` skips and names the take it holds, and holds back an orphaned target for a scope naming one side only.
 - `clean` sweeps both orphan directions (script whose source is gone, output whose script is gone), expanding each stranded output through its descendants.
 - Chain steps are found from state (`patchChainTargets` reads the addresses) — a broken or deleted script still answers what the patch generated.
