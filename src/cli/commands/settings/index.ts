@@ -1,4 +1,5 @@
 import { requireWorkspaceRoot } from "../../context.js";
+import { newSessionToken } from "../../page-host/auth.js";
 import { runPage } from "../../page-host/run.js";
 import { parseNumberOption } from "../../parse-option.js";
 import type { SettingsTab } from "../../../pages/settings/types.js";
@@ -15,12 +16,14 @@ export async function launchSettings(opts: { port?: string; tab: SettingsTab }):
     max: 65535,
   });
 
+  const token = newSessionToken();
   await runPage({
-    path: `/?tab=${opts.tab}`,
+    path: `/?tab=${opts.tab}#token=${token}`,
     startupLine: (url) => `Settings at ${url} — opening browser (Ctrl+C to stop)`,
     start: () =>
       createSettingsServer({
         workspaceRoot,
+        token,
         port: requestedPort ?? DEFAULT_SETTINGS_PORT,
         allowPortFallback: requestedPort == null,
       }),

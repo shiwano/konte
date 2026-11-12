@@ -259,6 +259,7 @@ export type KonteErrorCode =
   | "NOT_FOUND"
   | "FORBIDDEN"
   | "PIN_REQUIRED"
+  | "SESSION_REQUIRED"
   | "WS_UPGRADE_FAILED"
   | "PAGE_SHUTTING_DOWN"
   | "INTERNAL_ERROR"

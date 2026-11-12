@@ -70,7 +70,8 @@ if (!process.env.KONTE_TSC_PATH) {
 // silently dropped packet on another (a firewall in front of a common port such as 8000), and the
 // caller then sits out its full timeout until the test dies on the clock rather than on an
 // assertion. Answer it here instead, from the set of ports this process is actually serving.
-// Bun's http.Server does not inherit net.Server's listen, so wrap every prototype that owns one.
+// Bun's http.Server does not inherit net.Server's listen, so wrap every prototype that owns one,
+// and Bun.serve besides.
 const servingPorts = new Set<number>();
 for (const proto of [net.Server.prototype, http.Server.prototype]) {
   if (!Object.prototype.hasOwnProperty.call(proto, "listen")) continue;
@@ -86,6 +87,20 @@ for (const proto of [net.Server.prototype, http.Server.prototype]) {
     return server;
   };
 }
+
+const realServe = Bun.serve;
+Bun.serve = ((options: Parameters<typeof Bun.serve>[0]) => {
+  const server = realServe(options);
+  const port = server.port;
+  if (port === undefined) return server;
+  servingPorts.add(port);
+  const stop = server.stop.bind(server);
+  server.stop = (closeActiveConnections?: boolean) => {
+    servingPorts.delete(port);
+    return stop(closeActiveConnections);
+  };
+  return server;
+}) as typeof Bun.serve;
 
 const realFetch = globalThis.fetch;
 globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {

@@ -1,6 +1,6 @@
 import { loadKonteConfig, saveKonteConfig } from "../../../core/config.js";
 import { KonteConfigSchema } from "../../../core/types/config.js";
-import type { CredentialsResponse } from "../../../pages/settings/types.js";
+import { REDEEM_TOKEN_PATH, type CredentialsResponse } from "../../../pages/settings/types.js";
 import { UI_ASSETS } from "../../../core/generated/ui-assets.js";
 import { createAssetHandler } from "../../page-host/assets.js";
 import {
@@ -15,12 +15,14 @@ import {
 import { createPageLifecycle } from "../../page-host/lifecycle.js";
 import type { PageServerHandle } from "../../page-host/run.js";
 import { CredentialsPatchSchema } from "../../../core/types/credentials.js";
+import { createSettingsSession } from "./session.js";
 import { credentialEntries, saveCredentialsPatch } from "./state.js";
 import { errorMessage } from "../../../core/errors.js";
 
 interface SettingsServerOptions {
   workspaceRoot: string;
   port: number;
+  token: string;
   /** Retry on an ephemeral port when `port` is taken (set when the port was not explicitly asked for). */
   allowPortFallback?: boolean;
   autoClose?: boolean;
@@ -32,6 +34,7 @@ export async function createSettingsServer(opts: SettingsServerOptions): Promise
   const { workspaceRoot, port } = opts;
 
   const lifecycle = createPageLifecycle({ autoClose: opts.autoClose ?? true });
+  const session = createSettingsSession(opts.token);
 
   const serve = (listenPort: number) =>
     Bun.serve({
@@ -61,6 +64,15 @@ export async function createSettingsServer(opts: SettingsServerOptions): Promise
         }
 
         try {
+          if (pathname === REDEEM_TOKEN_PATH && req.method === "POST") {
+            return await session.redeem(req);
+          }
+
+          if (pathname.startsWith("/api/")) {
+            const refused = session.refuse(req);
+            if (refused) return refused;
+          }
+
           if (req.method === "PUT" && lifecycle.isShuttingDown()) {
             return errorResponse(
               "Settings is shutting down — nothing was saved",

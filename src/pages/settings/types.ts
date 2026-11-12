@@ -20,3 +20,10 @@ export interface CredentialEntry {
 export interface CredentialsResponse {
   entries: CredentialEntry[];
 }
+
+export const REDEEM_TOKEN_PATH = "/api/redeem-token";
+export const SESSION_HEADER = "X-Konte-Settings-Session";
+
+export interface RedeemTokenResponse {
+  session: string;
+}

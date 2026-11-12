@@ -39,7 +39,7 @@ export function createPinGate(
   opts: { onLockout?: () => void; onAttack?: () => void } = {},
 ): PinGate {
   const pin = String(randomInt(0, 10_000)).padStart(4, "0");
-  const token = randomBytes(32).toString("base64url");
+  const token = newSessionToken();
   let attempts = 0;
   let locked = false;
   let reported = false;
@@ -131,6 +131,10 @@ export function createPinGate(
   };
 }
 
+export function newSessionToken(): string {
+  return randomBytes(32).toString("base64url");
+}
+
 function isHttpsOrigin(req: Request): boolean {
   return (req.headers.get("origin") ?? "").startsWith("https:");
 }
@@ -181,7 +185,7 @@ function readCookie(header: string | null, name: string): string | null {
   return null;
 }
 
-function constantTimeEquals(a: string, b: string): boolean {
+export function constantTimeEquals(a: string, b: string): boolean {
   const left = Buffer.from(a);
   const right = Buffer.from(b);
   // timingSafeEqual throws on a length mismatch; only the length leaks, which is not the secret.
