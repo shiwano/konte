@@ -26,7 +26,7 @@ The longer argument is in [Vision](docs/VISION.md).
 After setup, start a session with one skill:
 
 ```
-> /konte-checkin   # Codex: $konte-checkin
+> /konte-checkin   # Codex: $konte-checkin, Muse: /konte
 ```
 
 The agent helps you develop a new idea or picks up an existing project where you left off, then proposes the next step.
@@ -109,28 +109,29 @@ https://github.com/user-attachments/assets/ac615568-6e7f-434a-aa34-e17c6381d57c
 
 ### Muse (experimental)
 
-**1. Install** in your main chat:
+**1. Install the skills** in your main chat:
 
 ```
-> Make ~/konte-workspace, download
-  https://raw.githubusercontent.com/shiwano/konte/main/setup.sh and run it
-  with sh there. Then add these rules to ~/AGENTS.md:
-  - When my whole message is /konte-checkin in the main chat, open a fresh
-    side chat, hand the work in ~/konte-workspace over to it, and run the
-    konte-checkin skill there.
-  - When working under ~/konte-workspace, read its AGENTS.md and use its
-    .agents/skills as skills.
+> Save these as skills in ~/workspace/custom-skills/:
+  https://raw.githubusercontent.com/shiwano/konte/main/integrations/muse/konte/SKILL.md
+  https://raw.githubusercontent.com/shiwano/konte/main/integrations/muse/konte-setup/SKILL.md
 ```
 
-**2. Check in** in your main chat; Muse opens a side chat for it:
+**2. Set up** a workspace, `~/konte-workspaces/main` (`/konte-setup <name>` for another):
 
 ```
-> /konte-checkin
+> /konte-setup
+```
+
+**3. Check in** in the same chat:
+
+```
+> /konte
 ```
 
 ### Uninstall
 
-Close agent sessions using konte, delete your workspace directories, then remove the **konte** plugin and its marketplace (on Muse, the konte rules in `~/AGENTS.md`). konte writes nothing outside a workspace.
+Close agent sessions using konte, delete your workspace directories, then remove the **konte** plugin and its marketplace (on Muse, the `konte` and `konte-setup` skills in `~/workspace/custom-skills/`). konte writes nothing outside a workspace.
 
 ## Backends
 

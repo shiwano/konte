@@ -179,7 +179,7 @@ jobs:
             range="$previous..$TAG"
           fi
           git log --format='- %s (%h)' --invert-grep --grep='^🎬' "$range" -- \
-            src plugin setup.sh setup.ps1 package.json bun.lock \
+            src integrations setup.sh setup.ps1 package.json bun.lock \
             ':(exclude,glob)src/**/__tests__/**' > notes.md
           if [ -n "${previous:-}" ]; then
             printf '\n**Full Changelog**: https://github.com/%s/compare/%s...%s\n' \

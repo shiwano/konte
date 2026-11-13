@@ -10,7 +10,7 @@ A release is one commit that moves `package.json`'s `version`, tagged `v<version
 ## Procedure
 
 1. Start on a green `main` — clean tree, even with `origin/main`, and the latest `ci` run on `main` succeeded (`gh run list --branch main --workflow ci.yml --limit 1`).
-2. The version is the human's — `$ARGUMENTS`, else ask. The plugin's `version` under `plugin/` is the plugin's own.
+2. The version is the human's — `$ARGUMENTS`, else ask. The plugin's `version` under `integrations/plugin/` is the plugin's own.
 3. Bring `comfyVersion` in `src/cli/templates/workspace/konte.config.json` up to ComfyUI's latest tag (`gh release view -R Comfy-Org/ComfyUI --json tagName -q .tagName`), in its own commit `Seed ComfyUI <tag> in a new workspace's Comfy API deployment`.
 4. `bun run release:version <version>` — sets `package.json`'s `version` and stamps new adapters in `adapter-releases.json`. That is the whole diff.
 5. Commit with the subject `🎬 Cut v<version>` and no body. The commit-msg hook refuses any other subject on a commit that moves the version.
@@ -21,5 +21,5 @@ A release is one commit that moves `package.json`'s `version`, tagged `v<version
 ## Don't
 
 - Don't tag a commit that is not the version commit, and don't tag before the push of `main` — the tag's commit has to be on `main` when the workflow runs.
-- Don't write release notes — `release.yml` builds them from the subjects of the commits since the previous tag that touch what ships (`src/` outside its tests, `plugin/`, the setup scripts, the dependencies).
+- Don't write release notes — `release.yml` builds them from the subjects of the commits since the previous tag that touch what ships (`src/` outside its tests, `integrations/`, the setup scripts, the dependencies).
 - Don't re-tag. A wrong release is a new version.

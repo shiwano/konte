@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "plugin/**"
+      - "integrations/plugin/**"
       - ".github/workflows/publish-plugin.yml"
   workflow_dispatch:
 
@@ -21,11 +21,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - name: Push plugin/ to the plugin branch
+      - name: Push integrations/plugin/ to the plugin branch
         run: |
           set -euo pipefail
           staged=$(mktemp -d)
-          cp -a plugin/. "$staged"/
+          cp -a integrations/plugin/. "$staged"/
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout --orphan publish

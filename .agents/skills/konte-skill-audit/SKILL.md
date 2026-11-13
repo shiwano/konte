@@ -9,7 +9,7 @@ Done = every in-scope file trimmed with no fact, rule, why or judgment lost, the
 
 ## Scope
 
-- Default: template skills (`src/cli/templates/workspace/dot.agents/skills/`), dev skills (`.agents/skills/`), plugin skills (`plugin/plugins/konte/skills/`), the root `AGENTS.md` and the shipped `src/cli/templates/workspace/AGENTS.md`. `$ARGUMENTS` narrows to one root, skill or `AGENTS.md`.
+- Default: template skills (`src/cli/templates/workspace/dot.agents/skills/`), dev skills (`.agents/skills/`), plugin skills (`integrations/plugin/plugins/konte/skills/`), Muse skills (`integrations/muse/`), the root `AGENTS.md` and the shipped `src/cli/templates/workspace/AGENTS.md`. `$ARGUMENTS` narrows to one root, skill or `AGENTS.md`.
 - Subagent contracts (`src/cli/templates/agents/`) only when asked.
 - Adapter guides (`src/cli/templates/workspace/dot.konte/guides/`) only when asked — the brief adds `prompt-guide-authoring`'s "Auditing an existing guide" against each guide's adapters; a shared guide shares a group with the guides its adapters list after it.
 - Never `dot.claude/skills/` — generated twins.

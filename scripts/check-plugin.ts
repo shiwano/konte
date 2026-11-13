@@ -1,4 +1,4 @@
-// Validates the marketplace plugin (plugin/): the two
+// Validates the marketplace plugin (integrations/plugin/): the two
 // manifests agree, the catalog points at the plugin, every skill has a frontmatter name matching
 // its directory, and `claude plugin validate` passes when the Claude CLI is on PATH.
 import * as fs from "node:fs";
@@ -6,7 +6,7 @@ import * as path from "node:path";
 import { spawnSync } from "node:child_process";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
-const PLUGIN_ROOT = path.join(ROOT, "plugin");
+const PLUGIN_ROOT = path.join(ROOT, "integrations", "plugin");
 const PLUGIN_DIR = path.join(PLUGIN_ROOT, "plugins", "konte");
 const MARKETPLACE = path.join(PLUGIN_ROOT, ".claude-plugin", "marketplace.json");
 const AGENT_PLUGINS_SCHEMA = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json";

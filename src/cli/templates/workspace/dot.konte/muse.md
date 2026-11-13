@@ -13,3 +13,6 @@ instructions.
 A VM replacement ends every running process. Rerun a lost `konte job run`;
 for a lost `konte preview`, run `konte review record list` instead of a
 second preview.
+
+Where a skill says to start a new session, reread this workspace's
+`AGENTS.md` and continue in this chat.
