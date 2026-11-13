@@ -20,7 +20,6 @@ export {
 } from "./prompt-tags.js";
 export {
   minimaxH3Prompt,
-  minimaxH3CutSource,
   minimaxH3Dialogue,
   type MinimaxH3Mode,
   type MinimaxH3PromptSpec,

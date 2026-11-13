@@ -270,8 +270,8 @@ function cropsInChain(
  * or the scale of the set is re-invented per plate and a `close` comes back at a `medium`'s
  * distance. Either of two forms in the plate's chain satisfies it:
  *
- * - A CUT: a `readsPrevPanel` step handed the parent plate as is, which draws the step in as a cut
- *   from that frame — the camera moves, so perspective and eye height change as a real move in does.
+ * - A CUT: a generative step handed the parent plate as is, which draws the step in as a cut from
+ *   that frame — the camera moves, so perspective and eye height change as a real move in does.
  * - A WINDOW: a strictly smaller crop, straight out of the parent plate (the form a generated parent
  *   leaves) or out of whatever master the parent plate itself cuts, inside the parent's window — a
  *   zoom from the parent's camera position.
@@ -283,12 +283,11 @@ function cropsInChain(
  * not measured for how far in it went. What reads either as the wrong size is the critic's
  * `off-framing`, and the accept of the panels drawn on it.
  */
-// Per `readsPrevPanel` address, every source passed as is to one of its image inputs.
+// Per generative address, every source passed as is to one of its image inputs.
 function cutSources(animatic: AnimaticDefinition): Map<string, Set<string>> {
-  const readers = new Set(animatic.prevPanelReaders ?? []);
   const out = new Map<string, Set<string>>();
   for (const input of animatic.imageInputs ?? []) {
-    if (!readers.has(input.address)) continue;
+    if (!input.generative) continue;
     const sources = out.get(input.address) ?? new Set<string>();
     for (const source of input.sources) sources.add(source);
     out.set(input.address, sources);
@@ -820,8 +819,7 @@ function videoEntryResolver(
 }
 
 /**
- * How each developed board shot meets the shot before it: the two keyframes that answer for a seam,
- * and what the opening one was handed of the frame it cuts from.
+ * How each developed board shot meets the shot before it: the two keyframes that answer for a seam.
  */
 type ShotContinuity = {
   shotId: string;
@@ -830,21 +828,12 @@ type ShotContinuity = {
   // same first/last split `lineup` and `lineupTo` are read at.
   firstPanel: string;
   lastPanel: string;
-  // Some step behind the first keyframe is drawn by a `readsPrevPanel` adapter.
-  carries: boolean;
-  // Every address the other shots' panels passed to those steps reach.
-  linked: string[];
 };
 
 // A shot with no panels — a pending one, a board aside — answers nothing and is left out; so does a
 // lane with none, which is a graphic shot's main frame. Each lane is its own camera and answers its
-// own seam. Listed whether or not any adapter reads a previous panel: `join-unpinned` reads the
-// opening keyframe off a board that carries none at all.
+// own seam.
 export function listShotContinuity(animatic: AnimaticDefinition): ShotContinuity[] {
-  const readers = new Set(animatic.prevPanelReaders ?? []);
-  const entryOf = animaticEntryResolver(animatic);
-  const prevPanels = prevPanelSources(animatic);
-
   const out: ShotContinuity[] = [];
   for (const shot of animatic.shots) {
     if (isPendingAnimaticShot(shot)) continue;
@@ -853,73 +842,10 @@ export function listShotContinuity(animatic: AnimaticDefinition): ShotContinuity
       const firstPanel = panels[0];
       const lastPanel = panels[panels.length - 1];
       if (firstPanel === undefined || lastPanel === undefined) continue;
-      const lineage = keyframeLineage(firstPanel, shot.id, entryOf);
-      const sources = lineage.flatMap((address) => [...(prevPanels.get(address) ?? [])]);
-      out.push({
-        shotId: shot.id,
-        lane,
-        firstPanel,
-        lastPanel,
-        carries: lineage.some((address) => readers.has(address)),
-        linked: sources.length > 0 ? [...chainAddresses(sources, entryOf)] : [],
-      });
+      out.push({ shotId: shot.id, lane, firstPanel, lastPanel });
     }
   }
   return out;
-}
-
-// Per `readsPrevPanel` address, the sources of its image inputs that are another shot's panel,
-// passed as is — what `promptReferenceTags`' `prevPanel` check sees. A wrapped panel, and any other
-// asset of another shot, is an ordinary input.
-function prevPanelSources(animatic: AnimaticDefinition): Map<string, Set<string>> {
-  const readers = new Set(animatic.prevPanelReaders ?? []);
-  const panels = new Set(
-    animatic.shots.flatMap((shot) =>
-      LANES.flatMap((lane) => lanePanels(shot, lane).map((panel) => panel.address)),
-    ),
-  );
-  const out = new Map<string, Set<string>>();
-  for (const input of animatic.imageInputs ?? []) {
-    if (!readers.has(input.address)) continue;
-    const reader = tryParseAddress(input.address);
-    const shotId = reader?.stage === "animatic" && reader.kind === "shot" ? reader.shotId : null;
-    for (const source of input.sources) {
-      if (!panels.has(source)) continue;
-      const parsed = tryParseAddress(source);
-      if (parsed?.stage !== "animatic" || parsed.kind !== "shot" || parsed.shotId === shotId) {
-        continue;
-      }
-      const sources = out.get(input.address) ?? new Set<string>();
-      sources.add(source);
-      out.set(input.address, sources);
-    }
-  }
-  return out;
-}
-
-// The keyframe and the steps it is wrapped in — this shot's OWN assets, and no further. A wrapper
-// is drawn by no model of its own, so the panel address alone would call a linked shot unlinked;
-// but a plate, a sheet and the panel of another shot are conditioning this keyframe stands on, and
-// a previous panel one of THOSE reads answers for its own seam, not for this one.
-function keyframeLineage(
-  panel: string,
-  shotId: string,
-  entryOf: (address: string) => AssetDefinition | undefined,
-): string[] {
-  const own = (address: string) => {
-    const parsed = tryParseAddress(address);
-    return parsed?.stage === "animatic" && parsed.kind === "shot" && parsed.shotId === shotId;
-  };
-  const seen = new Set<string>();
-  const stack = [panel];
-  while (stack.length > 0) {
-    const address = stack.pop()!;
-    if (seen.has(address)) continue;
-    seen.add(address);
-    const entry = entryOf(address);
-    if (entry) stack.push(...extractRefs(entry).filter(own));
-  }
-  return [...seen];
 }
 
 /** One keyframe's `reference:<id>` slots, in the order that panel's own inputs declare them. */

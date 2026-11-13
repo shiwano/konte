@@ -6,8 +6,7 @@ import type {
 import { KonteError } from "../errors.js";
 import { workflowContentHash } from "../workflow-content-hash.js";
 import type { MediaKind, MediaAsset } from "./builders.js";
-import { getActiveFormat, getShotContext, seed, type BuildFormat } from "./shot-context.js";
-import { panelInputs } from "./panel-collect.js";
+import { getActiveFormat, seed, type BuildFormat } from "./shot-context.js";
 import { estimateSpeechSec } from "../speech-duration.js";
 import { GRID_HOLD_OVERRUN, OVERFLOW_FLOOR, recordClipLength } from "./clip-length-collect.js";
 import {
@@ -166,8 +165,8 @@ export interface ComfyAssetConfig<
   spokenTextPattern?: RegExp;
   // Where `asset()` may declare this adapter, when it is not every site (see AdapterMeta).
   allowedIn?: readonly AssetDeclarationSite[];
-  // See `AdapterMeta.readsPrevPanel`.
-  readsPrevPanel?: true;
+  // See `AdapterMeta.minPixels`. Needs one `width` and one `height` input.
+  minPixels?: number;
 }
 
 // konte fills each named input from the others, resolved and pruned; a stage file never passes it.
@@ -365,6 +364,7 @@ export function defineComfyAsset<
     (inputs: Record<string, unknown>) => unknown
   >;
   assertComfyInputs(config.inputs);
+  const sizeKeys = assertMinPixels(config);
   assertDerivedInputs(derive, config.inputs);
   assertPinInputs(config.inputs);
   assertStemInputs(config.inputs);
@@ -388,7 +388,7 @@ export function defineComfyAsset<
       ...(config.promptExemptions ? { promptExemptions: config.promptExemptions } : {}),
       ...(config.spokenTextPattern ? { spokenTextPattern: config.spokenTextPattern } : {}),
       ...(config.allowedIn ? { allowedIn: config.allowedIn } : {}),
-      ...(config.readsPrevPanel ? { readsPrevPanel: true } : {}),
+      ...(config.minPixels !== undefined ? { minPixels: config.minPixels } : {}),
       ...(config.models ? { models: config.models } : {}),
       ...(config.nodes ? { nodes: config.nodes } : {}),
     },
@@ -401,11 +401,7 @@ export function defineComfyAsset<
       const prunedNodes: string[] = [];
       const prunedPassThroughs: Record<string, string> = {};
       const format = getActiveFormat();
-      const validatorContext = {
-        promptInput,
-        shotId: getShotContext()?.shotId,
-        panels: panelInputs(userInputs),
-      };
+      const validatorContext = { promptInput };
       const resolveDefault = (
         d: AdapterInputDefault | undefined,
       ): string | number | boolean | undefined => (typeof d === "function" ? d(format) : d);
@@ -422,6 +418,8 @@ export function defineComfyAsset<
         ([key, def]) =>
           typeof def.pin === "object" && (userInputs as Record<string, unknown>)[key] !== undefined,
       );
+      // The width and height as resolved, before their grids — what `minPixels` reads the aspect off.
+      const unsnapped: Record<string, number> = {};
 
       for (const [key, def] of Object.entries(config.inputs) as [string, AdapterInputDef][]) {
         const userValue = (userInputs as Record<string, unknown>)[key];
@@ -477,6 +475,9 @@ export function defineComfyAsset<
           if (userValue === undefined) supplied.add(key);
         }
 
+        if ((def.type === "width" || def.type === "height") && typeof value === "number") {
+          unsnapped[key] = value;
+        }
         if (def.grid && typeof value === "number") {
           value = snapToGrid(value, def.grid);
         }
@@ -524,6 +525,29 @@ export function defineComfyAsset<
             `${def.nodeId}.${def.field}`,
             ...(def.also ?? []).map((t) => `${t.nodeId}.${t.field}`),
           ];
+        }
+      }
+
+      if (sizeKeys) {
+        const [widthKey, heightKey] = sizeKeys;
+        const width = unsnapped[widthKey];
+        const height = unsnapped[heightKey];
+        const raised =
+          width !== undefined && height !== undefined
+            ? raiseToPixels({ width, height }, config.minPixels!, {
+                width: config.inputs[widthKey]!.grid,
+                height: config.inputs[heightKey]!.grid,
+              })
+            : undefined;
+        if (raised) {
+          for (const [key, value] of [
+            [widthKey, raised.width],
+            [heightKey, raised.height],
+          ] as const) {
+            const def = config.inputs[key]!;
+            resolved[key] = value;
+            for (const t of [def, ...(def.also ?? [])]) inputs[`${t.nodeId}.${t.field}`] = value;
+          }
         }
       }
 
@@ -738,6 +762,68 @@ function spokenWordsOf(
     }
   }
   return said.join(" ");
+}
+
+// The `width` and `height` inputs `minPixels` raises, or undefined where the adapter declares none.
+function assertMinPixels(config: {
+  inputs: Record<string, AdapterInputDef>;
+  minPixels?: number;
+}): readonly [string, string] | undefined {
+  if (config.minPixels === undefined) return undefined;
+  if (!Number.isFinite(config.minPixels) || config.minPixels <= 0) {
+    throw new Error(`minPixels needs a positive number, got ${config.minPixels}`);
+  }
+  const keyOf = (type: "width" | "height"): string => {
+    const keys = Object.entries(config.inputs)
+      .filter(([, d]) => d.type === type)
+      .map(([k]) => k);
+    if (keys.length !== 1) {
+      throw new Error(`minPixels needs exactly one "${type}" input, found ${keys.length}`);
+    }
+    return keys[0]!;
+  };
+  return [keyOf("width"), keyOf("height")];
+}
+
+// How far over `minPixels` a size may go to keep the aspect closer.
+const MIN_PIXELS_SLACK = 1.1;
+
+/**
+ * A size of at least `minPixels` keeping the aspect, or undefined where `size` already holds that
+ * many.
+ */
+function raiseToPixels(
+  size: { width: number; height: number },
+  minPixels: number,
+  grids: { width?: AdapterInputGrid; height?: AdapterInputGrid },
+): { width: number; height: number } | undefined {
+  if (!(size.width > 0 && size.height > 0)) {
+    throw new KonteError(
+      "INVALID_ADAPTER_INPUT",
+      `The size resolves to ${size.width}×${size.height}, and a size raised to the adapter's ` +
+        `${minPixels / 1_000_000}MP floor takes a positive width and height`,
+    );
+  }
+  if (size.width * size.height >= minPixels) return undefined;
+  const portrait = size.height > size.width;
+  const [short, long] = portrait ? [size.width, size.height] : [size.height, size.width];
+  const shortGrid = (portrait ? grids.width : grids.height) ?? { step: 1 };
+  const longGrid = (portrait ? grids.height : grids.width) ?? { step: 1 };
+  const aspect = long / short;
+  let best: { s: number; l: number; stray: number } | undefined;
+  for (let s = floorToGrid(Math.sqrt(minPixels / aspect), shortGrid); ; s += shortGrid.step) {
+    const l = nearestOnGrid(s * aspect, longGrid);
+    if (s * l < minPixels) continue;
+    if (best && s * l > minPixels * MIN_PIXELS_SLACK) break;
+    const stray = Math.abs(l / s - aspect);
+    if (!best || stray < best.stray) best = { s, l, stray };
+  }
+  return portrait ? { width: best.s, height: best.l } : { width: best.l, height: best.s };
+}
+
+function nearestOnGrid(value: number, grid: AdapterInputGrid): number {
+  const offset = grid.offset ?? 0;
+  return Math.max(0, Math.round((value - offset) / grid.step)) * grid.step + offset;
 }
 
 // The largest grid point at or below `value` — how a derived count is held inside a window. The

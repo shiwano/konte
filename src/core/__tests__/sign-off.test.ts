@@ -53,8 +53,8 @@ describe("acceptedIn", () => {
 describe("judgedBy", () => {
   it("is required of a code an accept signs off, and refused elsewhere", () => {
     const fields = { subject: "", fixIn: { stage: "direction" as const }, message: "" };
-    // @ts-expect-error return-unlinked is signed off by an accept, so it names what judges it
-    const missing: Finding = { ...fields, code: "return-unlinked" };
+    // @ts-expect-error join-unpinned is signed off by an accept, so it names what judges it
+    const missing: Finding = { ...fields, code: "join-unpinned" };
     // @ts-expect-error unused-setup is signed off by no accept
     const extra: Finding = { ...fields, code: "unused-setup", judgedBy: [] };
     expect([missing, extra]).toHaveLength(2);

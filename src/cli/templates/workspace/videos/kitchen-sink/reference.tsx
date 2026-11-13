@@ -1,5 +1,5 @@
 import { adapters, asset, defineReference, seed } from "konte";
-import { imageMinimaxH3R2i } from "konte/workspace/adapters/comfy/image_minimax_h3_r2i.js";
+import { imageMinimaxH3ImageEdit } from "konte/workspace/adapters/comfy/image_minimax_h3_image_edit.js";
 import { imageQwenImageEdit21 } from "konte/workspace/adapters/comfy/image_qwen_image_edit_2_1.js";
 import { falNanoBanana2, falNanoBanana2Edit } from "konte/workspace/adapters/fal/nano-banana-2.js";
 import direction from "./direction";
@@ -64,23 +64,23 @@ export default defineReference(direction, {
   },
   views: ({ reference }) => ({
     kitchen: {
-      top: asset("kitchenTop", imageMinimaxH3R2i, {
+      top: asset("kitchenTop", imageMinimaxH3ImageEdit, {
         image1: reference.kitchen,
         prompt: {
-          subjectDefinitions: ["<Picture 1> is the kitchen."],
-          summary: {
-            tasks: ["reference generation"],
-            text: "The kitchen seen from straight above the stove.",
-          },
-          retentionAnalysis: [
-            "<Picture 1> (appears in [Shot 1]): attribute_transfer - the camera position is new; its palette and light are kept.",
-          ],
-          detailedDescription: {
-            style: "2D-animated.",
-            shots: [
-              "From above the stove, looking straight down: the hob fills the lower two thirds of the frame, the wooden counter the top third.",
+          references: {
+            subjects: [
+              {
+                definition: "The kitchen in <Picture 1> is <Subject 1>.",
+                relation: {
+                  transfers: "its palette, materials and light, the camera position new.",
+                },
+              },
             ],
+            target: "shows <Subject 1> seen from straight above the stove.",
           },
+          details:
+            "Looking straight down: the hob fills the lower two thirds of the frame, the wooden counter the top third.",
+          style: "2D-animated, flat cel shading.",
         },
       }),
     },

@@ -422,7 +422,7 @@ const ADAPTER_BUDGETS: Record<string, number> = {
   audioYue2: 450,
   audioZonos2VoiceClone: 1_150,
   imageKrea2TurboT2i: 250,
-  imageMinimaxH3R2i: 2_800,
+  imageMinimaxH3ImageEdit: 2_800,
   imageQwenImageEdit21: 800,
   imageQwenImageEdit21Inpaint: 300,
   imageZImageBase: 350,

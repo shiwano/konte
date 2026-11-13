@@ -2014,15 +2014,20 @@ describe("listSetupNestGaps", () => {
     const CUT = "animatic:plate.close";
     const cutBoard = (
       close: AssetDefinition,
-      opts: { readers?: string[]; sources?: string[] } = {},
+      opts: { generative?: boolean; sources?: string[] } = {},
     ): AnimaticDefinition => ({
       ...boardOf({ wide, close }),
-      prevPanelReaders: opts.readers ?? [CUT],
-      imageInputs: [{ address: CUT, sources: opts.sources ?? ["animatic:plate.wide"] }],
+      imageInputs: [
+        {
+          address: CUT,
+          sources: opts.sources ?? ["animatic:plate.wide"],
+          generative: opts.generative ?? true,
+        },
+      ],
     });
 
     // The camera moves in along the parent's axis, so the plate is no window of the parent's.
-    it("takes a plate a previous-frame reader draws from the parent plate", () => {
+    it("takes a plate a model draws from the parent plate", () => {
       expect(listSetupNestGaps(cutBoard(generated({ image1: WIDE_PLATE })), nested)).toEqual([]);
     });
 
@@ -2033,19 +2038,27 @@ describe("listSetupNestGaps", () => {
           close: generated({ image: "__konte:animatic:plate.closeCut__" }),
           closeCut: generated({ image1: WIDE_PLATE }),
         }),
-        prevPanelReaders: ["animatic:plate.closeCut"],
-        imageInputs: [{ address: "animatic:plate.closeCut", sources: ["animatic:plate.wide"] }],
+        imageInputs: [
+          {
+            address: "animatic:plate.closeCut",
+            sources: ["animatic:plate.wide"],
+            generative: true,
+          },
+        ],
       };
       expect(listSetupNestGaps(board, nested)).toEqual([]);
     });
 
-    it("flags the parent plate handed to a model that reads no previous frame", () => {
+    it("flags the parent plate handed to a local op", () => {
       expect(
-        listSetupNestGaps(cutBoard(generated({ image1: WIDE_PLATE }), { readers: [] }), nested),
+        listSetupNestGaps(
+          cutBoard(generated({ image1: WIDE_PLATE }), { generative: false }),
+          nested,
+        ),
       ).toEqual(["close"]);
     });
 
-    it("flags a previous-frame reader handed another picture", () => {
+    it("flags a model handed another picture", () => {
       expect(
         listSetupNestGaps(
           cutBoard(generated({ image1: MASTER }), { sources: ["reference:studio"] }),

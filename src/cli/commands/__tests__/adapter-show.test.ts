@@ -98,8 +98,17 @@ export const ${name} = defineComfyAsset({
     expect(stdout.split(path.join(comfyDir, "shared.md")).length - 1).toBe(2);
   });
 
+  it("marks the size an adapter raises its width and height to", async () => {
+    const { stdout } = await runCapture(
+      ["adapter", "show", "imageMinimaxH3ImageEdit"],
+      workspaceDir,
+    );
+    expect(stdout).toMatch(/^width\s+width ×32 ≥4MP\s/m);
+    expect(stdout).toMatch(/^height\s+height ×32 ≥4MP\s/m);
+    expect(stdout).toContain(path.join(workspaceDir, ".konte", "guides", "minimax-h3-image.md"));
+  });
+
   it.each([
-    ["imageMinimaxH3R2i", ["minimax-h3.md", "minimax-h3-picture.md", "minimax-h3-r2i.md"]],
     [
       "videoMinimaxH3R2v",
       ["minimax-h3.md", "minimax-h3-picture.md", "minimax-h3-sound.md", "minimax-h3-r2v.md"],
@@ -230,18 +239,19 @@ export const banded = defineComfyAsset({
     expect(stdout).toContain('"default", "8: -18.5--14"');
   });
 
-  it("lists a structured prompt's fields under it, constant ones left out", async () => {
-    const { stdout } = await runCapture(["adapter", "show", "imageMinimaxH3R2i"], workspaceDir);
+  it("lists a structured prompt's fields under it", async () => {
+    const { stdout } = await runCapture(
+      ["adapter", "show", "imageMinimaxH3ImageEdit"],
+      workspaceDir,
+    );
     const lines = stdout.split("\n");
     const at = lines.findIndex((line) => /^prompt\s+prompt\b/.test(line));
     expect(at).toBeGreaterThan(-1);
-    expect(lines.slice(at + 1, at + 5).map((line) => line.trim().split(/\s+/)[0])).toEqual([
-      "subjectDefinitions",
-      "summary",
-      "retentionAnalysis",
-      "detailedDescription",
+    expect(lines.slice(at + 1, at + 4).map((line) => line.trim().split(/\s+/)[0])).toEqual([
+      "references",
+      "details",
+      "style",
     ]);
-    expect(lines[at + 1]).toMatch(/^ {2}subjectDefinitions\s+yes\s+one line per label/);
-    expect(stdout).not.toContain("overallSoundscape");
+    expect(lines[at + 1]).toMatch(/^ {2}references\s+yes\s+subjects: one/);
   });
 });

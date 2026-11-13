@@ -412,12 +412,9 @@ export const PromptsSchema = z.custom<readonly PromptOccurrence[]>().optional();
 // What the stage's `pin` inputs were wired to, read by the pin check. Not hashed either.
 export const PinsSchema = z.custom<readonly PinOccurrence[]>().optional();
 
-// `panel-unlinked`'s and `plate-unnested`'s half — every wired image input the stage declared. Not
+// Every wired image input the stage declared, read by `plate-unnested` and `landmark-unheld`. Not
 // hashed either: what each slot was passed already lives in `inputs`.
 const ImageInputsSchema = z.custom<readonly ImageInputOccurrence[]>().optional();
-
-// Every address the stage declared with a `readsPrevPanel` adapter. Not hashed.
-const PrevPanelReadersSchema = z.custom<readonly string[]>().optional();
 
 // What the stage's `stem` inputs were wired to, read by `stem-unmouthed` and the line marks. Not
 // hashed.
@@ -455,7 +452,6 @@ export const StageDefinitionSchema = z.object({
   prompts: PromptsSchema,
   pins: PinsSchema,
   imageInputs: ImageInputsSchema,
-  prevPanelReaders: PrevPanelReadersSchema,
   stemInputs: StemInputsSchema,
   respellings: RespellingsSchema,
   // What the build found of itself instead of refusing to load (see `BuildFinding`).

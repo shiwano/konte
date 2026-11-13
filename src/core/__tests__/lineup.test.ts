@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   checkDirection,
-  directionShotWaivers,
   frameReturns,
   offscreenSides,
   setupView,
@@ -903,193 +902,7 @@ describe("plate-recropped", () => {
   });
 });
 
-describe("panel-unlinked", () => {
-  // One camera axis over the bench: the stern frame is the whole boat, the deck frame a window cut
-  // out of it. `shore` is a second place and stands on its own axis.
-  const axis: Record<string, Setup> = {
-    stern: { ...stern, within: null },
-    deck: { ...deck, within: "stern", view: undefined },
-    shore: { ...shore, within: null },
-  };
-  // A second frame of the bench from its own camera position — same place and wider than `deck`, and
-  // no window of anything.
-  const offAxis: Record<string, Setup> = {
-    ...axis,
-    bow: { ...stern, name: "the deck from the bow", framing: "medium", within: null },
-  };
-
-  const board = (
-    ...entries: { shotId: string; carries?: boolean; linked?: string[] }[]
-  ): StagingStageState => ({
-    ...noStage,
-    shotPanels: entries.map(({ shotId, carries = true, linked = [] }) => ({
-      shotId,
-      lane: "main" as const,
-      firstPanel: `animatic:shot.${shotId}.first`,
-      lastPanel: `animatic:shot.${shotId}.last`,
-      carries,
-      linked,
-    })),
-  });
-
-  const found = (
-    dir: Direction,
-    stagingStage: StagingStageState,
-    accepted: readonly string[] = [],
-  ) =>
-    checkDirection(dir, { stagingStage, accepted: (a) => accepted.includes(a) }).active.filter(
-      (f) => f.code === "panel-unlinked",
-    );
-
-  // The camera has not moved, only the focal length.
-  const pushIn = () =>
-    direction({ setups: axis, shots: [shot("01", "stern"), shot("02", "deck")] });
-
-  it("passes a cut along one axis whose opening keyframe was handed the frame before it", () => {
-    expect(
-      found(pushIn(), board({ shotId: "01" }, { shotId: "02", linked: ["animatic:shot.01.last"] })),
-    ).toEqual([]);
-  });
-
-  it("flags a cut along one axis whose opening keyframe takes no frame at all", () => {
-    const findings = found(pushIn(), board({ shotId: "01" }, { shotId: "02" }));
-    expect(findings.map((f) => f.subject)).toEqual(["01.02"]);
-    expect(findings[0]?.message).toContain("takes no frame");
-    expect(findings[0]?.message).toContain("animatic:shot.01.last");
-  });
-
-  it("flags one cut from some other frame, saying so", () => {
-    const findings = found(
-      pushIn(),
-      board({ shotId: "01" }, { shotId: "02", linked: ["animatic:shot.07.last"] }),
-    );
-    expect(findings[0]?.message).toContain("cuts from another frame");
-  });
-
-  // A long take is no cut: its seam is the next shot's own opening keyframe, which the video lands
-  // on (`join-unpinned`), so the board is asked nothing.
-  it("says nothing of a long take", () => {
-    const dir = direction({
-      setups: axis,
-      shots: [shot("01", "deck"), shot("02", "deck", { join: "continuous" })],
-    });
-    expect(found(dir, board({ shotId: "01" }, { shotId: "02" }))).toEqual([]);
-  });
-
-  it("says nothing of a cut between two frames on their own axes", () => {
-    const dir = direction({ setups: offAxis, shots: [shot("01", "stern"), shot("02", "bow")] });
-    expect(found(dir, board({ shotId: "01" }, { shotId: "02" }))).toEqual([]);
-  });
-
-  it("says nothing of a cut along one axis from one subject to another", () => {
-    const dir = direction({
-      setups: axis,
-      shots: [shot("01", "stern", { lineup: ["ane"] }), shot("02", "deck", { lineup: ["imouto"] })],
-    });
-    expect(found(dir, board({ shotId: "01" }, { shotId: "02" }))).toEqual([]);
-  });
-
-  it("reads the frame before at its lineupTo", () => {
-    const dir = direction({
-      setups: axis,
-      shots: [
-        shot("01", "stern", { lineup: ["ane"], lineupTo: ["ane", "imouto"] }),
-        shot("02", "deck", { lineup: ["imouto"] }),
-      ],
-    });
-    expect(found(dir, board({ shotId: "01" }, { shotId: "02" })).map((f) => f.subject)).toEqual([
-      "01.02",
-    ]);
-  });
-
-  it("flags a cut along one axis where one frame declares no subject", () => {
-    const dir = direction({
-      setups: axis,
-      shots: [shot("01", "stern", { lineup: ["ane"] }), shot("02", "deck")],
-    });
-    expect(found(dir, board({ shotId: "01" }, { shotId: "02" })).map((f) => f.subject)).toEqual([
-      "01.02",
-    ]);
-  });
-
-  it("says nothing across a story-time jump on one axis", () => {
-    const dir = direction({
-      setups: axis,
-      shots: [shot("01", "stern"), shot("02", "deck", { join: "jump-forward" })],
-    });
-    expect(found(dir, board({ shotId: "01" }, { shotId: "02" }))).toEqual([]);
-  });
-
-  it("says nothing of a cut to another place", () => {
-    const dir = direction({ setups: axis, shots: [shot("01", "deck"), shot("02", "shore")] });
-    expect(found(dir, board({ shotId: "01" }, { shotId: "02" }))).toEqual([]);
-  });
-
-  // A model with no slot for the frame cannot carry it, so the finding would be uniformly waived.
-  it("says nothing of a keyframe whose adapter carries no slot", () => {
-    expect(found(pushIn(), board({ shotId: "01" }, { shotId: "02", carries: false }))).toEqual([]);
-  });
-
-  it("says nothing while the shot before it is still undeveloped", () => {
-    expect(found(pushIn(), board({ shotId: "02" }))).toEqual([]);
-  });
-
-  it("says nothing of a seam whose opening keyframe is signed off", () => {
-    expect(
-      found(pushIn(), board({ shotId: "01" }, { shotId: "02" }), ["animatic:shot.02.first"]),
-    ).toEqual([]);
-  });
-
-  it("is waived by the seam's key", () => {
-    const waived = direction({
-      setups: axis,
-      shots: [shot("01", "stern"), shot("02", "deck")],
-      waivers: { "panel-unlinked_01.02": "the cut re-opens the frame on purpose" },
-    });
-    const stagingStage = board({ shotId: "01" }, { shotId: "02" });
-    expect(found(waived, stagingStage)).toEqual([]);
-    expect(checkDirection(waived, { stagingStage }).waived.map((f) => f.code)).toContain(
-      "panel-unlinked",
-    );
-  });
-
-  it("stays silent with no board to read", () => {
-    expect(checkDirection(pushIn()).active.filter((f) => f.code === "panel-unlinked")).toEqual([]);
-  });
-});
-
-const aside = (id: string) =>
-  ({ kind: "aside", id, label: "eyecatch", duration: 3 }) as unknown as NarrativeShot;
-
-describe("an aside between two same-axis frames", () => {
-  const axis: Record<string, Setup> = {
-    stern: { ...stern, within: null },
-    deck: { ...deck, within: "stern", view: undefined },
-  };
-  const across = direction({
-    setups: axis,
-    shots: [shot("01", "stern"), aside("ec"), shot("02", "deck")],
-  });
-
-  it("panel-unlinked stays silent across it", () => {
-    const stagingStage = {
-      ...noStage,
-      shotPanels: ["01", "02"].map((shotId) => ({
-        shotId,
-        lane: "main" as const,
-        firstPanel: `animatic:shot.${shotId}.first`,
-        lastPanel: `animatic:shot.${shotId}.last`,
-        carries: true,
-        linked: [],
-      })),
-    };
-    expect(
-      checkDirection(across, { stagingStage }).active.filter((f) => f.code === "panel-unlinked"),
-    ).toEqual([]);
-  });
-});
-
-describe("return-unlinked", () => {
+describe("frameReturns", () => {
   const setups: Record<string, Setup> = {
     stern: { ...stern, within: null },
     deck: { ...deck, within: "stern", view: undefined },
@@ -1119,24 +932,6 @@ describe("return-unlinked", () => {
   ];
   const returnsOf = (d: Direction) =>
     frameReturns(d).map(({ frame, from }) => `${from.shotId}-${frame.shotId}`);
-
-  const board = (
-    ...entries: { shotId: string; carries?: boolean; linked?: string[] }[]
-  ): StagingStageState => ({
-    ...noStage,
-    shotPanels: entries.map(({ shotId, carries = true, linked = [] }) => ({
-      shotId,
-      lane: "main" as const,
-      firstPanel: `animatic:shot.${shotId}.first`,
-      lastPanel: `animatic:shot.${shotId}.last`,
-      carries,
-      linked,
-    })),
-  });
-  const found = (d: Direction, stagingStage: StagingStageState, accepted: readonly string[] = []) =>
-    checkDirection(d, { stagingStage, accepted: (a) => accepted.includes(a) }).active.filter(
-      (f) => f.code === "return-unlinked",
-    );
 
   it("returns a frame to the latest frame of its setup across a cutaway", () => {
     expect(returnsOf(dir(cutaway()))).toEqual(["01-09"]);
@@ -1230,13 +1025,11 @@ describe("return-unlinked", () => {
     expect(returnsOf(dir(shots))).toEqual(["01-09"]);
   });
 
-  // The insert shares the subject as `panel-unlinked` reads it, so that seam carries the frame and
-  // a second previous panel would be refused at load.
-  it("leaves a frame an axis cut already carries to panel-unlinked", () => {
-    expect(returnsOf(dir(cutaway([shot("02", "deck", { lineup: [] })])))).toEqual([]);
+  it("returns across an insert along the axis", () => {
+    expect(returnsOf(dir(cutaway([shot("02", "deck", { lineup: [] })])))).toEqual(["01-09"]);
   });
 
-  it("leaves a cut along one axis that holds the subject to panel-unlinked", () => {
+  it("returns nothing across a cut along the axis that holds the subject", () => {
     const d = dir(cutaway([shot("02", "deck", { lineup: ["ane"] })]));
     expect(returnsOf(d)).toEqual([]);
   });
@@ -1250,63 +1043,6 @@ describe("return-unlinked", () => {
     expect(frameReturns(d).map(({ frame }) => `${frame.shotId}/${frame.lane}`)).toEqual([
       "03/cutin",
     ]);
-  });
-
-  it("passes a return whose opening keyframe was handed the frame returned to", () => {
-    expect(
-      found(
-        dir(cutaway()),
-        board({ shotId: "01" }, { shotId: "09", linked: ["animatic:shot.01.last"] }),
-      ),
-    ).toEqual([]);
-  });
-
-  it("flags a return whose opening keyframe takes no frame", () => {
-    const findings = found(dir(cutaway()), board({ shotId: "01" }, { shotId: "09" }));
-    expect(findings.map((f) => f.subject)).toEqual(["01.09"]);
-    expect(findings[0]?.message).toContain("animatic:shot.01.last");
-  });
-
-  it("flags a return handed the cutaway's frame instead", () => {
-    const findings = found(
-      dir(cutaway()),
-      board(
-        { shotId: "01" },
-        { shotId: "02" },
-        { shotId: "09", linked: ["animatic:shot.02.last"] },
-      ),
-    );
-    expect(findings[0]?.message).toContain("cuts from another frame");
-  });
-
-  it("says nothing where the frame returned to is not on the board or the model reads no panel", () => {
-    expect(found(dir(cutaway()), board({ shotId: "09" }))).toEqual([]);
-    expect(
-      found(dir(cutaway()), board({ shotId: "01" }, { shotId: "09", carries: false })),
-    ).toEqual([]);
-  });
-
-  it("says nothing of a return whose opening keyframe is signed off", () => {
-    expect(
-      found(dir(cutaway()), board({ shotId: "01" }, { shotId: "09" }), ["animatic:shot.09.first"]),
-    ).toEqual([]);
-  });
-
-  it("binds a waiver only under its own code", () => {
-    const d = dir(cutaway(), {
-      "return-unlinked_01.09": "she sat back while he spoke",
-      "panel-unlinked_01.09": "no axis cut here",
-    });
-    expect(directionShotWaivers(d).map((w) => w.code)).toEqual(["return-unlinked"]);
-  });
-
-  it("is waived by the return's key", () => {
-    const waived = dir(cutaway(), { "return-unlinked_01.09": "she sat back while he spoke" });
-    const stagingStage = board({ shotId: "01" }, { shotId: "09" });
-    expect(found(waived, stagingStage)).toEqual([]);
-    expect(checkDirection(waived, { stagingStage }).waived.map((f) => f.code)).toContain(
-      "return-unlinked",
-    );
   });
 });
 
@@ -2000,8 +1736,6 @@ describe("the join", () => {
       lane: "main" as const,
       firstPanel: `animatic:shot.${shotId}.first`,
       lastPanel: `animatic:shot.${shotId}.last`,
-      carries: false,
-      linked: [],
     }));
     const found = (pins: StagingStageState["videoPins"]) =>
       checkDirection(dir, {
@@ -2124,8 +1858,6 @@ describe("the join", () => {
       lane: "main" as const,
       firstPanel: `animatic:shot.${shotId}.first`,
       lastPanel: `animatic:shot.${shotId}.last`,
-      carries: false,
-      linked: [],
     }));
     const pinned = (
       pins: StagingStageState["videoPins"],
@@ -2244,8 +1976,8 @@ describe("the join", () => {
       ).toHaveLength(1);
     });
 
-    // The line `panel-unlinked` already draws: a model with no pin input has no wiring to forget, so
-    // the demand is silent rather than a waiver every such piece carries.
+    // A model with no pin input has no wiring to forget, so the demand is silent rather than a waiver
+    // every such piece carries.
     it("is silent where the take before cannot pin its end", () => {
       expect(
         pinned([
@@ -2631,9 +2363,7 @@ describe("location-backtrack", () => {
                 takes: ["video:shot.02.motion"],
               },
             ],
-            shotPanels: [
-              { shotId: "02", lane: "main", firstPanel, lastPanel, carries: false, linked: [] },
-            ],
+            shotPanels: [{ shotId: "02", lane: "main", firstPanel, lastPanel }],
           },
         });
     };
@@ -2782,30 +2512,5 @@ describe("coverage shot", () => {
       (e) => e.code === "coverage-overdeclared",
     );
     expect(errors.map((e) => e.message.match(/`(\w+)`/)?.[1])).toEqual(["lineupTo", "cutin"]);
-  });
-
-  it("asks the cut after it to carry no panel across an axis", () => {
-    const dir = direction({
-      setups: {
-        stern: { ...stern, within: null },
-        deck: { ...deck, within: "stern", view: undefined },
-        shore,
-      },
-      shots: [coverage("01", "stern"), shot("02", "deck")],
-    });
-    const stagingStage: StagingStageState = {
-      ...noStage,
-      shotPanels: ["01", "02"].map((shotId) => ({
-        shotId,
-        lane: "main" as const,
-        firstPanel: `animatic:shot.${shotId}.first`,
-        lastPanel: `animatic:shot.${shotId}.first`,
-        carries: true,
-        linked: [],
-      })),
-    };
-    expect(
-      checkDirection(dir, { stagingStage }).active.filter((f) => f.code === "panel-unlinked"),
-    ).toEqual([]);
   });
 });

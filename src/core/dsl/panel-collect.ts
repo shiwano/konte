@@ -7,7 +7,6 @@
 // re-accept.
 
 import type { PanelLane } from "../types/definition.js";
-import { parsePlaceholder } from "./shot-context.js";
 
 // One `<Panel>` as declared, before the windows are resolved across the shot.
 export interface PanelOccurrence {
@@ -60,41 +59,4 @@ export function resetPanelCursor(): void {
 
 export function nextPanelIndex(lane: PanelLane): number {
   return cursors[lane]++;
-}
-
-const PANEL = Symbol("konte.panel");
-const SHOT_PANELS = Symbol("konte.shotPanels");
-
-// A keyframe handed on by `shot(id)` or `animatic.shot(id)`: what a `readsPrevPanel` validator takes
-// as the frame a cut comes from.
-export function markPanel<T extends object>(asset: T): T {
-  Object.defineProperty(asset, PANEL, { value: true, enumerable: false });
-  return asset;
-}
-
-// The addresses of the inputs handed on as a panel.
-export function panelInputs(inputs: Readonly<Record<string, unknown>>): Set<string> {
-  const out = new Set<string>();
-  for (const value of Object.values(inputs)) {
-    for (const v of Array.isArray(value) ? value : [value]) {
-      if (typeof v !== "object" || v === null || !(v as { [PANEL]?: true })[PANEL]) continue;
-      const src = (v as { src?: unknown }).src;
-      if (typeof src === "string") out.add(parsePlaceholder(src) ?? src);
-    }
-  }
-  return out;
-}
-
-// The addresses a shot's build drew as panels, set on its input as `defineAnimatic` reads it — the
-// `shot(id)` a later shot calls reads them back.
-export function setShotPanels(input: object, addresses: Iterable<string>): void {
-  Object.defineProperty(input, SHOT_PANELS, {
-    value: new Set(addresses),
-    enumerable: false,
-    configurable: true,
-  });
-}
-
-export function shotPanelsOf(input: object): ReadonlySet<string> | undefined {
-  return (input as { [SHOT_PANELS]?: ReadonlySet<string> })[SHOT_PANELS];
 }

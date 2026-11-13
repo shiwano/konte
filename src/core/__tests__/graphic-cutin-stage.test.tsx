@@ -162,16 +162,12 @@ describe("the graphic starters", () => {
         lane: "main",
         firstPanel: "animatic:shot.01.first",
         lastPanel: "animatic:shot.01.first",
-        carries: false,
-        linked: [],
       },
       {
         shotId: "02",
         lane: "cutin",
         firstPanel: "animatic:shot.02.presenter",
         lastPanel: "animatic:shot.02.presenter",
-        carries: false,
-        linked: [],
       },
     ]);
   });

@@ -47,6 +47,7 @@ const GIT_SOURCES: ReadonlyArray<GitSource> = [
     map: {
       "templates/image_z_image.json": "image_z_image_base",
       "templates/video_minimax_h3_r2v.json": "video_minimax_h3_r2v",
+      "templates/image_minimax_h3_image_edit.json": "image_minimax_h3_image_edit",
       "templates/image_qwen_image_2_1_image_edit.json": [
         "image_qwen_image_edit_2_1",
         "image_qwen_image_edit_2_1_inpaint",
@@ -63,11 +64,7 @@ const GIT_SOURCES: ReadonlyArray<GitSource> = [
 // Workflows with no upstream — authored by hand under `WORKFLOW_DIR/konte`, so vendoring only
 // checks that the file is there.
 const LOCAL_DIR = "konte";
-const LOCAL_WORKFLOWS: ReadonlyArray<string> = [
-  "image_minimax_h3_r2i",
-  "audio_minimax_h3_r2a",
-  "audio_zonos2_voice_clone",
-];
+const LOCAL_WORKFLOWS: ReadonlyArray<string> = ["audio_minimax_h3_r2a", "audio_zonos2_voice_clone"];
 
 function sourceLabel(gitUrl: string): string {
   return gitUrl.replace(/^[a-z]+:\/\//, "").replace(/\.git$/, "");
@@ -151,6 +148,34 @@ const PATCHES: Record<string, (workflow: ComfyUIWorkflow) => void> = {
       wireH3Slot(workflow, `ref_video_audios.ref_video_audio_${i}`, LOAD_VIDEO_AUDIO);
     }
     useTurboSamplerSchedule(workflow);
+  },
+  // The template expands the instruction through a Prompt Enhancer behind a switch and resizes the
+  // edited picture to 4MP before the conditioning node. The prompt, width and height become literals,
+  // `image_1` reads its loader directly, and `image_2`…`image_9` each get a loader of their own,
+  // pruned when omitted.
+  image_minimax_h3_image_edit: (workflow) => {
+    const [, node] = onlyNode(workflow, "MiniMaxH3ImageConditioning");
+    // image_1's own loader, behind the template's resize steps.
+    let source = node.inputs["images.image_1"];
+    while (
+      Array.isArray(source) &&
+      workflow[source[0] as string]?.class_type === "ResizeImageMaskNode"
+    ) {
+      source = workflow[source[0] as string]!.inputs.input;
+    }
+    if (!Array.isArray(source) || workflow[source[0] as string]?.class_type !== "LoadImage") {
+      throw new Error("Expected image_1 fed from a LoadImage through ResizeImageMaskNode steps");
+    }
+    node.inputs["images.image_1"] = [source[0] as string, 0];
+    node.inputs.prompt = "";
+    node.inputs.width = 2048;
+    node.inputs.height = 2048;
+    for (let i = 2; i <= 9; i++) {
+      const id = freeNodeId(workflow);
+      workflow[id] = { class_type: LOAD_IMAGE.classType, inputs: { image: LOAD_IMAGE.value } };
+      node.inputs[`images.image_${i}`] = [id, 0];
+    }
+    pruneUnreachable(workflow);
   },
 };
 

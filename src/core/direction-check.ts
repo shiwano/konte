@@ -124,10 +124,6 @@ export type DirectionFindingCode =
   | "join-unshown"
   // A frame's key pinned as the first frame of a take whose model could have taken it as a reference.
   | "opening-key"
-  // A cut along one camera axis: the camera does not move, so the frame does not restart.
-  | "panel-unlinked"
-  // A cut back to a setup across a cutaway.
-  | "return-unlinked"
   // `landmark-flipped` is the `lineup-flipped` of things that do not move, read across the setups
   // of one place. Each `-unnamed` asks whether the text calls a thing by the name the direction
   // declared: a frame's subjects and props in its keyframes' prompts, a passer in the take's, and a
@@ -1470,8 +1466,7 @@ export function checkRoutes(shots: readonly LineupShot[]): DirectionFinding[] {
 //
 // Judged where the take before is developed and the board holds the shot's opening keyframe — the
 // take after need not exist yet, so the demand lands before the take before is spent on. A model
-// with no end slot has no wiring to forget, so the seam is silent rather than uniformly waived —
-// the same line `panel-unlinked` draws (see `checkPanelLinks`).
+// with no end slot has no wiring to forget, so the seam is silent.
 export function checkJoinPins(
   shots: readonly LineupShot[],
   videoPins: readonly VideoShotPins[],
@@ -1746,59 +1741,7 @@ export type ShotPanels = {
   // The keyframe this shot opens on (the seam of a long take), and the one the next shot cuts from.
   firstPanel: string;
   lastPanel: string;
-  // The opening keyframe's model reads a previous panel as the frame it cuts from.
-  carries: boolean;
-  // Every address the previous panel it was handed reaches.
-  linked: readonly string[];
 };
-
-/**
- * One boundary a frame has to carry across, as the board answered it.
- */
-export type PanelSeam = {
-  // The shot the cut lands in — the one that owns the boundary, as `join` does.
-  id: string;
-  lane: PanelLane;
-  // The shot before it, and the keyframe it ends on.
-  from: string;
-  fromPanel: string;
-  // Every address this shot's opening keyframe was handed of the frame it cuts from.
-  linked: readonly string[];
-  // This shot's opening keyframe.
-  opening: string;
-};
-
-// The frame a seam's opening keyframe was not handed. Only seams whose opening keyframe's model
-// READS a previous panel reach here.
-function checkSeamLinks(
-  seams: readonly PanelSeam[],
-  code: "panel-unlinked" | "return-unlinked",
-): DirectionFinding[] {
-  return seams.flatMap((seam) => {
-    if (seam.linked.includes(seam.fromPanel)) return [];
-    const frame = seam.lane === "cutin" ? `the cutin over shot ${seam.id}` : `shot ${seam.id}`;
-    const took = seam.linked.length === 0 ? "takes no frame" : "cuts from another frame";
-    return [
-      {
-        code,
-        subject: `${seam.from}.${seam.id}${seam.lane === "cutin" ? ".cutin" : ""}`,
-        message: `${frame}'s opening keyframe ${took} — pass \`${seam.fromPanel}\``,
-        judgedBy: [seam.opening],
-      },
-    ];
-  });
-}
-
-// The frame across a cut along one camera axis — a push in or out along `within`: a keyframe drawn
-// without the one before it re-invents the subject's light, size and place in the room.
-export function checkPanelLinks(seams: readonly PanelSeam[]): DirectionFinding[] {
-  return checkSeamLinks(seams, "panel-unlinked");
-}
-
-// The frame a cutaway cuts back to (see `frameReturns`).
-export function checkReturnLinks(seams: readonly PanelSeam[]): DirectionFinding[] {
-  return checkSeamLinks(seams, "return-unlinked");
-}
 
 /**
  * A landmark a frame holds, with the place that declares it and the noun it is asked for by.

@@ -4,8 +4,8 @@ import type { DirectionFinding, ShotPanels, VideoShotPins } from "./direction-ch
 import { checkDirection, validateDirectionStructure, type StagingStageState } from "./direction.js";
 import type { Direction, NarrativeShot, Setup, Shot } from "./dsl/direction.js";
 
-// The source of `docs/SEAMS.md`: the boundary rules (`join`, the lineup across it, the previous
-// panel, the video's pins) as the checker answers them over fixtures. Each row runs one direction, and the board
+// The source of `docs/SEAMS.md`: the boundary rules (`join`, the lineup across it, the video's
+// pins) as the checker answers them over fixtures. Each row runs one direction, and the board
 // or video state the rule reads, through `validateDirectionStructure` and `checkDirection`.
 // `seam-doc.test.ts` fails until the document is regenerated (`bun run build:generate-seam-doc`).
 
@@ -17,8 +17,6 @@ const SEAM_CODES = new Set([
   "join-lineup-mismatch",
   "join-unpinned",
   "join-unshown",
-  "panel-unlinked",
-  "return-unlinked",
   "lineup-flipped",
   "character-unconsumed",
 ]);
@@ -123,19 +121,13 @@ const noStage: StagingStageState = {
 
 const panelAddress = (shotId: string, name: string) => formatAddress("animatic", shotId, name);
 
-// A developed board shot: whether its opening keyframe's model reads a previous panel, and what it
-// was handed of one.
-function boarded(
-  shotId: string,
-  opts: { lane?: "main" | "cutin"; reads?: boolean; linked?: readonly string[] } = {},
-): ShotPanels {
+// A developed board shot.
+function boarded(shotId: string): ShotPanels {
   return {
     shotId,
-    lane: opts.lane ?? "main",
+    lane: "main",
     firstPanel: panelAddress(shotId, "first"),
     lastPanel: panelAddress(shotId, "last"),
-    carries: opts.reads ?? false,
-    linked: [...(opts.linked ?? [])],
   };
 }
 
@@ -165,12 +157,6 @@ type SeamCase = {
 
 type SeamSection = { title: string; intro: string; cases: readonly SeamCase[] };
 
-const boardCase = (title: string, dir: Direction, shotPanels: readonly ShotPanels[]): SeamCase => ({
-  title,
-  direction: dir,
-  stage: { ...noStage, shotPanels },
-});
-
 const videoCase = (
   title: string,
   dir: Direction,
@@ -182,14 +168,6 @@ const videoCase = (
 });
 
 const longTake = direction([shot("01", "wide"), shot("02", "wide", { join: "continuous" })]);
-const pushIn = direction([shot("01", "wide"), shot("02", "medium")]);
-const cutBack = (between: readonly Shot[], back: Partial<NarrativeShot> = {}) =>
-  direction([shot("01", "wide"), ...between, shot("03", "wide", back)]);
-const cutaway = shot("02", "reverse", { lineup: ["b"] });
-const returned = (linked: readonly string[] = []) => [
-  boarded("01"),
-  boarded("03", { reads: true, linked }),
-];
 
 const SEAM_SECTIONS: readonly SeamSection[] = [
   {
@@ -301,103 +279,6 @@ const SEAM_SECTIONS: readonly SeamSection[] = [
           shot("02", "medium", { lineup: ["b", "a"] }),
         ]),
       },
-    ],
-  },
-  {
-    title: "The board's frame across a cut along one axis",
-    intro:
-      "An omitted join between two setups sharing a `within` root: the opening keyframe takes the previous shot's last panel in one of its image inputs. Judged where both shots are on the board and the keyframe's model reads a previous panel (`readsPrevPanel`), unless both frames hold subjects and share none. A long take, and a cut from a coverage shot (its panel is its opening frame), ask the board for nothing.",
-    cases: [
-      boardCase("Push in, handed the frame before", pushIn, [
-        boarded("01"),
-        boarded("02", { reads: true, linked: [panelAddress("01", "last")] }),
-      ]),
-      boardCase("Push in, handed no previous panel", pushIn, [
-        boarded("01"),
-        boarded("02", { reads: true }),
-      ]),
-      boardCase("Push in, handed another shot's frame", pushIn, [
-        boarded("01"),
-        boarded("02", { reads: true, linked: [panelAddress("07", "last")] }),
-      ]),
-      boardCase("Push in, a model that reads no previous panel", pushIn, [
-        boarded("01"),
-        boarded("02"),
-      ]),
-      boardCase("Push in, the shot before not yet on the board", pushIn, [
-        boarded("02", { reads: true }),
-      ]),
-      boardCase(
-        "Push in across a story-time jump",
-        direction([shot("01", "wide"), shot("02", "medium", { join: "jump-forward" })]),
-        [boarded("01"), boarded("02", { reads: true })],
-      ),
-      boardCase(
-        "Push in from one subject to another",
-        direction([shot("01", "wide", { lineup: ["a"] }), shot("02", "medium", { lineup: ["b"] })]),
-        [boarded("01"), boarded("02", { reads: true })],
-      ),
-      boardCase("Two cameras in one room", direction([shot("01", "wide"), shot("02", "reverse")]), [
-        boarded("01"),
-        boarded("02", { reads: true }),
-      ]),
-      boardCase(
-        "Push in with an aside between",
-        direction([shot("01", "wide"), aside("ec"), shot("02", "medium")]),
-        [boarded("01"), boarded("02", { reads: true })],
-      ),
-      boardCase(
-        "Push in from a coverage shot, handed no previous panel",
-        direction([shot("01", "wide", { coverage: true }), shot("02", "medium")]),
-        [boarded("01"), boarded("02", { reads: true })],
-      ),
-      boardCase("One take, handed no previous panel", longTake, [
-        boarded("01"),
-        boarded("02", { reads: true }),
-      ]),
-    ],
-  },
-  {
-    title: "The board's frame across a return",
-    intro:
-      "A frame cut back to a setup across a cutaway returns to the latest frame of its lane on that setup, when that is not the frame just before: its opening keyframe takes that frame's last panel in one of its image inputs. No return crosses a story-time jump in any lane or an aside, a cutaway of its lane in another place, or a frame of any lane showing the frame's subject; none starts from a coverage shot or lands where an axis cut already carries the frame, and two frames holding subjects but none in common have none. Judged where both shots are on the board and the keyframe's model reads a previous panel.",
-    cases: [
-      boardCase(
-        "Back after a cutaway, handed the frame returned to",
-        cutBack([cutaway]),
-        returned([panelAddress("01", "last")]),
-      ),
-      boardCase("Back after a cutaway, handed no previous panel", cutBack([cutaway]), returned()),
-      boardCase("Back after a graphic shot", cutBack([graphic("card")]), returned()),
-      boardCase(
-        "Back across a story-time jump",
-        cutBack([cutaway], { join: "jump-forward" }),
-        returned(),
-      ),
-      boardCase(
-        "Back after a cutaway to another place",
-        cutBack([shot("02", "yard", { lineup: ["b"] })]),
-        returned(),
-      ),
-      boardCase(
-        "Back after a cutaway that holds the subject",
-        cutBack([shot("02", "reverse", { lineup: ["b", "a"] })]),
-        returned(),
-      ),
-      boardCase(
-        "Back after an insert along the axis",
-        cutBack([shot("02", "medium", { lineup: [] })]),
-        [
-          boarded("01"),
-          boarded("02", { reads: true, linked: [panelAddress("01", "last")] }),
-          boarded("03", { reads: true }),
-        ],
-      ),
-      boardCase("Back after a push in on the subject", cutBack([shot("02", "medium")]), [
-        boarded("01"),
-        boarded("02", { reads: true, linked: [panelAddress("01", "last")] }),
-        boarded("03", { reads: true }),
-      ]),
     ],
   },
   {
@@ -534,14 +415,6 @@ function describeBoard(stage: StagingStageState | undefined): string {
   const notes: string[] = [];
   const on = stage.shotPanels.map((p) => `${p.shotId}${p.lane === "cutin" ? ".cutin" : ""}`);
   if (on.length > 0) notes.push(`on the board: ${on.join(", ")}`);
-  for (const p of stage.shotPanels) {
-    if (!p.carries) continue;
-    notes.push(
-      p.linked.length === 0
-        ? `${p.shotId} handed no previous panel`
-        : `${p.shotId} previous panel ← ${p.linked.map(short).join(", ")}`,
-    );
-  }
   for (const r of stage.panelReach)
     notes.push(`${short(r.panel)} ← reference ${r.refs.join(", ")}`);
   return notes.length > 0 ? notes.join("; ") : "none";
@@ -585,7 +458,7 @@ function renderSeamMarkdown(): string {
     "",
     "<!-- Generated from src/core/seam-doc.ts by `bun run build:generate-seam-doc`. Do not edit by hand: src/core/__tests__/seam-doc.test.ts fails when this file and the code disagree. -->",
     "",
-    "What konte demands at the boundary between two shots (`join`, the lineup across it, the previous panel, the video's pins), as the checker answers it over fixtures. Every row is one direction, with the board or video state the rule reads, run through `validateDirectionStructure` and `checkDirection`; Result is what came back. An `error` is structural and never waived; the rest are findings, waived by key. Not shown: findings outside the boundary rules, and the load-time rules a stage file trips on its own (`ANIMATIC_INVALID` on a landing panel that declares movement).",
+    "What konte demands at the boundary between two shots (`join`, the lineup across it, the video's pins), as the checker answers it over fixtures. Every row is one direction, with the board or video state the rule reads, run through `validateDirectionStructure` and `checkDirection`; Result is what came back. An `error` is structural and never waived; the rest are findings, waived by key. Not shown: findings outside the boundary rules, and the load-time rules a stage file trips on its own (`ANIMATIC_INVALID` on a landing panel that declares movement).",
     "",
     'Fixtures: one room with `wide` (the axis root), `medium` (`within: "wide"`) and `reverse` (a second camera on its own axis), and `yard` in another place. `[a ⇒ b,a]` is a shot\'s `lineup` and `lineupTo`.',
   ];

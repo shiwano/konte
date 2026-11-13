@@ -11,7 +11,7 @@ vi.setConfig({ testTimeout: 60000 });
 useTempWorkspace();
 
 const REFERENCE_TSX = (body: string) => `import { defineReference, asset, adapters } from "konte";
-import { imageMinimaxH3R2i } from "konte/workspace/adapters/comfy/image_minimax_h3_r2i.js";
+import { imageMinimaxH3ImageEdit } from "konte/workspace/adapters/comfy/image_minimax_h3_image_edit.js";
 import { videoMinimaxH3R2v } from "konte/workspace/adapters/comfy/video_minimax_h3_r2v.js";
 import { audioMinimaxH3R2a } from "konte/workspace/adapters/comfy/audio_minimax_h3_r2a.js";
 import direction from "./direction";
@@ -24,29 +24,22 @@ ${body}
 `;
 
 const ASSETS = `
-  const still = asset("still", imageMinimaxH3R2i, {
+  const still = asset("still", imageMinimaxH3ImageEdit, {
     image1: character,
     image2: character,
     prompt: {
-      subjectDefinitions: ["<Subject 1> is the creator in <Picture 1>.", "<Picture 2> is the frame this take cuts from."],
-      summary: { tasks: ["reference generation", "keyframe completion"], text: "She looks up." },
-      retentionAnalysis: [
-        "<Subject 1> (appears in [Shot 2]): fully_preserved - her face and dress.",
-        "<Picture 2> ([Shot 1] frame): fully_preserved - the frame it cuts from.",
-      ],
-      detailedDescription: {
-        style: "2D-animated.",
-        shots: ["The frame of <Picture 2>.", "the camera cuts in to her face."],
+      references: {
+        subjects: [
+          { definition: "The studio in <Picture 1> is <Subject 1>.", relation: "fully preserved" },
+          {
+            definition: "The creator in <Picture 2> is <Subject 2>.",
+            relation: { partially: "her face and dress remain, while she looks up." },
+          },
+        ],
+        target: "shows <Subject 2> looking up in <Subject 1>.",
       },
-    },
-  });
-  const instant = asset("instant", imageMinimaxH3R2i, {
-    image1: character,
-    prompt: {
-      subjectDefinitions: ["<Subject 1> is the creator in <Picture 1>."],
-      summary: { tasks: ["reference generation"], text: "She looks up." },
-      retentionAnalysis: ["<Subject 1> (appears in [Shot 1]): fully_preserved - her face and dress."],
-      detailedDescription: { style: "2D-animated.", shots: ["She looks up."] },
+      details: "Her chin lifts toward the window.",
+      style: "2D-animated.",
     },
   });
   const motion = asset("motion", videoMinimaxH3R2v, {
@@ -87,7 +80,7 @@ const ASSETS = `
       nonDiegeticMusic: "N/A",
     },
   });
-  return { character, bgm, still, instant, motion, cast, line };`;
+  return { character, bgm, still, motion, cast, line };`;
 
 async function promptOf(videoRoot: string, name: string): Promise<ComfyAssetDefinition> {
   const address = `reference:${name}`;
@@ -100,21 +93,17 @@ describe("shipped MiniMax H3 prompts", () => {
     const { video } = await initWorkspace(path.join(ctx.dir, "p"));
     await fs.writeFile(path.join(video, "reference.tsx"), REFERENCE_TSX(ASSETS));
 
-    expect((await promptOf(video, "still")).inputs["10.prompt"]).toBe(
+    expect((await promptOf(video, "still")).inputs["32.prompt"]).toBe(
       [
-        "subject_definitions: <Subject 1> is the creator in <Picture 1>.\n<Picture 2> is the frame this take cuts from.",
-        "summary: [reference generation + keyframe completion] She looks up.",
-        "retention_analysis: <Subject 1> (appears in [Shot 2]): fully_preserved - her face and dress.\n<Picture 2> ([Shot 1] frame): fully_preserved - the frame it cuts from.",
-        "detailed_description: 2D-animated. [Shot 1] The frame of <Picture 2>. [Shot 2] At 00:00.500, the camera cuts in to her face.",
-        "overall_soundscape: N/A",
-        "non_diegetic_music: N/A",
-      ].join("\n\n"),
+        "The studio in <Picture 1> is <Subject 1>.",
+        "The creator in <Picture 2> is <Subject 2>.",
+        "The target image shows <Subject 2> looking up in <Subject 1>.",
+        "<Subject 1> is fully preserved.",
+        "<Subject 2> is partially preserved; her face and dress remain, while she looks up.",
+        "Her chin lifts toward the window.",
+        "2D-animated.",
+      ].join(" "),
     );
-
-    const still = (await promptOf(video, "still")).inputs;
-    expect([still["10.length"], still["17.batch_index"]]).toEqual([22, 17]);
-    const instant = (await promptOf(video, "instant")).inputs;
-    expect([instant["10.length"], instant["17.batch_index"]]).toEqual([5, 0]);
 
     expect((await promptOf(video, "motion")).inputs["136.prompt"]).toBe(
       [
@@ -138,6 +127,28 @@ describe("shipped MiniMax H3 prompts", () => {
     expect((await promptOf(video, "line")).inputs["10.prompt"]).toMatch(
       /^subject_definitions: [\s\S]*\n\ndetailed_description: live-action\. \[Shot 1\] She says,/,
     );
+  });
+
+  it("refuses a subject defined out of order", async () => {
+    const { video } = await initWorkspace(path.join(ctx.dir, "o"));
+    await fs.writeFile(
+      path.join(video, "reference.tsx"),
+      REFERENCE_TSX(`
+  const still = asset("still", imageMinimaxH3ImageEdit, {
+    image1: character,
+    prompt: {
+      references: {
+        subjects: [{ definition: "The creator in <Picture 1> is <Subject 2>.", relation: "fully preserved" }],
+        target: "shows <Subject 2>.",
+      },
+      details: "She looks up.",
+    },
+  });
+  return { character, bgm, still };`),
+    );
+    await expect(run(["inspect", "reference:still"], video)).rejects.toMatchObject({
+      stderr: expect.stringContaining("it defines <Subject 1> alone"),
+    });
   });
 
   it("derives R2A's length from the <d> words of the assembled prompt", async () => {
@@ -180,16 +191,12 @@ describe("shipped MiniMax H3 prompts", () => {
     await fs.writeFile(
       path.join(video, "reference.tsx"),
       REFERENCE_TSX(`
-  // @ts-expect-error R2I keeps one cut at most
-  asset("a", imageMinimaxH3R2i, { image1: character, prompt: { ${ok}, summary: { tasks: ["reference generation"], text: "x" }, detailedDescription: { style: "s", shots: ["a", "b", "c"] } } });
-  // @ts-expect-error konte sets R2I's cut time
-  asset("h", imageMinimaxH3R2i, { image1: character, prompt: { ${ok}, summary: { tasks: ["reference generation"], text: "x" }, detailedDescription: { style: "s", shots: ["a", { at: 1, text: "b" }] } } });
-  // @ts-expect-error konte sets R2I's burst
-  asset("i", imageMinimaxH3R2i, { image1: character, length: 22, prompt: { ${ok}, summary: { tasks: ["reference generation"], text: "x" }, detailedDescription: { style: "s", shots: ["a"] } } });
-  // @ts-expect-error R2I takes no audio task
-  asset("b", imageMinimaxH3R2i, { image1: character, prompt: { ${ok}, summary: { tasks: ["audio reuse"], text: "x" }, detailedDescription: { style: "s", shots: ["a"] } } });
-  // @ts-expect-error R2I writes its own sound sections
-  asset("c", imageMinimaxH3R2i, { image1: character, prompt: { ${ok}, summary: { tasks: ["reference generation"], text: "x" }, detailedDescription: { style: "s", shots: ["a"] }, overallSoundscape: "N/A" } });
+  // @ts-expect-error a relation is one of four
+  asset("a", imageMinimaxH3ImageEdit, { image1: character, prompt: { references: { subjects: [{ definition: "x", relation: "kept" }], target: "x" }, details: "x" } });
+  // @ts-expect-error at least one subject
+  asset("b", imageMinimaxH3ImageEdit, { image1: character, prompt: { references: { subjects: [], target: "x" }, details: "x" } });
+  // @ts-expect-error the image model takes no sound section
+  asset("c", imageMinimaxH3ImageEdit, { image1: character, prompt: { references: { subjects: [{ definition: "x", relation: "fully preserved" }], target: "x" }, details: "x", overallSoundscape: "N/A" } });
   // @ts-expect-error [Shot 1] carries no cut time
   asset("d", videoMinimaxH3R2v, { image1: character, prompt: { ${ok}, summary: { tasks: ["keyframe completion"], text: "x" }, detailedDescription: { style: "s", shots: [{ at: 0, text: "a" }] }, overallSoundscape: "N/A", nonDiegeticMusic: "N/A" } });
   // @ts-expect-error R2V writes its sound sections out
@@ -212,10 +219,11 @@ describe("shipped MiniMax H3 prompts", () => {
       path.join(video, "reference.tsx"),
       REFERENCE_TSX(`
   const STILL = {
-    subjectDefinitions: ["<Subject 1> is the creator in <Picture 1>."],
-    summary: { tasks: ["reference generation"], text: "She looks up." },
-    retentionAnalysis: ["<Subject 1> (appears in [Shot 1]): fully_preserved - her face."],
-    detailedDescription: { style: "2D-animated.", shots: ["She looks up."] },
+    references: {
+      subjects: [{ definition: "The creator in <Picture 1> is <Subject 1>.", relation: { partially: "her face remains." } }],
+      target: "shows <Subject 1> looking up.",
+    },
+    details: "She looks up.",
   } as const;
   const MOTION = {
     subjectDefinitions: [],
@@ -230,7 +238,7 @@ describe("shipped MiniMax H3 prompts", () => {
     overallSoundscape: "A faint room tone.",
     nonDiegeticMusic: "N/A",
   } as const;
-  const still = asset("still", imageMinimaxH3R2i, { image1: character, prompt: STILL });
+  const still = asset("still", imageMinimaxH3ImageEdit, { image1: character, prompt: STILL });
   const motion = asset("motion", videoMinimaxH3R2v, { image1: character, prompt: MOTION });
   const line = asset("line", audioMinimaxH3R2a, { prompt: LINE });
   return { character, bgm, still, motion, line };`),

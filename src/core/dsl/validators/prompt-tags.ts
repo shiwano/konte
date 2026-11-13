@@ -1,5 +1,3 @@
-import { tryParseAddress } from "../../address.js";
-import { parsePlaceholder } from "../shot-context.js";
 import type { AdapterValidator } from "./validator.js";
 
 /**
@@ -22,13 +20,6 @@ export interface PromptReferenceTagsSpec {
   form?: "bracketed" | "bare";
   // Tag name as written in the prompt (`Picture` for `<Picture 1>`) → the slots it numbers.
   tags: Readonly<Record<string, PromptTagSlots>>;
-  // Another shot's panel passed to one of `tag`'s slots is the frame the take cuts from. At most one
-  // may be passed, and its ordinal has to appear in the span `within` returns — `undefined` when the
-  // prompt has no place for that frame.
-  prevPanel?: {
-    tag: string;
-    within: (prompt: string) => string | undefined;
-  };
 }
 
 interface TagGroup {
@@ -60,11 +51,6 @@ export function promptReferenceTags(spec: PromptReferenceTagsSpec): AdapterValid
   const runs = deriveRuns(groups.flatMap((g) => g.slots));
   assertContiguousRuns(runs);
   const form = spec.form ?? "bracketed";
-  const prevPanel = spec.prevPanel;
-  const prevPanelGroup = prevPanel && groups.find((g) => g.tag === prevPanel.tag);
-  if (prevPanel && !prevPanelGroup) {
-    throw new Error(`prevPanel names tag "${prevPanel.tag}", which \`tags\` does not declare`);
-  }
 
   const validator: AdapterValidator = (inputs, context) => {
     for (const run of runs) {
@@ -85,17 +71,6 @@ export function promptReferenceTags(spec: PromptReferenceTagsSpec): AdapterValid
     for (const group of groups) {
       const mismatch = checkOrdinals(group, prompt, inputs, form);
       if (mismatch) return mismatch;
-    }
-    if (prevPanel && prevPanelGroup) {
-      return checkPrevPanel(
-        prevPanelGroup,
-        prevPanel.within,
-        prompt,
-        inputs,
-        form,
-        context?.shotId,
-        context?.panels,
-      );
     }
   };
   validator.inputs = [
@@ -208,75 +183,6 @@ function checkOrdinals(
       `Name ${one ? "it" : "them"} in the prompt or drop the ${one ? "input" : "inputs"}.`
     );
   }
-}
-
-// A panel of a shot other than the one declaring this asset. A panel of the same shot (`first` →
-// `last`) is no cut, and neither is any other asset of another shot.
-function otherShotPanel(
-  value: unknown,
-  shotId: string | undefined,
-  panels: ReadonlySet<string> | undefined,
-): string | undefined {
-  if (typeof value !== "string") return undefined;
-  const address = parsePlaceholder(value);
-  if (address === null || !panels?.has(address)) return undefined;
-  const parsed = tryParseAddress(address);
-  if (parsed?.stage !== "animatic" || parsed.kind !== "shot" || parsed.shotId === shotId) {
-    return undefined;
-  }
-  return address;
-}
-
-function checkPrevPanel(
-  group: TagGroup,
-  within: (prompt: string) => string | undefined,
-  prompt: string,
-  inputs: Readonly<Record<string, unknown>>,
-  form: "bracketed" | "bare",
-  shotId: string | undefined,
-  panels: ReadonlySet<string> | undefined,
-): string | undefined {
-  const write = (n: number) => (form === "bare" ? `${group.tag} ${n}` : `<${group.tag} ${n}>`);
-  const carried = group.slots
-    .filter((name) => inputs[name] !== undefined)
-    .flatMap((name, i) => {
-      const panel = otherShotPanel(inputs[name], shotId, panels);
-      return panel === undefined ? [] : [{ name, panel, ordinal: i + 1 }];
-    });
-  if (carried.length === 0) return;
-  if (carried.length > 1) {
-    return (
-      `${carried.map((c) => `"${c.name}" takes ${c.panel}`).join(", ")} — panels of other shots, ` +
-      `and a cut comes from one frame. The model places one as the frame it cuts from and reads the ` +
-      `rest as unplaced pictures. Pass one.`
-    );
-  }
-  const { name, panel, ordinal } = carried[0]!;
-  const span = within(prompt);
-  if (span === undefined) {
-    return (
-      `"${name}" takes ${panel}, another shot's panel, so this take cuts from it — but the prompt ` +
-      `has no place for the frame a cut comes from. Write the cut the adapter's guide describes, ` +
-      `naming ${write(ordinal)} as that frame.`
-    );
-  }
-  if (!namesOrdinal(span, group.tag, form, ordinal)) {
-    return (
-      `"${name}" takes ${panel}, another shot's panel, so this take cuts from it — but ` +
-      `${write(ordinal)} is not named where the prompt places the frame a cut comes from:\n` +
-      `  ${span.trim()}\n` +
-      `A panel passed without that place is read as one more picture, not as the frame it cuts from.`
-    );
-  }
-}
-
-function namesOrdinal(text: string, tag: string, form: "bracketed" | "bare", n: number): boolean {
-  const escaped = escapeRegExp(tag);
-  const pattern =
-    form === "bare"
-      ? new RegExp(`\\b${escaped}\\s+${n}\\b`, "i")
-      : new RegExp(`<\\s*${escaped}\\s+${n}\\s*>`);
-  return pattern.test(withoutQuotedText(text));
 }
 
 function describeWired(

@@ -94,7 +94,6 @@ export {
 export {
   promptReferenceTags,
   minimaxH3Prompt,
-  minimaxH3CutSource,
   minimaxH3Dialogue,
   inertInputs,
   requireOneOf,

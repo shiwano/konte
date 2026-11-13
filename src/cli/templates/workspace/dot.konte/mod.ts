@@ -327,8 +327,6 @@ export type DirectionFindingCode =
   | "join-unpinned"
   | "join-unshown"
   | "opening-key"
-  | "panel-unlinked"
-  | "return-unlinked"
   | "landmark-flipped"
   | "subject-unnamed"
   | "prop-unnamed"
@@ -2513,11 +2511,12 @@ export interface BuildFormat {
 }
 /**
  * One wired image input that is not a `pin`, as declared at one address: the addresses it was
- * passed.
+ * passed, and whether the declaration is generative rather than deterministic.
  */
 export type ImageInputOccurrence = {
   address: string;
   sources: readonly string[];
+  generative: boolean;
 };
 /**
  * One field of a structured `"prompt"` input. `render` turns the caller's value into its section;
@@ -2615,7 +2614,7 @@ export interface AdapterMeta {
   allowedIn?: readonly AssetDeclarationSite[];
   promptExemptions?: readonly RegExp[];
   spokenTextPattern?: RegExp;
-  readsPrevPanel?: true;
+  minPixels?: number;
   models?: readonly ComfyModelDeclaration[];
   nodes?: readonly ComfyNodeDeclaration[];
 }
@@ -3865,7 +3864,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
     imageInputs: z.ZodOptional<
       z.ZodType<readonly ImageInputOccurrence[], z.ZodTypeDef, readonly ImageInputOccurrence[]>
     >;
-    prevPanelReaders: z.ZodOptional<z.ZodType<readonly string[], z.ZodTypeDef, readonly string[]>>;
     stemInputs: z.ZodOptional<
       z.ZodType<readonly StemInputOccurrence[], z.ZodTypeDef, readonly StemInputOccurrence[]>
     >;
@@ -4432,7 +4430,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
     prompts?: readonly PromptOccurrence[] | undefined;
     pins?: readonly PinOccurrence[] | undefined;
     imageInputs?: readonly ImageInputOccurrence[] | undefined;
-    prevPanelReaders?: readonly string[] | undefined;
     stemInputs?: readonly StemInputOccurrence[] | undefined;
     respellings?:
       | {
@@ -4751,7 +4748,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
     prompts?: readonly PromptOccurrence[] | undefined;
     pins?: readonly PinOccurrence[] | undefined;
     imageInputs?: readonly ImageInputOccurrence[] | undefined;
-    prevPanelReaders?: readonly string[] | undefined;
     stemInputs?: readonly StemInputOccurrence[] | undefined;
     respellings?:
       | {
@@ -4874,8 +4870,6 @@ declare const ACCEPT_JUDGED_CODES: readonly [
   "join-unpinned",
   "join-unshown",
   "opening-key",
-  "panel-unlinked",
-  "return-unlinked",
   "prompt-negation",
   "prompt-not-yet",
   "prompt-double-negative",
@@ -7891,7 +7885,6 @@ declare const VideoDefinitionSchema: z.ZodObject<
     imageInputs: z.ZodOptional<
       z.ZodType<readonly ImageInputOccurrence[], z.ZodTypeDef, readonly ImageInputOccurrence[]>
     >;
-    prevPanelReaders: z.ZodOptional<z.ZodType<readonly string[], z.ZodTypeDef, readonly string[]>>;
     stemInputs: z.ZodOptional<
       z.ZodType<readonly StemInputOccurrence[], z.ZodTypeDef, readonly StemInputOccurrence[]>
     >;
@@ -8281,7 +8274,6 @@ declare const VideoDefinitionSchema: z.ZodObject<
     prompts?: readonly PromptOccurrence[] | undefined;
     pins?: readonly PinOccurrence[] | undefined;
     imageInputs?: readonly ImageInputOccurrence[] | undefined;
-    prevPanelReaders?: readonly string[] | undefined;
     stemInputs?: readonly StemInputOccurrence[] | undefined;
     respellings?:
       | {
@@ -8546,7 +8538,6 @@ declare const VideoDefinitionSchema: z.ZodObject<
     prompts?: readonly PromptOccurrence[] | undefined;
     pins?: readonly PinOccurrence[] | undefined;
     imageInputs?: readonly ImageInputOccurrence[] | undefined;
-    prevPanelReaders?: readonly string[] | undefined;
     stemInputs?: readonly StemInputOccurrence[] | undefined;
     respellings?:
       | {
@@ -8722,13 +8713,10 @@ export type AdapterValidator = ((
 };
 /**
  * The adapter's own shape: `promptInput` is the name of its one `"prompt"` input, undefined when it
- * declares none or several. `shotId` is the shot the asset is declared in, undefined outside one.
- * `panels` are the addresses of the inputs handed on as a panel by `shot(id)` or `animatic.shot(id)`.
+ * declares none or several.
  */
 export type AdapterValidatorContext = {
   promptInput?: string;
-  shotId?: string;
-  panels?: ReadonlySet<string>;
 };
 /**
  * The value (or values) an input carries when it is not set — an empty string, a `"Auto"` menu
@@ -8779,10 +8767,6 @@ export interface PromptReferenceTagsSpec {
   prompt?: string;
   form?: "bracketed" | "bare";
   tags: Readonly<Record<string, PromptTagSlots>>;
-  prevPanel?: {
-    tag: string;
-    within: (prompt: string) => string | undefined;
-  };
 }
 /**
  * Rejects a prompt whose reference ordinals do not match the references actually wired.
@@ -8794,10 +8778,10 @@ export interface PromptReferenceTagsSpec {
  */
 export declare function promptReferenceTags(spec: PromptReferenceTagsSpec): AdapterValidator;
 /**
- * Which decode the adapter runs. R2V and R2I always take the six sections; R2A takes them only when
- * a reference is wired, and three named fields when none is.
+ * Which decode the adapter runs. R2V always takes the six sections; R2A takes them only when a
+ * reference is wired, and three named fields when none is.
  */
-export type MinimaxH3Mode = "r2i" | "r2a" | "r2v";
+export type MinimaxH3Mode = "r2a" | "r2v";
 export interface MinimaxH3PromptSpec {
   mode: MinimaxH3Mode;
   prompt?: string;
@@ -8811,12 +8795,6 @@ export interface MinimaxH3PromptSpec {
  * author writes inside them, and what spans sections.
  */
 export declare function minimaxH3Prompt(spec: MinimaxH3PromptSpec): AdapterValidator;
-/**
- * The span of an H3 prompt that names the frame a cut comes from: `[Shot 1]` of a
- * `detailed_description` that cuts to a `[Shot 2]`. Undefined where the description does not cut.
- * `promptReferenceTags`' `prevPanel.within`.
- */
-export declare function minimaxH3CutSource(prompt: string): string | undefined;
 export declare const minimaxH3Dialogue: RegExp;
 export type SourceScene = {
   at: string;
@@ -9054,7 +9032,7 @@ export interface ComfyAssetConfig<
   promptExemptions?: readonly RegExp[];
   spokenTextPattern?: RegExp;
   allowedIn?: readonly AssetDeclarationSite[];
-  readsPrevPanel?: true;
+  minPixels?: number;
 }
 export type ComfyDerive<
   TInputs extends Record<string, AdapterInputDef>,
@@ -9217,7 +9195,6 @@ export interface FalAssetConfig<
   promptExemptions?: readonly RegExp[];
   spokenTextPattern?: RegExp;
   allowedIn?: readonly AssetDeclarationSite[];
-  readsPrevPanel?: true;
 }
 export type FalInputTSType<T extends FalInputDef> = T extends {
   type: "string" | "seconds";

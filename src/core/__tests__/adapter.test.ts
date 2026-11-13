@@ -1070,6 +1070,96 @@ describe("grid (a model's own step)", () => {
   });
 });
 
+describe("minPixels (the fewest pixels a model draws well)", () => {
+  const sized = (minPixels: number) =>
+    defineComfyAsset({
+      workflow: "sized.json",
+      description: "test adapter",
+      inputs: {
+        width: { nodeId: "1", field: "value", type: "width", default: 1024, grid: { step: 32 } },
+        height: {
+          nodeId: "2",
+          field: "value",
+          type: "height",
+          default: 1024,
+          grid: { step: 32 },
+          also: [{ nodeId: "3", field: "value" }],
+        },
+      },
+      outputs: { image: { nodeId: "9", type: "image" } },
+      minPixels,
+    });
+
+  function buildWith(
+    format: { size: { width: number; height: number } },
+    inputs: { width?: number; height?: number } = {},
+  ) {
+    const { assets } = runTimelineInDiscoveryMode(
+      "video",
+      () => {
+        asset("m", sized(4_000_000), inputs);
+        return {};
+      },
+      format,
+    );
+    return assets["m"] as ComfyAssetDefinition;
+  }
+
+  it("raises a canvas under it onto the grid, aspect kept", () => {
+    const def = buildWith({ size: { width: 1248, height: 704 } });
+    expect(def.inputs["1.value"]).toBe(2720);
+    expect(def.inputs["2.value"]).toBe(1536);
+    expect(def.inputs["3.value"]).toBe(1536);
+  });
+
+  it("spends a little over the floor to keep the aspect closer", () => {
+    const def = buildWith({ size: { width: 1280, height: 720 } });
+    expect(def.inputs["1.value"]).toBe(2784);
+    expect(def.inputs["2.value"]).toBe(1568);
+  });
+
+  it("refuses a size it cannot raise", () => {
+    expect(() =>
+      buildWith({ size: { width: 1280, height: 720 } }, { width: 0, height: 0 }),
+    ).toThrow("takes a positive width and height");
+  });
+
+  it("raises a portrait canvas along its own short side", () => {
+    const def = buildWith({ size: { width: 704, height: 1248 } });
+    expect(def.inputs["1.value"]).toBe(1536);
+    expect(def.inputs["2.value"]).toBe(2720);
+  });
+
+  it("raises an explicitly passed size too", () => {
+    const def = buildWith({ size: { width: 2720, height: 1536 } }, { width: 512, height: 512 });
+    expect(def.inputs["1.value"]).toBe(2016);
+    expect(def.inputs["2.value"]).toBe(2016);
+  });
+
+  it("leaves a size already over it to the grid alone", () => {
+    const def = buildWith({ size: { width: 2730, height: 1540 } });
+    expect(def.inputs["1.value"]).toBe(2752);
+    expect(def.inputs["2.value"]).toBe(1568);
+  });
+
+  it("reports it in meta", () => {
+    expect(sized(4_000_000).meta.minPixels).toBe(4_000_000);
+  });
+
+  it("is refused without exactly one width and one height", () => {
+    expect(() =>
+      defineComfyAsset({
+        workflow: "w.json",
+        description: "test adapter",
+        inputs: { width: { nodeId: "1", field: "value", type: "width" } },
+        outputs: { image: { nodeId: "9", type: "image" } },
+        minPixels: 4_000_000,
+      }),
+    ).toThrow('minPixels needs exactly one "height" input, found 0');
+    expect(() => sized(0)).toThrow("minPixels needs a positive number");
+  });
+});
+
 describe("frames (a shot's duration on the model's clock)", () => {
   const clockedAdapter = defineComfyAsset({
     workflow: "clocked.json",

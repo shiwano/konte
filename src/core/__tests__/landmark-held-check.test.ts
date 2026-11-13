@@ -159,7 +159,7 @@ describe("findUnheldLandmarks", () => {
       findUnheldLandmarks(
         direction,
         [at("animatic:shot.02.key", "<Picture 2> holds the writing desk; in to the red armchair")],
-        [{ address: "animatic:shot.02.key", sources: ["animatic:shot.01.key"] }],
+        [{ address: "animatic:shot.02.key", sources: ["animatic:shot.01.key"], generative: true }],
       ),
     ).toEqual([]);
   });

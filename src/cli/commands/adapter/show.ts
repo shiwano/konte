@@ -61,23 +61,31 @@ function defaultCell(input: AdapterMetaInput): string {
 
 // `≥5` marks the floor a derived length is raised to, `≤362` the ceiling past which the load fails.
 // `×32` / `×17+5` marks the grid konte raises a number onto: a value passed off it comes back at
-// the next point. `@24` is the fps a frame count is measured on. `pin:start` / `pin:end` marks an
-// image the model reproduces as that frame; the pin check refuses a sheet or a plate there. `stem`
-// marks the take's own soundtrack, which konte fills on a piece cut to its song.
-function typeCell(input: AdapterMetaInput): string {
+// the next point. `≥4MP` on a width and height marks the size konte raises the pair to, aspect
+// kept. `@24` is the fps a frame count is measured on. `pin:start` / `pin:end` marks an image the
+// model reproduces as that frame; the pin check refuses a sheet or a plate there. `stem` marks the
+// take's own soundtrack, which konte fills on a piece cut to its song.
+function typeCell(input: AdapterMetaInput, minPixels: number | undefined): string {
   const base = input.array ? `${input.type}[]` : input.type;
   const clock = input.clock ? `@${input.clock}` : "";
   const grid = input.grid
     ? ` ×${input.grid.step}${input.grid.offset ? `+${input.grid.offset}` : ""}`
     : "";
+  const pixels =
+    minPixels !== undefined && (input.type === "width" || input.type === "height")
+      ? ` ≥${minPixels / 1_000_000}MP`
+      : "";
   const min = input.min !== undefined ? ` ≥${input.min}` : "";
   const max = input.max !== undefined ? ` ≤${input.max}` : "";
   const pin = input.pin ? ` pin:${input.pin}` : "";
   const stem = input.stem ? " stem" : "";
-  return `${base}${clock}${grid}${min}${max}${pin}${stem}`;
+  return `${base}${clock}${grid}${pixels}${min}${max}${pin}${stem}`;
 }
 
-function renderInputs(inputs: Record<string, AdapterMetaInput>): string {
+function renderInputs(
+  inputs: Record<string, AdapterMetaInput>,
+  minPixels: number | undefined,
+): string {
   // Required inputs first (declaration order kept within each group): they are what an asset() call
   // cannot omit, and in declaration order they scatter through a 20-row table — a reader who cuts
   // the output short misses one.
@@ -93,7 +101,7 @@ function renderInputs(inputs: Record<string, AdapterMetaInput>): string {
   const rows = entries.flatMap(([name, input]) => [
     {
       INPUT: name,
-      TYPE: typeCell(input),
+      TYPE: typeCell(input, minPixels),
       REQUIRED: input.required ? "yes" : "-",
       DEFAULT: defaultCell(input),
       // Quote each allowed value: a ComfyUI band reads as a label over a range (`8: -18.5--14`), so
@@ -132,10 +140,6 @@ function renderEntry(entry: AdapterCatalogEntry, unconfigured: boolean | null): 
   });
   if (entry.meta.allowedIn)
     lines.push(`scope   declared in ${entry.meta.allowedIn.join(", ")} only`);
-  if (entry.meta.readsPrevPanel)
-    lines.push(
-      "cut     readsPrevPanel — another shot's panel passed to an image input is the frame the cut comes from",
-    );
   // The specifier, plus how to import it — a named export, so a bare path would misread as a
   // default import (TS2613). A prebuilt adapter comes through the `adapters` namespace.
   lines.push(`import  ${entry.importFrom}`);
@@ -145,7 +149,7 @@ function renderEntry(entry: AdapterCatalogEntry, unconfigured: boolean | null): 
       : `        import { ${entry.name} } from "${entry.importFrom}"`,
   );
   lines.push("", entry.meta.description, "");
-  lines.push(renderInputs(entry.meta.inputs));
+  lines.push(renderInputs(entry.meta.inputs, entry.meta.minPixels));
   return lines.join("\n");
 }
 
