@@ -10,13 +10,13 @@ function firstSet(env: Env, ...names: string[]): string | undefined {
 
 function parseNoProxyEntry(entry: string): { host: string; port: string | null } {
   const match =
-    /^\[(?<host>[^\]]+)\](?::(?<port>\d+))?$/.exec(entry) ??
+    /^(?<host>\[[^\]]+\])(?::(?<port>\d+))?$/.exec(entry) ??
     /^(?<host>[^:]+):(?<port>\d+)$/.exec(entry);
   return { host: match?.groups?.host ?? entry, port: match?.groups?.port ?? null };
 }
 
 function bypassesProxy(url: URL, noProxy: string): boolean {
-  const host = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  const host = url.hostname.toLowerCase();
   const port = url.port;
   for (const raw of noProxy.split(",")) {
     const entry = raw.trim().toLowerCase();
