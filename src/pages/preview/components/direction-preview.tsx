@@ -69,8 +69,7 @@ function shotsOf(state: DirectionPreviewState): DirectionShotInfo[] {
 export function DirectionPreview({ state }: { state: DirectionPreviewState }): React.ReactElement {
   const [focusedShotId, setFocusedShotId] = useState<string | null>(null);
   // The verdict staged on the page's one Accept, absent while the reviewer has not touched it. It
-  // rides with the notes to a single submit: an Accept and the note it was conditioned on are one
-  // act of review.
+  // rides with the notes to a single submit.
   const [accept, setAccept] = useState<boolean | undefined>(undefined);
   // A verdict staged on the direction a reload replaced was on what the reviewer read, not on what
   // `reviewedHash` would now name.
@@ -404,8 +403,7 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
     },
   });
 
-  // A section the author emptied since it was accepted still shows: the Accept is what records
-  // that the reviewer saw it go.
+  // A section the author emptied since it was accepted still shows.
   const isShown = (section: PageSection) =>
     (partsBySection.get(section)?.length ?? 0) > 0 ||
     (section !== "brief" && state.sections[section] !== "accepted");
@@ -597,17 +595,13 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
   );
 }
 
-// The brief is not here: like the policy, it always has rows — its two list fields are parts even
-// when empty — so it can never be the section a cut emptied.
 const CUT_SECTION_TEXT: Record<"lyrics" | "waivers", string> = {
   lyrics: "The lyrics you accepted have been removed. This piece declares no song words.",
   waivers:
     "The waivers you accepted have been withdrawn. The author no longer overrules the checker.",
 };
 
-// A section the author emptied since it was accepted, shown so the Accept that records its removal
-// is an Accept of something read.
-// A section a part was removed from since it was accepted: nothing left on the page shows the cut.
+// A section a part was removed from since it was accepted.
 function TrimmedNote(): React.ReactElement {
   return (
     <p className="direction-section-cut">Something you accepted here has been removed since.</p>

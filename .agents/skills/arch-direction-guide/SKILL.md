@@ -210,7 +210,7 @@ Orphans — a part accepted and since deleted (the comparison is over the key se
 
 - One counts against its own section (that box reads not-`accepted` even empty), since only that box's Accept drops it (`applyDirectionSectionDecisions` clears a decided box's own orphans, never another's).
 - Once `whole` stands, orphans outside the piece-wide sections are swept by the next write — leaving one would keep `complete` false forever.
-- A brief part is never signed: `signableParts` drops it, no writer stamps it, `konte accept direction:brief…` refuses (`DIRECTION_PART_UNSIGNED`), and `inspect` and the page list it `unsigned`. A note on one stands until the field is rewritten or the note closed — no accept answers it.
+- A brief part is never signed: `signableParts` drops it, no writer stamps it, `konte accept direction:brief…` refuses (`DIRECTION_PART_UNSIGNED`), and `inspect` and the page list it `unsigned`. A note on one stands until the field is rewritten or the note closed.
 - A deleted waiver is no orphan (`orphanOwesReview`): it never blocks and any write sweeps it, before `whole` too. Waivers sit in `projectNode`, not `projectNodeShape`, so `sequence` does not move either.
 - `isDirectionSpendGateSatisfied` short-circuits on `whole.hash === directionHash` only while `parts` is non-empty.
 

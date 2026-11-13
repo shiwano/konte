@@ -62,19 +62,15 @@ function inSections(sections: ReadonlySet<DirectionSection>, address: string): b
 }
 
 // The sections whose sign-off no downstream media re-reads, so they are the ones the spend gate
-// keeps demanding for the life of the piece: `waivers` are inputs to the machine check and appear in
-// no frame; `policy` is the size, fps and type of every take, where a mistake remakes them all.
-// Everything else reaches a human downstream — the shots, the arc and the rosters as a panel, a
-// shot or a `reference:<id>` image, the lyrics as the song take (`SONG_SECTIONS`) — so once the
-// piece has been signed off whole, the reviews of that media are the reading that counts. A waiver
-// whose subject is a shot (`directionShotWaivers`) rides the shot's review instead.
+// keeps demanding for the life of the piece. A waiver whose subject is a shot
+// (`directionShotWaivers`) rides the shot's review instead.
 const PIECE_WIDE_SECTIONS: ReadonlySet<DirectionSection> = new Set(["policy", "waivers"]);
 
 // The sections a song is generated from.
 const SONG_SECTIONS: ReadonlySet<DirectionSection> = new Set(["policy", "lyrics"]);
 
-// The brief is what the author took down from the human: a part to leave a note on, with no
-// sign-off of its own. Takes a part or the scope over them.
+// The brief is a part to leave a note on, with no sign-off of its own. Takes a part or the scope
+// over them.
 export function isSignedDirectionPart(address: string): boolean {
   return directionSectionOf(address) !== null;
 }
@@ -457,7 +453,7 @@ export function applyDirectionPartDecisions(
 // The arc tree hangs a shot on its acts, and an animatic/video accept re-reads them (the reviewer is
 // looking at that shot inside that act); a setup is here because the shot's size and place live on
 // it, so the picture the reviewer accepted IS that frame. Nothing else — the policy, the lyrics, a
-// waiver on no shot — appears here: the policy and that waiver are signed on the direction's page. A node with no `id`
+// waiver on no shot — appears here. A node with no `id`
 // contributes no part (see `directionPartHashes`), so its address is filtered out by the live-part
 // lookup rather than special-cased.
 export function directionShotCascadeTargets(direction: Direction): Map<string, string[]> {
@@ -699,8 +695,8 @@ function restampDirectionParts(
 //
 // The sweep drops ORPHANS — records for parts that no longer exist — in the sections the gate has
 // stopped reading, since leaving one would keep `complete` false forever and a finished piece could
-// never show a clean direction page. The gated sections keep theirs, where losing a policy field
-// is a change a human still has to sign. A waiver's orphan is swept always (`orphanOwesReview`).
+// never show a clean direction page. The gated sections keep theirs. A waiver's orphan
+// is swept always (`orphanOwesReview`).
 function finalizeAcceptance(
   direction: Direction,
   parts: DirectionAcceptance["parts"],

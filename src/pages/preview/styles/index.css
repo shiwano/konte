@@ -4872,7 +4872,7 @@ body:has(.reference-preview) {
   color: var(--accent-hover);
 }
 
-/* A setup's size, before its name: the cadence reads down the list. */
+/* A setup's size, before its name. */
 .dir-rail-size {
   flex: none;
   width: 3.2rem;
