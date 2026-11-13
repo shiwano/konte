@@ -4495,16 +4495,654 @@ body.fill-mode .fab-submit-wrap {
   }
 }
 
-/* Direction preview — a media-less review (arc, shots, characters, findings). */
-/* Full width of <main>'s column, so the body, the header bar and the decision bar all share one
-   set of edges. */
+/* Direction preview — a media-less review, laid out as a document: the index pinned to the left
+   edge, which <main> makes room for so the banners above the page clear it too, and a side panel
+   that slides over the right of the page for one part at a time. */
+:root {
+  --dir-rail-w: 17.5rem;
+  --dir-peek-w: min(34rem, 92vw);
+  --dir-peek-wide: max(var(--dir-peek-w), min(64rem, 100vw - 22rem));
+  --dir-slide: 0.22s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.main-content:has(.direction-preview) {
+  max-width: none;
+}
+
 /* padding-bottom clears the fixed .fab-submit-wrap, as .review-table does. */
 .direction-preview {
   width: 100%;
   padding-bottom: 92px;
-  /* The headline's own height, pinned rather than derived: the column headers stick directly under
-     it, so the two offsets have to agree exactly or the rows show through the seam. */
-  --dir-head-h: 44px;
+}
+
+.dir-page {
+  max-width: 72rem;
+  margin: 0 auto;
+}
+
+.dir-icon-btn {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+}
+
+.dir-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.dir-icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* A column's own scroll: the bar shows only while the column is in use. */
+.dir-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.2s;
+}
+
+.dir-scroll:hover,
+.dir-scroll:focus-within {
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.dir-rail {
+  position: fixed;
+  top: var(--header-h);
+  bottom: 0;
+  left: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  width: var(--dir-rail-w);
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  font-size: 0.84rem;
+  /* Shut, it is off the edge and out of reach; `visibility` waits for the slide to finish. */
+  transform: translateX(-100%);
+  visibility: hidden;
+  transition:
+    transform var(--dir-slide),
+    visibility 0s linear 0.22s;
+}
+
+.dir-rail--open {
+  transform: none;
+  visibility: visible;
+  transition:
+    transform var(--dir-slide),
+    visibility 0s;
+}
+
+/* Starts under the toggle, which sits over the index's top-left corner. */
+.dir-rail-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 2.6rem;
+  padding: 0.3rem 0.5rem 2rem;
+}
+
+/* The index's toggle: one place on screen, the index open or shut. */
+.dir-rail-toggle {
+  position: fixed;
+  top: calc(var(--header-h) + 0.5rem);
+  left: 0.6rem;
+  z-index: 41;
+}
+
+.dir-rail-shots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 0.25rem 0.6rem 0.5rem 1.55rem;
+}
+
+.dir-rail-shots--nested {
+  padding-left: 2.85rem;
+}
+
+.dir-rail-shot {
+  min-width: 1.9rem;
+  height: 1.5rem;
+  padding: 0 0.3rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: var(--fn-soft, var(--bg-elevated));
+  font: inherit;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--fn-color, var(--text-secondary));
+  cursor: pointer;
+}
+
+.dir-rail-shot:hover,
+.dir-rail-shot[aria-current="true"] {
+  border-color: var(--fn-color, var(--border-strong));
+  color: var(--text-primary);
+}
+
+.dir-rail-tools {
+  display: none;
+}
+
+.dir-rail-tools-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.4rem 0.6rem;
+}
+
+.dir-rail-hint {
+  display: inline-flex;
+  flex: none;
+  color: var(--text-muted);
+  opacity: 0;
+}
+
+.dir-rail-row:hover .dir-rail-hint,
+.dir-rail-row:focus-within .dir-rail-hint {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .dir-rail-hint {
+    opacity: 0.5;
+  }
+}
+
+.dir-rail-group + .dir-rail-group {
+  margin-top: 1.1rem;
+}
+
+.dir-rail-title {
+  margin: 0;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.dir-rail-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 30px;
+  padding: 0.15rem 0.6rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.dir-rail-row:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.dir-rail-row--current {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.dir-rail-row--nested {
+  padding-left: 1.9rem;
+}
+
+/* A roster row is two controls: the disclosure of the rows under it, and the entry itself. */
+.dir-rail-fold {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-left: -0.3rem;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.dir-rail-fold:hover {
+  background: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.dir-rail-fold svg {
+  transition: transform 0.12s;
+}
+
+.dir-rail-fold[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+
+.dir-rail-open {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  min-height: 30px;
+  margin: -0.15rem 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+.dir-rail-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dir-rail-meta {
+  flex: none;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.dir-rail-noted {
+  display: inline-flex;
+  flex: none;
+  color: var(--accent-hover);
+}
+
+/* A setup's size, before its name: the cadence reads down the list. */
+.dir-rail-size {
+  flex: none;
+  width: 3.2rem;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.dir-rail-sub {
+  display: block;
+  padding: 0.5rem 0.6rem 0.2rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.dir-rail-cut {
+  margin: 0;
+  padding: 0.2rem 0.6rem 0.4rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.dir-scrim {
+  display: none;
+}
+
+/* One part at full width, over the right of the page: a header that stays, and a body that scrolls.
+   The page under it keeps its layout. */
+.dir-peek {
+  position: fixed;
+  top: var(--header-h);
+  right: 0;
+  bottom: 0;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  width: var(--dir-peek-w);
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border);
+  transform: translateX(100%);
+  visibility: hidden;
+  transition:
+    transform var(--dir-slide),
+    visibility 0s linear 0.22s;
+}
+
+.dir-peek--wide {
+  width: var(--dir-peek-wide);
+}
+
+.dir-peek--open {
+  transform: none;
+  visibility: visible;
+  box-shadow: -12px 0 32px rgba(0, 0, 0, 0.4);
+  transition:
+    transform var(--dir-slide),
+    visibility 0s;
+}
+
+/* Submit stays in reach beside the panel rather than under it. */
+body:has(.direction-preview) .fab-submit-wrap {
+  transition: right var(--dir-slide);
+}
+
+body:has(.dir-peek--open:not(.dir-peek--wide)) .fab-submit-wrap {
+  right: calc(var(--dir-peek-w) + 1.25rem);
+}
+
+.dir-peek-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: none;
+  padding: 0.6rem 0.8rem;
+}
+
+.dir-peek-kind {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.dir-peek-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 1rem 2.2rem 6rem;
+}
+
+.dir-peek-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 1rem;
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+.dir-peek-text {
+  margin: 0 0 0.8rem;
+  font-size: 0.95rem;
+  line-height: 1.85;
+  color: var(--text-primary);
+}
+
+.dir-peek-props {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0 0 1.2rem;
+  font-size: 0.88rem;
+}
+
+.dir-peek-props > div {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr);
+  align-items: baseline;
+}
+
+.dir-peek-props dt {
+  color: var(--text-muted);
+}
+
+.dir-peek-props dd {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.dir-peek-section {
+  margin-top: 1.6rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.dir-peek-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.dir-peek-list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
+.dir-peek-list dt {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.dir-peek-list dd {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+/* Another part, opened in this panel's place. */
+.dir-peek-link {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 34px;
+  margin: 0 -0.6rem;
+  padding: 0.2rem 0.6rem;
+  box-sizing: content-box;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.dir-peek-link:hover {
+  background: var(--bg-hover);
+}
+
+.dir-peek-link-name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dir-peek-link-meta {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.dir-peek-act {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.1rem;
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
+}
+
+.dir-peek-act-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 600;
+}
+
+.dir-peek-act .dir-peek-link-meta {
+  color: var(--fn-color, var(--text-muted));
+}
+
+.dir-peek-act-text {
+  font-size: 0.84rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.dir-peek-shots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.dir-peek-shot {
+  min-width: 2.2rem;
+  height: 1.7rem;
+  padding: 0 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  font: inherit;
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.dir-peek-shot:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.dir-peek-ref {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--accent-hover);
+  cursor: pointer;
+}
+
+.dir-peek-ref:hover {
+  text-decoration: underline;
+}
+
+/* Wide enough for the index to stand beside the script. */
+@media (min-width: 48.01rem) {
+  .main-content:has(.direction-preview--rail) {
+    padding-left: calc(var(--dir-rail-w) + 1.75rem);
+  }
+
+  .main-content:has(.direction-preview:not(.direction-preview--rail)) .dir-sc {
+    margin-top: 0;
+  }
+}
+
+/* A phone: the index is a drawer over the page, and the side panel takes the screen. */
+@media (max-width: 48rem) {
+  .dir-rail {
+    top: 0;
+    z-index: 120;
+    width: min(20rem, 86vw);
+    box-shadow: 12px 0 32px rgba(0, 0, 0, 0.45);
+  }
+
+  .dir-rail-toggle {
+    z-index: 125;
+  }
+
+  .dir-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    padding: 0;
+    border: 0;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--dir-slide);
+  }
+
+  .direction-preview--rail > .dir-scrim {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .dir-peek {
+    top: 0;
+    z-index: 130;
+    width: 100vw;
+    border-left: 0;
+  }
+
+  body:has(.dir-peek--open:not(.dir-peek--wide)) .fab-submit-wrap {
+    right: 1.25rem;
+  }
+}
+
+/* The header stops pinning at this width and the page scrolls under it, so the toggle takes the
+   bar's own left corner. */
+@media (max-width: 640px) {
+  /* Sized and drawn as the bar's own buttons (.ctrl-btn), which it stands in line with. */
+  .dir-rail-toggle {
+    top: 7px;
+    left: 0.75rem;
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+  }
+
+  body:has(.direction-preview) .header-inner {
+    padding-left: calc(0.75rem + 34px + 0.6rem);
+  }
+
+  .dir-rail-scroll {
+    margin-top: 3rem;
+  }
+
+  /* One row: what the reviewer acts on stays, the rest moves into the index. */
+  body:has(.direction-preview) .header-actions {
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    width: 100%;
+  }
+
+  body:has(.direction-preview) .header-actions > .review-toggle,
+  body:has(.direction-preview) .header-actions > .review-shortcuts-wrap,
+  body:has(.direction-preview) .header-actions > .header-actions-break,
+  body:has(.direction-preview) .header-actions > .vp-reset {
+    display: none;
+  }
+
+  .dir-rail-tools {
+    display: block;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dir-rail,
+  .dir-peek,
+  .dir-scrim,
+  .fab-submit-wrap {
+    transition: none;
+  }
+
+  .dir-peek-scroll {
+    padding: 0.6rem 1.2rem 4rem;
+  }
 }
 
 .direction-section-title {
@@ -4516,140 +5154,73 @@ body.fill-mode .fab-submit-wrap {
   margin: 0;
 }
 
-/* One reviewable box: heading, Accept, and the rows they are a verdict about, drawn as a single
-   card. The heading and the rows have to read as one thing — the Accept at the top signs off what
-   is below it, and a bare heading floating over an unrelated table leaves the reviewer to infer
-   that. The card is also what makes a focus ring legible: there is an edge to draw it on. */
-.direction-section {
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 0.7rem 0.8rem 0.8rem;
-  scroll-margin: 1rem;
-  transition: border-color 0.12s;
-  /* The card rounds its own corners, so the square-cornered sticky headline can run edge to edge
-     wherever it comes to rest. `clip`, never `hidden`: `hidden` would make this card a scroll
-     container, and the headline would then stick to the card instead of to the page. */
-  overflow: clip;
+/* The sections under the script. */
+.dir-block {
+  margin-top: 2.6rem;
+  scroll-margin-top: calc(var(--header-h) + 1rem);
 }
 
-/* Clicking a card focuses it, so an unfocused one answers the pointer — otherwise the only hint
-   that a click does anything is the highlight that appears after you take the chance. */
-.direction-section:not(.direction-section--focused):hover {
-  border-color: var(--border-strong);
-}
-
-/* The box J/K/A/N act on — the whole card, since the whole card is what the next keystroke decides.
-   The accent edge mirrors `.review-row--focused` on the other pages; the tint stays off the body so
-   a table of prose does not sit behind a wash of colour. */
-.direction-section--focused {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent-soft);
-}
-
-/* Layered over the panel colour rather than replacing it: the headline is sticky, so a translucent
-   tint alone would let the rows scrolling underneath read through it. */
-.direction-section--focused .direction-section-headline {
-  background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--bg-panel);
-}
-
-/* The verdict stays with the box it settles: the headline pins under the app header for as long as
-   its card is on screen, so a reviewer partway down the shot table still has that section's Accept
-   in reach — and crossing into the next card hands the slot to the next headline. Full-bleed to the
-   card edges like .direction-section-body, and opaque, because rows now scroll beneath it. Square
-   corners: a rounded top reads as the head of a card, and once this one has slid down to the middle
-   of its own card the rows pass through the corners. The card clips them at rest instead. */
-.direction-section-headline {
-  position: sticky;
-  top: var(--header-h);
-  z-index: 3;
-  height: var(--dir-head-h);
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin: -0.7rem -0.8rem 0.6rem;
-  /* Trimmed to hold a 34px Accept: this bar's height is pinned, so the room comes from inside. */
-  padding: 0.25rem 1.2rem;
-  background: var(--bg-panel);
-  border-bottom: 1px solid var(--border);
-}
-
-/* Rows inside the card own the card's horizontal padding: a table flush to the card edge reads as
-   the card's content rather than as a second box laid inside it.
-
-   `clip` on the x axis, never `auto`: `auto` makes this a scroll container on BOTH axes, and the
-   column headers inside would then stick to a box that never scrolls vertically — that is, to
-   nothing. `clip` leaves the y axis visible, so they pin to the page instead. Nothing overflows at
-   this width (the widest table's min-content is ~640px); the narrow case takes the scrollbar back
-   below. */
-.direction-section-body {
-  margin: 0 -0.8rem -0.8rem;
-  padding: 0 0.8rem 0.8rem;
-  overflow-x: clip;
-}
-
-/* Pushes the accept control to the right edge, so every box's button lands on the same column and
-   the page reads as a checklist of decisions rather than a stack of unrelated widgets. */
-.direction-section-accept {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  min-height: 34px;
-  padding: 0.25rem 0.7rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  background: var(--bg-panel);
-  border: 1px solid var(--border-strong);
-  /* The same corner the header's buttons turn, a row above. */
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition:
-    color 0.12s,
-    border-color 0.12s,
-    background 0.12s;
-}
-
-.direction-section-accept:hover:not(:disabled) {
-  color: var(--text-primary);
-  border-color: var(--accent);
-}
-
-.direction-section-accept:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-/* An accepted box states it in the affirmative colour — scanning the page for what is left to do
-   is the reviewer's main loop, so "done" has to be legible without reading the label. */
-.direction-section-accept--on {
-  color: var(--green);
-  border-color: var(--green);
-  background: var(--green-soft);
-}
-
-/* The one piece of controlled vocabulary the page spends in full — the feeling the piece chases
-   is the only such word a reviewer can take a position on. */
-.direction-pleasure {
-  display: flex;
-  align-items: baseline;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  margin: 0 0 0.6rem;
-}
-
-.direction-pleasure-name {
+/* A part reworded since its accept, or added since. */
+.dir-mark {
+  flex: none;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  font-size: 0.6rem;
   font-weight: 700;
-  font-size: 0.95rem;
-  color: var(--text-primary);
+  letter-spacing: 0.05em;
+  line-height: 1.6;
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
 }
 
-.direction-pleasure-gloss {
-  font-size: 0.82rem;
-  color: var(--text-secondary);
-  flex: 1 1 20rem;
-  min-width: 0;
+.dir-mark--new {
+  background: var(--yellow-soft);
+  color: var(--yellow);
+}
+
+.dir-sc-gutter .dir-mark {
+  display: inline-block;
+  margin-top: 0.25rem;
+}
+
+/* A name in the script that opens its roster entry: the word it already was, until pointed at. */
+.dir-roster-name {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.dir-roster-name:hover,
+.dir-roster-name:focus-visible {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+.dir-sc-names > .dir-roster-name + .dir-roster-name::before {
+  content: " · ";
+}
+
+/* Where a jump landed. */
+[data-spot] {
+  animation: dir-spot 1.6s ease-out;
+}
+
+@keyframes dir-spot {
+  from {
+    background-color: var(--accent-soft);
+    box-shadow: 0 0 0 4px var(--accent-soft);
+  }
+  to {
+    background-color: transparent;
+    box-shadow: 0 0 0 4px transparent;
+  }
 }
 
 /* An act that names its own aim, beside its synopsis on the sequence row. */
@@ -4665,10 +5236,12 @@ body.fill-mode .fab-submit-wrap {
 
 /* An act that turns the feeling: the one claim on this row a reviewer is likely to argue with. */
 .dir-seq-pleasure--shift {
-  color: var(--accent-hover);
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .dir-seq-pleasure-gloss {
+  font-weight: 400;
   color: var(--text-muted);
 }
 
@@ -4766,10 +5339,6 @@ body.fill-mode .fab-submit-wrap {
   opacity: 0.7;
 }
 
-.direction-section + .direction-section {
-  margin-top: 1.6rem;
-}
-
 /* The reviewer-facing meaning of a policy value ("any backend allowed") — trails the value, dimmed,
    so the bare token reads first and the gloss explains it. */
 .direction-policy-gloss {
@@ -4781,24 +5350,22 @@ body.fill-mode .fab-submit-wrap {
 /* The direction as a script page, not a stack of cards: one labelled column per field, so a shot is
    read across and the whole direction is read down. The Notes column carries each part's live thread,
    so what has been said (and where nothing has) is legible without unfolding anything. */
-/* Border-less: the section card around it already draws the box. */
 .dir-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.88rem;
-  margin-top: 1.5rem;
+  margin-top: 0.8rem;
 }
 
-/* Pinned under the section headline for as long as its own table is on screen, so a reviewer partway
-   down a long shot list still reads each cell against the column it is in. Below the headline (3) so
-   the two do not fight over the slot, and opaque because rows scroll beneath it.
+/* Pinned under the app header for as long as its own table is on screen, and opaque because rows
+   scroll beneath it.
 
    The rule under it is an inset shadow rather than a border: this table collapses its borders, and a
    collapsed border belongs to the table's own border grid, which does not travel with a sticky
    cell. */
 .dir-table th {
   position: sticky;
-  top: calc(var(--header-h) + var(--dir-head-h));
+  top: var(--header-h);
   z-index: 2;
   padding: 0.45rem 0.7rem;
   background: var(--bg-elevated);
@@ -4840,12 +5407,6 @@ body.fill-mode .fab-submit-wrap {
   align-items: baseline;
   gap: 0.6rem;
   flex-wrap: wrap;
-}
-
-.dir-seq-lens {
-  font-size: 0.78rem;
-  color: var(--accent-hover);
-  white-space: nowrap;
 }
 
 .dir-inline-label {
@@ -5184,15 +5745,25 @@ body.fill-mode .fab-submit-wrap {
   content: "○ ";
 }
 
-.dir-sc-join {
-  display: block;
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--orange);
+/* A jump in time, on the boundary it happens at: a rule between the two shots, named at its head. */
+.dir-sc-jump .dir-sc-body {
+  padding-top: 0.1rem;
+  padding-bottom: 0.1rem;
 }
-.dir-sc-join::before {
-  content: "— ";
+.dir-sc-join {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+.dir-sc-join::after {
+  content: "";
+  flex: 1 1 auto;
+  margin-left: 0.3rem;
+  border-top: 1px dashed var(--border-strong);
 }
 
 .dir-sc-act .dir-sc-body {
@@ -5266,9 +5837,6 @@ body.fill-mode .fab-submit-wrap {
 }
 .dir-sc-acting::after {
   content: "）";
-}
-.dir-sc-text {
-  font-size: 1rem;
 }
 .dir-sc-line--narration .dir-sc-text {
   font-style: italic;
@@ -5563,10 +6131,9 @@ body.fill-mode .fab-submit-wrap {
 }
 
 @media (max-width: 800px) {
-  /* Narrow enough for a table to outgrow the card: reaching the columns that ran off the edge beats
-     pinning the header of the ones that did not. Restores the scroll container, which is what the
-     sticky headers above give up. */
-  .direction-section-body {
+  /* Narrow enough for a table to outgrow its section: reaching the columns that ran off the edge
+     beats pinning the header of the ones that did not. */
+  .dir-block {
     overflow-x: auto;
   }
 
@@ -5692,8 +6259,7 @@ body.fill-mode .fab-submit-wrap {
 .direction-map {
   --sm-label-w: 76px;
   position: relative;
-  /* Confines the zoom overlay's z-index to this box, so it cannot rise over the sticky section
-     headline and cover that section's Accept. */
+  /* Confines the zoom overlay's z-index to this box. */
   isolation: isolate;
   display: flex;
   flex-direction: column;
@@ -6016,12 +6582,6 @@ body.fill-mode .fab-submit-wrap {
   height: 24px;
   min-width: 26px;
   padding: 0 7px;
-}
-
-/* The shot card a direction-map click jumps to. */
-.direction-shot--focused {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
 }
 
 /* Asset info panel — the read-only declaration behind one asset (backend, prompt, inputs),

@@ -2,6 +2,7 @@ import type React from "react";
 
 import type { DirectionWaiverInfo } from "../../types.js";
 import type { NotesRenderer } from "./dir-table.js";
+import { PartMarkTag } from "./marks.js";
 
 // The one place an agent overrules the checker on its own authority: each row is a rule the
 // direction breaks, plus the author's argument for breaking it. Nothing here blocks generation — a
@@ -26,9 +27,9 @@ export function DirectionWaivers({
       </thead>
       <tbody>
         {waivers.map((w) => (
-          <tr key={w.address} className="dir-row">
+          <tr key={w.address} className="dir-row" data-part={w.address}>
             <td className="dir-col-syn">
-              {w.message}
+              {w.message} <PartMarkTag address={w.address} />
               <span className="dir-waiver-code">
                 {w.code}
                 {w.subject && `: ${w.subject}`}

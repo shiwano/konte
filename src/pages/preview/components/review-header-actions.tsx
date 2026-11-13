@@ -50,10 +50,8 @@ export function ReviewHeaderActions({
     onClick: () => void;
   };
   acceptAll?: { done: boolean; what: string; onClick: () => void };
-  reset: { disabled: boolean; discards?: string; onClick: () => void };
+  reset: ResetAction;
 }): React.ReactElement {
-  const [confirmingReset, setConfirmingReset] = useState(false);
-  const discards = reset.discards ?? "every accept mark, take switch, and draft note";
   return (
     <>
       {next && <NextUnreviewedButton {...next} />}
@@ -67,15 +65,7 @@ export function ReviewHeaderActions({
           <CheckIcon size={13} /> {acceptAll.done ? "All accepted" : "Accept all"}
         </button>
       )}
-      <button
-        type="button"
-        className="ctrl-btn vp-reset"
-        onClick={() => setConfirmingReset(true)}
-        disabled={reset.disabled}
-        title={`Discard ${discards}: back to how this review opened`}
-      >
-        <ResetIcon size={13} /> Reset
-      </button>
+      <ResetButton reset={reset} />
       {acceptCurrent && (
         <button
           type="button"
@@ -93,12 +83,36 @@ export function ReviewHeaderActions({
           <CheckIcon size={13} /> {acceptCurrent.accepted ? "Accepted" : "Accept"}
         </button>
       )}
-      {confirmingReset && (
+    </>
+  );
+}
+
+export interface ResetAction {
+  disabled: boolean;
+  discards?: string;
+  onClick: () => void;
+}
+
+export function ResetButton({ reset }: { reset: ResetAction }): React.ReactElement {
+  const [confirming, setConfirming] = useState(false);
+  const discards = reset.discards ?? "every accept mark, take switch, and draft note";
+  return (
+    <>
+      <button
+        type="button"
+        className="ctrl-btn vp-reset"
+        onClick={() => setConfirming(true)}
+        disabled={reset.disabled}
+        title={`Discard ${discards}: back to how this review opened`}
+      >
+        <ResetIcon size={13} /> Reset
+      </button>
+      {confirming && (
         <ResetConfirmModal
           discards={discards}
-          onCancel={() => setConfirmingReset(false)}
+          onCancel={() => setConfirming(false)}
           onConfirm={() => {
-            setConfirmingReset(false);
+            setConfirming(false);
             reset.onClick();
           }}
         />

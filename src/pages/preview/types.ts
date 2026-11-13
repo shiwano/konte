@@ -1,5 +1,8 @@
 import type { RoleFunction } from "../../core/direction-check.js";
-import type { DirectionSectionStatus } from "../../core/direction-acceptance.js";
+import type {
+  DirectionPartStatus,
+  DirectionSectionStatus,
+} from "../../core/direction-acceptance.js";
 import type { PanelRole } from "../../core/direction.js";
 import type { Framing } from "../../core/dsl/direction.js";
 import type { ShotJoin } from "../../core/types/definition.js";
@@ -10,7 +13,7 @@ import type { View } from "../../core/view.js";
 import type { DirectionSection } from "../../core/address.js";
 
 export { DIRECTION_SECTIONS, type DirectionSection } from "../../core/address.js";
-export type { DirectionSectionStatus, PanelRole, RoleFunction, ScriptLineView };
+export type { PanelRole, RoleFunction, ScriptLineView };
 
 export type VariantStatus = "none" | "accepted";
 
@@ -469,6 +472,8 @@ export interface ReferencePreviewState {
 // `direction:<part>` address (no variants, so `displayedVariants` is always empty).
 export interface DirectionPartInfo {
   address: string;
+  // `accepted` on a part no one signs.
+  status: DirectionPartStatus;
   feedback: FeedbackInfo[];
   handoffNote?: string;
 }
@@ -543,6 +548,15 @@ export interface DirectionShotInfo extends DirectionPartInfo {
   duration: number | null;
   // The beats it was written as, on a direction cut to a song; null without one.
   beats: number | null;
+  // The roster entries the shot shows, by roster id — its own frame's before its cutin's.
+  shows: DirectionShotRoster;
+}
+
+export interface DirectionShotRoster {
+  locations: string[];
+  setups: string[];
+  characters: string[];
+  props: string[];
 }
 
 // A node of the arc tree below the root: an act. A leaf act carries `shots`; a branch act carries
@@ -586,7 +600,7 @@ export interface DirectionLyricsInfo extends DirectionPartInfo {
   }[];
 }
 
-export interface DirectionPropInfo extends DirectionPartInfo {
+interface DirectionPropInfo extends DirectionPartInfo {
   id: string;
   name: string;
   description: string;
@@ -608,7 +622,7 @@ export interface DirectionLocationInfo extends DirectionPartInfo {
 
 // One landmark, shown under the location that declares it. It is no part of its own: what a place is
 // made of is reviewed with the place, so it carries no address and no notes.
-export interface DirectionLandmarkInfo {
+interface DirectionLandmarkInfo {
   id: string;
   name: string;
   description: string;

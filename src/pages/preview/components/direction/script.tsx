@@ -10,9 +10,20 @@ import type {
   DirectionPreviewState,
   DirectionSequenceInfo,
   DirectionShotInfo,
+  DirectionShotRoster,
 } from "../../types.js";
-import { ChevronRightIcon } from "../icons.js";
+import { ChevronRightIcon, ForwardIcon, RewindIcon } from "../icons.js";
 import type { NotesRenderer } from "./dir-table.js";
+import { PartMarkTag } from "./marks.js";
+
+// A roster entry as the script names it: the roster it is in, and the name the shot prints.
+type RosterKind = keyof DirectionShotRoster;
+// Opens the entry a shot's word names in the index — null where the roster holds none by it.
+type RosterOpener = (
+  kind: RosterKind,
+  name: string,
+  shot: DirectionShotInfo,
+) => (() => void) | null;
 
 // The meter a span is read in bars by — null on a piece with no song, whose spans are seconds.
 const SongMeterContext = createContext<{ beatsPerBar: number | null } | null>(null);
@@ -33,11 +44,13 @@ interface ScriptContext {
   // shot's start on the clock — null from the first shot with no span on.
   sceneOpeners: ReadonlySet<string>;
   starts: ReadonlyMap<string, number | null>;
+  openerOf: RosterOpener;
 }
 
 // The shots as a screenplay: a scene heading where the location changes, each shot's action and
 // lines, its staging folded away. A graphic shot or an aside heads no scene — it plays inside the
-// scene around it. Selecting words in a shot offers to comment on them in a panel under the selection.
+// scene around it. Selecting words in a shot offers to comment on them in a panel under the
+// selection; a place, a speaker or a staging name opens its roster entry in the index.
 export function ShotScript({
   kind,
   shots,
@@ -50,6 +63,7 @@ export function ShotScript({
   isStagingOpen,
   onToggleStaging,
   onAddComment,
+  openerOf,
 }: {
   kind: DirectionPreviewState["kind"];
   shots: DirectionShotInfo[] | undefined;
@@ -62,6 +76,7 @@ export function ShotScript({
   isStagingOpen: (shotId: string) => boolean;
   onToggleStaging: (shotId: string) => void;
   onAddComment: (address: string, text: string) => void;
+  openerOf: RosterOpener;
 }): React.ReactElement {
   const { sceneOpeners, starts } = useMemo(() => {
     const ordered = kind === "sequenced" ? (sequences ?? []).flatMap(collectShots) : (shots ?? []);
@@ -95,6 +110,7 @@ export function ShotScript({
     onToggleStaging,
     sceneOpeners,
     starts,
+    openerOf,
   };
 
   return (
@@ -131,12 +147,16 @@ function ScriptSequence({
 }): React.ReactElement {
   return (
     <>
-      <div className={`dir-sc-row dir-sc-act${depth > 0 ? " dir-sc-act--nested" : ""}`}>
+      <div
+        data-part={sequence.address}
+        className={`dir-sc-row dir-sc-act${depth > 0 ? " dir-sc-act--nested" : ""}`}
+      >
         <div className="dir-sc-gutter">
           <span className="dir-sc-id">{sequence.id}</span>
           <span className="dir-sc-time">
             <SequenceSpan sequence={sequence} />
           </span>
+          <PartMarkTag address={sequence.address} />
         </div>
         <div className="dir-sc-body">
           <SequenceSummary sequence={sequence} parentPleasure={parentPleasure} />
@@ -178,10 +198,13 @@ function ScriptShot({
   return (
     <>
       {shot.join && shot.join !== "continuous" && (
-        <div className="dir-sc-row">
+        <div className="dir-sc-row dir-sc-jump">
           <div className="dir-sc-gutter" />
           <div className="dir-sc-body">
-            <span className="dir-sc-join">{JOIN_LABEL[shot.join]}</span>
+            <span className="dir-sc-join">
+              {shot.join === "jump-back" ? <RewindIcon size={12} /> : <ForwardIcon size={12} />}
+              {JOIN_LABEL[shot.join]}
+            </span>
           </div>
           <div className="dir-sc-notes" />
         </div>
@@ -189,11 +212,16 @@ function ScriptShot({
       {ctx.sceneOpeners.has(shot.id) && (
         <div className="dir-sc-row">
           <div className="dir-sc-gutter" />
-          <h3 className="dir-sc-body dir-sc-scene">{shot.location}</h3>
+          <h3 className="dir-sc-body dir-sc-scene">
+            <RosterName open={ctx.openerOf("locations", shot.location ?? "", shot)}>
+              {shot.location}
+            </RosterName>
+          </h3>
         </div>
       )}
       <div
         data-shot-id={shot.id}
+        data-part={shot.address}
         className={`dir-sc-row dir-sc-shot${
           shot.beatFunction ? ` direction-fn--${shot.beatFunction}` : ""
         }${ctx.focusedShotId === shot.id ? " dir-sc-shot--focused" : ""}`}
@@ -204,6 +232,7 @@ function ScriptShot({
             {start !== null && <>{formatTimecode(start)} · </>}
             <Span seconds={shot.duration} beats={shot.beats} />
           </span>
+          <PartMarkTag address={shot.address} />
         </div>
         <div className="dir-sc-body" data-quote-address={shot.address}>
           <p className="dir-sc-action">
@@ -229,7 +258,11 @@ function ScriptShot({
               className={`dir-sc-line${line.speaker === null ? " dir-sc-line--narration" : ""}`}
             >
               {line.speaker !== null && (
-                <span className="dir-sc-speaker dir-sc-unquotable">{line.speaker}</span>
+                <span className="dir-sc-speaker dir-sc-unquotable">
+                  <RosterName open={ctx.openerOf("characters", line.speaker, shot)}>
+                    {line.speaker}
+                  </RosterName>
+                </span>
               )}
               {line.acting && (
                 <span className="dir-sc-acting" data-quote-field={1 + i * 2}>
@@ -255,7 +288,7 @@ function ScriptShot({
               {[shot.cutin.setup, ...shot.cutin.lineup].join(" · ")}
             </p>
           )}
-          {open && <ShotStaging shot={shot} />}
+          {open && <ShotStaging shot={shot} openerOf={ctx.openerOf} />}
         </div>
         <div className="dir-sc-notes">{ctx.renderNotes(shot)}</div>
       </div>
@@ -264,7 +297,26 @@ function ScriptShot({
 }
 
 // Where the shot is taken from and who it holds, folded under its action.
-function ShotStaging({ shot }: { shot: DirectionShotInfo }): React.ReactElement {
+function ShotStaging({
+  shot,
+  openerOf,
+}: {
+  shot: DirectionShotInfo;
+  openerOf: RosterOpener;
+}): React.ReactElement {
+  const names = (kind: RosterKind, list: string[]): React.ReactNode[] =>
+    list.map((name, i) => (
+      // Keyed by position: `lineup` and `lineupTo` may name one character twice between them.
+      <RosterName key={i} open={openerOf(kind, name, shot)}>
+        {name}
+      </RosterName>
+    ));
+  const frameOf = (location: string | null, setup: string | null) => ({
+    location: location && (
+      <RosterName open={openerOf("locations", location, shot)}>{location}</RosterName>
+    ),
+    setup: setup && <RosterName open={openerOf("setups", setup, shot)}>{setup}</RosterName>,
+  });
   const hasLineup = shot.lineup.length > 0 || shot.lineupTo.length > 0 || shot.passing.length > 0;
   return (
     <dl className="dir-sc-staging dir-sc-unquotable">
@@ -279,7 +331,7 @@ function ShotStaging({ shot }: { shot: DirectionShotInfo }): React.ReactElement 
         {shot.graphic ? (
           <span className="dir-framing dir-framing--graphic">graphic</span>
         ) : (
-          <Frame location={shot.location} framing={shot.framing} setup={shot.setup} />
+          <Frame framing={shot.framing} {...frameOf(shot.location, shot.setup)} />
         )}
         {shot.coverage && (
           <span className="dir-coverage">coverage · the model cuts after this frame</span>
@@ -296,16 +348,18 @@ function ShotStaging({ shot }: { shot: DirectionShotInfo }): React.ReactElement 
         <>
           <dt>Lineup (L→R)</dt>
           <dd>
-            {shot.lineup.length > 0 && <Lineup names={shot.lineup} />}
-            {shot.lineupTo.length > 0 && <Lineup names={shot.lineupTo} exit />}
-            {shot.passing.length > 0 && <span>passing: {shot.passing.join(" · ")}</span>}
+            {shot.lineup.length > 0 && <Lineup names={names("characters", shot.lineup)} />}
+            {shot.lineupTo.length > 0 && <Lineup names={names("characters", shot.lineupTo)} exit />}
+            {shot.passing.length > 0 && (
+              <span className="dir-sc-names">passing: {names("characters", shot.passing)}</span>
+            )}
           </dd>
         </>
       )}
       {shot.props.length > 0 && (
         <>
           <dt>Props</dt>
-          <dd>{shot.props.join(" · ")}</dd>
+          <dd className="dir-sc-names">{names("props", shot.props)}</dd>
         </>
       )}
       {shot.cutin && (
@@ -313,16 +367,23 @@ function ShotStaging({ shot }: { shot: DirectionShotInfo }): React.ReactElement 
           <dt>Cutin{shot.cutin.join ? ` · ${JOIN_LABEL[shot.cutin.join]}` : ""}</dt>
           <dd>
             <Frame
-              location={shot.cutin.location}
               framing={shot.cutin.framing}
-              setup={shot.cutin.setup}
+              {...frameOf(shot.cutin.location, shot.cutin.setup)}
             />
-            {shot.cutin.lineup.length > 0 && <Lineup names={shot.cutin.lineup} />}
-            {shot.cutin.lineupTo.length > 0 && <Lineup names={shot.cutin.lineupTo} exit />}
-            {shot.cutin.passing.length > 0 && (
-              <span>passing: {shot.cutin.passing.join(" · ")}</span>
+            {shot.cutin.lineup.length > 0 && (
+              <Lineup names={names("characters", shot.cutin.lineup)} />
             )}
-            {shot.cutin.props.length > 0 && <span>props: {shot.cutin.props.join(" · ")}</span>}
+            {shot.cutin.lineupTo.length > 0 && (
+              <Lineup names={names("characters", shot.cutin.lineupTo)} exit />
+            )}
+            {shot.cutin.passing.length > 0 && (
+              <span className="dir-sc-names">
+                passing: {names("characters", shot.cutin.passing)}
+              </span>
+            )}
+            {shot.cutin.props.length > 0 && (
+              <span className="dir-sc-names">props: {names("props", shot.cutin.props)}</span>
+            )}
           </dd>
         </>
       )}
@@ -354,15 +415,31 @@ function Span({
   );
 }
 
+// A name the script prints, opening its roster entry where it has one.
+function RosterName({
+  open,
+  children,
+}: {
+  open: (() => void) | null;
+  children: React.ReactNode;
+}): React.ReactElement {
+  if (!open) return <>{children}</>;
+  return (
+    <button type="button" className="dir-roster-name" onClick={open}>
+      {children}
+    </button>
+  );
+}
+
 // A camera frame's place, size and setup — the shot's own, or its cutin's.
 function Frame({
   location,
   framing,
   setup,
 }: {
-  location: string | null;
+  location: React.ReactNode;
   framing: DirectionShotInfo["framing"];
-  setup: string | null;
+  setup: React.ReactNode;
 }): React.ReactElement {
   return (
     <>
@@ -379,7 +456,7 @@ function Frame({
 
 // One frame's order, name by name. Each name carries its own separator so a list too long for its
 // line breaks AFTER a slash rather than starting a line with one.
-function Lineup({ names, exit }: { names: string[]; exit?: boolean }): React.ReactElement {
+function Lineup({ names, exit }: { names: React.ReactNode[]; exit?: boolean }): React.ReactElement {
   return (
     <span className={`dir-lineup${exit ? " dir-lineup--to" : ""}`}>
       {names.map((name, i) => (

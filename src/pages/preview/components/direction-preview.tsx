@@ -1,7 +1,6 @@
 import type React from "react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { submitDirectionReview } from "../api.js";
-import { bulkAcceptState } from "../review/bulk-accept.js";
 import { quotedFragments } from "../review/quote.js";
 import { ReviewShell, type ShortcutRows } from "../review/review-shell.js";
 import { liveFeedback } from "../review/live-feedback.js";
@@ -13,38 +12,32 @@ import type {
   DirectionPartInfo,
   DirectionPreviewState,
   DirectionSection,
-  DirectionSectionStatus,
   DirectionSequenceInfo,
+  DirectionShotInfo,
+  DirectionShotRoster,
 } from "../types.js";
 import { CommentThread } from "./comment-thread.js";
-import { DirectionMap } from "./direction-map.js";
 import { DirectionBrief } from "./direction/brief.js";
 import { DirectionLyrics } from "./direction/lyrics.js";
+import { PartMarksContext, partMarks } from "./direction/marks.js";
+import { DirectionPeek } from "./direction/peek.js";
 import { DirectionPolicy } from "./direction/policy.js";
-import { DirectionCharacters, DirectionLocations, DirectionProps } from "./direction/roster.js";
+import { DirectionRail, type RailLink } from "./direction/rail.js";
 import { ShotScript } from "./direction/script.js";
 import { DirectionWaivers } from "./direction/waivers.js";
-import { CheckIcon } from "./icons.js";
-import { ReviewHeaderActions } from "./review-header-actions.js";
-import { StatusBadge } from "./status-badge.js";
+import { MenuIcon } from "./icons.js";
+import { type ResetAction, ResetButton, ReviewHeaderActions } from "./review-header-actions.js";
 
-// The same keys the other review pages use, over this page's accept unit — the section. A reviewer
-// who learned J/K/A/N on the animatic should not have to learn them again here.
 const SHORTCUTS: ShortcutRows = [
-  [["J", "K"], "Previous / next section"],
-  [["A"], "Accept / un-accept the focused section"],
-  [["N"], "Jump to next undecided section"],
+  [["J", "K"], "Next / previous shot"],
+  [["N", "P"], "Next / previous change or handoff note"],
+  [["A"], "Accept / un-accept the direction"],
+  [["Esc"], "Close the side panel"],
   [["S"], "Toggle hide-stale notes"],
   [["?"], "Toggle this shortcuts panel"],
   [["⌘/Ctrl", "⏎"], "Submit review"],
 ];
 
-// A reviewer's staged verdicts, one per box they settled this session. A box they left alone is
-// absent, not false — leaving the characters box untouched must not revoke last week's sign-off on it.
-type StagedDecisions = Partial<Record<DirectionSection, boolean>>;
-
-// Each box's heading, and how the submit confirmation names it. One table so the two always agree —
-// a dialog naming a box the reviewer cannot find on the page is worse than no dialog.
 const SECTION_LABELS: Record<DirectionSection, string> = {
   brief: "Brief",
   policy: "Policy",
@@ -56,54 +49,312 @@ const SECTION_LABELS: Record<DirectionSection, string> = {
   waivers: "Rules the author chose to break",
 };
 
-// The page-wide badge, read off the boxes: signed off wholesale, or not. A stale box is called out
-// on the box itself (a "Changed" tag), so the header names only the one whole-page state a reviewer
-// cannot infer part by part — everything accepted. Reviewing *is* the un-accepted state, so a
-// direction still being read gets no badge.
-function acceptanceBadge(
-  sections: DirectionPreviewState["sections"],
-): { status: string; label: string } | null {
-  const statuses = Object.values(sections);
-  if (statuses.every((s) => s === "accepted")) return { status: "accepted", label: "Accepted" };
-  return null;
+// The sections under the script, in page order. The roster's three live in the index.
+const BELOW_SECTIONS = ["lyrics", "brief", "policy", "waivers"] as const;
+type BelowSection = (typeof BELOW_SECTIONS)[number];
+const ROSTER_SECTIONS = ["characters", "props", "locations"] as const;
+
+const SECTION_TARGET = "section:";
+
+// Below this the index and the side panel lie over the script instead of beside it.
+const NARROW = "(max-width: 48rem)";
+const isNarrow = (): boolean => window.matchMedia(NARROW).matches;
+
+function shotsOf(state: DirectionPreviewState): DirectionShotInfo[] {
+  const walk = (seq: DirectionSequenceInfo): DirectionShotInfo[] =>
+    seq.shots ?? (seq.sequences ?? []).flatMap(walk);
+  return state.kind === "sequenced" ? (state.sequences ?? []).flatMap(walk) : (state.shots ?? []);
 }
 
 export function DirectionPreview({ state }: { state: DirectionPreviewState }): React.ReactElement {
-  // The shot last picked on the direction map — it is highlighted below and scrolled to.
   const [focusedShotId, setFocusedShotId] = useState<string | null>(null);
-  // The verdicts staged so far. They ride with the notes to a single submit rather than saving on
-  // click: a reviewer's Accept on the characters and their note on shot 3 are one act of review, and
-  // splitting them would let the sign-off land while the note it was conditioned on is still typed.
-  const [decisions, setDecisions] = useState<StagedDecisions>({});
+  // The verdict staged on the page's one Accept, absent while the reviewer has not touched it. It
+  // rides with the notes to a single submit: an Accept and the note it was conditioned on are one
+  // act of review.
+  const [accept, setAccept] = useState<boolean | undefined>(undefined);
   // A verdict staged on the direction a reload replaced was on what the reviewer read, not on what
   // `reviewedHash` would now name.
   const [decidedHash, setDecidedHash] = useState(state.directionHash);
   if (decidedHash !== state.directionHash) {
     setDecidedHash(state.directionHash);
-    setDecisions({});
+    setAccept(undefined);
   }
-  const decisionCount = Object.keys(decisions).length;
-  // The box the keyboard acts on. An index into the sections the page actually renders, so J/K walk
-  // the boxes the reviewer can see rather than the ones the vocabulary happens to name.
-  const [focusIdx, setFocusIdx] = useState(0);
   const [stagingOpen, setStagingOpen] = useState<Record<string, boolean>>({});
 
-  const session = useReviewSession({ hasExtraChanges: decisionCount > 0 });
+  const session = useReviewSession({ hasExtraChanges: accept !== undefined });
 
-  const decide = useCallback((section: DirectionSection, accept: boolean) => {
-    setDecisions((prev) => ({ ...prev, [section]: accept }));
+  const shots = useMemo(() => shotsOf(state), [state]);
+
+  // Every part on the page, by the section it is signed off in, in reading order.
+  const partsBySection = useMemo(() => {
+    const out = new Map<DirectionSection, DirectionPartInfo[]>();
+    const add = (section: DirectionSection, ...parts: DirectionPartInfo[]) => {
+      out.set(section, [...(out.get(section) ?? []), ...parts]);
+    };
+    const walk = (seq: DirectionSequenceInfo): void => {
+      add("shots", seq, ...(seq.shots ?? []));
+      for (const child of seq.sequences ?? []) walk(child);
+    };
+    add("shots", state.sequence);
+    if (state.kind === "sequenced") for (const seq of state.sequences ?? []) walk(seq);
+    else add("shots", ...(state.shots ?? []));
+    if (state.lyrics) add("lyrics", state.lyrics);
+    add("waivers", ...state.waivers);
+    add("brief", ...state.brief);
+    add("policy", ...state.policy);
+    add(
+      "characters",
+      ...state.characters.flatMap((c) => (c.voice ? [c, c.voice] : [c])),
+      ...(state.narrator ? [state.narrator] : []),
+    );
+    add("props", ...state.props);
+    const declared = new Set(state.locations.map((l) => l.id));
+    add(
+      "locations",
+      ...state.locations.flatMap((l) => [l, ...state.setups.filter((s) => s.locationId === l.id)]),
+      ...state.setups.filter((s) => !declared.has(s.locationId)),
+    );
+    return out;
+  }, [state]);
+  const allParts = useMemo(() => [...partsBySection.values()].flat(), [partsBySection]);
+  const marks = useMemo(() => partMarks(allParts), [allParts]);
+
+  // The part the side panel opens for a part read in it — a voice is read inside its character.
+  const entryOf = useMemo(() => {
+    const out = new Map<string, string>([[state.sequence.address, state.sequence.address]]);
+    for (const section of ROSTER_SECTIONS) {
+      for (const part of partsBySection.get(section) ?? []) out.set(part.address, part.address);
+    }
+    for (const c of state.characters) if (c.voice) out.set(c.voice.address, c.address);
+    return out;
+  }, [partsBySection, state.characters, state.sequence.address]);
+  const commented = useMemo(
+    () =>
+      commentedAddresses(
+        allParts.flatMap((p) => p.feedback),
+        session,
+      ),
+    [allParts, session],
+  );
+  const hasNotes = useCallback(
+    (part: DirectionPartInfo) => commented.has(part.address) || part.handoffNote !== undefined,
+    [commented],
+  );
+
+  // The shots showing each roster part, by part address.
+  const appearances = useMemo(() => {
+    const addressOf = {
+      characters: new Map(state.characters.map((e) => [e.id, e.address])),
+      props: new Map(state.props.map((e) => [e.id, e.address])),
+      locations: new Map(state.locations.map((e) => [e.id, e.address])),
+      setups: new Map(state.setups.map((e) => [e.id, e.address])),
+    };
+    const out = new Map<string, string[]>();
+    for (const shot of shots) {
+      for (const kind of ["characters", "props", "locations", "setups"] as const) {
+        for (const id of shot.shows[kind]) {
+          const address = addressOf[kind].get(id);
+          if (address) out.set(address, [...(out.get(address) ?? []), shot.id]);
+        }
+      }
+    }
+    return out;
+  }, [state, shots]);
+
+  // The part the side panel is on, kept while it slides shut.
+  const [peek, setPeek] = useState<string | null>(null);
+  const [peekOpen, setPeekOpen] = useState(false);
+  const [railOpen, setRailOpen] = useState(() => !isNarrow());
+
+  // Opening or closing the index re-wraps the script; the shot being read stays where it was on
+  // screen.
+  const held = useRef<{ el: Element; top: number } | null>(null);
+  const holdPlace = useCallback(() => {
+    for (const el of document.querySelectorAll(".dir-sc-shot")) {
+      const { top } = el.getBoundingClientRect();
+      if (top >= 0) {
+        held.current = { el, top };
+        return;
+      }
+    }
   }, []);
+  useLayoutEffect(() => {
+    const place = held.current;
+    held.current = null;
+    if (!place) return;
+    const moved = place.el.getBoundingClientRect().top - place.top;
+    if (moved !== 0) window.scrollBy(0, moved);
+  }, [railOpen]);
+
+  const openPeek = useCallback((address: string) => {
+    setPeek(address);
+    setPeekOpen(true);
+    if (isNarrow()) setRailOpen(false);
+  }, []);
+  const closePeek = useCallback(() => setPeekOpen(false), []);
+
+  // A click outside the panel shuts it — bar one on what opens it: the index, or a name in the script.
+  useEffect(() => {
+    if (!peekOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (
+        e.target instanceof Element &&
+        !e.target.closest(".dir-peek, .dir-rail, .dir-rail-toggle, .dir-roster-name")
+      ) {
+        setPeekOpen(false);
+      }
+    };
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, [peekOpen]);
+
+  const toggleRail = useCallback(() => {
+    holdPlace();
+    setRailOpen((open) => !open);
+  }, [holdPlace]);
+
+  // A jump lands after the render that opens the panel on its target.
+  const [revealing, setRevealing] = useState<string | null>(null);
+  useEffect(() => {
+    if (revealing === null) return;
+    setRevealing(null);
+    const section = revealing.startsWith(SECTION_TARGET);
+    const el = document.querySelector<HTMLElement>(
+      section
+        ? `[data-section="${revealing.slice(SECTION_TARGET.length)}"]`
+        : `[data-part="${CSS.escape(revealing)}"]`,
+    );
+    if (!el) return;
+    el.scrollIntoView({
+      block: section ? "start" : el.closest(".dir-rail") ? "nearest" : "center",
+    });
+    el.dataset.spot = "";
+    const timer = setTimeout(() => delete el.dataset.spot, 1600);
+    return () => clearTimeout(timer);
+  }, [revealing]);
+
+  // Brings a part, or a whole section, into view — opening the side panel on a part read there.
+  const reveal = useCallback(
+    (target: string) => {
+      const entry = entryOf.get(target);
+      // The roster's sections are the index's own groups.
+      const inRail = ROSTER_SECTIONS.some((s) => target === `${SECTION_TARGET}${s}`);
+      if (entry) openPeek(entry);
+      else if (inRail) {
+        setRailOpen(true);
+        if (isNarrow()) setPeekOpen(false);
+      } else if (isNarrow()) {
+        setRailOpen(false);
+        setPeekOpen(false);
+      }
+      setRevealing(entry ?? target);
+    },
+    [entryOf, openPeek],
+  );
 
   const handleSelectShot = useCallback((id: string) => {
     setFocusedShotId(id);
+    if (isNarrow()) {
+      setRailOpen(false);
+      setPeekOpen(false);
+    }
     document
       .querySelector(`[data-shot-id="${CSS.escape(id)}"]`)
-      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      ?.scrollIntoView({ block: "center" });
   }, []);
 
-  // One submit for the whole review: the notes written, and the verdict on each box that was
-  // settled. `reviewedHash` is the direction the reviewer actually read — the server refuses an
-  // Accept against a version edited out from under the page.
+  const stepShot = useCallback(
+    (delta: number) => {
+      const at = shots.findIndex((s) => s.id === focusedShotId);
+      const next = shots[at < 0 ? 0 : Math.min(Math.max(at + delta, 0), shots.length - 1)];
+      if (next) handleSelectShot(next.id);
+    },
+    [shots, focusedShotId, handleSelectShot],
+  );
+
+  // A section whose sign-off no longer stands with no part left to show for it: one was removed.
+  const trimmed = useMemo(
+    () =>
+      new Set(
+        DIRECTION_SECTIONS.filter(
+          (s) =>
+            state.sections[s] === "stale" &&
+            !(partsBySection.get(s) ?? []).some((p) => marks.has(p.address)),
+        ),
+      ),
+    [state.sections, partsBySection, marks],
+  );
+
+  // What a returning reviewer came to read: the parts that moved since their accept, the author's
+  // handoff notes, and the sections a part was removed from.
+  const stops = useMemo(
+    () => [
+      ...allParts
+        .filter((p) => marks.has(p.address) || p.handoffNote !== undefined)
+        .map((p) => p.address),
+      ...[...trimmed].map((s) => `${SECTION_TARGET}${s}`),
+    ],
+    [allParts, marks, trimmed],
+  );
+  const [stopIdx, setStopIdx] = useState(-1);
+  const stepStop = useCallback(
+    (delta: number) => {
+      if (stops.length === 0) return;
+      const next = (Math.max(stopIdx, delta > 0 ? -1 : 0) + delta + stops.length) % stops.length;
+      setStopIdx(next);
+      const stop = stops[next];
+      if (!stop) return;
+      const shot = shots.find((s) => s.address === stop);
+      if (shot) setFocusedShotId(shot.id);
+      reveal(stop);
+    },
+    [stops, stopIdx, shots, reveal],
+  );
+
+  // A name the script prints resolves among the entries that shot shows, so two entries sharing a
+  // name never cross.
+  const roster = useMemo(
+    () => ({
+      characters: new Map(state.characters.map((e) => [e.id, e])),
+      props: new Map(state.props.map((e) => [e.id, e])),
+      locations: new Map(state.locations.map((e) => [e.id, e])),
+      setups: new Map(state.setups.map((e) => [e.id, e])),
+    }),
+    [state],
+  );
+  const openerOf = useCallback(
+    (kind: keyof DirectionShotRoster, name: string, shot: DirectionShotInfo) => {
+      const entry = shot.shows[kind]
+        .map((id) => roster[kind].get(id))
+        .find((e) => e?.name === name);
+      return entry ? () => reveal(entry.address) : null;
+    },
+    [roster, reveal],
+  );
+
+  // The sections the one Accept signs: every one with something to sign, or with a sign-off on
+  // what the author has since cut.
+  const decidable = useMemo(
+    () =>
+      DIRECTION_SECTIONS.filter(
+        (s) =>
+          state.acceptableSections.includes(s) &&
+          ((partsBySection.get(s)?.length ?? 0) > 0 || state.sections[s] !== "accepted"),
+      ),
+    [state.acceptableSections, state.sections, partsBySection],
+  );
+  const standing = decidable.length > 0 && decidable.every((s) => state.sections[s] === "accepted");
+  const accepted = accept ?? standing;
+  const toggleAccept = useCallback(() => {
+    if (decidable.length === 0) return;
+    setAccept((prev) => {
+      const next = !(prev ?? standing);
+      return next === standing ? undefined : next;
+    });
+  }, [decidable, standing]);
+
+  // `reviewedHash` is the direction the reviewer actually read — the server refuses an Accept
+  // against a version edited out from under the page.
   const submitReview = useCallback(
     async ({ addedFeedback, feedbackPatches, overallComment }: SubmitInput) => {
       await submitDirectionReview({
@@ -114,17 +365,15 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
           displayedVariants: {},
         })),
         feedbackPatches,
-        sectionDecisions: decisions,
+        sectionDecisions:
+          accept === undefined ? {} : Object.fromEntries(decidable.map((s) => [s, accept])),
         reviewedHash: state.directionHash,
         ...(overallComment ? { overallComment } : {}),
       });
     },
-    [state.directionHash, decisions],
+    [state.directionHash, accept, decidable],
   );
-  const handleSubmit = session.openSubmit;
 
-  // Every part's notes hold its live thread — nothing to unfold, so the whole
-  // review (what was written where, and where nothing was) is legible in one pass.
   const renderNotes = useCallback(
     (part: DirectionPartInfo) => (
       <CommentThread
@@ -153,184 +402,68 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
     [session],
   );
 
-  const badge = acceptanceBadge(state.sections);
-
-  // Every part on the page, grouped under the box it is reviewed in — the section is what a verdict
-  // is about, so it is also what "undecided" has to be measured over.
-  const partsBySection = useMemo(() => {
-    const out = new Map<DirectionSection, DirectionPartInfo[]>();
-    const add = (section: DirectionSection, ...parts: DirectionPartInfo[]) => {
-      out.set(section, [...(out.get(section) ?? []), ...parts]);
-    };
-    const walk = (seq: DirectionSequenceInfo): void => {
-      add("shots", seq, ...(seq.shots ?? []));
-      for (const child of seq.sequences ?? []) walk(child);
-    };
-    add("brief", ...state.brief);
-    add("policy", ...state.policy);
-    if (state.lyrics) add("lyrics", state.lyrics);
-    // The cast is one box: each character, the voice cast for them, and the narrator — every one a
-    // part of its own, all decided by the Characters box's single Accept.
-    add(
-      "characters",
-      ...state.characters.flatMap((c) => (c.voice ? [c, c.voice] : [c])),
-      ...(state.narrator ? [state.narrator] : []),
-    );
-    add("props", ...state.props);
-    // The places and the frames taken in them are one box (see `directionSectionOf`): a setup is a
-    // camera position IN a location, so its verdict is part of the verdict on that set.
-    add("locations", ...state.locations, ...state.setups);
-    add("shots", state.sequence);
-    add("waivers", ...state.waivers);
-    if (state.kind === "sequenced") for (const seq of state.sequences ?? []) walk(seq);
-    else add("shots", ...(state.shots ?? []));
-    return out;
-  }, [state]);
-
-  // The boxes the page renders — the ones a reviewer can form a verdict on. A section with no rows
-  // is normally not one (an empty roster, a direction with no waivers): there is nothing in it to sign
-  // off, and a decision on it would land in the review record as a verdict about a box nobody saw.
-  //
-  // Unless it is not accepted — which, with no rows, means the section held something the human
-  // signed off and the author has since cut. That still needs their verdict, and this box is the
-  // only thing that can record it: skip it and the spend gate stays shut with nothing on the page
-  // to open it.
-  const shownSections = useMemo(
-    () =>
-      DIRECTION_SECTIONS.filter(
-        (s) => (partsBySection.get(s)?.length ?? 0) > 0 || state.sections[s] !== "accepted",
-      ),
-    [partsBySection, state.sections],
-  );
-
-  // The shown boxes an Accept can sign off; the rest are read-only until the author fills them.
-  const acceptableSections = useMemo(
-    () => shownSections.filter((s) => state.acceptableSections.includes(s)),
-    [shownSections, state.acceptableSections],
-  );
-
-  // What a box will read as once this review is submitted — the staged verdict, else where it
-  // stands now. The Accept toggle, "Accept all" and the undecided list must all agree on this, or
-  // the page would offer to accept what it is already showing as accepted.
-  const isAcceptedWith = useCallback(
-    (section: DirectionSection, marks: Record<string, boolean>) =>
-      marks[section] ?? state.sections[section] === "accepted",
-    [state.sections],
-  );
-  const isAccepted = useCallback(
-    (section: DirectionSection) => isAcceptedWith(section, decisions),
-    [isAcceptedWith, decisions],
-  );
-
-  // The boxes "Accept all" would still move, and whether it would move anything — the header's
-  // "Next" count and the button's own label. See bulk-accept.ts.
-  const {
-    pending: unacceptedSections,
-    done: everythingAccepted,
-    apply: acceptAllDecisions,
-  } = useMemo(
-    () =>
-      bulkAcceptState(
-        acceptableSections,
-        decisions,
-        (section, marks) => ({ ...marks, [section]: true }),
-        isAcceptedWith,
-      ),
-    [acceptableSections, decisions, isAcceptedWith],
-  );
-  const unacceptedCount = unacceptedSections.length;
-
-  // Stage every box to accept. Nothing persists until Submit, so no confirm dialog — each box stays
-  // individually reversible, and Reset drops the lot.
-  const handleAcceptAll = useCallback(() => {
-    setDecisions(acceptAllDecisions);
-  }, [acceptAllDecisions]);
-
-  const scrollToSection = useCallback((section: DirectionSection) => {
-    document
-      .querySelector(`[data-section="${section}"]`)
-      ?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, []);
-
-  const moveFocus = useCallback(
-    (delta: number) => {
-      const next = Math.min(Math.max(focusIdx + delta, 0), shownSections.length - 1);
-      setFocusIdx(next);
-      const section = shownSections[next];
-      if (section) scrollToSection(section);
-    },
-    [focusIdx, shownSections, scrollToSection],
-  );
-
-  // "N" walks to the next box still needing a verdict, wrapping — the reviewer's loop is "what's
-  // left", and an unaccepted box is exactly that whether or not they have written a note on it.
-  const handleJumpToUndecided = useCallback(() => {
-    for (let i = 1; i <= shownSections.length; i++) {
-      const idx = (focusIdx + i) % shownSections.length;
-      const section = shownSections[idx];
-      if (section && acceptableSections.includes(section) && !isAccepted(section)) {
-        setFocusIdx(idx);
-        scrollToSection(section);
-        return;
-      }
-    }
-  }, [shownSections, acceptableSections, focusIdx, isAccepted, scrollToSection]);
-
-  // The boxes left with neither an accept nor a live note — named once at Submit, since the record
-  // would show them unaccepted with no reason, which is indistinguishable from never having been
-  // read (see review/undecided.ts). A pause, never a block: the direction stays blocked either way,
-  // and forcing a verdict here would only buy a rubber-stamp accept.
-  const undecided = useMemo(() => {
-    const commented = commentedAddresses(
-      [...partsBySection.values()].flat().flatMap((p) => p.feedback),
-      session,
-    );
-    return acceptableSections
-      .filter(
-        (section) =>
-          !isAccepted(section) &&
-          !(partsBySection.get(section) ?? []).some((p) => commented.has(p.address)),
-      )
-      .map((section) => SECTION_LABELS[section]);
-  }, [partsBySection, acceptableSections, isAccepted, session]);
-
   useReviewShortcuts({
     blocked: session.submitOpen,
-    onSubmit: handleSubmit,
+    onSubmit: session.openSubmit,
     handlers: {
-      j: () => moveFocus(1),
-      k: () => moveFocus(-1),
-      a: () => {
-        const section = shownSections[focusIdx];
-        if (section && acceptableSections.includes(section)) decide(section, !isAccepted(section));
-      },
-      n: handleJumpToUndecided,
+      j: () => stepShot(1),
+      k: () => stepShot(-1),
+      n: () => stepStop(1),
+      p: () => stepStop(-1),
+      a: toggleAccept,
+      Escape: closePeek,
       s: () => session.setHideStale(!session.hideStale),
     },
   });
 
-  const sectionBox = (
-    title: string,
-    section: DirectionSection,
-    children: React.ReactNode,
-    lede?: React.ReactNode,
-  ) => (
-    <SectionBox
-      title={title}
-      section={section}
-      status={state.sections[section]}
-      staged={decisions[section]}
-      accepted={isAccepted(section)}
-      gating={state.gatingSections.includes(section)}
-      acceptable={acceptableSections.includes(section)}
-      focused={shownSections[focusIdx] === section}
-      onDecide={decide}
-      onFocus={() => setFocusIdx(shownSections.indexOf(section))}
-      lede={lede}
-    >
-      {children}
-    </SectionBox>
-  );
+  // A section the author emptied since it was accepted still shows: the Accept is what records
+  // that the reviewer saw it go.
+  const isShown = (section: DirectionSection) =>
+    (partsBySection.get(section)?.length ?? 0) > 0 || state.sections[section] !== "accepted";
+  const below = BELOW_SECTIONS.filter(isShown);
+  const source = state.brief.find((f) => f.field === "source");
+  const links: RailLink[] = below.flatMap((section) => [
+    {
+      target: `${SECTION_TARGET}${section}`,
+      label: SECTION_LABELS[section],
+      parts: partsBySection.get(section) ?? [],
+      trimmed: trimmed.has(section),
+    },
+    ...(section === "brief" && source
+      ? [{ target: source.address, label: "Source", parts: [source], trimmed: false }]
+      : []),
+  ]);
+
+  const belowBody: Record<BelowSection, React.ReactNode> = {
+    lyrics: state.lyrics ? (
+      <DirectionLyrics lyrics={state.lyrics} renderNotes={renderNotes} />
+    ) : (
+      <CutSectionNote what="lyrics" />
+    ),
+    waivers:
+      state.waivers.length > 0 ? (
+        <>
+          <p className="direction-section-lede">
+            The checker raised each of these and the author overruled it. Generation is not blocked
+            by them. If you disagree with an argument below, say so.
+          </p>
+          <DirectionWaivers waivers={state.waivers} renderNotes={renderNotes} />
+        </>
+      ) : (
+        <CutSectionNote what="waivers" />
+      ),
+    brief: <DirectionBrief fields={state.brief} renderNotes={renderNotes} />,
+    policy: <DirectionPolicy fields={state.policy} renderNotes={renderNotes} />,
+  };
+
+  const resetAction: ResetAction = {
+    disabled: !session.hasPendingChanges,
+    discards: "the accept mark and every draft note",
+    onClick: () => {
+      setAccept(undefined);
+      session.reset();
+    },
+  };
 
   return (
     <ReviewShell
@@ -342,22 +475,24 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
       shortcuts={SHORTCUTS}
       headerExtra={
         <>
-          {badge && <StatusBadge status={badge.status} label={badge.label} />}
+          <button
+            type="button"
+            className="ctrl-btn vp-next-unreviewed"
+            onClick={() => stepStop(1)}
+            disabled={stops.length === 0}
+            title="Jump to the next change or handoff note (N)"
+          >
+            Next change
+            {stops.length > 0 && <span className="vp-shots-action-count">{stops.length}</span>}
+          </button>
           <ReviewHeaderActions
-            next={{ count: unacceptedCount, noun: "section", onClick: handleJumpToUndecided }}
-            acceptAll={{
-              done: everythingAccepted,
-              what: "every section",
-              onClick: handleAcceptAll,
+            acceptCurrent={{
+              accepted,
+              what: "The direction",
+              disabled: decidable.length === 0,
+              onClick: toggleAccept,
             }}
-            reset={{
-              disabled: !session.hasPendingChanges,
-              discards: "every accept mark and draft note",
-              onClick: () => {
-                setDecisions({});
-                session.reset();
-              },
-            }}
+            reset={resetAction}
           />
         </>
       }
@@ -365,255 +500,131 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
       submitted={session.submitted}
       submittedTitle="Direction Review Submitted"
       canSubmit={session.hasPendingChanges}
-      submitHint="Nothing to submit yet. Accept a section, leave a note, or write an overall comment above."
-      onSubmit={handleSubmit}
-      undecided={undecided}
+      submitHint="Nothing to submit yet. Accept the direction, leave a note, or write an overall comment above."
+      onSubmit={session.openSubmit}
+      undecided={accepted || commented.size > 0 ? [] : ["The direction"]}
       submitOpen={session.submitOpen}
       overallComment={session.overallComment}
       onOverallCommentChange={session.setOverallComment}
       onConfirmSubmit={() => void session.confirmSubmit(submitReview)}
       onCancelSubmit={session.cancelSubmit}
     >
-      <div className="direction-preview">
-        {shownSections.includes("brief") &&
-          sectionBox(
-            "Brief",
-            "brief",
-            <DirectionBrief fields={state.brief} renderNotes={renderNotes} />,
-          )}
+      <PartMarksContext.Provider value={marks}>
+        <div className={`direction-preview${railOpen ? " direction-preview--rail" : ""}`}>
+          <button
+            type="button"
+            className="dir-icon-btn dir-rail-toggle"
+            onClick={toggleRail}
+            aria-expanded={railOpen}
+            aria-label={railOpen ? "Close the index" : "Open the index"}
+            title={railOpen ? "Close the index" : "Open the index"}
+          >
+            <MenuIcon size={16} />
+          </button>
+          <button
+            type="button"
+            className="dir-scrim"
+            aria-label="Close the index"
+            tabIndex={-1}
+            onClick={toggleRail}
+          />
+          <DirectionRail
+            state={state}
+            shots={shots}
+            links={links}
+            cut={
+              new Set(ROSTER_SECTIONS.filter((s) => isShown(s) && !partsBySection.get(s)?.length))
+            }
+            trimmed={trimmed}
+            open={railOpen}
+            tools={
+              <>
+                <label className="review-toggle">
+                  <input
+                    type="checkbox"
+                    checked={session.hideStale}
+                    onChange={() => session.setHideStale(!session.hideStale)}
+                  />
+                  Hide stale notes
+                </label>
+                <ResetButton reset={resetAction} />
+              </>
+            }
+            peeked={peekOpen ? peek : null}
+            appearances={appearances}
+            hasNotes={hasNotes}
+            focusedShotId={focusedShotId}
+            onPeek={openPeek}
+            onJumpPart={reveal}
+            onJumpShot={handleSelectShot}
+          />
 
-        {shownSections.includes("policy") &&
-          sectionBox(
-            "Policy",
-            "policy",
-            <DirectionPolicy fields={state.policy} renderNotes={renderNotes} />,
-          )}
-
-        {shownSections.includes("lyrics") &&
-          sectionBox(
-            "Lyrics",
-            "lyrics",
-            state.lyrics ? (
-              <DirectionLyrics lyrics={state.lyrics} renderNotes={renderNotes} />
-            ) : (
-              <CutSectionNote what="lyrics" />
-            ),
-          )}
-
-        {shownSections.includes("characters") &&
-          sectionBox(
-            "Characters",
-            "characters",
-            state.characters.length > 0 || state.narrator ? (
-              <DirectionCharacters
-                characters={state.characters}
-                narrator={state.narrator}
+          <div className="dir-page">
+            <section data-section="shots">
+              {trimmed.has("shots") && <TrimmedNote />}
+              <ShotScript
+                kind={state.kind}
+                shots={state.shots}
+                sequences={state.sequences}
+                song={state.song}
+                rootPleasure={state.pleasure.name}
+                focusedShotId={focusedShotId}
                 renderNotes={renderNotes}
+                quotesFor={quotesFor}
+                isStagingOpen={(id) => stagingOpen[id] ?? false}
+                onToggleStaging={(id) => setStagingOpen((prev) => ({ ...prev, [id]: !prev[id] }))}
+                onAddComment={(address, text) => session.addPending(address, text)}
+                openerOf={openerOf}
               />
-            ) : (
-              <CutSectionNote what="characters" />
-            ),
-          )}
+            </section>
 
-        {shownSections.includes("props") &&
-          sectionBox(
-            "Props",
-            "props",
-            state.props.length > 0 ? (
-              <DirectionProps props={state.props} renderNotes={renderNotes} />
-            ) : (
-              <CutSectionNote what="props" />
-            ),
-          )}
+            {below.map((section) => (
+              <section key={section} className="dir-block" data-section={section}>
+                <h2 className="direction-section-title">{SECTION_LABELS[section]}</h2>
+                {trimmed.has(section) && (partsBySection.get(section)?.length ?? 0) > 0 && (
+                  <TrimmedNote />
+                )}
+                {belowBody[section]}
+              </section>
+            ))}
+          </div>
 
-        {shownSections.includes("locations") &&
-          sectionBox(
-            "Locations & Setups",
-            "locations",
-            state.locations.length > 0 || state.setups.length > 0 ? (
-              <DirectionLocations
-                locations={state.locations}
-                setups={state.setups}
-                renderNotes={renderNotes}
-              />
-            ) : (
-              <CutSectionNote what="locations" />
-            ),
-          )}
-
-        {/* Flow and Shots are one box: the flow is the shape a person without craft vocabulary can
-            review (where the piece rises, where it lands, how long each shot holds, the feeling it
-            chases), and the script is those same shots in detail. Splitting a shot re-shapes the flow,
-            so they are inseparable — one arc note lives on the direction map, one Accept covers both. */}
-        {sectionBox(
-          "Flow & Shots",
-          "shots",
-          <>
-            <p className="direction-pleasure">
-              <span className="dir-inline-label">Aiming for</span>
-              <span className="direction-pleasure-name">{state.pleasure.name}</span>
-              <span className="direction-pleasure-gloss">{state.pleasure.gloss}</span>
-            </p>
-            <DirectionMap
-              kind={state.kind}
-              shots={state.shots}
-              sequences={state.sequences}
-              focusedShotId={focusedShotId}
-              onSelectShot={handleSelectShot}
-            />
-            {renderNotes(state.sequence)}
-            <ShotScript
-              kind={state.kind}
-              shots={state.shots}
-              sequences={state.sequences}
-              song={state.song}
-              rootPleasure={state.pleasure.name}
-              focusedShotId={focusedShotId}
-              renderNotes={renderNotes}
-              quotesFor={quotesFor}
-              isStagingOpen={(id) => stagingOpen[id] ?? false}
-              onToggleStaging={(id) => setStagingOpen((prev) => ({ ...prev, [id]: !prev[id] }))}
-              onAddComment={(address, text) => session.addPending(address, text)}
-            />
-          </>,
-        )}
-
-        {shownSections.includes("waivers") &&
-          sectionBox(
-            "Rules the author chose to break",
-            "waivers",
-            state.waivers.length > 0 ? (
-              <DirectionWaivers waivers={state.waivers} renderNotes={renderNotes} />
-            ) : (
-              <CutSectionNote what="waivers" />
-            ),
-            <p className="direction-section-lede">
-              The checker raised each of these and the author overruled it. Generation is not
-              blocked by them. If you disagree with an argument below, say so. That is what this
-              section is for.
-            </p>,
-          )}
-      </div>
+          <DirectionPeek
+            address={peek}
+            open={peekOpen}
+            state={state}
+            shots={shots}
+            appearances={appearances}
+            renderNotes={renderNotes}
+            focusedShotId={focusedShotId}
+            onPeek={openPeek}
+            onJumpPart={reveal}
+            onJumpShot={handleSelectShot}
+            onClose={closePeek}
+          />
+        </div>
+      </PartMarksContext.Provider>
     </ReviewShell>
   );
 }
 
 // The brief is not here: like the policy, it always has rows — its two list fields are parts even
-// when empty — so it can never be the box a cut emptied.
-const CUT_SECTION_TEXT: Record<
-  "lyrics" | "characters" | "props" | "locations" | "waivers",
-  string
-> = {
+// when empty — so it can never be the section a cut emptied.
+const CUT_SECTION_TEXT: Record<"lyrics" | "waivers", string> = {
   lyrics: "The lyrics you accepted have been removed. This piece declares no song words.",
-  characters: "The characters you accepted have been removed. This piece declares none.",
-  props: "The props you accepted have been removed. This piece declares no props.",
-  locations:
-    "The locations and setups you accepted have been removed. This piece declares no places to shoot in.",
   waivers:
     "The waivers you accepted have been withdrawn. The author no longer overrules the checker.",
 };
 
-// A box with nothing left in it. It is on the page precisely BECAUSE it is empty: the reviewer
-// signed off on what used to be here and the author has since cut it, which is a change they have
-// to see and settle. Accepting is how they say "yes, that is gone" — and until they do, the spend
-// gate stays shut on this section, so the box has to exist for them to say it in.
-function CutSectionNote({
-  what,
-}: {
-  what: "lyrics" | "characters" | "props" | "locations" | "waivers";
-}): React.ReactElement {
-  return <p className="direction-section-cut">{CUT_SECTION_TEXT[what]}</p>;
+// A section the author emptied since it was accepted, shown so the Accept that records its removal
+// is an Accept of something read.
+// A section a part was removed from since it was accepted: nothing left on the page shows the cut.
+function TrimmedNote(): React.ReactElement {
+  return (
+    <p className="direction-section-cut">Something you accepted here has been removed since.</p>
+  );
 }
 
-// One reviewable box: its heading, the Accept that settles it, and the rows it is a verdict about —
-// drawn as a single bordered card so the two are visibly one thing. The verdict sits on the box
-// rather than at the foot of the page because that is the unit a person actually forms one about:
-// they read the roster, decide about it, and move on. What it writes underneath is finer (one
-// entry per part), so fixing one shot later re-blocks that shot alone and leaves this box's sign-off
-// standing.
-//
-// Accepting is a toggle, not a pair of buttons: un-toggling an accepted box IS the rejection, and
-// it revokes the sign-off. There is nothing a separate Reject would add — a box that is not accepted
-// carries no sign-off already, and the note that says why goes in its Notes column.
-function SectionBox({
-  title,
-  section,
-  status,
-  staged,
-  accepted,
-  gating,
-  acceptable,
-  focused,
-  onDecide,
-  onFocus,
-  lede,
-  children,
-}: {
-  title: string;
-  section: DirectionSection;
-  status: DirectionSectionStatus;
-  staged: boolean | undefined;
-  // Whether a generation is actually waiting on this box (see `gatingSections`). Only the button's
-  // wording turns on it.
-  gating: boolean;
-  // False while the box has nothing to sign off yet (Flow & Shots before any shot is written).
-  acceptable: boolean;
-  // What the box will read as once this review is submitted (see the page's `isAccepted`) — passed
-  // in rather than re-derived, so the box and the header's "Accept all" cannot disagree.
-  accepted: boolean;
-  focused: boolean;
-  onDecide: (section: DirectionSection, accept: boolean) => void;
-  // Any click inside the card moves the keyboard focus onto it (the Accept's own click bubbles
-  // here too), so "A" acts on the box the reviewer is looking at rather than one they left behind
-  // somewhere up the page.
-  onFocus: () => void;
-  lede?: React.ReactNode;
-  children: React.ReactNode;
-}): React.ReactElement {
-  return (
-    // Clicking anywhere in the card focuses it — reading a box and reaching for "A" is one motion,
-    // and the reviewer should not have to hit the Accept button to say which box they mean. Focus is
-    // all it does (no preventDefault, no capture), so a click on a note, a button or a text field
-    // inside still behaves exactly as it would otherwise.
-    //
-    // `role="presentation"`: the click is a pointer shortcut for something the keyboard already
-    // reaches (J/K move this focus, A acts on it), so the card must not announce itself as a control
-    // — everything inside it is separately reachable, and the <h2> still carries the structure.
-    <section
-      role="presentation"
-      className={`direction-section${focused ? " direction-section--focused" : ""}`}
-      data-section={section}
-      onClick={onFocus}
-    >
-      <div className="direction-section-headline">
-        <h2 className="direction-section-title">{title}</h2>
-        {/* An untouched stale box is the one state worth naming here: it was signed off, and what
-            was signed off is not what the page now shows. Same "Changed" tag the other review
-            pages put on a moved-since-accepted item. */}
-        {staged === undefined && status === "stale" && (
-          <StatusBadge status="changed" label="Changed" />
-        )}
-        <button
-          type="button"
-          className={`direction-section-accept${accepted ? " direction-section-accept--on" : ""}`}
-          aria-pressed={accepted}
-          disabled={!acceptable}
-          onClick={() => onDecide(section, !accepted)}
-          title={
-            !acceptable
-              ? `${title} has no shots yet: write them in direction.ts, then accept`
-              : accepted
-                ? gating
-                  ? `Un-accept ${title}: generation blocks on it until it is accepted again`
-                  : `Un-accept ${title}: it reads as unreviewed again (generation does not wait on it)`
-                : `Accept ${title}`
-          }
-        >
-          <CheckIcon size={13} /> {accepted ? "Accepted" : "Accept"}
-        </button>
-      </div>
-      {lede}
-      <div className="direction-section-body">{children}</div>
-    </section>
-  );
+function CutSectionNote({ what }: { what: "lyrics" | "waivers" }): React.ReactElement {
+  return <p className="direction-section-cut">{CUT_SECTION_TEXT[what]}</p>;
 }

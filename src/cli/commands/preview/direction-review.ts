@@ -166,6 +166,7 @@ export async function handleGetDirectionState(
 
   const partView = (address: string) => ({
     address,
+    status: acceptanceView.parts.get(address) ?? ("accepted" as const),
     feedback: buildAddressFeedback(feedbackMgr, state, address, { subjectHashes }),
     handoffNote: handoffNoteForDirection(handoff, address),
   });
@@ -198,6 +199,10 @@ export async function handleGetDirectionState(
     };
   };
 
+  const distinct = (ids: readonly (string | undefined)[]): string[] => [
+    ...new Set(ids.filter((id) => id !== undefined)),
+  ];
+
   // `nodePath` is the field path of the node the shot sits in — a shot is reviewed where it is
   // declared, so its address hangs off its owner rather than off the root.
   const mapShot = (s: Shot, lensName: string, nodePath: readonly string[]) => {
@@ -223,12 +228,14 @@ export async function handleGetDirectionState(
         coverage: false,
         cutin: null,
         telop: [...(s.telop ?? [])],
+        shows: { locations: [], setups: [], characters: [], props: [] },
         ...spanOf(s),
         ...partView(formatDirectionShotAddress(nodePath, s.id)),
       };
     }
     const fn = roleFunctionOf(lensName, s.role);
     const own = isGraphicShot(s) ? null : s;
+    const frames = [...(own ? [own] : []), ...(s.cutin ? [s.cutin] : [])];
     const cutin = s.cutin
       ? {
           setup: frameOf(s.cutin.setup).setupName,
@@ -265,6 +272,19 @@ export async function handleGetDirectionState(
       cutin,
       // The shot's unspoken on-screen text. Bare strings — telop carries no speaker to resolve.
       telop: [...(s.telop ?? [])],
+      shows: {
+        locations: distinct(frames.map((f) => direction.setups?.[f.setup]?.location)),
+        setups: distinct(frames.map((f) => f.setup)),
+        characters: distinct([
+          ...frames.flatMap((f) => [
+            ...(f.lineup ?? []),
+            ...(f.lineupTo ?? []),
+            ...(f.passing ?? []),
+          ]),
+          ...(s.script ?? []).map((line) => ("character" in line ? line.character : undefined)),
+        ]),
+        props: distinct(frames.flatMap((f) => f.props ?? [])),
+      },
       ...spanOf(s),
       ...partView(formatDirectionShotAddress(nodePath, s.id)),
     };

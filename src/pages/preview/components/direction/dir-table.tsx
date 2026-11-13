@@ -1,6 +1,7 @@
 import type React from "react";
 
 import type { DirectionPartInfo } from "../../types.js";
+import { PartMarkTag } from "./marks.js";
 
 export type NotesRenderer = (part: DirectionPartInfo) => React.ReactElement;
 
@@ -31,8 +32,10 @@ export function DirTable({
       </thead>
       <tbody>
         {rows.map((r) => (
-          <tr key={r.key} className="dir-row">
-            <td className="dir-col-name">{r.name}</td>
+          <tr key={r.key} className="dir-row" data-part={r.part.address}>
+            <td className="dir-col-name">
+              {r.name} <PartMarkTag address={r.part.address} />
+            </td>
             <td className="dir-col-syn">{r.value}</td>
             <td className="dir-col-notes">{renderNotes(r.part)}</td>
           </tr>

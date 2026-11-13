@@ -113,6 +113,54 @@ export function PlusIcon({ size }: { size?: number }): React.ReactElement {
   );
 }
 
+export function MenuIcon({ size }: { size?: number }): React.ReactElement {
+  return (
+    <Svg size={size}>
+      <path d="M4 6h16M4 12h16M4 18h16" />
+    </Svg>
+  );
+}
+
+export function PanelRightIcon({ size }: { size?: number }): React.ReactElement {
+  return (
+    <Svg size={size}>
+      <path d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM14 4v16" />
+    </Svg>
+  );
+}
+
+export function JumpIcon({ size }: { size?: number }): React.ReactElement {
+  return (
+    <Svg size={size}>
+      <path d="M5 12h14m-6-6 6 6-6 6" />
+    </Svg>
+  );
+}
+
+export function RewindIcon({ size }: { size?: number }): React.ReactElement {
+  return (
+    <Svg size={size}>
+      <path d="M11 6 4 12l7 6zM20 6l-7 6 7 6z" />
+    </Svg>
+  );
+}
+
+export function ForwardIcon({ size }: { size?: number }): React.ReactElement {
+  return (
+    <Svg size={size}>
+      <path d="m13 6 7 6-7 6zM4 6l7 6-7 6z" />
+    </Svg>
+  );
+}
+
+export function ChevronsRightIcon({ size }: { size?: number }): React.ReactElement {
+  return (
+    <Svg size={size}>
+      <path d="m6 17 5-5-5-5M13 17l5-5-5-5" />
+    </Svg>
+  );
+}
+
 export function ChevronLeftIcon({ size }: { size?: number }): React.ReactElement {
   return (
     <Svg size={size}>
