@@ -1,4 +1,4 @@
-// source-hash: 7234d9624b2a474dceec801c84abf3279463c729554a3a76f2dacc2ebee999e7
+// source-hash: 45ad4412b2ce49954559a66b32abb3ae447779c205672a5a07f908d29aa0cb0a
 // source: github.com/Comfy-Org/workflow_templates / templates/audio_yue2_text2music.json (MIT License)
 import { defineComfyAsset } from "konte";
 

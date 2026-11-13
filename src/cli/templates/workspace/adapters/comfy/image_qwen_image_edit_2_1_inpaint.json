@@ -7,7 +7,7 @@
       "format.bit_depth": "8-bit",
       "format.input_color_space": "sRGB",
       "images": [
-        "520",
+        "551",
         0
       ]
     }
@@ -24,126 +24,126 @@
       "image": "clothing_light_blue_denim_shirt.png"
     }
   },
-  "477": {
+  "502": {
     "class_type": "UNETLoader",
     "inputs": {
-      "unet_name": "qwen_image_2.1_int8_convrot.safetensors",
-      "weight_dtype": "default"
+      "weight_dtype": "default",
+      "unet_name": "qwen_image_2.1_int8_convrot.safetensors"
     }
   },
-  "478": {
+  "503": {
     "class_type": "CLIPLoader",
     "inputs": {
-      "clip_name": "qwen3vl_8b_int8_convrot.safetensors",
       "type": "qwen_image",
-      "device": "default"
+      "device": "default",
+      "clip_name": "qwen3vl_8b_int8_convrot.safetensors"
     }
   },
-  "479": {
+  "504": {
     "class_type": "VAELoader",
     "inputs": {
       "vae_name": "qwen_image_2.1_vae_bf16.safetensors"
     }
   },
-  "481": {
+  "506": {
     "class_type": "VAEDecode",
     "inputs": {
       "samples": [
-        "482",
+        "507",
         0
       ],
       "vae": [
-        "479",
+        "504",
         0
       ]
     }
   },
-  "482": {
+  "507": {
     "class_type": "KSampler",
     "inputs": {
-      "seed": 0,
-      "steps": 25,
-      "cfg": 1,
-      "sampler_name": "euler",
-      "scheduler": "simple",
       "denoise": 1,
       "model": [
-        "484",
+        "509",
         0
       ],
       "positive": [
-        "485",
+        "510",
         0
       ],
       "negative": [
-        "485",
+        "510",
         1
       ],
       "latent_image": [
-        "518",
+        "549",
         0
-      ]
+      ],
+      "seed": 891836227295375,
+      "steps": 25,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple"
     }
   },
-  "484": {
+  "509": {
     "class_type": "QwenImage21Cache",
     "inputs": {
-      "device": "auto",
-      "dtype": "default",
       "model": [
-        "477",
+        "502",
         0
-      ]
+      ],
+      "device": "auto",
+      "dtype": "default"
     }
   },
-  "485": {
+  "510": {
     "class_type": "TextEncodeQwenImage21",
     "inputs": {
-      "prompt": "",
-      "negative_prompt": "",
-      "resolution": 0,
       "clip": [
-        "478",
+        "503",
         0
       ],
       "images.image_1": [
-        "517",
+        "548",
         0
       ],
       "vae": [
-        "479",
+        "504",
         0
       ],
+      "prompt": "",
+      "negative_prompt": "",
+      "resolution": 0,
       "images.image_2": [
         "475",
         0
       ],
       "images.image_3": [
-        "486",
+        "517",
         0
       ]
     }
   },
-  "486": {
+  "517": {
     "class_type": "LoadImage",
     "inputs": {
       "image": "example.png"
     }
   },
-  "487": {
+  "518": {
     "class_type": "VAEEncode",
     "inputs": {
       "pixels": [
-        "517",
+        "548",
         0
       ],
       "vae": [
-        "479",
+        "504",
         0
       ]
     }
   },
-  "488": {
+  "519": {
     "class_type": "GetImageSize",
     "inputs": {
       "image": [
@@ -152,367 +152,367 @@
       ]
     }
   },
-  "489": {
+  "520": {
     "class_type": "PrimitiveFloat",
     "inputs": {
       "value": 0.25
     }
   },
-  "490": {
+  "521": {
     "class_type": "PrimitiveFloat",
     "inputs": {
       "value": 0.25
     }
   },
-  "491": {
+  "522": {
     "class_type": "PrimitiveFloat",
     "inputs": {
       "value": 0.75
     }
   },
-  "492": {
+  "523": {
     "class_type": "PrimitiveFloat",
     "inputs": {
       "value": 0.75
     }
   },
-  "493": {
+  "524": {
     "class_type": "ComfyMathExpression",
     "inputs": {
       "expression": "round(a * e)",
       "values.a": [
-        "489",
+        "520",
         0
       ],
       "values.e": [
-        "488",
+        "519",
         0
       ]
     }
   },
-  "494": {
+  "525": {
     "class_type": "ComfyMathExpression",
     "inputs": {
       "expression": "round(a * e)",
       "values.a": [
-        "490",
+        "521",
         0
       ],
       "values.e": [
-        "488",
+        "519",
         1
       ]
     }
   },
-  "495": {
+  "526": {
     "class_type": "ComfyMathExpression",
     "inputs": {
       "expression": "max(1, round(b * e) - round(a * e))",
       "values.a": [
-        "489",
+        "520",
         0
       ],
       "values.b": [
-        "491",
+        "522",
         0
       ],
       "values.e": [
-        "488",
+        "519",
         0
       ]
     }
   },
-  "496": {
+  "527": {
     "class_type": "ComfyMathExpression",
     "inputs": {
       "expression": "max(1, round(b * e) - round(a * e))",
       "values.a": [
-        "490",
+        "521",
         0
       ],
       "values.b": [
-        "492",
+        "523",
         0
       ],
       "values.e": [
-        "488",
+        "519",
         1
       ]
     }
   },
-  "497": {
+  "528": {
     "class_type": "ComfyMathExpression",
     "inputs": {
       "expression": "max(16, ceil(min(a, b) * 0.12))",
       "values.a": [
-        "495",
+        "526",
         1
       ],
       "values.b": [
-        "496",
+        "527",
         1
       ]
     }
   },
-  "498": {
+  "529": {
     "class_type": "ComfyMathExpression",
     "inputs": {
       "expression": "max(0, a - m)",
       "values.a": [
-        "493",
+        "524",
         1
       ],
       "values.m": [
-        "497",
+        "528",
         1
       ]
     }
   },
-  "499": {
+  "530": {
     "class_type": "ComfyMathExpression",
     "inputs": {
       "expression": "max(0, a - m)",
       "values.a": [
-        "494",
+        "525",
         1
       ],
       "values.m": [
-        "497",
+        "528",
         1
       ]
     }
   },
-  "500": {
+  "531": {
     "class_type": "ComfyMathExpression",
     "inputs": {
       "expression": "min(e, a + c + m) - max(0, a - m)",
       "values.a": [
-        "493",
+        "524",
         1
       ],
       "values.c": [
-        "495",
+        "526",
         1
       ],
       "values.e": [
-        "488",
+        "519",
         0
       ],
       "values.m": [
-        "497",
+        "528",
         1
       ]
     }
   },
-  "501": {
+  "532": {
     "class_type": "ComfyMathExpression",
     "inputs": {
       "expression": "min(e, a + c + m) - max(0, a - m)",
       "values.a": [
-        "494",
+        "525",
         1
       ],
       "values.c": [
-        "496",
+        "527",
         1
       ],
       "values.e": [
-        "488",
+        "519",
         1
       ],
       "values.m": [
-        "497",
+        "528",
         1
       ]
     }
   },
-  "502": {
+  "533": {
     "class_type": "ComfyMathExpression",
     "inputs": {
       "expression": "max(1, min(10, a / 3.5))",
       "values.a": [
-        "497",
+        "528",
         1
       ]
     }
   },
-  "503": {
+  "534": {
     "class_type": "ComfyMathExpression",
     "inputs": {
       "expression": "round(a * sqrt(1048576 / (a * b)) / 32) * 32",
       "values.a": [
-        "500",
+        "531",
         1
       ],
       "values.b": [
-        "501",
+        "532",
         1
       ]
     }
   },
-  "504": {
+  "535": {
     "class_type": "ComfyMathExpression",
     "inputs": {
       "expression": "round(b * sqrt(1048576 / (a * b)) / 32) * 32",
       "values.a": [
-        "500",
+        "531",
         1
       ],
       "values.b": [
-        "501",
+        "532",
         1
       ]
     }
   },
-  "505": {
+  "536": {
     "class_type": "ComfyMathExpression",
     "inputs": {
       "expression": "a - b",
       "values.a": [
-        "493",
+        "524",
         1
       ],
       "values.b": [
-        "498",
+        "529",
         1
       ]
     }
   },
-  "506": {
+  "537": {
     "class_type": "ComfyMathExpression",
     "inputs": {
       "expression": "a - b",
       "values.a": [
-        "494",
+        "525",
         1
       ],
       "values.b": [
-        "499",
+        "530",
         1
       ]
     }
   },
-  "507": {
+  "538": {
     "class_type": "SolidMask",
     "inputs": {
       "value": 0,
       "width": [
-        "500",
+        "531",
         1
       ],
       "height": [
-        "501",
+        "532",
         1
       ]
     }
   },
-  "508": {
+  "539": {
     "class_type": "SolidMask",
     "inputs": {
       "value": 1,
       "width": [
-        "495",
+        "526",
         1
       ],
       "height": [
-        "496",
+        "527",
         1
       ]
     }
   },
-  "509": {
+  "540": {
     "class_type": "MaskComposite",
     "inputs": {
       "destination": [
-        "507",
+        "538",
         0
       ],
       "source": [
-        "508",
+        "539",
         0
       ],
       "x": [
-        "505",
+        "536",
         1
       ],
       "y": [
-        "506",
+        "537",
         1
       ],
       "operation": "add"
     }
   },
-  "510": {
+  "541": {
     "class_type": "ComfyMathExpression",
     "inputs": {
       "expression": "ceil(a)",
       "values.a": [
-        "502",
+        "533",
         0
       ]
     }
   },
-  "511": {
+  "542": {
     "class_type": "GrowMask",
     "inputs": {
       "mask": [
-        "509",
+        "540",
         0
       ],
       "expand": [
-        "510",
+        "541",
         1
       ],
       "tapered_corners": true
     }
   },
-  "512": {
+  "543": {
     "class_type": "MaskToImage",
     "inputs": {
       "mask": [
-        "511",
+        "542",
         0
       ]
     }
   },
-  "513": {
+  "544": {
     "class_type": "ComfyMathExpression",
     "inputs": {
       "expression": "min(31, ceil(a * 3))",
       "values.a": [
-        "502",
+        "533",
         0
       ]
     }
   },
-  "514": {
+  "545": {
     "class_type": "ImageBlur",
     "inputs": {
       "image": [
-        "512",
+        "543",
         0
       ],
       "blur_radius": [
-        "513",
+        "544",
         1
       ],
       "sigma": [
-        "502",
+        "533",
         0
       ]
     }
   },
-  "515": {
+  "546": {
     "class_type": "ImageToMask",
     "inputs": {
       "image": [
-        "514",
+        "545",
         0
       ],
       "channel": "red"
     }
   },
-  "516": {
+  "547": {
     "class_type": "ImageCrop",
     "inputs": {
       "image": [
@@ -520,75 +520,75 @@
         0
       ],
       "width": [
-        "500",
+        "531",
         1
       ],
       "height": [
-        "501",
+        "532",
         1
       ],
       "x": [
-        "498",
+        "529",
         1
       ],
       "y": [
-        "499",
+        "530",
         1
       ]
     }
   },
-  "517": {
+  "548": {
     "class_type": "ImageScale",
     "inputs": {
       "image": [
-        "516",
+        "547",
         0
       ],
       "upscale_method": "lanczos",
       "width": [
-        "503",
+        "534",
         1
       ],
       "height": [
-        "504",
+        "535",
         1
       ],
       "crop": "disabled"
     }
   },
-  "518": {
+  "549": {
     "class_type": "SetLatentNoiseMask",
     "inputs": {
       "samples": [
-        "487",
+        "518",
         0
       ],
       "mask": [
-        "515",
+        "546",
         0
       ]
     }
   },
-  "519": {
+  "550": {
     "class_type": "ImageScale",
     "inputs": {
       "image": [
-        "481",
+        "506",
         0
       ],
       "upscale_method": "lanczos",
       "width": [
-        "500",
+        "531",
         1
       ],
       "height": [
-        "501",
+        "532",
         1
       ],
       "crop": "disabled"
     }
   },
-  "520": {
+  "551": {
     "class_type": "ImageCompositeMasked",
     "inputs": {
       "destination": [
@@ -596,20 +596,20 @@
         0
       ],
       "source": [
-        "519",
+        "550",
         0
       ],
       "x": [
-        "498",
+        "529",
         1
       ],
       "y": [
-        "499",
+        "530",
         1
       ],
       "resize_source": false,
       "mask": [
-        "515",
+        "546",
         0
       ]
     }

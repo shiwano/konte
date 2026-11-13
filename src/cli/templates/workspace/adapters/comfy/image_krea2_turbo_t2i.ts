@@ -1,4 +1,4 @@
-// source-hash: 2bd47fd51196b5e71cdbda295347f39b18899bd8fdf9c8f29607cfb3b974bae1
+// source-hash: 7030cf3b0fc0d1dd3289f94b81267f4fad6a1fa82478e7783ae805194397dc8d
 // source: github.com/Comfy-Org/workflow_templates / templates/image_krea2_turbo_t2i_int8.json (MIT License)
 import { defineComfyAsset } from "konte";
 

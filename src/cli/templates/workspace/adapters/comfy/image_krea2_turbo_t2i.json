@@ -30,7 +30,6 @@
   "54": {
     "class_type": "KSampler",
     "inputs": {
-      "seed": 45862206397178,
       "steps": 8,
       "cfg": 1,
       "sampler_name": "euler",
@@ -51,7 +50,8 @@
       "latent_image": [
         "53",
         0
-      ]
+      ],
+      "seed": 45862206397178
     }
   },
   "55": {
@@ -70,16 +70,16 @@
   "56": {
     "class_type": "UNETLoader",
     "inputs": {
-      "unet_name": "krea2_turbo_int8_convrot.safetensors",
-      "weight_dtype": "default"
+      "weight_dtype": "default",
+      "unet_name": "krea2_turbo_int8_convrot.safetensors"
     }
   },
   "57": {
     "class_type": "CLIPLoader",
     "inputs": {
-      "clip_name": "qwen3vl_4b_fp8_scaled.safetensors",
       "type": "krea2",
-      "device": "default"
+      "device": "default",
+      "clip_name": "qwen3vl_4b_fp8_scaled.safetensors"
     }
   },
   "58": {

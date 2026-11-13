@@ -57,9 +57,9 @@ describe("shipped Qwen 2.1 inpaint adapter", () => {
   const patch = PATCH_TS;
   const model = {
     adapter: "imageQwenImageEdit21Inpaint",
-    edges: ["489", "490", "491", "492"],
+    edges: ["520", "521", "522", "523"],
     source: "470",
-    refs: ["475", "486"],
+    refs: ["475", "517"],
     save: "SaveImageAdvanced",
   };
   const workflowFile = workflowPath;

@@ -1,4 +1,4 @@
-// source-hash: 2be2df3c0061fbc87290bbfd9367c298d9ba01453f8c9f045323a35a61a277a1
+// source-hash: ee746bbac1506821946c58601edbbf10898ccce707a10894b3cfc1c4181dc239
 // source: github.com/Comfy-Org/workflow_templates / templates/audio_ace_step1_5_xl_turbo.json (MIT License)
 import { defineComfyAsset } from "konte";
 

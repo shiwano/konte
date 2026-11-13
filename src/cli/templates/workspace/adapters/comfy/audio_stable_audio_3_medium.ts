@@ -1,4 +1,4 @@
-// source-hash: 6ba35a405ca85f75ad38fbc9222b7d9155ccc2ae5866c8059d9f166e37f1f83c
+// source-hash: 5a859b4ba36ab2d55c814e36da05284e0a25135c6118e3ab228725f8babe0b58
 // source: github.com/Comfy-Org/workflow_templates / templates/audio_stable_audio_3_medium.json (MIT License)
 import { defineComfyAsset } from "konte";
 

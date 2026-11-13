@@ -47,7 +47,6 @@
   "61": {
     "class_type": "KSampler",
     "inputs": {
-      "seed": 1038503484137406,
       "steps": 8,
       "cfg": 1,
       "sampler_name": "lcm",
@@ -68,15 +67,16 @@
       "latent_image": [
         "60",
         0
-      ]
+      ],
+      "seed": 1038503484137406
     }
   },
   "62": {
     "class_type": "CLIPLoader",
     "inputs": {
-      "clip_name": "qwen3.5_2b_bf16.safetensors",
       "type": "stable_diffusion",
-      "device": "default"
+      "device": "default",
+      "clip_name": "qwen3.5_2b_bf16.safetensors"
     }
   },
   "63": {
@@ -234,9 +234,9 @@
   "77": {
     "class_type": "CLIPLoader",
     "inputs": {
-      "clip_name": "t5gemma_b_b_ul2.safetensors",
       "type": "stable_audio",
-      "device": "default"
+      "device": "default",
+      "clip_name": "t5gemma_b_b_ul2.safetensors"
     }
   }
 }

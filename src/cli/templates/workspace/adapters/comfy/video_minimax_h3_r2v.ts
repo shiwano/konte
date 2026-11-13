@@ -1,4 +1,4 @@
-// source-hash: c3a97075c30a61c22c82335f423d1717206826bdb8af23f4dcde6794ceff903f
+// source-hash: 03f130aabd8aa410a69aecbfc3e7480b5c8f9a0c827763f67c9203416be0938d
 // source: github.com/Comfy-Org/workflow_templates / templates/video_minimax_h3_r2v.json (MIT License)
 import {
   defineComfyAsset,

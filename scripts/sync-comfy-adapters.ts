@@ -89,7 +89,7 @@ function freeNodeId(workflow: ComfyUIWorkflow): string {
 const PATCHES: Record<string, (workflow: ComfyUIWorkflow) => void> = {
   image_qwen_image_edit_2_1: (workflow) => {
     addQwenImage21Reference(workflow);
-    useLiteralLatentSize(workflow, "EmptyLatentImage", 1280, 736);
+    useLiteralInputs(workflow, "EmptyLatentImage", { width: 1280, height: 736 });
     const latent = Object.entries(workflow).find(
       ([, node]) => node.class_type === "EmptyLatentImage",
     )!;
@@ -98,13 +98,14 @@ const PATCHES: Record<string, (workflow: ComfyUIWorkflow) => void> = {
     samplers[0]!.inputs.latent_image = [latent[0], 0];
     // The template's resolution 0 feeds each reference at its own size, and a `file` reference
     // can be a 4K still; 1024 bounds every one near the canvas.
-    useLiteralInputs(workflow, "TextEncodeQwenImage21", { prompt: "", resolution: 1024 });
+    useLiteralPromptText(workflow, "TextEncodeQwenImage21", "prompt");
+    useLiteralInputs(workflow, "TextEncodeQwenImage21", { resolution: 1024 });
     pruneUnreachable(workflow);
   },
   image_qwen_image_edit_2_1_inpaint: (workflow) => {
     addQwenImage21Reference(workflow);
     useInpaintCropAndStitch(workflow);
-    useLiteralInputs(workflow, "TextEncodeQwenImage21", { prompt: "" });
+    useLiteralPromptText(workflow, "TextEncodeQwenImage21", "prompt");
     pruneUnreachable(workflow);
   },
   // YuE2 plays its ABC score at the score's Q: tempo and takes no bpm of its own, so the score is
