@@ -23,6 +23,7 @@ import { PartMarksContext, partMarks } from "./direction/marks.js";
 import { DirectionPeek } from "./direction/peek.js";
 import { DirectionPolicy } from "./direction/policy.js";
 import { DirectionRail, type RailLink } from "./direction/rail.js";
+import { isNarrow } from "../review/narrow.js";
 import { ShotScript } from "./direction/script.js";
 import { DirectionWaivers } from "./direction/waivers.js";
 import { MenuIcon } from "./icons.js";
@@ -58,10 +59,6 @@ type BelowSection = (typeof BELOW_SECTIONS)[number];
 const ROSTER_SECTIONS = ["characters", "props", "locations"] as const;
 
 const SECTION_TARGET = "section:";
-
-// Below this the index and the side panel lie over the script instead of beside it.
-const NARROW = "(max-width: 48rem)";
-const isNarrow = (): boolean => window.matchMedia(NARROW).matches;
 
 function shotsOf(state: DirectionPreviewState): DirectionShotInfo[] {
   const walk = (seq: DirectionSequenceInfo): DirectionShotInfo[] =>

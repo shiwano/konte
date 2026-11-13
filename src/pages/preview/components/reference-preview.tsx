@@ -1,5 +1,5 @@
 import type React from "react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { submitReferenceReview } from "../api.js";
 import { withDisplayedVariants } from "../review/displayed-variants.js";
 import { normalizedPointIn } from "../review/normalized-point.js";
@@ -11,6 +11,15 @@ import {
   referenceEffectiveStatus,
   referenceUndecidedAssets,
 } from "../review/reference-decisions.js";
+import {
+  GROUP_KIND_LABEL,
+  referenceMemberLabel,
+  referenceRowLabel,
+  referenceSections,
+  type ReferenceRowInfo,
+  type ReferenceSection,
+} from "../review/reference-groups.js";
+import { isNarrow } from "../review/narrow.js";
 import { commentedAddresses } from "../review/undecided.js";
 import { useEffectiveVariants } from "../review/use-effective-variants.js";
 import { useHighlightedFeedback } from "../review/use-highlighted-feedback.js";
@@ -38,21 +47,21 @@ import {
 import { useKeepChoices } from "../review/use-keep-choices.js";
 import type {
   FeedbackInfo,
-  MediaKind,
   ReferenceAssetInfo,
+  ReferenceGroupMemberInfo,
   ReferencePreviewState,
   VariantStatus,
   SongLineEdit,
   SongReadingInfo,
 } from "../types.js";
 import { AcceptButton } from "./accept-button.js";
-import { CheckIcon, GridIcon, VolumeIcon } from "./icons.js";
+import { CheckIcon, CommentIcon, FilmIcon, GridIcon, MenuIcon, VolumeIcon } from "./icons.js";
 import { SongLineEditsContext, SongSummary, SongTrack, unplacedLineCount } from "./song-track.js";
 import { buildPinIndex, CommentThread, RosterCard } from "./comment-thread.js";
 import { FrameOverlay } from "./frame-overlay.js";
 import { Modal } from "./modal.js";
 import { PinLayer } from "./pin-layer.js";
-import { ReviewHeaderActions } from "./review-header-actions.js";
+import { type ResetAction, ResetButton, ReviewHeaderActions } from "./review-header-actions.js";
 import { StatusBadge } from "./status-badge.js";
 import { AssetInfoPanel, type InfoVariant, variantInfo } from "./asset-info-panel.js";
 import { VariantGallery } from "./variant-gallery.js";
@@ -92,12 +101,11 @@ function referenceNeedsReview(
   return effectiveStatus === "accepted" && isSelectedStale(asset, selected);
 }
 
-// One labelled table per media kind, in this order. An empty group is skipped at render time.
-const GROUPS: Array<{ kind: MediaKind; title: string }> = [
-  { kind: "image", title: "Images" },
-  { kind: "video", title: "Videos" },
-  { kind: "audio", title: "Audio" },
-];
+// What scrolls the page under an element: <main> at phone width, the document otherwise.
+function pageScroller(el: Element | null): Element | null {
+  const main = el?.closest(".main-content");
+  return main && getComputedStyle(main).overflowY !== "visible" ? main : document.scrollingElement;
+}
 
 export function ReferencePreview({ state }: { state: ReferencePreviewState }): React.ReactElement {
   const [statusOverrides, setStatusOverrides] = useState<
@@ -134,10 +142,14 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
     };
   }, [songLines]);
 
-  // Every asset in the order the tables render them — the sequence J/K/N walk.
-  const orderedAssets = useMemo(
-    () => GROUPS.flatMap(({ kind }) => state.assets.filter((a) => a.mediaKind === kind)),
-    [state.assets],
+  const sections = useMemo(
+    () => referenceSections(state.groups, state.assets),
+    [state.groups, state.assets],
+  );
+  // Every row in page order — the sequence J/K/N walk.
+  const rows = useMemo(
+    () => sections.flatMap((section) => section.subjects.flatMap((subject) => subject.rows)),
+    [sections],
   );
 
   // Accept is per-variant: a row is "accepted" only when the variant currently shown is the
@@ -241,11 +253,7 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
 
   // The one answer behind every review affordance here — the unreviewed count, the N jump and
   // Accept all's label. See bulk-accept.ts.
-  const {
-    unaccepted: unacceptedAddresses,
-    done: everythingAccepted,
-    acceptAll,
-  } = useMemo(
+  const { unaccepted: unacceptedAddresses, done: everythingAccepted } = useMemo(
     () => referenceBulkAccept(state.assets, effectiveVariants, statusOverrides),
     [state.assets, effectiveVariants, statusOverrides],
   );
@@ -259,38 +267,46 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
 
   // Nothing persists until Submit, so no confirm dialog — each mark stays individually reversible.
   // Every asset it accepts asks through one prompt.
-  const handleAcceptAll = useCallback(() => {
-    const next = { ...acceptAll(statusOverrides) };
-    for (const a of state.assets) {
-      const mark = next[a.address];
-      if (mark?.status !== "accepted" || !acceptBlockedOf(a, mark.variantId)) continue;
-      if (statusOverrides[a.address]) next[a.address] = statusOverrides[a.address]!;
-      else delete next[a.address];
-    }
-    const origins = state.assets
-      .filter((a) => {
-        const shown = effectiveVariants[a.address] ?? a.variantId;
-        return (
-          shown !== null &&
-          next[a.address]?.status === "accepted" &&
-          getEffectiveStatus(a, shown) !== "accepted"
-        );
-      })
-      .map((a) => ({ unit: a.address, chosen: { [a.address]: next[a.address]!.variantId } }));
-    const units = origins.map((o) => o.unit);
-    const entries = keepPromptFor(keepContextFor(next, withoutUnits(keepChoices, units)), origins);
-    requestKeep(entries, () => setStatusOverrides(next), units);
-  }, [
-    acceptAll,
-    acceptBlockedOf,
-    statusOverrides,
-    state.assets,
-    effectiveVariants,
-    getEffectiveStatus,
-    keepContextFor,
-    keepChoices,
-    requestKeep,
-  ]);
+  const acceptMany = useCallback(
+    (assets: ReferenceAssetInfo[]) => {
+      const next = {
+        ...referenceBulkAccept(assets, effectiveVariants, statusOverrides).acceptAll(
+          statusOverrides,
+        ),
+      };
+      for (const a of assets) {
+        const mark = next[a.address];
+        if (mark?.status !== "accepted" || !acceptBlockedOf(a, mark.variantId)) continue;
+        if (statusOverrides[a.address]) next[a.address] = statusOverrides[a.address]!;
+        else delete next[a.address];
+      }
+      const origins = assets
+        .filter((a) => {
+          const shown = effectiveVariants[a.address] ?? a.variantId;
+          return (
+            shown !== null &&
+            next[a.address]?.status === "accepted" &&
+            getEffectiveStatus(a, shown) !== "accepted"
+          );
+        })
+        .map((a) => ({ unit: a.address, chosen: { [a.address]: next[a.address]!.variantId } }));
+      const units = origins.map((o) => o.unit);
+      const entries = keepPromptFor(
+        keepContextFor(next, withoutUnits(keepChoices, units)),
+        origins,
+      );
+      requestKeep(entries, () => setStatusOverrides(next), units);
+    },
+    [
+      acceptBlockedOf,
+      statusOverrides,
+      effectiveVariants,
+      getEffectiveStatus,
+      keepContextFor,
+      keepChoices,
+      requestKeep,
+    ],
+  );
 
   // With no readable variant on the page there is nothing to accept, jump to, or sign off — only
   // notes reach the server.
@@ -298,19 +314,27 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
 
   // The assets left with neither an accept nor a live comment — named once at Submit, since the
   // record would show them unaccepted with no reason (see review/undecided.ts).
-  const undecided = useMemo(
+  const commented = useMemo(
     () =>
-      referenceUndecidedAssets(
-        state.assets,
-        effectiveVariants,
-        statusOverrides,
-        commentedAddresses(
-          state.assets.flatMap((a) => a.feedback),
-          session,
-        ),
+      commentedAddresses(
+        state.assets.flatMap((a) => a.feedback),
+        session,
       ),
-    [state.assets, effectiveVariants, statusOverrides, session],
+    [state.assets, session],
   );
+  const undecided = useMemo(() => {
+    const labels = new Map<string, string>();
+    for (const row of rows) {
+      if (!labels.has(row.asset.address)) labels.set(row.asset.address, referenceRowLabel(row));
+    }
+    return referenceUndecidedAssets(
+      state.assets,
+      effectiveVariants,
+      statusOverrides,
+      commented,
+      (a) => labels.get(a.address) ?? a.assetName,
+    );
+  }, [state.assets, rows, effectiveVariants, statusOverrides, commented]);
 
   // Switching the shown variant resets any pending accept/un-accept intent for that asset, so
   // the badge (and what submit persists) can never disagree with what is on screen.
@@ -328,23 +352,55 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
     [session, dropKeepUnits],
   );
 
-  const scrollToAsset = useCallback((address: string) => {
+  const scrollTo = useCallback((attr: "address" | "row" | "group", value: string) => {
     containerRef.current
-      ?.querySelector(`[data-address="${address}"]`)
-      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      ?.querySelector(`[data-${attr}="${CSS.escape(value)}"]`)
+      ?.scrollIntoView({ behavior: "smooth", block: attr === "group" ? "start" : "center" });
   }, []);
+  const scrollToAsset = useCallback((address: string) => scrollTo("address", address), [scrollTo]);
 
   const handleJumpToUnreviewed = useCallback(() => {
     if (unacceptedAddresses.size === 0) return;
-    for (let i = 1; i <= orderedAssets.length; i++) {
-      const cand = orderedAssets[(focusIdx + i) % orderedAssets.length]!;
-      if (unacceptedAddresses.has(cand.address)) {
-        setFocusIdx((focusIdx + i) % orderedAssets.length);
-        scrollToAsset(cand.address);
+    for (let i = 1; i <= rows.length; i++) {
+      const cand = rows[(focusIdx + i) % rows.length]!;
+      if (unacceptedAddresses.has(cand.asset.address)) {
+        setFocusIdx((focusIdx + i) % rows.length);
+        scrollTo("row", cand.key);
         return;
       }
     }
-  }, [unacceptedAddresses, orderedAssets, focusIdx, scrollToAsset]);
+  }, [unacceptedAddresses, rows, focusIdx, scrollTo]);
+
+  const [railOpen, setRailOpen] = useState(() => !isNarrow());
+  // Opening or closing the index resizes every row; the one being read stays where it was on screen.
+  const held = useRef<{ el: Element; top: number } | null>(null);
+  const toggleRail = useCallback(() => {
+    for (const el of containerRef.current?.querySelectorAll("[data-row]") ?? []) {
+      const { top } = el.getBoundingClientRect();
+      if (top >= 0) {
+        held.current = { el, top };
+        break;
+      }
+    }
+    setRailOpen((open) => !open);
+  }, []);
+  useLayoutEffect(() => {
+    const place = held.current;
+    held.current = null;
+    if (!place) return;
+    const moved = place.el.getBoundingClientRect().top - place.top;
+    if (moved !== 0) pageScroller(place.el)?.scrollBy(0, moved);
+  }, [railOpen]);
+
+  const handleJumpToGroup = useCallback(
+    (groupId: string) => {
+      const idx = rows.findIndex((r) => r.group.id === groupId);
+      if (idx >= 0) setFocusIdx(idx);
+      if (isNarrow()) setRailOpen(false);
+      scrollTo("group", groupId);
+    },
+    [rows, scrollTo],
+  );
 
   const submitReview = useCallback(
     async ({ addedFeedback, feedbackPatches, overallComment }: SubmitInput) => {
@@ -365,7 +421,7 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
 
   const moveFocus = (idx: number) => {
     setFocusIdx(idx);
-    if (orderedAssets[idx]) scrollToAsset(orderedAssets[idx].address);
+    if (rows[idx]) scrollTo("row", rows[idx].key);
   };
   useReviewShortcuts({
     blocked:
@@ -376,10 +432,10 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
       keepAsking !== null,
     onSubmit: handleSubmit,
     handlers: {
-      j: () => moveFocus(Math.min(focusIdx + 1, orderedAssets.length - 1)),
+      j: () => moveFocus(Math.min(focusIdx + 1, rows.length - 1)),
       k: () => moveFocus(Math.max(focusIdx - 1, 0)),
       a: () => {
-        const asset = orderedAssets[focusIdx];
+        const asset = rows[focusIdx]?.asset;
         if (asset?.variantId) {
           handleAcceptRow(asset, effectiveVariants[asset.address] ?? asset.variantId);
         }
@@ -393,7 +449,63 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
     ? state.assets.find((a) => a.address === session.gallery!.address)
     : null;
   const detailAsset = detail ? state.assets.find((a) => a.address === detail.address) : null;
-  const focusedAddress = orderedAssets[focusIdx]?.address ?? null;
+  const focusedRow = rows[focusIdx] ?? null;
+  const visibleSections = sections.flatMap((section) => {
+    const subjects = section.subjects.flatMap((subject) => {
+      const shown = subject.rows.filter(
+        (r) => !session.showChangedOnly || persistedUnaccepted.has(r.asset.address),
+      );
+      return shown.length > 0 ? [{ ...subject, shown }] : [];
+    });
+    return subjects.length > 0 ? [{ title: section.title, subjects }] : [];
+  });
+
+  // The subject under the reader's eye, which the index marks: the last one whose head has passed
+  // a line a third of the way down the window, and the last of all at the page's end.
+  const [readingGroupId, setReadingGroupId] = useState<string | null>(null);
+  const visibleGroupIds = visibleSections
+    .flatMap((section) => section.subjects.map((subject) => subject.group.id))
+    .join("\n");
+  useEffect(() => {
+    let frame = 0;
+    const read = () => {
+      frame = 0;
+      const heads = [
+        ...(containerRef.current?.querySelectorAll<HTMLElement>("[data-group]") ?? []),
+      ];
+      if (heads.length === 0) return setReadingGroupId(null);
+      const page = pageScroller(containerRef.current);
+      const atEnd = !!page && page.scrollTop + page.clientHeight >= page.scrollHeight - 2;
+      const line = window.innerHeight / 3;
+      const passed = heads.filter((el) => el.getBoundingClientRect().top <= line);
+      const reading = atEnd ? heads.at(-1)! : (passed.at(-1) ?? heads[0]!);
+      setReadingGroupId(reading.dataset.group ?? null);
+    };
+    const schedule = () => {
+      if (frame === 0) frame = requestAnimationFrame(read);
+    };
+    read();
+    // Captured, so a scroll of <main> at phone width is read as the window's is.
+    document.addEventListener("scroll", schedule, { capture: true, passive: true });
+    window.addEventListener("resize", schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("scroll", schedule, { capture: true });
+      window.removeEventListener("resize", schedule);
+    };
+  }, [visibleGroupIds]);
+
+  const resetAction: ResetAction = {
+    disabled: !session.hasPendingChanges,
+    onClick: () => {
+      setStatusOverrides({});
+      setSongLines([]);
+      resetKeep();
+      pin.cancelPin();
+      setHighlightedFeedbackId(null);
+      session.reset();
+    },
+  };
 
   return (
     <ReviewShell
@@ -417,21 +529,11 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
               ? {
                   done: everythingAccepted,
                   what: "every reviewable asset",
-                  onClick: handleAcceptAll,
+                  onClick: () => acceptMany(state.assets),
                 }
               : undefined
           }
-          reset={{
-            disabled: !session.hasPendingChanges,
-            onClick: () => {
-              setStatusOverrides({});
-              setSongLines([]);
-              resetKeep();
-              pin.cancelPin();
-              setHighlightedFeedbackId(null);
-              session.reset();
-            },
-          }}
+          reset={resetAction}
         />
       }
       submitting={session.submitting}
@@ -453,68 +555,129 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
       onCancelSubmit={session.cancelSubmit}
     >
       <SongLineEditsContext.Provider value={songLineEdits}>
-        <div className="reference-preview" ref={containerRef}>
-          {GROUPS.map(({ kind, title }) => {
-            const assets = orderedAssets.filter(
-              (a) =>
-                a.mediaKind === kind &&
-                (!session.showChangedOnly || persistedUnaccepted.has(a.address)),
-            );
-            if (assets.length === 0) return null;
-            return (
-              <section key={kind} className="reference-group">
-                <h2 className="reference-group-title">{title}</h2>
-                <table className="review-table-element">
-                  <thead>
-                    <tr>
-                      <th className="reference-col-media">Asset</th>
-                      <th className="review-col-feedback">Feedback</th>
-                      <th className="review-col-accept">Accept</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {assets.map((asset) => {
-                      const selectedVariantId = effectiveVariants[asset.address] ?? asset.variantId;
-                      const effectiveStatus = getEffectiveStatus(asset, selectedVariantId);
-                      return (
-                        <ReferenceRow
-                          key={asset.address}
-                          asset={asset}
-                          selectedVariantId={selectedVariantId}
-                          effectiveStatus={effectiveStatus}
-                          focused={focusedAddress === asset.address}
-                          hasOverride={asset.address in statusOverrides}
-                          regenerate={regenerateByAddress.get(asset.address)}
-                          onKeepAfterAll={() => keepUnitAfterAll(asset.address)}
-                          onJumpToUnit={scrollToAsset}
-                          thread={pin.threadFor(asset.address)}
-                          pendingPin={pin.pinFor(asset.address)}
-                          highlightedFeedbackId={highlightedFeedbackId}
-                          onFocus={() => setFocusIdx(orderedAssets.indexOf(asset))}
-                          onHighlightPin={setHighlightedFeedbackId}
-                          onOpenGallery={() => session.setGallery({ address: asset.address })}
-                          onOpenInfo={
-                            selectedVariantId && variantInfo(asset.variants, selectedVariantId)
-                              ? () =>
-                                  setInfoVariant({
-                                    address: asset.address,
-                                    variantId: selectedVariantId,
-                                  })
-                              : undefined
-                          }
-                          onOpenDetail={() => setDetail({ address: asset.address })}
-                          acceptBlocked={acceptBlockedOf(asset, selectedVariantId)}
-                          onAccept={(variantId) => handleAcceptRow(asset, variantId)}
-                          onPinPlace={(x, y) => pin.placePin(asset.address, x, y)}
-                          onCancelPin={pin.cancelPin}
-                        />
-                      );
-                    })}
-                  </tbody>
-                </table>
+        <div
+          className={`reference-preview${railOpen ? " reference-preview--rail" : ""}`}
+          ref={containerRef}
+        >
+          <button
+            type="button"
+            className="dir-icon-btn dir-rail-toggle"
+            onClick={toggleRail}
+            aria-expanded={railOpen}
+            aria-label={railOpen ? "Close the index" : "Open the index"}
+            title={railOpen ? "Close the index" : "Open the index"}
+          >
+            <MenuIcon size={16} />
+          </button>
+          <button
+            type="button"
+            className="dir-scrim"
+            aria-label="Close the index"
+            tabIndex={-1}
+            onClick={toggleRail}
+          />
+          <ReferenceRail
+            open={railOpen}
+            tools={
+              <>
+                <label className="review-toggle">
+                  <input
+                    type="checkbox"
+                    checked={session.showChangedOnly}
+                    onChange={() => session.setShowChangedOnly(!session.showChangedOnly)}
+                  />
+                  Needs review
+                </label>
+                <label className="review-toggle">
+                  <input
+                    type="checkbox"
+                    checked={session.hideStale}
+                    onChange={() => session.setHideStale(!session.hideStale)}
+                  />
+                  Hide stale notes
+                </label>
+                <ResetButton reset={resetAction} />
+              </>
+            }
+            sections={visibleSections}
+            currentGroupId={readingGroupId}
+            unaccepted={unacceptedAddresses}
+            commented={commented}
+            onJump={handleJumpToGroup}
+          />
+          <div className="ref-subjects">
+            {visibleSections.map((section) => (
+              <section key={section.title} className="reference-group">
+                <h2 className="reference-group-title">{section.title}</h2>
+                {section.subjects.map(({ group, rows: all, shown }) => {
+                  const decidable = all.filter((r) => r.asset.variantId !== null);
+                  const left = decidable.filter((r) => unacceptedAddresses.has(r.asset.address));
+                  return (
+                    <article key={group.id} className="ref-subject" data-group={group.id}>
+                      <header className="ref-subject-head">
+                        <span className="ref-subject-kind">{GROUP_KIND_LABEL[group.kind]}</span>
+                        <h3 className="ref-subject-name">{group.name}</h3>
+                        {decidable.length > 1 && (
+                          <span className="ref-subject-progress">
+                            {decidable.length - left.length}/{decidable.length} accepted
+                          </span>
+                        )}
+                        {decidable.length > 1 && left.length > 0 && (
+                          <button
+                            type="button"
+                            className="ctrl-btn"
+                            title={`Accept every asset of ${group.name}`}
+                            onClick={() => acceptMany(decidable.map((r) => r.asset))}
+                          >
+                            <CheckIcon size={13} /> Accept all
+                          </button>
+                        )}
+                      </header>
+                      {shown.map((row) => {
+                        const { asset } = row;
+                        const selectedVariantId =
+                          effectiveVariants[asset.address] ?? asset.variantId;
+                        const effectiveStatus = getEffectiveStatus(asset, selectedVariantId);
+                        return (
+                          <ReferenceRow
+                            key={row.key}
+                            row={row}
+                            selectedVariantId={selectedVariantId}
+                            effectiveStatus={effectiveStatus}
+                            focused={focusedRow?.key === row.key}
+                            hasOverride={asset.address in statusOverrides}
+                            regenerate={regenerateByAddress.get(asset.address)}
+                            onKeepAfterAll={() => keepUnitAfterAll(asset.address)}
+                            onJumpToUnit={scrollToAsset}
+                            thread={pin.threadFor(asset.address)}
+                            pendingPin={pin.pinFor(asset.address)}
+                            highlightedFeedbackId={highlightedFeedbackId}
+                            onFocus={() => setFocusIdx(rows.indexOf(row))}
+                            onHighlightPin={setHighlightedFeedbackId}
+                            onOpenGallery={() => session.setGallery({ address: asset.address })}
+                            onOpenInfo={
+                              selectedVariantId && variantInfo(asset.variants, selectedVariantId)
+                                ? () =>
+                                    setInfoVariant({
+                                      address: asset.address,
+                                      variantId: selectedVariantId,
+                                    })
+                                : undefined
+                            }
+                            onOpenDetail={() => setDetail({ address: asset.address })}
+                            acceptBlocked={acceptBlockedOf(asset, selectedVariantId)}
+                            onAccept={(variantId) => handleAcceptRow(asset, variantId)}
+                            onPinPlace={(x, y) => pin.placePin(asset.address, x, y)}
+                            onCancelPin={pin.cancelPin}
+                          />
+                        );
+                      })}
+                    </article>
+                  );
+                })}
               </section>
-            );
-          })}
+            ))}
+          </div>
 
           {galleryAsset && (
             <VariantGallery
@@ -721,8 +884,125 @@ function ReferenceMedia({
   );
 }
 
+function ReferenceRail({
+  open,
+  tools,
+  sections,
+  currentGroupId,
+  unaccepted,
+  commented,
+  onJump,
+}: {
+  open: boolean;
+  // The header's controls a phone's one-row bar has no room for.
+  tools: React.ReactNode;
+  sections: ReferenceSection[];
+  currentGroupId: string | null;
+  unaccepted: Set<string>;
+  commented: Set<string>;
+  onJump: (groupId: string) => void;
+}): React.ReactElement {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // An index longer than the window follows the page. Its own scroll alone: scrolling the row into
+  // view would stop a jump the page is in the middle of.
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    const row = scroller?.querySelector<HTMLElement>('[aria-current="true"]');
+    if (!scroller || !row) return;
+    const box = scroller.getBoundingClientRect();
+    const at = row.getBoundingClientRect();
+    if (at.top < box.top) scroller.scrollTop -= box.top - at.top;
+    else if (at.bottom > box.bottom) scroller.scrollTop += at.bottom - box.bottom;
+  }, [currentGroupId]);
+  return (
+    <nav
+      className={`dir-rail${open ? " dir-rail--open" : ""}`}
+      aria-label="Reference index"
+      aria-hidden={!open}
+      inert={!open}
+    >
+      <div ref={scrollRef} className="dir-rail-scroll dir-scroll">
+        {sections.map((section) => (
+          <section key={section.title} className="dir-rail-group">
+            <h2 className="dir-rail-title">{section.title}</h2>
+            {section.subjects.map(({ group, rows }) => {
+              const left = rows.filter((r) => unaccepted.has(r.asset.address)).length;
+              const current = group.id === currentGroupId;
+              return (
+                <button
+                  key={group.id}
+                  type="button"
+                  className={`dir-rail-row${current ? " dir-rail-row--current" : ""}`}
+                  aria-current={current}
+                  onClick={() => onJump(group.id)}
+                >
+                  <span className="dir-rail-name">{group.name}</span>
+                  {rows.some((r) => commented.has(r.asset.address)) && (
+                    <span className="dir-rail-noted" title="Has notes">
+                      <CommentIcon size={11} />
+                    </span>
+                  )}
+                  {left > 0 ? (
+                    <span className="ref-rail-left" title={`${left} to review`}>
+                      {left}
+                    </span>
+                  ) : (
+                    rows.some((r) => r.asset.variantId !== null) && (
+                      <span className="ref-rail-done" title="Accepted">
+                        <CheckIcon size={12} />
+                      </span>
+                    )
+                  )}
+                </button>
+              );
+            })}
+          </section>
+        ))}
+        <section className="dir-rail-group dir-rail-tools">
+          <h2 className="dir-rail-title">Review</h2>
+          <div className="dir-rail-tools-body">{tools}</div>
+        </section>
+      </div>
+    </nav>
+  );
+}
+
+function VoiceLinesCard({
+  lines,
+}: {
+  lines: NonNullable<ReferenceGroupMemberInfo["lines"]>;
+}): React.ReactElement {
+  const shown = lines.slice(0, 4);
+  return (
+    <div className="comment-card comment-card--move">
+      <span className="comment-card-icon">
+        <FilmIcon size={12} />
+      </span>
+      <span className="comment-card-body">
+        {shown.map((line, i) => (
+          <span key={i} className="comment-move-row">
+            <span className="comment-move-label">{i === 0 ? "Lines" : ""}</span>
+            <span className="comment-move-text">
+              {line.text}
+              {line.acting && <span className="ref-line-acting"> ({line.acting})</span>}
+            </span>
+          </span>
+        ))}
+        {lines.length > shown.length && (
+          <span className="comment-move-row">
+            <span className="comment-move-label" />
+            <span className="comment-move-text ref-line-acting">
+              and {lines.length - shown.length} more
+            </span>
+          </span>
+        )}
+      </span>
+    </div>
+  );
+}
+
 function ReferenceRow({
-  asset,
+  row,
   selectedVariantId,
   effectiveStatus,
   focused,
@@ -743,7 +1023,7 @@ function ReferenceRow({
   onPinPlace,
   onCancelPin,
 }: {
-  asset: ReferenceAssetInfo;
+  row: ReferenceRowInfo;
   selectedVariantId: string | null;
   effectiveStatus: VariantStatus;
   focused: boolean;
@@ -766,6 +1046,8 @@ function ReferenceRow({
   onPinPlace: (x: number, y: number) => void;
   onCancelPin: () => void;
 }): React.ReactElement {
+  const { asset, member } = row;
+  const label = referenceMemberLabel(member);
   // The shown media follows the gallery selection (override), else the resolved variant.
   const shown =
     asset.variants.find((v) => v.variantId === selectedVariantId) ??
@@ -795,12 +1077,24 @@ function ReferenceRow({
   );
 
   return (
-    <tr
-      className={`review-row${focused ? " review-row--focused" : ""}`}
+    <div
+      role="presentation"
+      className={`review-row ref-row ref-row--${asset.mediaKind}${
+        member.role === "view" ? " ref-row--nested" : ""
+      }${focused ? " review-row--focused" : ""}`}
       data-address={asset.address}
+      data-row={row.key}
       onClick={onFocus}
     >
-      <td className="reference-col-media">
+      {label && (
+        <div className="ref-row-label">
+          <span className="ref-row-role">{label}</span>
+          {member.holds && member.holds.length > 0 && (
+            <span className="ref-row-holds">{member.holds.join(", ")}</span>
+          )}
+        </div>
+      )}
+      <div className="ref-row-media">
         {isImage ? (
           <ReferenceImageMedia
             asset={asset}
@@ -822,9 +1116,9 @@ function ReferenceRow({
             onOpenDetail={onOpenDetail}
           />
         )}
-      </td>
+      </div>
 
-      <td className="review-col-feedback">
+      <div className="ref-row-notes review-col-feedback">
         {asset.directionRoster?.map((part) => (
           <RosterCard
             key={`${part.kind}:${part.name}`}
@@ -834,6 +1128,7 @@ function ReferenceRow({
             needsReview={part.needsReview}
           />
         ))}
+        {member.lines && member.lines.length > 0 && <VoiceLinesCard lines={member.lines} />}
         <CommentThread
           feedback={asset.feedback}
           thread={thread}
@@ -849,11 +1144,11 @@ function ReferenceRow({
           onHighlightPin={onHighlightPin}
           onCancelPin={onCancelPin}
         />
-      </td>
+      </div>
 
       {/* The decision gets its own column rather than an overlay on the media, so the accept
           control reads the same here as in the animatic review's panel list. */}
-      <td className="review-col-accept">
+      <div className="ref-row-accept review-col-accept">
         {undecidedBesideAccepted && <StatusBadge status="changed" label="Changed" />}
         {regenerate && (
           <RegenerateBadge mark={regenerate} onKeep={onKeepAfterAll} onJumpToRow={onJumpToUnit} />
@@ -871,8 +1166,8 @@ function ReferenceRow({
             onClick={() => onAccept(selectedVariantId)}
           />
         )}
-      </td>
-    </tr>
+      </div>
+    </div>
   );
 }
 

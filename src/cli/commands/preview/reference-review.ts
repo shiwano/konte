@@ -1,6 +1,7 @@
 import { cascadeDirectionReferenceAccepts } from "../../../core/accept-cascade.js";
 import { buildDependencyGraph } from "../../../core/graph.js";
 import { buildKeepGraph } from "./keep-graph.js";
+import { referenceGroups } from "./reference-groups.js";
 import {
   DIRECTION_NARRATOR_ADDRESS,
   formatDirectionCharacterAddress,
@@ -166,7 +167,8 @@ export async function handleGetReferenceState(
 
   // Exposed assets only: an unreturned one is an intermediate another reference asset consumes, and
   // it is read through that asset — there is nothing to decide about it here.
-  const assets = listExposedReferenceAddresses(reference).map((address) => {
+  const exposed = listExposedReferenceAddresses(reference);
+  const assets = exposed.map((address) => {
     const assetName = address.slice("reference:".length);
     const addr = formatReferenceAddress(assetName);
     const acceptedId = manager.getAcceptedVariant(addr);
@@ -219,6 +221,10 @@ export async function handleGetReferenceState(
   return jsonResponse({
     mode: "reference-preview",
     assets,
+    groups: referenceGroups(
+      direction,
+      exposed.map((address) => address.slice("reference:".length)),
+    ),
     size: { width: 1920, height: 1080 },
     keep: referenceKeepGraph(manager, reference, animatic, video),
     ...(handoff?.summary ? { handoffSummary: handoff.summary } : {}),

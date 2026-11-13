@@ -86,17 +86,16 @@ export function referenceAcceptUnits(
 }
 
 // The assets a submit would record unaccepted with no reason — named once at the submit
-// confirmation (see undecided.ts), by asset name.
+// confirmation (see undecided.ts), by the label the page gives each.
 export function referenceUndecidedAssets(
   assets: ReferenceAssetInfo[],
   shownVariantByAddress: Record<string, string>,
   overrides: Record<string, { variantId: string; status: VariantStatus }>,
   commented: Set<string>,
+  labelOf: (asset: ReferenceAssetInfo) => string = (a) => a.assetName,
 ): string[] {
   const { unaccepted } = referenceBulkAccept(assets, shownVariantByAddress, overrides);
-  return assets
-    .filter((a) => unaccepted.has(a.address) && !commented.has(a.address))
-    .map((a) => a.assetName);
+  return assets.filter((a) => unaccepted.has(a.address) && !commented.has(a.address)).map(labelOf);
 }
 
 // The decision to send for one asset the reviewer touched, or null when the override says nothing

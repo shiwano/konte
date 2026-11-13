@@ -460,9 +460,39 @@ export type DirectionRosterKind =
   | "prop"
   | "location";
 
+export type ReferenceGroupKind =
+  | "character"
+  | "narrator"
+  | "prop"
+  | "location"
+  | "song"
+  | "material";
+
+export interface ReferenceGroupMemberInfo {
+  address: string;
+  role: "look" | "voice" | "master" | "view" | "song" | "material";
+  // The way the camera faces, on a `view`.
+  view?: string;
+  // The landmarks seen facing that way, by name. On a `master` and a `view`.
+  holds?: string[];
+  // The lines this voice speaks, in direction order.
+  lines?: { text: string; acting: string | null }[];
+}
+
+// A subject the direction names and the reference assets that realize it. An asset no roster entry
+// claims is a `material` group of its own.
+export interface ReferenceGroupInfo {
+  id: string;
+  kind: ReferenceGroupKind;
+  name: string;
+  members: ReferenceGroupMemberInfo[];
+}
+
 export interface ReferencePreviewState {
   mode: "reference-preview";
   assets: ReferenceAssetInfo[];
+  // Every asset, under the subject it realizes, in review order.
+  groups: ReferenceGroupInfo[];
   size: { width: number; height: number };
   keep: KeepGraphInfo;
   handoffSummary?: string;

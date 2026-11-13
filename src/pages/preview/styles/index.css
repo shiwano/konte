@@ -3234,34 +3234,6 @@ body.fill-mode .fab-submit-wrap {
   padding-bottom: 92px;
 }
 
-.review-table-element {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow-card);
-}
-
-.review-table-element thead th {
-  padding: 0.6rem 0.9rem;
-  text-align: left;
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  background: var(--bg-elevated);
-  border-bottom: 1px solid var(--border);
-}
-
-.review-table-element td {
-  padding: 0.9rem;
-  vertical-align: top;
-}
-
 .review-col-feedback {
   width: auto;
 }
@@ -3289,10 +3261,6 @@ body.fill-mode .fab-submit-wrap {
 .review-row {
   cursor: pointer;
   transition: background 0.15s;
-}
-
-.review-row td {
-  border-bottom: 1px solid var(--border);
 }
 
 .review-row:hover {
@@ -4208,13 +4176,45 @@ body.fill-mode .fab-submit-wrap {
   color: var(--text-secondary);
 }
 
-/* Reference preview — one labelled review table per media kind, since a reference asset has no
-   shot to band it under the way an animatic panel has. */
+/* Reference preview: the direction review's index at the left edge, and one card per subject the
+   direction names, a full-width row per asset under it. */
+body:has(.reference-preview) {
+  --dir-rail-w: 13rem;
+}
+
+.main-content:has(.reference-preview) {
+  max-width: none;
+}
+
 /* padding-bottom clears the fixed .fab-submit-wrap, as .review-table does. */
 .reference-preview {
   width: 100%;
-  margin: 0 auto;
   padding-bottom: 92px;
+}
+
+.ref-rail-left {
+  flex: none;
+  min-width: 1.25rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--yellow-soft);
+  color: var(--yellow);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.ref-rail-done {
+  display: inline-flex;
+  flex: none;
+  color: var(--green);
+}
+
+.ref-subjects {
+  max-width: 1600px;
+  margin: 0 auto;
 }
 
 .reference-group + .reference-group {
@@ -4230,66 +4230,163 @@ body.fill-mode .fab-submit-wrap {
   margin: 0 0 0.7rem;
 }
 
-.reference-col-media {
-  width: 40%;
+.ref-subject {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  /* A jump lands the card's head under the pinned header. */
+  scroll-margin-top: calc(var(--header-h) + 1rem);
 }
 
-/* Phone width: three columns leave the sheet itself too little to review, so the row stacks, as
-   the direction tables do. `order` puts the art first, the verdict under it, the thread last. */
-@media (max-width: 640px) {
-  .review-table-element,
-  .review-table-element tbody,
-  .review-table-element td {
-    display: block;
+.ref-subject + .ref-subject {
+  margin-top: 0.9rem;
+}
+
+.ref-subject-head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 46px;
+  padding: 0.45rem 0.9rem;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+}
+
+.ref-subject-kind {
+  flex: none;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.ref-subject-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ref-subject-progress {
+  flex: none;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ref-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr) 132px;
+  gap: 0.6rem 0.9rem;
+  align-items: start;
+  padding: 0.9rem;
+}
+
+.ref-row + .ref-row {
+  border-top: 1px solid var(--border);
+}
+
+/* A view, under the master it is a view of. */
+.ref-row--nested {
+  padding-left: 2.2rem;
+  background-image: linear-gradient(var(--border-strong), var(--border-strong));
+  background-repeat: no-repeat;
+  background-position: 1.05rem 0;
+  background-size: 2px 100%;
+}
+
+.ref-row-label {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.ref-row-role {
+  flex: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.ref-row-holds {
+  min-width: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.ref-row-media,
+.ref-row-notes {
+  min-width: 0;
+}
+
+.ref-line-acting {
+  color: var(--text-muted);
+}
+
+/* The row stacks: the art first, the verdict under it, the thread last. */
+@media (max-width: 820px) {
+  .ref-row {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  /* The headers name columns that no longer exist. */
-  .review-table-element thead {
-    display: none;
-  }
-
-  /* The row draws the rule now — a `td` border would stop at the cell's own content. */
-  .review-table-element tr {
-    display: flex;
-    flex-wrap: wrap;
-    padding: 0.8rem;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .review-table-element tbody tr:last-child {
-    border-bottom: none;
-  }
-
-  .review-table-element td,
-  .review-row td {
-    padding: 0;
-    border-bottom: none;
-  }
-
-  .review-table-element td.reference-col-media {
-    order: 0;
+  .ref-row-accept {
     width: auto;
-    flex: 1 1 100%;
-  }
-
-  /* Left: there is no column to sit at the end of. */
-  .review-table-element td.review-col-accept {
-    order: 1;
-    width: auto;
-    flex: 1 1 100%;
-    margin-top: 0.7rem;
     text-align: left;
   }
 
-  .review-col-accept .accept-btn {
+  .ref-row-accept .accept-btn {
     width: auto;
     min-width: 132px;
   }
 
-  .review-table-element td.review-col-feedback {
-    order: 2;
-    flex: 1 1 100%;
-    margin-top: 0.7rem;
+  .ref-row-notes {
+    order: 1;
+  }
+
+  .ref-row--nested {
+    padding-left: 1.5rem;
+    background-position: 0.6rem 0;
+  }
+
+  /* The name keeps the first line to itself; the count and the button take the next. */
+  .ref-subject-head {
+    flex-wrap: wrap;
+    gap: 0.4rem 0.7rem;
+  }
+
+  .ref-subject-name {
+    flex-basis: calc(100% - 6.5rem);
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .ref-subject-progress {
+    margin-right: auto;
+  }
+}
+
+/* With the index shut, its toggle keeps a gutter of its own beside the cards. */
+@media (min-width: 641px) {
+  .main-content:has(.reference-preview:not(.reference-preview--rail)) {
+    padding-left: 3rem;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 48rem) {
+  .main-content:has(.reference-preview) {
+    padding-left: 3rem;
   }
 }
 
@@ -4322,7 +4419,7 @@ body.fill-mode .fab-submit-wrap {
 
 .reference-card-media--pinnable .reference-card-img {
   max-width: 100%;
-  max-height: 460px;
+  max-height: min(78vh, 900px);
   width: auto;
   height: auto;
   margin: 0 auto;
@@ -5038,7 +5135,7 @@ body:has(.dir-peek--open:not(.dir-peek--wide)) .fab-submit-wrap {
 
 /* Wide enough for the index to stand beside the script. */
 @media (min-width: 48.01rem) {
-  .main-content:has(.direction-preview--rail) {
+  .main-content:has(:is(.direction-preview--rail, .reference-preview--rail)) {
     padding-left: calc(var(--dir-rail-w) + 1.75rem);
   }
 
@@ -5073,7 +5170,7 @@ body:has(.dir-peek--open:not(.dir-peek--wide)) .fab-submit-wrap {
     transition: opacity var(--dir-slide);
   }
 
-  .direction-preview--rail > .dir-scrim {
+  :is(.direction-preview--rail, .reference-preview--rail) > .dir-scrim {
     opacity: 1;
     pointer-events: auto;
   }
@@ -5105,7 +5202,7 @@ body:has(.dir-peek--open:not(.dir-peek--wide)) .fab-submit-wrap {
     color: var(--text-secondary);
   }
 
-  body:has(.direction-preview) .header-inner {
+  body:has(:is(.direction-preview, .reference-preview)) .header-inner {
     padding-left: calc(0.75rem + 34px + 0.6rem);
   }
 
@@ -5114,16 +5211,16 @@ body:has(.dir-peek--open:not(.dir-peek--wide)) .fab-submit-wrap {
   }
 
   /* One row: what the reviewer acts on stays, the rest moves into the index. */
-  body:has(.direction-preview) .header-actions {
+  body:has(:is(.direction-preview, .reference-preview)) .header-actions {
     flex-wrap: nowrap;
     justify-content: flex-end;
     width: 100%;
   }
 
-  body:has(.direction-preview) .header-actions > .review-toggle,
-  body:has(.direction-preview) .header-actions > .review-shortcuts-wrap,
-  body:has(.direction-preview) .header-actions > .header-actions-break,
-  body:has(.direction-preview) .header-actions > .vp-reset {
+  body:has(:is(.direction-preview, .reference-preview)) .header-actions > .review-toggle,
+  body:has(:is(.direction-preview, .reference-preview)) .header-actions > .review-shortcuts-wrap,
+  body:has(:is(.direction-preview, .reference-preview)) .header-actions > .header-actions-break,
+  body:has(:is(.direction-preview, .reference-preview)) .header-actions > .vp-reset {
     display: none;
   }
 
