@@ -20,7 +20,7 @@ const VERSION_FILE = "konte.version";
 const SKILL_KEY = ".claude/skills/prompt-guide/SKILL.md";
 const MOD_KEY = ".konte/mod.ts";
 const AGENT_KEY = ".claude/agents/konte-direction-critic.md";
-const ADAPTER_KEY = "adapters/comfy/image_z_image_base.ts";
+const ADAPTER_KEY = "adapters/comfy/image_krea2_turbo_t2i.ts";
 const ADAPTER_CONTENT = (await loadWorkspaceTemplate())[ADAPTER_KEY]!;
 
 async function writeFileAt(dir: string, key: string, content: string): Promise<void> {

@@ -45,7 +45,7 @@ const GIT_SOURCES: ReadonlyArray<GitSource> = [
     gitUrl: "https://github.com/Comfy-Org/workflow_templates.git",
     license: "MIT License",
     map: {
-      "templates/image_z_image.json": "image_z_image_base",
+      "templates/image_moss_image_t2i.json": "image_moss_image_t2i",
       "templates/video_minimax_h3_r2v.json": "video_minimax_h3_r2v",
       "templates/image_minimax_h3_image_edit.json": "image_minimax_h3_image_edit",
       "templates/image_qwen_image_2_1_image_edit.json": [
@@ -117,10 +117,15 @@ const PATCHES: Record<string, (workflow: ComfyUIWorkflow) => void> = {
       if (node.class_type === "PrimitiveStringMultiline") node.inputs.value = "";
     }
     pruneUnreachable(workflow);
-  }, // The template sizes the latent from a ResolutionSelector (aspect ratio + megapixels); konte
-  // renders at the video's canvas, so drive width/height directly instead.
-  image_z_image_base: (workflow) => {
-    useLiteralLatentSize(workflow);
+  },
+  // The MOSS-Image template rewrites the prompt through a Qwen3.5 enhancer behind a switch, sizes
+  // the latent from a ResolutionSelector, and puts skip-layer guidance behind another switch, off.
+  // The prompt and size become literals, and the sampler reads the loader directly.
+  image_moss_image_t2i: (workflow) => {
+    useLiteralPromptText(workflow);
+    useUnswitchedModel(workflow);
+    useLiteralLatentSize(workflow, "EmptyFlux2LatentImage");
+    pruneUnreachable(workflow);
   },
   // The Krea-2 template runs the authored prompt through an LLM expansion and appends a style
   // LoRA's trigger word, each behind a switch, and sizes the latent from a ResolutionSelector.

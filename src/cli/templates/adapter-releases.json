@@ -15,8 +15,6 @@
   "adapters/comfy/image_qwen_image_edit_2_1.ts": "0.1.1",
   "adapters/comfy/image_qwen_image_edit_2_1_inpaint.json": "0.1.1",
   "adapters/comfy/image_qwen_image_edit_2_1_inpaint.ts": "0.1.1",
-  "adapters/comfy/image_z_image_base.json": "0.1.1",
-  "adapters/comfy/image_z_image_base.ts": "0.1.1",
   "adapters/comfy/video_minimax_h3_r2v.json": "0.1.1",
   "adapters/comfy/video_minimax_h3_r2v.ts": "0.1.1",
   "adapters/comfy/video_seedvr2_upscale.json": "0.1.1",
