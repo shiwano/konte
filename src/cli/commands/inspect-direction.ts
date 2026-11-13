@@ -47,7 +47,7 @@ import { type FeedbackView, feedbackLine, feedbackTag, printFeedback } from "./i
 
 interface PartEntry {
   address: string;
-  section: DirectionSection;
+  section: DirectionSection | "brief";
   // `unsigned`: a part that takes notes and no sign-off (the brief).
   status: DirectionPartStatus | "orphan" | "unsigned";
   acceptedAt: string | null;
@@ -87,7 +87,7 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
 
   const entryOf = (address: string, status: PartEntry["status"]): PartEntry => ({
     address,
-    section: directionSectionOf(address),
+    section: directionSectionOf(address) ?? "brief",
     status,
     acceptedAt: acceptance?.parts[address]?.acceptedAt ?? null,
     content: contents.get(address) ?? null,
@@ -181,14 +181,12 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
   }
 
   const width = [...parts, ...orphans].reduce((max, p) => Math.max(max, p.address.length), 0);
-  for (const section of DIRECTION_SECTIONS) {
+  for (const section of ["brief", ...DIRECTION_SECTIONS] as const) {
     const sectionParts = parts.filter((p) => p.section === section);
     if (sectionParts.length === 0) continue;
     console.log("");
-    const unsigned = sectionParts.every((p) => p.status === "unsigned");
-    console.log(
-      `${section}: ${unsigned ? "unsigned" : (view.sections.get(section) ?? "accepted")}`,
-    );
+    const status = section === "brief" ? "unsigned" : (view.sections.get(section) ?? "accepted");
+    console.log(`${section}: ${status}`);
     for (const p of sectionParts) console.log(`  ${partLine(p, width)}`);
   }
   if (orphans.length > 0) {

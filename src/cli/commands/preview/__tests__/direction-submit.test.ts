@@ -31,7 +31,7 @@ export default defineDirection({
 `;
 
 describe("direction submit", () => {
-  it("drops only the accept of a box a finding holds, and saves the rest of the review", async () => {
+  it("drops only the accept of a section a finding holds, and saves the rest of the review", async () => {
     const videoRoot = (await initWorkspace(path.join(ctx.dir, "testproject"))).video;
     await fs.writeFile(path.join(videoRoot, "direction.ts"), DIRECTION_TS);
     const direction = (await loadDirectionIfPresent(videoRoot))!;
@@ -46,7 +46,7 @@ describe("direction submit", () => {
         body: JSON.stringify({
           addedFeedback: [],
           feedbackPatches: [],
-          sectionDecisions: { policy: true, props: true },
+          accept: true,
           reviewedHash: directionHash(direction),
         }),
       }),
@@ -66,7 +66,9 @@ describe("direction submit", () => {
       string,
       unknown
     >;
-    expect(record.directionDecisions).toEqual({ policy: "accepted" });
+    expect(record.directionDecisions).toMatchObject({ policy: "accepted", shots: "accepted" });
+    expect(record.directionDecisions).not.toHaveProperty("props");
+    expect(record.directionDecisions).not.toHaveProperty("brief");
 
     const acceptance = (await StateManager.load(videoRoot)).getDirectionAcceptance();
     const accepted = Object.keys(acceptance?.parts ?? {});
@@ -74,7 +76,7 @@ describe("direction submit", () => {
     expect(accepted).not.toContain("direction:props.cup");
   });
 
-  it("records no withdrawal of a box that held no sign-off", async () => {
+  it("records no withdrawal on a direction that held no sign-off", async () => {
     const videoRoot = (await initWorkspace(path.join(ctx.dir, "testproject"))).video;
     await fs.writeFile(path.join(videoRoot, "direction.ts"), DIRECTION_TS);
     const direction = (await loadDirectionIfPresent(videoRoot))!;
@@ -89,8 +91,8 @@ describe("direction submit", () => {
         body: JSON.stringify({
           addedFeedback: [],
           feedbackPatches: [],
-          sectionDecisions: { policy: true, shots: false },
-          reviewedHash: directionHash(direction),
+          overallComment: "not yet",
+          accept: false,
         }),
       }),
     );
@@ -101,6 +103,7 @@ describe("direction submit", () => {
       string,
       unknown
     >;
-    expect(record.directionDecisions).toEqual({ policy: "accepted" });
+    expect(record.directionDecisions).toBeUndefined();
+    expect((await StateManager.load(videoRoot)).getDirectionAcceptance()?.parts ?? {}).toEqual({});
   });
 });

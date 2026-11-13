@@ -124,12 +124,10 @@ const DIRECTION_POLICY_FIELDS = ["format", "lang", "fonts", "song"] as const;
 
 export type DirectionPolicyField = (typeof DIRECTION_POLICY_FIELDS)[number];
 
-// The review page's boxes, and the unit a human accepts in. Acceptance state is per PART (one entry
-// per address, so a logline rewrite ages out only the logline), but a part is too fine to ask a
-// reviewer to click through — they read a box and take a position on it. So the page offers one
-// Accept per section, which writes every part the section owns. Ordered as the page reads.
+// The groups the direction's signed parts fall in: what a sign-off is reported, held and recorded
+// by. Acceptance state is per PART (one entry per address, so a format change ages out only the
+// format), and the page's one Accept decides every section at once.
 export const DIRECTION_SECTIONS = [
-  "brief",
   "policy",
   "lyrics",
   "characters",
@@ -141,11 +139,11 @@ export const DIRECTION_SECTIONS = [
 
 export type DirectionSection = (typeof DIRECTION_SECTIONS)[number];
 
-// The section a part address is reviewed in — total over every address `directionPartHashes`
-// produces, so every part has an Accept somewhere on the page and none can be silently unreachable.
-export function directionSectionOf(address: string): DirectionSection {
+// The section a part address is signed in — null for the brief, whose parts take notes and no
+// sign-off. Total over every other address `directionPartHashes` produces.
+export function directionSectionOf(address: string): DirectionSection | null {
   const body = address.slice("direction:".length);
-  if (body.startsWith("brief.")) return "brief";
+  if (body === "brief" || body.startsWith("brief.")) return null;
   if (body.startsWith("policy.")) return "policy";
   if (body === "lyrics") return "lyrics";
   // The cast is one box: a character's voice rides their `characters.` prefix, and the narrator —

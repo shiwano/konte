@@ -45,14 +45,20 @@ export type DirectionPartStatus = "accepted" | "stale" | "unaccepted";
 export type DirectionSectionStatus = DirectionPartStatus;
 
 // A shotless direction's Flow & Shots box holds only the root arc's empty shape: there is nothing in
-// it to read, and the shots written later would arrive at a sign-off no one gave them. The brief
-// holds no part to sign (`isSignedDirectionPart`).
-export function directionSectionAcceptable(
-  direction: Direction,
-  section: DirectionSection,
-): boolean {
-  if (section === "brief") return false;
+// it to read, and the shots written later would arrive at a sign-off no one gave them.
+function directionSectionAcceptable(direction: Direction, section: DirectionSection): boolean {
   return section !== "shots" || directionHasShots(direction);
+}
+
+// Whether an accept may stamp the part at this address: a signed part, in a section that can be.
+export function directionPartAcceptable(direction: Direction, address: string): boolean {
+  const section = directionSectionOf(address);
+  return section !== null && directionSectionAcceptable(direction, section);
+}
+
+function inSections(sections: ReadonlySet<DirectionSection>, address: string): boolean {
+  const section = directionSectionOf(address);
+  return section !== null && sections.has(section);
 }
 
 // The sections whose sign-off no downstream media re-reads, so they are the ones the spend gate
@@ -70,7 +76,7 @@ const SONG_SECTIONS: ReadonlySet<DirectionSection> = new Set(["policy", "lyrics"
 // The brief is what the author took down from the human: a part to leave a note on, with no
 // sign-off of its own. Takes a part or the scope over them.
 export function isSignedDirectionPart(address: string): boolean {
-  return address !== "direction:brief" && directionSectionOf(address) !== "brief";
+  return directionSectionOf(address) !== null;
 }
 
 // A deleted waiver owes no reader: removing one only puts its finding back in front of the machine
@@ -101,24 +107,6 @@ export function directionAcceptedWhole(
   acceptance: DirectionAcceptance | null | undefined,
 ): boolean {
   return acceptance?.whole != null && Object.keys(acceptance.parts).length > 0;
-}
-
-// The sections the spend gate is still waiting on — every one until the direction has been accepted
-// whole, then only the piece-wide ones. The review page reads this to say which of its boxes hold a
-// generation, since a box that no longer does still accepts and still shows what changed.
-export function directionGatingSections(
-  direction: Direction,
-  acceptance: DirectionAcceptance | null,
-  coverage?: WaiverCoverage,
-): DirectionSection[] {
-  if (!directionAcceptedWhole(acceptance)) return [...DIRECTION_SECTIONS];
-  const onShot = new Set(directionShotWaivers(direction).map((w) => w.address));
-  const pieceWideWaivers = [...signableParts(direction, coverage).keys()].some(
-    (address) => directionSectionOf(address) === "waivers" && !onShot.has(address),
-  );
-  return DIRECTION_SECTIONS.filter(
-    (s) => PIECE_WIDE_SECTIONS.has(s) && (s !== "waivers" || pieceWideWaivers),
-  );
 }
 
 interface DirectionAcceptanceView {
@@ -203,13 +191,16 @@ export function directionAcceptanceView(
   const orphanAddresses = Object.keys(acceptance?.parts ?? {}).filter(
     (address) => !live.has(address) && orphanOwesReview(address),
   );
-  const orphans = new Set<DirectionSection>(orphanAddresses.map(directionSectionOf));
+  const orphans = new Set<DirectionSection>(
+    orphanAddresses.map(directionSectionOf).filter((s) => s !== null),
+  );
 
   const bySection = new Map<DirectionSection, DirectionPartStatus[]>(
     DIRECTION_SECTIONS.map((s) => [s, []]),
   );
   for (const [address, status] of parts) {
-    bySection.get(directionSectionOf(address))?.push(status);
+    const section = directionSectionOf(address);
+    if (section !== null) bySection.get(section)?.push(status);
   }
   // A section's own orphan counts against IT, not just against the whole. Only the box that owns an
   // orphan can drop it, so a box reading "accepted" while its orphan holds the gate shut is a dead
@@ -228,9 +219,7 @@ export function directionAcceptanceView(
   const unlocked = directionAcceptedWhole(acceptance);
   const onShot = new Set(directionShotWaivers(direction).map((w) => w.address));
   const gateBlocking = unlocked
-    ? blocking.filter(
-        (b) => PIECE_WIDE_SECTIONS.has(directionSectionOf(b.address)) && !onShot.has(b.address),
-      )
+    ? blocking.filter((b) => inSections(PIECE_WIDE_SECTIONS, b.address) && !onShot.has(b.address))
     : blocking;
   const gateOrphans = unlocked
     ? [...orphans].filter((s) => PIECE_WIDE_SECTIONS.has(s))
@@ -253,7 +242,7 @@ export function songGateBlocking(
   acceptance: DirectionAcceptance | null,
 ): { address: string; status: "stale" | "unaccepted" | "deleted" }[] {
   const view = directionAcceptanceView(direction, acceptance);
-  const inSong = (address: string) => SONG_SECTIONS.has(directionSectionOf(address));
+  const inSong = (address: string) => inSections(SONG_SECTIONS, address);
   return [
     ...view.blocking.filter((b) => inSong(b.address)),
     ...view.orphans.filter(inSong).map((address) => ({ address, status: "deleted" as const })),
@@ -343,6 +332,22 @@ export function isDirectionSpendGateSatisfied(
   return directionAcceptanceView(direction, acceptance).gateSatisfied;
 }
 
+// The sections the page's one Accept decides: every one that can be signed and holds something to
+// sign — a live part, or the sign-off of one since deleted.
+export function directionAcceptSections(
+  direction: Direction,
+  acceptance: DirectionAcceptance | null,
+  coverage?: WaiverCoverage,
+): DirectionSection[] {
+  const view = directionAcceptanceView(direction, acceptance, coverage);
+  const held = new Set([...view.parts.keys()].map(directionSectionOf));
+  return DIRECTION_SECTIONS.filter(
+    (s) =>
+      directionSectionAcceptable(direction, s) &&
+      (held.has(s) || view.sections.get(s) !== "accepted"),
+  );
+}
+
 // A reviewer's verdict on one box: accept it (sign off every part it holds, at its live hash) or
 // reject it (revoke them, so the gate re-blocks on that box). A section the reviewer left alone is
 // absent — not `false` — since "I did not look at the characters" must not revoke last week's sign-off.
@@ -366,7 +371,10 @@ export function applyDirectionSectionDecisions(
   const live = signableParts(direction, coverage);
   const acceptedAt = now.toISOString();
   const parts: DirectionAcceptance["parts"] = {};
-  const decisionFor = (address: string) => decisions[directionSectionOf(address)];
+  const decisionFor = (address: string) => {
+    const section = directionSectionOf(address);
+    return section === null ? undefined : decisions[section];
+  };
 
   for (const [address, prior] of Object.entries(acceptance?.parts ?? {})) {
     // Undecided keeps its prior sign-off (orphans included, for `finalizeAcceptance` to rule on);
@@ -375,7 +383,7 @@ export function applyDirectionSectionDecisions(
   }
   for (const [address, liveHash] of live) {
     if (decisionFor(address) !== true) continue;
-    if (!directionSectionAcceptable(direction, directionSectionOf(address))) continue;
+    if (!directionPartAcceptable(direction, address)) continue;
     parts[address] = stamp(
       liveHash,
       acceptedAt,
@@ -424,7 +432,7 @@ export function applyDirectionPartDecisions(
       // still standing — nothing moved, so it is not reported as a fresh accept.
       const covers = coverage?.covers.get(address);
       if (liveHash === undefined || standing(parts[address], liveHash, covers)) continue;
-      if (!directionSectionAcceptable(direction, directionSectionOf(address))) continue;
+      if (!directionPartAcceptable(direction, address)) continue;
       parts[address] = stamp(liveHash, acceptedAt, covers, parts[address]);
       accepted.push(address);
     } else {
@@ -706,7 +714,7 @@ function finalizeAcceptance(
     if (live.has(address)) continue;
     const keep =
       orphanOwesReview(address) &&
-      (!directionAcceptedWhole(prior) || PIECE_WIDE_SECTIONS.has(directionSectionOf(address)));
+      (!directionAcceptedWhole(prior) || inSections(PIECE_WIDE_SECTIONS, address));
     if (keep) continue;
     delete parts[address];
     swept.push(address);

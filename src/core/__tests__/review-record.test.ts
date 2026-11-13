@@ -345,12 +345,12 @@ describe("formatReviewRecord", () => {
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: [],
-      directionDecisions: { characters: "accepted", brief: "accepted" },
+      directionDecisions: { characters: "accepted", policy: "accepted" },
     };
 
     const out = formatReviewRecord(record);
     expect(out).toContain("  direction:characters");
-    expect(out).toContain("  direction:brief");
+    expect(out).toContain("  direction:policy");
     expect(out).not.toContain("(Characters)");
     expect(out).not.toContain("direction:characters (");
   });
@@ -376,7 +376,7 @@ describe("formatReviewRecord", () => {
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: [],
-      directionDecisions: { brief: "accepted" },
+      directionDecisions: { policy: "accepted" },
       directionGate: { open: false, blocking: 3, total: 12 },
     };
 
@@ -391,7 +391,7 @@ describe("formatReviewRecord", () => {
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: [],
-      directionDecisions: { brief: "accepted" },
+      directionDecisions: { policy: "accepted" },
       directionGate: { open: true, blocking: 0, total: 12 },
     };
 
@@ -714,6 +714,23 @@ describe("loadAllReviewRecords", () => {
 
   it("returns an empty array when no reviews directory exists", async () => {
     expect(await loadAllReviewRecords(tmpDir)).toEqual([]);
+  });
+
+  // SUNSET(0.6.0): brief sign-offs
+  it("reads a record an earlier konte wrote with a brief decision, dropping that decision", async () => {
+    const filePath = (await saveReviewRecord(tmpDir, {
+      mode: "direction-preview",
+      createdAt: "2026-05-16T12:00:00.000Z",
+      context: { shots: [] },
+      decisions: [],
+      directionDecisions: { policy: "accepted" },
+    }))!;
+    const raw = JSON.parse(await fs.readFile(filePath, "utf-8"));
+    raw.directionDecisions.brief = "accepted";
+    await fs.writeFile(filePath, JSON.stringify(raw));
+
+    const [loaded] = await loadAllReviewRecords(tmpDir);
+    expect(loaded?.record.directionDecisions).toEqual({ policy: "accepted" });
   });
 
   it("ids nested records by their stream-qualified path and round-trips through loadReviewRecordFile", async () => {

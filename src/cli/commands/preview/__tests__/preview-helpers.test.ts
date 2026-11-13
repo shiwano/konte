@@ -816,16 +816,7 @@ describe("submit payload schemas", () => {
       isValidSubmitPayload("direction", {
         addedFeedback: [],
         feedbackPatches: [],
-        sectionDecisions: { brief: "true" },
-      }),
-    ).toBe(false);
-    // A section nobody reviews is a section nobody can accept: the verdict must name a box the page
-    // actually renders, or it would write parts no reviewer ever saw.
-    expect(
-      isValidSubmitPayload("direction", {
-        addedFeedback: [],
-        feedbackPatches: [],
-        sectionDecisions: { everything: true },
+        accept: "true",
       }),
     ).toBe(false);
     expect(isValidSubmitPayload("stage", { feedbackPatches: [] })).toBe(false);

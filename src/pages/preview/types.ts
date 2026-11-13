@@ -737,7 +737,7 @@ export interface DirectionWaiverInfo extends DirectionPartInfo {
 
 // A media-less review of the direction: what the piece aims for, every shot (and long-form
 // act), the characters, the rules the author waived, and how much of it a human has signed off
-// (`sections`). One Accept per box, plus per-part feedback.
+// (`sections`). One Accept, plus per-part feedback.
 export interface DirectionPreviewState {
   mode: "direction-preview";
   pleasure: DirectionPleasureInfo;
@@ -745,12 +745,8 @@ export interface DirectionPreviewState {
   // Every section, including the ones this direction has no content for — the page renders a box only
   // when it has rows, so an entry with no box is simply never read.
   sections: Record<DirectionSection, DirectionSectionStatus>;
-  // The sections whose sign-off the spend gate is still waiting on. Every section until the piece has
-  // been accepted whole once; after that only the ones no downstream review re-reads. A box outside
-  // this set still reads and still accepts — it no longer stops a generation.
-  gatingSections: DirectionSection[];
-  // The sections an Accept can sign off — all but Flow & Shots while the direction has no shots.
-  acceptableSections: DirectionSection[];
+  // The page's one Accept: whether there is anything it can sign, and whether all of it is.
+  accept: { available: boolean; standing: boolean };
   // One entry per prose field the author filled in, plus both list fields — always, empty included.
   brief: DirectionBriefFieldInfo[];
   // The policy fields (format, lang, fonts, and the song where declared), each reviewed on

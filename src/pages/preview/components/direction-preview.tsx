@@ -38,7 +38,10 @@ const SHORTCUTS: ShortcutRows = [
   [["⌘/Ctrl", "⏎"], "Submit review"],
 ];
 
-const SECTION_LABELS: Record<DirectionSection, string> = {
+// A group of parts on the page: a section the Accept signs, or the brief, which takes notes only.
+type PageSection = DirectionSection | "brief";
+
+const SECTION_LABELS: Record<PageSection, string> = {
   brief: "Brief",
   policy: "Policy",
   lyrics: "Lyrics",
@@ -85,10 +88,10 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
 
   const shots = useMemo(() => shotsOf(state), [state]);
 
-  // Every part on the page, by the section it is signed off in, in reading order.
+  // Every part on the page, by its group, in reading order.
   const partsBySection = useMemo(() => {
-    const out = new Map<DirectionSection, DirectionPartInfo[]>();
-    const add = (section: DirectionSection, ...parts: DirectionPartInfo[]) => {
+    const out = new Map<PageSection, DirectionPartInfo[]>();
+    const add = (section: PageSection, ...parts: DirectionPartInfo[]) => {
       out.set(section, [...(out.get(section) ?? []), ...parts]);
     };
     const walk = (seq: DirectionSequenceInfo): void => {
@@ -332,26 +335,15 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
     [roster, reveal],
   );
 
-  // The sections the one Accept signs: every one with something to sign, or with a sign-off on
-  // what the author has since cut.
-  const decidable = useMemo(
-    () =>
-      DIRECTION_SECTIONS.filter(
-        (s) =>
-          state.acceptableSections.includes(s) &&
-          ((partsBySection.get(s)?.length ?? 0) > 0 || state.sections[s] !== "accepted"),
-      ),
-    [state.acceptableSections, state.sections, partsBySection],
-  );
-  const standing = decidable.length > 0 && decidable.every((s) => state.sections[s] === "accepted");
+  const { available, standing } = state.accept;
   const accepted = accept ?? standing;
   const toggleAccept = useCallback(() => {
-    if (decidable.length === 0) return;
+    if (!available) return;
     setAccept((prev) => {
       const next = !(prev ?? standing);
       return next === standing ? undefined : next;
     });
-  }, [decidable, standing]);
+  }, [available, standing]);
 
   // `reviewedHash` is the direction the reviewer actually read — the server refuses an Accept
   // against a version edited out from under the page.
@@ -365,13 +357,12 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
           displayedVariants: {},
         })),
         feedbackPatches,
-        sectionDecisions:
-          accept === undefined ? {} : Object.fromEntries(decidable.map((s) => [s, accept])),
+        ...(accept === undefined ? {} : { accept }),
         reviewedHash: state.directionHash,
         ...(overallComment ? { overallComment } : {}),
       });
     },
-    [state.directionHash, accept, decidable],
+    [state.directionHash, accept],
   );
 
   const renderNotes = useCallback(
@@ -418,8 +409,9 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
 
   // A section the author emptied since it was accepted still shows: the Accept is what records
   // that the reviewer saw it go.
-  const isShown = (section: DirectionSection) =>
-    (partsBySection.get(section)?.length ?? 0) > 0 || state.sections[section] !== "accepted";
+  const isShown = (section: PageSection) =>
+    (partsBySection.get(section)?.length ?? 0) > 0 ||
+    (section !== "brief" && state.sections[section] !== "accepted");
   const below = BELOW_SECTIONS.filter(isShown);
   const source = state.brief.find((f) => f.field === "source");
   const links: RailLink[] = below.flatMap((section) => [
@@ -427,7 +419,7 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
       target: `${SECTION_TARGET}${section}`,
       label: SECTION_LABELS[section],
       parts: partsBySection.get(section) ?? [],
-      trimmed: trimmed.has(section),
+      trimmed: section !== "brief" && trimmed.has(section),
     },
     ...(section === "brief" && source
       ? [{ target: source.address, label: "Source", parts: [source], trimmed: false }]
@@ -489,7 +481,7 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
             acceptCurrent={{
               accepted,
               what: "The direction",
-              disabled: decidable.length === 0,
+              disabled: !available,
               onClick: toggleAccept,
             }}
             reset={resetAction}
@@ -581,9 +573,9 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
             {below.map((section) => (
               <section key={section} className="dir-block" data-section={section}>
                 <h2 className="direction-section-title">{SECTION_LABELS[section]}</h2>
-                {trimmed.has(section) && (partsBySection.get(section)?.length ?? 0) > 0 && (
-                  <TrimmedNote />
-                )}
+                {section !== "brief" &&
+                  trimmed.has(section) &&
+                  (partsBySection.get(section)?.length ?? 0) > 0 && <TrimmedNote />}
                 {belowBody[section]}
               </section>
             ))}

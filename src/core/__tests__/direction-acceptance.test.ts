@@ -4,6 +4,7 @@ import {
   applyDirectionPartDecisions,
   applyDirectionReferenceCascade,
   applyDirectionSectionDecisions,
+  directionAcceptSections,
   applyDirectionShotCascade,
   directionAcceptanceView,
   directionCascadeReferenceIds,
@@ -143,11 +144,12 @@ function acceptAllButWaivers(direction: Direction) {
 }
 
 describe("directionSectionOf", () => {
-  // Every part must land in a box the page renders, or it is a part with no Accept anywhere — the
-  // gate would demand it and no reviewer could ever settle it.
-  it("routes every part of a direction to a section", () => {
+  // A signed part outside every section is one the gate would demand and no accept could settle.
+  it("routes every part of a direction to a section, bar the brief's", () => {
     for (const address of directionPartHashes(makeDirection()).keys()) {
-      expect(DIRECTION_SECTIONS).toContain(directionSectionOf(address));
+      const section = directionSectionOf(address);
+      if (address.startsWith("direction:brief.")) expect(section).toBeNull();
+      else expect(DIRECTION_SECTIONS).toContain(section);
     }
   });
 
@@ -156,7 +158,8 @@ describe("directionSectionOf", () => {
     expect(directionSectionOf("direction:sequence.shots.01")).toBe("shots");
     expect(directionSectionOf("direction:sequence.sequences.act1")).toBe("shots");
     expect(directionSectionOf("direction:waivers.multi-sentence-action_02")).toBe("waivers");
-    expect(directionSectionOf("direction:brief.logline")).toBe("brief");
+    expect(directionSectionOf("direction:brief.logline")).toBeNull();
+    expect(directionSectionOf("direction:brief")).toBeNull();
     expect(directionSectionOf("direction:policy.format")).toBe("policy");
     expect(directionSectionOf("direction:characters.alice")).toBe("characters");
     expect(directionSectionOf("direction:props.lantern")).toBe("props");
@@ -388,9 +391,28 @@ describe("isDirectionSpendGateSatisfied", () => {
   });
 });
 
+describe("directionAcceptSections", () => {
+  it("names the sections holding a part to sign", () => {
+    expect(directionAcceptSections(makeDirection(), null)).toEqual(
+      DIRECTION_SECTIONS.filter((s) => s !== "lyrics"),
+    );
+  });
+
+  it("names a section emptied since its sign-off, until the accept that clears it", () => {
+    const withLyrics = makeDirection();
+    withLyrics.lyrics = [{ label: "Verse", singer: "alice", lines: ["lights down"] }];
+    const accepted = applyDirectionSectionDecisions(withLyrics, null, { lyrics: true });
+
+    const cut = makeDirection();
+    expect(directionAcceptSections(cut, accepted)).toContain("lyrics");
+    const cleared = applyDirectionSectionDecisions(cut, accepted, { lyrics: true });
+    expect(directionAcceptSections(cut, cleared)).not.toContain("lyrics");
+  });
+});
+
 describe("the brief", () => {
   const briefParts = (direction: Direction) =>
-    [...directionPartHashes(direction).keys()].filter((a) => directionSectionOf(a) === "brief");
+    [...directionPartHashes(direction).keys()].filter((a) => directionSectionOf(a) === null);
 
   const withLegacyBriefSignOffs = (acceptance: ReturnType<typeof acceptAll>) => ({
     ...acceptance,
@@ -415,8 +437,7 @@ describe("the brief", () => {
     const view = directionAcceptanceView(direction, null);
     expect([...view.parts.keys()].filter((a) => !isSignedDirectionPart(a))).toEqual([]);
     expect(view.parts.size).toBe(signedPartCount(direction));
-    expect(view.blocking.map((b) => directionSectionOf(b.address))).not.toContain("brief");
-    expect(view.sections.get("brief")).toBe("accepted");
+    expect(view.blocking.map((b) => directionSectionOf(b.address))).not.toContain(null);
   });
 
   it("is stamped by no writer", () => {
@@ -424,9 +445,6 @@ describe("the brief", () => {
     const whole = acceptAll(direction);
     expect(Object.keys(whole.parts).filter((a) => !isSignedDirectionPart(a))).toEqual([]);
     expect(whole.whole?.hash).toBe(directionHash(direction));
-
-    const bySection = applyDirectionSectionDecisions(direction, null, { brief: true });
-    expect(bySection).toEqual({ parts: {}, whole: null });
 
     const byPart = applyDirectionPartDecisions(
       direction,
@@ -465,7 +483,6 @@ describe("the brief", () => {
     expect(view.orphans).toEqual([]);
     expect(view.blocking).toEqual([]);
     expect(view.complete).toBe(true);
-    expect(view.sections.get("brief")).toBe("accepted");
     expect(isDirectionSpendGateSatisfied(direction, { ...legacy, whole: null })).toBe(true);
     expect(summarizeDirectionAcceptance(direction, legacy)).toMatchObject({
       status: "accepted",
@@ -1595,7 +1612,9 @@ describe("cast voices", () => {
     expect(directionSectionOf("direction:characters.alice.voice")).toBe("characters");
     expect(directionSectionOf("direction:narrator")).toBe("characters");
     for (const address of directionPartHashes(withVoices()).keys()) {
-      expect(DIRECTION_SECTIONS).toContain(directionSectionOf(address));
+      if (isSignedDirectionPart(address)) {
+        expect(DIRECTION_SECTIONS).toContain(directionSectionOf(address));
+      }
     }
   });
 

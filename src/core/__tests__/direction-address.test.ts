@@ -113,9 +113,8 @@ describe("direction addressing", () => {
     expect(() => assertValidAddressScope("direction:narrator.voice")).toThrow(KonteError);
   });
 
-  // Every part address routes to exactly one review section box; a location part lands in its own.
-  it("routes each part address to its review section", () => {
-    expect(directionSectionOf(formatDirectionBriefAddress("logline"))).toBe("brief");
+  it("routes each signed part address to its section, and the brief to none", () => {
+    expect(directionSectionOf(formatDirectionBriefAddress("logline"))).toBeNull();
     expect(directionSectionOf(formatDirectionPolicyAddress("format"))).toBe("policy");
     expect(directionSectionOf(formatDirectionCharacterAddress("alice"))).toBe("characters");
     expect(directionSectionOf(formatDirectionPropAddress("lantern"))).toBe("props");

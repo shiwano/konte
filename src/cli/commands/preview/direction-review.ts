@@ -35,9 +35,8 @@ import {
   type DirectionSectionDecisions,
   type DirectionSectionStatus,
   applyDirectionSectionDecisions,
-  directionSectionAcceptable,
+  directionAcceptSections,
   directionAcceptanceView,
-  directionGatingSections,
   summarizeDirectionAcceptance,
 } from "../../../core/direction-acceptance.js";
 import type {
@@ -163,6 +162,11 @@ export async function handleGetDirectionState(
     check.waiverCoverage,
   );
   const subjectHashes = directionPartHashes(direction);
+  const acceptSections = directionAcceptSections(
+    direction,
+    manager.getDirectionAcceptance(),
+    check.waiverCoverage,
+  );
 
   const partView = (address: string) => ({
     address,
@@ -409,12 +413,12 @@ export async function handleGetDirectionState(
       DirectionSection,
       DirectionSectionStatus
     >,
-    gatingSections: directionGatingSections(
-      direction,
-      manager.getDirectionAcceptance(),
-      check.waiverCoverage,
-    ),
-    acceptableSections: DIRECTION_SECTIONS.filter((s) => directionSectionAcceptable(direction, s)),
+    accept: {
+      available: acceptSections.length > 0,
+      standing:
+        acceptSections.length > 0 &&
+        acceptSections.every((s) => acceptanceView.sections.get(s) === "accepted"),
+    },
     brief: await briefFields(direction.brief ?? {}),
     policy: policyFields,
     song: song ? { beatsPerBar: timeline.songGrid?.beatsPerBar ?? null } : null,
@@ -551,9 +555,16 @@ export async function handleDirectionSubmit(
   const body = parsed.data;
 
   const currentHash = directionHash(direction);
-  const sectionDecisions: DirectionSectionDecisions = { ...body.sectionDecisions };
-  // The brief holds nothing to sign, so a decision on it is none.
-  delete sectionDecisions.brief;
+  const { accept } = body;
+  const sectionDecisions: DirectionSectionDecisions =
+    accept === undefined
+      ? {}
+      : Object.fromEntries(
+          directionAcceptSections(
+            direction,
+            (await StateManager.load(videoRoot)).getDirectionAcceptance(),
+          ).map((s) => [s, accept]),
+        );
   const accepting = Object.values(sectionDecisions).some((v) => v === true);
   // An Accept signs off the box the reviewer saw; if direction.ts changed since the page loaded,
   // refuse rather than record a hash the human never reviewed. The guard is whole-direction even

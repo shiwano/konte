@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { DIRECTION_SECTIONS } from "../address.js";
 import {
   ReviewAcceptDecisionSchema,
   ReviewRecordSchema,
@@ -149,9 +148,8 @@ export type AddressReviewSubmitBody = z.infer<typeof AddressReviewSubmitSchema>;
 export const DirectionSubmitSchema = z.object({
   addedFeedback: AddedFeedbackSchema,
   feedbackPatches: z.array(FeedbackPatchSchema),
-  // True signs off every part the section holds, false revokes them (the spend gate re-blocks on
-  // that box).
-  sectionDecisions: z.record(z.enum(DIRECTION_SECTIONS), z.boolean()).optional(),
+  // True signs off every part the page can sign, false revokes them.
+  accept: z.boolean().optional(),
   // The direction hash the reviewer actually looked at — the optimistic-concurrency token that stops
   // an Accept from signing off a version edited out from under the open review.
   reviewedHash: z.string().optional(),

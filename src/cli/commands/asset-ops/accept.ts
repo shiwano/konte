@@ -9,7 +9,7 @@ import {
 } from "../../../core/accept-cascade.js";
 import {
   applyDirectionPartDecisions,
-  directionSectionAcceptable,
+  directionPartAcceptable,
   directionAcceptanceView,
   directionCascadeReferenceIds,
   directionCascadeShotIds,
@@ -18,7 +18,6 @@ import {
 } from "../../../core/direction-acceptance.js";
 import {
   type DefinitionLike,
-  directionSectionOf,
   formatShotAddress,
   formatTimelineStemAddress,
   getAssetStage,
@@ -225,8 +224,7 @@ async function runDirectionAcceptance(
   const recorded = Object.keys(acceptance?.parts ?? {});
   const inScope = (part: string) =>
     whole || partScopes.some((scope) => matchesAddressScope(part, scope));
-  const acceptable = (part: string) =>
-    directionSectionAcceptable(direction, directionSectionOf(part));
+  const acceptable = (part: string) => directionPartAcceptable(direction, part);
 
   // The exact set of parts this run decides, fixed here from the read above — so it is also what the
   // confirmation below describes and what the locked write applies. A record that appears

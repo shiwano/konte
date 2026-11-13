@@ -358,7 +358,10 @@ export async function saveReviewRecord(
 // cast so a truncated/hand-edited record surfaces as a skip (or REVIEW_NOT_FOUND)
 // rather than an untyped TypeError deep in a consumer. Every read path goes through this.
 function parseReviewRecord(content: string): ReviewRecord {
-  return ReviewRecordSchema.parse(JSON.parse(content));
+  const raw = JSON.parse(content);
+  // SUNSET(0.6.0): brief sign-offs
+  if (raw?.directionDecisions) delete raw.directionDecisions.brief;
+  return ReviewRecordSchema.parse(raw);
 }
 
 export async function loadLatestReviewRecord(
