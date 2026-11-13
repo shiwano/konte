@@ -32,6 +32,7 @@ const TEXT_FALLBACKS: Record<string, string> = {
   "onnxruntime-common": "MIT",
   "onnxruntime-web": "MIT",
   gsap: "LicenseRef-GSAP-Standard",
+  boolbase: "ISC",
 };
 
 // The copyright holder for a vendored text, for a package whose manifest names no author or names
