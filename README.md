@@ -2,7 +2,6 @@
 
 [![Tag](https://img.shields.io/github/tag/shiwano/konte.svg)](https://github.com/shiwano/konte/releases)
 [![Build Status](https://github.com/shiwano/konte/actions/workflows/ci.yml/badge.svg)](https://github.com/shiwano/konte/actions/workflows/ci.yml)
-[![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/2b7UwFE2Yy)
 
 **You direct. Your agent produces.**
 
@@ -207,7 +206,7 @@ konte is a pre-1.0 technical preview:
 - The review UI is minimal, with playback, take comparison, acceptance, and pinned comments.
 - Film-scale productions have not been tested.
 
-Share feedback on [GitHub Discussions](https://github.com/shiwano/konte/discussions/new?category=support) or [Discord](https://discord.gg/2b7UwFE2Yy). The `konte-feedback` skill can draft a report.
+Share feedback on [GitHub Issues](https://github.com/shiwano/konte/issues/new?template=support.yml). The `konte-feedback` skill can draft a report.
 
 ## License
 

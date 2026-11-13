@@ -1,3 +1,5 @@
+name: Support
+description: Report a bug, request a feature or docs change, or ask for help.
 body:
   - type: dropdown
     id: kind
