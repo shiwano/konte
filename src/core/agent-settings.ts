@@ -33,22 +33,25 @@ function isPathKeyFor(name: string, platform: NodeJS.Platform): boolean {
   return platform === "win32" ? name.toUpperCase() === "PATH" : name === "PATH";
 }
 
-function leadPathWithBin(env: Settings, binDir: string, platform: NodeJS.Platform): void {
+// The shell's PATH, less entries missing from this machine, so a missing entry later marks one
+// that vanished after setup.
+async function leadPathWithBin(
+  env: Settings,
+  binDir: string,
+  platform: NodeJS.Platform,
+): Promise<void> {
   const paths = platform === "win32" ? path.win32 : path;
   const isPathKey = (name: string) => isPathKeyFor(name, platform);
-  const configuredKey = Object.keys(env).find(isPathKey);
   const inheritedKey = Object.keys(process.env).find(isPathKey);
-  const current = configuredKey
-    ? env[configuredKey]
-    : inheritedKey
-      ? process.env[inheritedKey]
-      : "";
-  if (typeof current !== "string") throw new Error("Expected PATH string");
+  const current = (inheritedKey && process.env[inheritedKey]) || "";
   const normalize = (entry: string) =>
     platform === "win32" ? paths.normalize(entry).toLowerCase() : paths.normalize(entry);
-  const entries = current
-    ? current.split(paths.delimiter).filter((entry) => normalize(entry) !== normalize(binDir))
-    : [];
+  const entries: string[] = [];
+  for (const entry of current.split(paths.delimiter)) {
+    if (entry === "" || normalize(entry) === normalize(binDir)) continue;
+    const stat = await fs.stat(entry).catch(() => null);
+    if (stat?.isDirectory()) entries.push(entry);
+  }
   for (const name of Object.keys(env).filter(isPathKey)) delete env[name];
   env.PATH = [binDir, ...entries].join(paths.delimiter);
 }
@@ -159,7 +162,7 @@ export async function prepareAgentSettings(
         const roots = table(table(table(settings, "permissions"), "konte"), "filesystem");
         delete table(roots, ":workspace_roots")["konte.credentials.json"];
         const env = table(table(settings, "shell_environment_policy"), "set");
-        leadPathWithBin(env, binDir, platform);
+        await leadPathWithBin(env, binDir, platform);
         env.KONTE_AGENT = "codex";
       }
       rendered[key] = key.endsWith(".toml")

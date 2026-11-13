@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -63,6 +64,46 @@ describe("doctor command (orphaned targets)", () => {
     expect(err).not.toBeNull();
     expect(err?.code).toBe(1);
     expect(err?.stdout).toContain("✗ FAIL");
+  });
+});
+
+describe("doctor command (codex PATH)", () => {
+  const withEnv = async <T>(env: Record<string, string>, fn: () => Promise<T>): Promise<T> => {
+    const prev = { ...process.env };
+    Object.assign(process.env, env);
+    try {
+      return await fn();
+    } finally {
+      for (const key of Object.keys(env)) {
+        if (prev[key] === undefined) delete process.env[key];
+        else process.env[key] = prev[key];
+      }
+    }
+  };
+
+  it("warns about a PATH entry missing from this machine under Codex", async () => {
+    const projectDir = await initWithNoBackendVideo();
+    const gone = path.join(projectDir, "gone-bin");
+    const present = (process.env.PATH ?? "").split(path.delimiter).filter((dir) => existsSync(dir));
+    const check = await withEnv(
+      { KONTE_AGENT: "codex", PATH: [gone, ...present].join(path.delimiter) },
+      () => doctorCheck(projectDir, "codex PATH"),
+    );
+    expect(check?.status).toBe("WARN");
+    expect(check?.message).toContain("konte workspace setup");
+    expect(check?.details).toEqual([gone]);
+  });
+
+  it("is not checked outside Codex", async () => {
+    const projectDir = await initWithNoBackendVideo();
+    const check = await withEnv(
+      {
+        KONTE_AGENT: "claude",
+        PATH: [path.join(projectDir, "gone-bin"), process.env.PATH].join(path.delimiter),
+      },
+      () => doctorCheck(projectDir, "codex PATH"),
+    );
+    expect(check).toBeUndefined();
   });
 });
 

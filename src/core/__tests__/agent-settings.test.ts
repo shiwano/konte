@@ -18,6 +18,12 @@ afterEach(async () => {
   await fs.rm(root, { recursive: true, force: true });
 });
 
+async function toolDirs(...names: string[]): Promise<string[]> {
+  const dirs = names.map((name) => path.join(root, name));
+  for (const dir of dirs) await fs.mkdir(dir);
+  return dirs;
+}
+
 function codex(files: Record<string, string>): any {
   return Bun.TOML.parse(files[".codex/config.toml"]!);
 }
@@ -49,10 +55,11 @@ describe("environment-specific agent settings", () => {
   });
 
   it("escapes native Windows paths and explicitly names the exe", async () => {
-    vi.stubEnv("PATH", "C:\\Windows\\System32;C:\\Program Files\\Git\\cmd");
+    const [system, git] = await toolDirs("System32", "Git cmd");
+    vi.stubEnv("PATH", `${system};${git}`);
     const windowsRoot = 'C:\\Films\\日本語 "cut"';
     const files = await prepareAgentSettings(windowsRoot, "win32");
-    const expectedPath = `${windowsRoot}\\.konte\\bin;C:\\Windows\\System32;C:\\Program Files\\Git\\cmd`;
+    const expectedPath = `${windowsRoot}\\.konte\\bin;${system};${git}`;
     expect(codex(files).shell_environment_policy.set.PATH).toBe(expectedPath);
     expect(pathHooks(files)).toEqual([
       String.raw`printf "export PATH='%s/.konte/bin':\"\$PATH\"\n" "$(cygpath -u "$CLAUDE_PROJECT_DIR" | sed "s/'/'\\\\''/g")" >> "$CLAUDE_ENV_FILE"`,
@@ -61,14 +68,16 @@ describe("environment-specific agent settings", () => {
   });
 
   it.each(["linux", "win32"] as const)(
-    "preserves the Codex PATH and replaces Claude settings across repeated %s setup",
+    "rebuilds the Codex PATH from the shell and replaces Claude settings across repeated %s setup",
     async (platform) => {
       const paths = platform === "win32" ? path.win32 : path.posix;
       const binDir = paths.join(root, ".konte", "bin");
       const existingBin = platform === "win32" ? binDir.toUpperCase() : binDir;
       const existingPath = ["custom-tools", existingBin, "other-tools"].join(paths.delimiter);
       const configuredKey = platform === "win32" ? "Path" : "PATH";
-      vi.stubEnv("PATH", "inherited-tools");
+      const [inherited] = await toolDirs("inherited-tools");
+      const inheritedPath = [inherited, existingBin, path.join(root, "gone")].join(paths.delimiter);
+      vi.stubEnv("PATH", inheritedPath);
       await fs.mkdir(path.join(root, ".codex"));
       await fs.writeFile(
         path.join(root, ".codex/config.toml"),
@@ -84,7 +93,7 @@ describe("environment-specific agent settings", () => {
       );
 
       const files = await prepareAgentSettings(root, platform);
-      const expectedPath = [binDir, "custom-tools", "other-tools"].join(paths.delimiter);
+      const expectedPath = [binDir, inherited].join(paths.delimiter);
       expect(codex(files).shell_environment_policy).toEqual({
         inherit: "all",
         set: { PATH: expectedPath, CUSTOM: "keep", KONTE_AGENT: "codex" },
@@ -94,7 +103,7 @@ describe("environment-specific agent settings", () => {
         KONTE_AGENT: "claude",
       });
       expect(pathHooks(files)).toHaveLength(1);
-      expect(process.env.PATH).toBe("inherited-tools");
+      expect(process.env.PATH).toBe(inheritedPath);
       await writeAgentSettings(root, files);
       expect(await prepareAgentSettings(root, platform)).toEqual(files);
     },
@@ -113,11 +122,12 @@ describe("environment-specific agent settings", () => {
     expect(roots[".codex/config.toml"]).toBe("read");
   });
 
-  it("prepends the workspace bin to the inherited POSIX PATH", async () => {
-    vi.stubEnv("PATH", "/usr/local/bin:/usr/bin");
+  it("prepends the workspace bin to the inherited POSIX PATH, less missing entries", async () => {
+    const [local, usr] = await toolDirs("local-bin", "usr-bin");
+    vi.stubEnv("PATH", [local, `${root}/gone`, usr].join(":"));
     const files = await prepareAgentSettings(root, "linux");
     expect(codex(files).shell_environment_policy.set.PATH).toBe(
-      `${root}/.konte/bin:/usr/local/bin:/usr/bin`,
+      `${root}/.konte/bin:${local}:${usr}`,
     );
     expect(pathHooks(files)).toEqual([
       String.raw`printf "export PATH='%s/.konte/bin':\"\$PATH\"\n" "$(printf '%s' "$CLAUDE_PROJECT_DIR" | sed "s/'/'\\\\''/g")" >> "$CLAUDE_ENV_FILE"`,

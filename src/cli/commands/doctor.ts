@@ -179,6 +179,9 @@ Examples:
       // broken definitions.
       checks.push(await checkConfiguredBackends(workspaceRoot, defs));
 
+      const codexPath = await checkCodexPath();
+      if (codexPath) checks.push(codexPath);
+
       checks.push(await checkKonteRelease());
 
       const failCount = checks.filter((c) => c.status === "FAIL").length;
@@ -1136,6 +1139,26 @@ type VideoDefinitionSet = DefinitionSet & { name: string | null };
 
 // The one network call doctor makes on konte's own behalf, cached a day beside the binary
 // (update-check.ts). Advisory — never a FAIL.
+// Codex's config cannot extend the inherited PATH, so setup writes the whole PATH it ran under into
+// .codex/config.toml; this reports an entry that no longer exists on this machine.
+async function checkCodexPath(): Promise<CheckResult | null> {
+  if (process.env.KONTE_AGENT !== "codex") return null;
+  const name = "codex PATH";
+  const entries = (process.env.PATH ?? "").split(path.delimiter).filter((entry) => entry !== "");
+  const missing: string[] = [];
+  for (const entry of entries) {
+    const stat = await fs.stat(entry).catch(() => null);
+    if (!stat?.isDirectory()) missing.push(entry);
+  }
+  if (missing.length === 0) return { name, status: "PASS", message: "every entry exists" };
+  return {
+    name,
+    status: "WARN",
+    message: `${missing.length} entr${missing.length === 1 ? "y" : "ies"} missing from this machine — .codex/config.toml holds the PATH of an earlier setup; run \`konte workspace setup\` and restart Codex`,
+    details: missing,
+  };
+}
+
 async function checkKonteRelease(): Promise<CheckResult> {
   const name = "konte release";
   const result = await checkForUpdate(pkg.version);
