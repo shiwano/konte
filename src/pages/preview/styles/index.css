@@ -5392,8 +5392,6 @@ body:has(.dir-peek--open:not(.dir-peek--wide)) .fab-submit-wrap {
 
 /* Baseline-align the one-line cells with the first line of the prose beside them. */
 .dir-table td.dir-col-name,
-.dir-table td.dir-col-frame,
-.dir-table td.dir-col-holds,
 .dir-table td.dir-col-syn {
   padding-top: 0.62rem;
 }
@@ -5424,96 +5422,9 @@ body:has(.dir-peek--open:not(.dir-peek--wide)) .fab-submit-wrap {
   color: var(--text-primary);
 }
 
-/* A character and the voice cast for them are one entry over two rows: drop the rule between them
-   and tighten the gap, so the roster reads as a list of people rather than of twice as many rows. */
-.dir-row--voiced > td {
-  border-bottom: none;
-  padding-bottom: 0.15rem;
-}
-
-/* Two classes deep so it outranks the baseline-align padding above. */
-.dir-table .dir-row--voice > td {
-  padding-top: 0.25rem;
-}
-
-/* Set against the description it labels, quieter and lowercase — a facet of the entry above, not a
-   second entry. Right-aligned rather than indented so it reads off the prose, not off the name. */
-.dir-table td.dir-voice-label {
-  text-align: right;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-/* A location bands the frames taken in it, the way an act row bands its shots — the group heading is
-   a row of the table rather than a heading above one, so the place keeps its own note and its own
-   description in the same columns as the setups under it. */
-.dir-row--place > td {
-  background: var(--bg-elevated);
-}
-
-/* A frame set nowhere the roster declares (`setup-unknown-location`). Grouped like a location so its
-   setups stay reachable, but never dressed as one — there is nothing here to review. */
-.dir-row--place-unknown > td.dir-col-syn {
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-/* The place chip is the group's disclosure, so it carries the caret and, folded, the count of what
-   it is holding back. The button wraps the whole label — the caret is a marker, not the target — and
-   the negative margin pulls its padding back out so the row keeps the height it has without the
-   button. The chip inside keeps the row's own look. */
-.dir-place-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin: -6px -8px;
-  padding: 6px 8px;
-  border: none;
-  border-radius: 8px;
-  background: none;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-}
-
-.dir-place-toggle:hover {
-  background: var(--bg-hover);
-}
-
-/* Fixed width so the chip starts at the same x whichever way the caret points. */
-.dir-place-caret {
-  width: 0.8rem;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  line-height: 1;
-}
-
-.dir-place-toggle:hover .dir-place-caret {
-  color: var(--text-primary);
-}
-
-.dir-place-count {
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-/* Indented and quieter than the chip above it, so a set's frames read as a list under the place
-   rather than as roster entries beside it. */
-.dir-table .dir-row--setup > td.dir-col-name {
-  padding-left: 1.95rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
 .dir-col-syn {
   color: var(--text-secondary);
   white-space: normal;
-}
-
-.dir-col-frame {
-  width: 1%;
-  white-space: nowrap;
 }
 
 /* The framing chip: a neutral, size-only badge — deliberately NOT colored by dramatic function like
@@ -5528,22 +5439,6 @@ body:has(.dir-peek--open:not(.dir-peek--wide)) .fab-submit-wrap {
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.02em;
-}
-
-/* The wider frame a setup is a window of, under its size chip. Muted and on its own line: the size
-   is what the cadence is read against, the axis is what the plates are cut against. */
-.dir-within {
-  display: block;
-  margin-top: 4px;
-  color: var(--text-secondary);
-  font-size: 0.68rem;
-}
-
-/* The way the camera faces, beside the size chip. */
-.dir-view {
-  margin-left: 6px;
-  color: var(--text-secondary);
-  font-size: 0.68rem;
 }
 
 /* The location chip: a place badge read down the space column so a run of the same location on
@@ -5562,15 +5457,6 @@ body:has(.dir-peek--open:not(.dir-peek--wide)) .fab-submit-wrap {
   letter-spacing: 0.02em;
 }
 
-/* A raw `location` id no roster entry answers to (`setup-unknown-location`). It stands where a place
-   chip stands so the frames under it stay reachable, but drops the accent and reads as the key it is
-   — nothing here is a set the reviewer can take a position on. */
-.dir-location--unknown {
-  background: var(--bg-panel);
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-}
-
 /* The size and the setup it comes from, on one line under the place. The framing chip leads, at the
    cell's own left edge, so the size cadence still reads straight down the column with no column of
    its own — a chip that narrow does not earn the header and the padding a column costs. The setup
@@ -5587,46 +5473,6 @@ body:has(.dir-peek--open:not(.dir-peek--wide)) .fab-submit-wrap {
   font-size: 0.66rem;
   color: var(--text-muted);
   white-space: nowrap;
-}
-
-/* What only a place has, listed under its description. Reviewed with the place, so the list is part
-   of the location's own cell rather than a row per landmark. */
-.dir-landmarks {
-  margin: 0.35rem 0 0;
-  padding-left: 1rem;
-  font-size: 0.78rem;
-  color: var(--text-secondary);
-}
-
-.dir-landmark-name {
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-/* Each way a camera faces in the place, with the landmarks it sees. */
-.dir-views {
-  margin: 0.35rem 0 0;
-  padding-left: 1rem;
-  font-size: 0.78rem;
-  color: var(--text-secondary);
-}
-
-.dir-views .dir-view {
-  margin: 0 6px 0 0;
-}
-
-/* What a frame carries of its set, left to right — its own column beside the size, since both are
-   properties of where the camera stands rather than of the prose. */
-.dir-col-holds {
-  width: 1%;
-  white-space: nowrap;
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: var(--text-muted);
-}
-
-.dir-holds-none {
-  opacity: 0.5;
 }
 
 .dir-lineup {
@@ -6049,10 +5895,6 @@ body:has(.dir-peek--open:not(.dir-peek--wide)) .fab-submit-wrap {
   color: var(--text-muted);
 }
 
-.dir-empty {
-  color: var(--text-muted);
-}
-
 /* The decision bar — pinned to the right edge of the same column the body and header share. */
 .decision-bar {
   position: fixed;
@@ -6178,12 +6020,8 @@ body:has(.dir-peek--open:not(.dir-peek--wide)) .fab-submit-wrap {
 
   .dir-table td,
   .dir-table td.dir-col-name,
-  .dir-table td.dir-col-frame,
-  .dir-table td.dir-col-holds,
   .dir-table td.dir-col-syn,
-  .dir-table td.dir-col-notes,
-  .dir-table .dir-row--voice > td,
-  .dir-table .dir-row--setup > td.dir-col-name {
+  .dir-table td.dir-col-notes {
     width: auto;
     padding: 0;
     border-bottom: none;
@@ -6205,30 +6043,6 @@ body:has(.dir-peek--open:not(.dir-peek--wide)) .fab-submit-wrap {
     order: 4;
     flex: 1 1 100%;
     margin-top: 0.35rem;
-  }
-
-  /* Bands, moved off the cells onto the row. */
-  .dir-row--place > td {
-    background: none;
-  }
-
-  .dir-row--place {
-    background: var(--bg-elevated);
-  }
-
-  /* A character and the voice cast for them stay one entry over two rows. */
-  .dir-row--voiced {
-    border-bottom: none;
-    padding-bottom: 0.15rem;
-  }
-
-  .dir-table .dir-row--voice {
-    padding-top: 0.15rem;
-  }
-
-  /* The frames under a set, indented as a group. */
-  .dir-table .dir-row--setup {
-    padding-left: 1.5rem;
   }
 }
 
