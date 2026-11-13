@@ -89,7 +89,7 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
     address,
     section: directionSectionOf(address) ?? "brief",
     status,
-    acceptedAt: acceptance?.parts[address]?.acceptedAt ?? null,
+    acceptedAt: status === "unsigned" ? null : (acceptance?.parts[address]?.acceptedAt ?? null),
     content: contents.get(address) ?? null,
     feedback: feedbackOf(address),
   });
