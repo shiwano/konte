@@ -522,9 +522,21 @@ describe("inspect command (direction scope)", () => {
     const { stdout } = await run(["inspect", "direction"], projectDir);
     expect(stdout).toContain("Stage: direction");
     expect(stdout).toMatch(/Acceptance: (unaccepted|partial)/);
-    expect(stdout).toContain("direction:brief.logline");
     expect(stdout).toContain("direction:sequence.shots.01");
     expect(stdout).toContain("unaccepted");
+  });
+
+  it("lists the brief as parts that take no sign-off, before and after the accept", async () => {
+    const briefOf = (stdout: string) =>
+      stdout.split("\n").filter((line) => /^(brief:| {2}direction:brief\.)/.test(line));
+
+    const before = briefOf((await run(["inspect", "direction"], projectDir)).stdout);
+    expect(before[0]).toBe("brief: unsigned");
+    expect(before).toHaveLength(7);
+    for (const line of before.slice(1)) expect(line).toMatch(/^ {2}direction:brief\.\w+ +unsigned/);
+
+    await run(["accept", "direction"], projectDir);
+    expect(briefOf((await run(["inspect", "direction"], projectDir)).stdout)).toEqual(before);
   });
 
   it("groups each part under its section, with nothing orphaned", async () => {
@@ -557,6 +569,7 @@ describe("inspect command (direction scope)", () => {
     const { stdout } = await run(["inspect", "direction:brief.logline"], projectDir);
     expect(stdout).toContain("Address: direction:brief.logline");
     expect(stdout).toContain("Section: brief");
+    expect(stdout).toContain("Acceptance: unsigned");
     expect(stdout).toContain("Brief: logline");
     expect(stdout).not.toContain("Feedback:");
   });
@@ -579,8 +592,8 @@ describe("inspect command (direction scope)", () => {
     const { stdout } = await run(["inspect", "direction:brief"], projectDir);
     expect(stdout).toContain("Scope: direction:brief");
     expect(stdout).toContain("Parts: 6");
-    expect(stdout).toContain("direction:brief.logline  unaccepted");
-    expect(stdout).toContain("direction:brief.tolerances  unaccepted");
+    expect(stdout).toContain("direction:brief.logline  unsigned");
+    expect(stdout).toContain("direction:brief.tolerances  unsigned");
     expect(stdout).toContain("Clean anime illustration");
     // The address heads each block, so the single-part scaffolding is not repeated per field.
     expect(stdout).not.toContain("Brief: logline");

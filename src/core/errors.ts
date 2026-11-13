@@ -135,6 +135,8 @@ export type KonteErrorCode =
   | "DIRECTION_CHANGED"
   // `konte accept` named the flow of a direction with no shots yet.
   | "DIRECTION_SHOTS_UNWRITTEN"
+  // `konte accept` named a direction part that takes notes and no sign-off (the brief).
+  | "DIRECTION_PART_UNSIGNED"
   // A developed animatic shot whose composition declares no `<Panel>`. A board shot IS its
   // keyframes; a plain `<Image>` is a layer.
   | "PANEL_REQUIRED"

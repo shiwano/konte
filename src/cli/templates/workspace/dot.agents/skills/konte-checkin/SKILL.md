@@ -14,7 +14,7 @@ Read the state of one video and check in, in plain language, on where it stands 
 - `Video: none selected` / `none — … no longer exists` → `konte video list`, then ask which; never guess.
 - They asked nothing and `Last export:` isn't `never` → read the brief, skip section 2: report from the digest and let section 5 ask, revise it, branch a version from it, or start the next one? Revise → `revision-guide` before asking more; branch → `konte video copy <src> <dest> --through <stage>`, then `revision-guide` or `drafting-guide`.
 - Otherwise — a piece still in production → read the brief, then section 2.
-- The brief — `konte inspect direction:brief`: `look` (its medium binds every prompt), `outOfScope`, and `tolerances` — flaws already signed off, never to be fixed. Read this, not `direction.ts` — the shots are not yours to re-narrate.
+- The brief — `konte inspect direction:brief`: `look` (its medium binds every prompt), `outOfScope`, and `tolerances` — flaws the human accepts, never to be fixed. Read this, not `direction.ts` — the shots are not yours to re-narrate.
 
 ## 2. Read the piece — only once it's settled they mean this one
 

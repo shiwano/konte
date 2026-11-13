@@ -150,7 +150,7 @@ export default defineReference(direction, { references: () => {
     expect(bgm.map((v) => v.file)).toEqual(["assets/files/bgm.mp3"]);
   });
 
-  it("holds the song take until the brief, policy and lyrics are accepted", async () => {
+  it("holds the song take until the policy and lyrics are accepted", async () => {
     const { video: projectDir } = await initWorkspace(path.join(ctx.dir, "songproj"), {
       template: "blank",
     });
@@ -183,15 +183,22 @@ export default defineReference(direction, { references: () => {
 `,
     );
 
-    await expect(run(["generate", "reference", "--plan"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringMatching(/SPEND_HELD[\s\S]*direction:lyrics/),
-    });
+    const held: { stderr: string } = await run(
+      ["generate", "reference", "--plan"],
+      projectDir,
+    ).then(
+      () => expect.fail("generate should refuse"),
+      (e) => e,
+    );
+    expect(held.stderr).toMatch(/SPEND_HELD[\s\S]*direction:lyrics/);
+    expect(held.stderr).toContain("generated from the direction's policy and lyrics");
+    expect(held.stderr).toContain("direction:policy.format");
+    expect(held.stderr).not.toContain("direction:brief");
 
     const statePath = path.join(projectDir, "konte.state.json");
     const direction = await loadDirectionIfPresent(projectDir);
     const state = JSON.parse(await fs.readFile(statePath, "utf-8"));
     state.directionAcceptance = applyDirectionSectionDecisions(direction!, null, {
-      brief: true,
       policy: true,
       lyrics: true,
     });
@@ -285,8 +292,8 @@ export default defineReference(direction, { references: () => {
     const direction = await loadDirectionIfPresent(projectDir);
     const partial = JSON.parse(await fs.readFile(statePath, "utf-8"));
     partial.directionAcceptance = applyDirectionSectionDecisions(direction!, null, {
-      brief: true,
       policy: true,
+      characters: true,
     });
     await fs.writeFile(statePath, JSON.stringify(partial, null, 2));
     await expect(run(["generate", "animatic"], projectDir)).rejects.toMatchObject({
@@ -302,8 +309,9 @@ export default defineReference(direction, { references: () => {
 
   // The gate narrows once the piece has been signed off end to end: the shots are read as panels and
   // shots from then on, so editing one does not send the author back to a page showing the same words
-  // as prose. The piece-wide agreements have no such second reading and keep blocking for good.
-  it("stops blocking on a shot edited after the direction was accepted whole", async () => {
+  // as prose, and the policy is the canvas of every take. A piece-wide waiver has no such second
+  // reading and keeps blocking for good.
+  it("blocks on the policy and a piece-wide waiver alone once the direction was accepted whole", async () => {
     const inited = await initWorkspace(path.join(ctx.dir, "unlockproj"));
     const projectDir = inited.video;
     await writeWorkspaceConfig(projectDir, {
@@ -323,17 +331,22 @@ export default defineReference(direction, { references: () => {
     const parts = accepted.directionAcceptance.parts as Record<string, { partHash: string }>;
     const shotPart = Object.keys(parts).find((a) => a.startsWith("direction:sequence.shots."))!;
 
-    // Age the shot out exactly as rewriting it would, without touching the whole-direction verdict.
+    // Age the parts out exactly as rewriting them would, without touching the whole-direction verdict.
     parts[shotPart]!.partHash = "stale00000000";
     accepted.directionAcceptance.whole.hash = null;
     await fs.writeFile(statePath, JSON.stringify(accepted, null, 2));
     await run(["generate", "animatic"], projectDir);
 
-    // The brief is the other half: no panel or shot ever shows it, so it re-blocks.
-    parts["direction:brief.logline"]!.partHash = "stale11111111";
+    parts["direction:waivers.missing-role_before"]!.partHash = "stale22222222";
+    parts["direction:policy.format"]!.partHash = "stale11111111";
     await fs.writeFile(statePath, JSON.stringify(accepted, null, 2));
-    await expect(run(["generate", "animatic"], projectDir)).rejects.toMatchObject({
-      stderr: expect.stringContaining("SPEND_HELD"),
-    });
+    const held: { stderr: string } = await run(["generate", "animatic"], projectDir).then(
+      () => expect.fail("generate should refuse"),
+      (e) => e,
+    );
+    expect(held.stderr).toContain("SPEND_HELD");
+    expect(held.stderr).toContain("direction:waivers.missing-role_before");
+    expect(held.stderr).toContain("direction:policy.format");
+    expect(held.stderr).not.toContain(shotPart);
   });
 });

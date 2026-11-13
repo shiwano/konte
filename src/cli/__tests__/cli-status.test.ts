@@ -172,7 +172,7 @@ describe("status command", () => {
     const direction = await loadDirectionIfPresent(projectDir);
     const subjectHash = directionPartHashes(direction!).get(address);
     const state = JSON.parse(await fs.readFile(path.join(projectDir, "konte.state.json"), "utf-8"));
-    const acceptedAt = Date.parse(state.directionAcceptance.parts[address].acceptedAt);
+    const acceptedAt = Date.parse(state.directionAcceptance.whole.acceptedAt);
     const comment = {
       id: generateFeedbackId(),
       displayedVariants: {},

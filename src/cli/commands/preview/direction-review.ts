@@ -166,7 +166,7 @@ export async function handleGetDirectionState(
 
   const partView = (address: string) => ({
     address,
-    status: acceptanceView.parts.get(address) ?? ("accepted" as const),
+    status: acceptanceView.parts.get(address) ?? ("unsigned" as const),
     feedback: buildAddressFeedback(feedbackMgr, state, address, { subjectHashes }),
     handoffNote: handoffNoteForDirection(handoff, address),
   });
@@ -552,6 +552,8 @@ export async function handleDirectionSubmit(
 
   const currentHash = directionHash(direction);
   const sectionDecisions: DirectionSectionDecisions = { ...body.sectionDecisions };
+  // The brief holds nothing to sign, so a decision on it is none.
+  delete sectionDecisions.brief;
   const accepting = Object.values(sectionDecisions).some((v) => v === true);
   // An Accept signs off the box the reviewer saw; if direction.ts changed since the page loaded,
   // refuse rather than record a hash the human never reviewed. The guard is whole-direction even

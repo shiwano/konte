@@ -46,7 +46,7 @@ describe("direction submit", () => {
         body: JSON.stringify({
           addedFeedback: [],
           feedbackPatches: [],
-          sectionDecisions: { brief: true, props: true },
+          sectionDecisions: { policy: true, props: true },
           reviewedHash: directionHash(direction),
         }),
       }),
@@ -66,11 +66,11 @@ describe("direction submit", () => {
       string,
       unknown
     >;
-    expect(record.directionDecisions).toEqual({ brief: "accepted" });
+    expect(record.directionDecisions).toEqual({ policy: "accepted" });
 
     const acceptance = (await StateManager.load(videoRoot)).getDirectionAcceptance();
     const accepted = Object.keys(acceptance?.parts ?? {});
-    expect(accepted).toContain("direction:brief.logline");
+    expect(accepted).toContain("direction:policy.format");
     expect(accepted).not.toContain("direction:props.cup");
   });
 
@@ -89,7 +89,7 @@ describe("direction submit", () => {
         body: JSON.stringify({
           addedFeedback: [],
           feedbackPatches: [],
-          sectionDecisions: { brief: true, shots: false },
+          sectionDecisions: { policy: true, shots: false },
           reviewedHash: directionHash(direction),
         }),
       }),
@@ -101,6 +101,6 @@ describe("direction submit", () => {
       string,
       unknown
     >;
-    expect(record.directionDecisions).toEqual({ brief: "accepted" });
+    expect(record.directionDecisions).toEqual({ policy: "accepted" });
   });
 });

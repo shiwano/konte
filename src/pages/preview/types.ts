@@ -472,8 +472,8 @@ export interface ReferencePreviewState {
 // `direction:<part>` address (no variants, so `displayedVariants` is always empty).
 export interface DirectionPartInfo {
   address: string;
-  // `accepted` on a part no one signs.
-  status: DirectionPartStatus;
+  // `unsigned` on a part that takes notes and no sign-off.
+  status: DirectionPartStatus | "unsigned";
   feedback: FeedbackInfo[];
   handoffNote?: string;
 }

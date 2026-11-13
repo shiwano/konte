@@ -7,7 +7,7 @@ The song take is accepted before any shot is written. Fields → `direction-guid
 - Before writing or revising lyrics, read `scenario-guide`'s [song.md](../../scenario-guide/references/song.md) — finish its lyric pass before review.
 - `policy.song`, `lyrics`, and `sequence.shots: []`.
 
-## 2. Review the brief, policy and lyrics
+## 2. Review the policy and lyrics
 
 - Per `review-guide`, scope `direction` — the song is refused until they are accepted.
 

@@ -45,48 +45,62 @@ export type DirectionPartStatus = "accepted" | "stale" | "unaccepted";
 export type DirectionSectionStatus = DirectionPartStatus;
 
 // A shotless direction's Flow & Shots box holds only the root arc's empty shape: there is nothing in
-// it to read, and the shots written later would arrive at a sign-off no one gave them.
+// it to read, and the shots written later would arrive at a sign-off no one gave them. The brief
+// holds no part to sign (`isSignedDirectionPart`).
 export function directionSectionAcceptable(
   direction: Direction,
   section: DirectionSection,
 ): boolean {
+  if (section === "brief") return false;
   return section !== "shots" || directionHasShots(direction);
 }
 
 // The sections whose sign-off no downstream media re-reads, so they are the ones the spend gate
-// keeps demanding for the life of the piece. `brief` is an agreement between people that never
-// enters generation; `waivers` are inputs to the machine check and appear in no
-// frame; `policy.format` is the size and fps, where a mistake is expensive. Everything else — the
-// shots, the arc, the rosters — reaches a human as a panel, a shot or a `reference:<id>` image, so
-// once the piece has been signed off whole, the reviews of that media are the reading that counts.
-// A waiver whose subject is a shot (`directionShotWaivers`) is the exception in `waivers`: it rides
-// the shot's review instead.
-const PIECE_WIDE_SECTIONS: ReadonlySet<DirectionSection> = new Set([
-  "brief",
-  "policy",
-  "lyrics",
-  "waivers",
-]);
+// keeps demanding for the life of the piece: `waivers` are inputs to the machine check and appear in
+// no frame; `policy` is the size, fps and type of every take, where a mistake remakes them all.
+// Everything else reaches a human downstream — the shots, the arc and the rosters as a panel, a
+// shot or a `reference:<id>` image, the lyrics as the song take (`SONG_SECTIONS`) — so once the
+// piece has been signed off whole, the reviews of that media are the reading that counts. A waiver
+// whose subject is a shot (`directionShotWaivers`) rides the shot's review instead.
+const PIECE_WIDE_SECTIONS: ReadonlySet<DirectionSection> = new Set(["policy", "waivers"]);
 
 // The sections a song is generated from.
-const SONG_SECTIONS: ReadonlySet<DirectionSection> = new Set(["brief", "policy", "lyrics"]);
+const SONG_SECTIONS: ReadonlySet<DirectionSection> = new Set(["policy", "lyrics"]);
+
+// The brief is what the author took down from the human: a part to leave a note on, with no
+// sign-off of its own. Takes a part or the scope over them.
+export function isSignedDirectionPart(address: string): boolean {
+  return address !== "direction:brief" && directionSectionOf(address) !== "brief";
+}
 
 // A deleted waiver owes no reader: removing one only puts its finding back in front of the machine
 // check, so its orphaned sign-off neither blocks nor is kept. Nor does a part the direction can no
 // longer declare — a field konte dropped was deleted by no author.
 function orphanOwesReview(address: string): boolean {
-  return isDirectionScope(address) && directionSectionOf(address) !== "waivers";
+  if (!isDirectionScope(address)) return false;
+  // SUNSET(0.6.0): brief sign-offs
+  if (!isSignedDirectionPart(address)) return false;
+  return directionSectionOf(address) !== "waivers";
 }
 
-// The parts a human signs, by address: every part `directionPartHashes` declares, bar a waiver that
-// cancels nothing in this pass.
+// The parts a human signs, by address: every part `directionPartHashes` declares, bar the brief's
+// and a waiver that cancels nothing in this pass.
 function signableParts(
   direction: Direction,
   coverage: WaiverCoverage | undefined,
 ): Map<string, string> {
   const live = directionPartHashes(direction);
+  for (const address of live.keys()) if (!isSignedDirectionPart(address)) live.delete(address);
   for (const address of coverage?.stale ?? []) live.delete(address);
   return live;
+}
+
+// Whether one end-to-end sign-off stands behind the record. A `whole` with no part behind it is a
+// verdict no human gave.
+export function directionAcceptedWhole(
+  acceptance: DirectionAcceptance | null | undefined,
+): boolean {
+  return acceptance?.whole != null && Object.keys(acceptance.parts).length > 0;
 }
 
 // The sections the spend gate is still waiting on — every one until the direction has been accepted
@@ -97,7 +111,7 @@ export function directionGatingSections(
   acceptance: DirectionAcceptance | null,
   coverage?: WaiverCoverage,
 ): DirectionSection[] {
-  if (acceptance?.whole == null) return [...DIRECTION_SECTIONS];
+  if (!directionAcceptedWhole(acceptance)) return [...DIRECTION_SECTIONS];
   const onShot = new Set(directionShotWaivers(direction).map((w) => w.address));
   const pieceWideWaivers = [...signableParts(direction, coverage).keys()].some(
     (address) => directionSectionOf(address) === "waivers" && !onShot.has(address),
@@ -184,7 +198,7 @@ export function directionAcceptanceView(
 
   // An accepted part that is no longer in the live set was DELETED since it was signed off — the
   // direction the human accepted is not this one, so the gate must re-block even though nothing in
-  // the live set is unaccepted. Dropping a brief field or a character is exactly this case: it
+  // the live set is unaccepted. Dropping the narrator or a character is exactly this case: it
   // removes a key rather than changing one, and comparing only live parts would wave it through.
   const orphanAddresses = Object.keys(acceptance?.parts ?? {}).filter(
     (address) => !live.has(address) && orphanOwesReview(address),
@@ -211,7 +225,7 @@ export function directionAcceptanceView(
 
   // Before the whole direction has been accepted once, the gate is the full comparison: nothing
   // downstream exists yet to have read any of it, so the first read is the only read.
-  const unlocked = acceptance?.whole != null;
+  const unlocked = directionAcceptedWhole(acceptance);
   const onShot = new Set(directionShotWaivers(direction).map((w) => w.address));
   const gateBlocking = unlocked
     ? blocking.filter(
@@ -434,8 +448,8 @@ export function applyDirectionPartDecisions(
 // (`shotRosterTargets`), and every waiver whose subject is the shot, shown beside it on the review.
 // The arc tree hangs a shot on its acts, and an animatic/video accept re-reads them (the reviewer is
 // looking at that shot inside that act); a setup is here because the shot's size and place live on
-// it, so the picture the reviewer accepted IS that frame. Everything else — the brief, the policy,
-// the other waivers — is a piece-wide agreement, so it never appears here. A node with no `id`
+// it, so the picture the reviewer accepted IS that frame. Nothing else — the policy, the lyrics, a
+// waiver on no shot — appears here: the policy and that waiver are signed on the direction's page. A node with no `id`
 // contributes no part (see `directionPartHashes`), so its address is filtered out by the live-part
 // lookup rather than special-cased.
 export function directionShotCascadeTargets(direction: Direction): Map<string, string[]> {
@@ -507,7 +521,7 @@ export function shotWaiversAwaitingAccept(
   const { parts } = directionAcceptanceView(direction, acceptance, coverage);
   return directionShotWaivers(direction).filter((w) => {
     const status = parts.get(w.address);
-    return status === "stale" || (status === "unaccepted" && acceptance?.whole != null);
+    return status === "stale" || (status === "unaccepted" && directionAcceptedWhole(acceptance));
   });
 }
 
@@ -653,7 +667,7 @@ function restampDirectionParts(
   const parts = { ...acceptance.parts };
   const acceptedAt = now.toISOString();
   const restamped: string[] = [];
-  const mayStampUnread = acceptance.whole != null;
+  const mayStampUnread = directionAcceptedWhole(acceptance);
 
   for (const address of addresses) {
     const liveHash = live.get(address);
@@ -677,9 +691,8 @@ function restampDirectionParts(
 //
 // The sweep drops ORPHANS — records for parts that no longer exist — in the sections the gate has
 // stopped reading, since leaving one would keep `complete` false forever and a finished piece could
-// never show a clean direction page. The gated sections keep theirs, where losing a brief field or a
-// policy rule is a change a human still has to sign. A waiver's orphan is swept always
-// (`orphanOwesReview`).
+// never show a clean direction page. The gated sections keep theirs, where losing a policy field
+// is a change a human still has to sign. A waiver's orphan is swept always (`orphanOwesReview`).
 function finalizeAcceptance(
   direction: Direction,
   parts: DirectionAcceptance["parts"],
@@ -693,7 +706,7 @@ function finalizeAcceptance(
     if (live.has(address)) continue;
     const keep =
       orphanOwesReview(address) &&
-      (prior?.whole == null || PIECE_WIDE_SECTIONS.has(directionSectionOf(address)));
+      (!directionAcceptedWhole(prior) || PIECE_WIDE_SECTIONS.has(directionSectionOf(address)));
     if (keep) continue;
     delete parts[address];
     swept.push(address);

@@ -301,8 +301,8 @@ function suggestStaleRefresh(
 // offering one would send the reviewer to re-read what the stage reel already showed them.
 //
 // A piece cut to a song is written after it: while the song has no accepted take, an empty direction
-// is not the next thing to write — the song is the next thing to make and hear, once the brief,
-// policy and lyrics it is made from are accepted.
+// is not the next thing to write — the song is the next thing to make and hear, once the policy
+// and lyrics it is made from are accepted.
 function prependDirectionReview(
   actions: SuggestedAction[],
   needed: boolean | undefined,
@@ -613,7 +613,7 @@ export type SongPending = {
   address: string;
   // Whether a take exists to hear — otherwise the song is still to be generated.
   hasVariant: boolean;
-  // Whether `generate reference` refuses the song until the brief, policy and lyrics are accepted.
+  // Whether `generate reference` refuses the song until the policy and lyrics are accepted.
   directionReviewNeeded: boolean;
 };
 

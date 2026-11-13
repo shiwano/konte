@@ -444,7 +444,7 @@ export function parseDirectionScope(scope: string): { address: string | null } {
   if (!m) {
     throw new KonteError(
       "INVALID_ADDRESS",
-      `Invalid direction scope: "${scope}" (expected "direction" or "direction:<part>", e.g. "direction:brief" or "direction:brief.logline")`,
+      `Invalid direction scope: "${scope}" (expected "direction" or "direction:<part>", e.g. "direction:policy" or "direction:policy.format")`,
     );
   }
   return { address: m[1] ? scope : null };

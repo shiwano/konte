@@ -11,8 +11,9 @@ export const PartMarksContext = createContext<ReadonlyMap<string, PartMark>>(new
 // On a direction nothing of which was ever signed off, every part is unread and none is marked.
 export function partMarks(parts: readonly DirectionPartInfo[]): Map<string, PartMark> {
   const out = new Map<string, PartMark>();
-  if (parts.every((p) => p.status === "unaccepted")) return out;
-  for (const p of parts) {
+  const signed = parts.filter((p) => p.status !== "unsigned");
+  if (signed.every((p) => p.status === "unaccepted")) return out;
+  for (const p of signed) {
     if (p.status !== "accepted") out.set(p.address, p.status === "stale" ? "changed" : "new");
   }
   return out;

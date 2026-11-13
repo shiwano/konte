@@ -560,11 +560,10 @@ export default defineDirection({
     expect(await directionStatus()).toMatchObject({ status: "partial" });
   });
 
-  // The piece-wide agreements are not a shot's to settle.
-  it("leaves a stale brief field to the direction review", async () => {
+  it("leaves a stale policy part to the direction review", async () => {
     await editAcceptance((parts) => {
       parts[shotPart]!.partHash = "stale00000000";
-      parts["direction:brief.logline"]!.partHash = "stale22222222";
+      parts["direction:policy.format"]!.partHash = "stale22222222";
     });
 
     const { stdout } = await run(["accept", variantId, "--verbose"], projectDir);
@@ -615,8 +614,8 @@ describe("accept direction", () => {
     await expect(run(["accept", "direction:props.cup"], projectDir)).rejects.toMatchObject({
       stderr: expect.stringMatching(/REVIEW_HELD[\s\S]*\[unused-prop_cup\]/),
     });
-    await run(["accept", "direction:brief"], projectDir);
-    expect(await statusOf("direction:brief.logline")).toBe("accepted");
+    await run(["accept", "direction:policy"], projectDir);
+    expect(await statusOf("direction:policy.format")).toBe("accepted");
   });
 
   it("signs off every part, the waivers included", async () => {
@@ -626,7 +625,11 @@ describe("accept direction", () => {
       addressesUnder(stdout, "Accepted parts").filter((p) => p.startsWith("direction:waivers.")),
     ).not.toEqual([]);
     const after = await inspect();
-    expect(after.parts.filter((p) => p.status !== "accepted")).toEqual([]);
+    const unsigned = after.parts.filter((p) => p.status !== "accepted");
+    expect(unsigned.map((p) => p.address)).toContain("direction:brief.logline");
+    expect(new Set(unsigned.map((p) => `${p.section}: ${p.status}`))).toEqual(
+      new Set(["brief: unsigned"]),
+    );
     expect(after.acceptance.status).toBe("accepted");
   });
 
@@ -637,40 +640,59 @@ describe("accept direction", () => {
   });
 
   it("signs off one part", async () => {
-    const { stdout } = await run(["accept", "direction:brief.logline", "--verbose"], projectDir);
-    expect(addressesUnder(stdout, "Accepted parts")).toEqual(["direction:brief.logline"]);
-    expect(await statusOf("direction:brief.logline")).toBe("accepted");
-    expect(await statusOf("direction:brief.tone")).toBe("unaccepted");
+    const { stdout } = await run(["accept", "direction:policy.format", "--verbose"], projectDir);
+    expect(addressesUnder(stdout, "Accepted parts")).toEqual(["direction:policy.format"]);
+    expect(await statusOf("direction:policy.format")).toBe("accepted");
+    expect(await statusOf("direction:policy.lang")).toBe("unaccepted");
+  });
+
+  it.each(["direction:brief", "direction:brief.logline"])(
+    "refuses to sign off %s, which takes notes only",
+    async (scope) => {
+      await expect(run(["accept", scope], projectDir)).rejects.toMatchObject({
+        stderr: expect.stringMatching(/DIRECTION_PART_UNSIGNED[\s\S]*takes notes and no sign-off/),
+      });
+      expect((await inspect()).acceptance.status).toBe("unaccepted");
+      expect(await statusOf("direction:brief.logline")).toBe("unsigned");
+    },
+  );
+
+  it("refuses a run naming the brief beside a signable part, signing neither", async () => {
+    await expect(
+      run(["accept", "direction:policy.format", "direction:brief.logline"], projectDir),
+    ).rejects.toMatchObject({ stderr: expect.stringContaining("DIRECTION_PART_UNSIGNED") });
+    expect(await statusOf("direction:policy.format")).toBe("unaccepted");
   });
 
   it("signs off every part under a group scope", async () => {
-    const brief = (await inspect()).parts
-      .filter((p) => p.address.startsWith("direction:brief."))
+    const policy = (await inspect()).parts
+      .filter((p) => p.address.startsWith("direction:policy."))
       .map((p) => p.address);
-    const { stdout } = await run(["accept", "direction:brief", "--verbose"], projectDir);
-    expect(addressesUnder(stdout, "Accepted parts").sort()).toEqual([...brief].sort());
-    expect(await statusOf("direction:brief.logline")).toBe("accepted");
-    expect(await statusOf("direction:policy.format")).toBe("unaccepted");
+    expect(policy.length).toBeGreaterThan(1);
+    const { stdout } = await run(["accept", "direction:policy", "--verbose"], projectDir);
+    expect(addressesUnder(stdout, "Accepted parts").sort()).toEqual([...policy].sort());
+    expect(await statusOf("direction:policy.format")).toBe("accepted");
+    expect(await statusOf("direction:sequence.shots.01")).toBe("unaccepted");
   });
 
   it("signs off several scopes in one run", async () => {
     const { stdout } = await run(
-      ["accept", "direction:brief.logline", "direction:brief.tone", "--verbose"],
+      ["accept", "direction:policy.format", "direction:policy.lang", "--verbose"],
       projectDir,
     );
     expect(addressesUnder(stdout, "Accepted parts")).toEqual([
-      "direction:brief.logline",
-      "direction:brief.tone",
+      "direction:policy.format",
+      "direction:policy.lang",
     ]);
   });
 
   it("needs consent to clear several parts", async () => {
     await run(["accept", "direction"], projectDir);
-    await expect(run(["accept", "direction:brief", "--off"], projectDir)).rejects.toMatchObject({
+    await expect(run(["accept", "direction:policy", "--off"], projectDir)).rejects.toMatchObject({
       stderr: expect.stringContaining("CONFIRMATION_REQUIRED"),
     });
-    await run(["accept", "direction:brief", "--off", "-y"], projectDir);
-    expect(await statusOf("direction:brief.logline")).toBe("unaccepted");
+    await run(["accept", "direction:policy", "--off", "-y"], projectDir);
+    expect(await statusOf("direction:policy.format")).toBe("unaccepted");
   });
 
   it("rejects a part the direction does not have", async () => {
@@ -688,16 +710,49 @@ describe("accept direction", () => {
   it("clears one part's sign-off", async () => {
     await run(["accept", "direction"], projectDir);
     const { stdout } = await run(
-      ["accept", "direction:brief.tone", "--off", "--verbose"],
+      ["accept", "direction:policy.lang", "--off", "--verbose"],
       projectDir,
     );
-    expect(addressesUnder(stdout, "Cleared parts")).toEqual(["direction:brief.tone"]);
-    expect(await statusOf("direction:brief.tone")).toBe("unaccepted");
+    expect(addressesUnder(stdout, "Cleared parts")).toEqual(["direction:policy.lang"]);
+    expect(await statusOf("direction:policy.lang")).toBe("unaccepted");
+  });
+
+  // SUNSET(0.6.0): brief sign-offs
+  it("clears a brief sign-off an earlier state recorded", async () => {
+    await run(["accept", "direction"], projectDir);
+    await seedOrphan("direction:brief.logline");
+    const recorded = async () =>
+      Object.keys((await StateManager.load(projectDir)).getDirectionAcceptance()?.parts ?? {});
+
+    const { stdout } = await run(
+      ["accept", "direction:brief.logline", "--off", "--verbose"],
+      projectDir,
+    );
+    expect(addressesUnder(stdout, "Cleared parts")).toEqual(["direction:brief.logline"]);
+    expect(await recorded()).not.toContain("direction:brief.logline");
+    expect((await inspect()).acceptance.status).toBe("accepted");
+  });
+
+  // SUNSET(0.6.0): brief sign-offs
+  it("holds nothing on a recorded brief sign-off, and sweeps it on the next write", async () => {
+    await run(["accept", "direction"], projectDir);
+    await seedOrphan("direction:brief.logline");
+    await seedOrphan("direction:brief.gone");
+    const recorded = async () =>
+      Object.keys((await StateManager.load(projectDir)).getDirectionAcceptance()?.parts ?? {});
+    expect(await recorded()).toContain("direction:brief.gone");
+
+    const before = await inspect();
+    expect(before.orphans).toEqual([]);
+    expect(before.acceptance).toMatchObject({ status: "accepted", blocking: 0 });
+
+    await run(["accept", "direction:policy.lang", "--off"], projectDir);
+    expect((await recorded()).filter((a) => a.startsWith("direction:brief"))).toEqual([]);
   });
 
   it("refuses to clear a part carrying no sign-off", async () => {
     await expect(
-      run(["accept", "direction:brief.tone", "--off"], projectDir),
+      run(["accept", "direction:policy.lang", "--off"], projectDir),
     ).rejects.toMatchObject({ stderr: expect.stringContaining("DIRECTION_PART_NOT_ACCEPTED") });
   });
 
@@ -755,9 +810,14 @@ export default defineDirection({
     const { stdout } = await run(["accept", "direction", "--verbose"], projectDir);
     expect(addressesUnder(stdout, "Held flow parts")).toEqual(["direction:sequence"]);
     const after = await inspectDirection(projectDir);
-    expect(after.parts.filter((p) => p.status !== "accepted").map((p) => p.address)).toEqual([
-      "direction:sequence",
-    ]);
+    expect(
+      after.parts
+        .filter((p) => p.status !== "accepted" && p.status !== "unsigned")
+        .map((p) => p.address),
+    ).toEqual(["direction:sequence"]);
+    expect(after.parts.filter((p) => p.status === "unsigned").map((p) => p.section)).toEqual(
+      after.parts.filter((p) => p.section === "brief").map((p) => p.section),
+    );
   });
 
   it("refuses to sign off the flow", async () => {

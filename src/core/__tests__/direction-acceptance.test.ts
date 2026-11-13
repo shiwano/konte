@@ -9,6 +9,7 @@ import {
   directionCascadeReferenceIds,
   directionCascadeShotIds,
   isDirectionSpendGateSatisfied,
+  isSignedDirectionPart,
   shotWaiversAwaitingAccept,
   songGateBlocking,
   summarizeDirectionAcceptance,
@@ -110,7 +111,17 @@ function makeDirection(): Direction {
   } as Direction;
 }
 
+// A narrator is the one roster part whose removal re-shapes no other part.
+function withNarrator(): Direction {
+  const direction = makeDirection();
+  (direction as { narrator?: unknown }).narrator = { id: "narratorVoice", description: "warm" };
+  return direction;
+}
+
 const ALL_SECTIONS = Object.fromEntries(DIRECTION_SECTIONS.map((s) => [s, true]));
+
+const signedPartCount = (direction: Direction) =>
+  [...directionPartHashes(direction).keys()].filter(isSignedDirectionPart).length;
 
 // A direction signed off end to end — so `whole` stands, and the gate has narrowed to the sections
 // no downstream review re-reads.
@@ -123,7 +134,6 @@ function acceptAll(direction: Direction) {
 // everything and no cascade may sign off a part on a human's behalf.
 function acceptAllButWaivers(direction: Direction) {
   return applyDirectionSectionDecisions(direction, null, {
-    brief: true,
     policy: true,
     characters: true,
     props: true,
@@ -185,7 +195,7 @@ describe("directionAcceptanceView", () => {
     const view = directionAcceptanceView(edited, acceptance);
     expect(view.blocking).toEqual([{ address: "direction:sequence.shots.02", status: "stale" }]);
     expect(view.sections.get("shots")).toBe("stale");
-    expect(view.sections.get("brief")).toBe("accepted");
+    expect(view.sections.get("policy")).toBe("accepted");
     expect(view.sections.get("characters")).toBe("accepted");
   });
 
@@ -204,21 +214,20 @@ describe("directionAcceptanceView", () => {
   // A DELETED part removes a key rather than changing one, so comparing only live parts would wave
   // the edit through — the human accepted a direction that had it, and this one does not.
   it("blocks when an accepted part was deleted from the direction", () => {
-    const direction = makeDirection();
-    const acceptance = acceptAll(direction);
+    const acceptance = acceptAll(withNarrator());
 
     const cut = makeDirection();
-    delete cut.brief.tone;
 
     const view = directionAcceptanceView(cut, acceptance);
     expect(view.complete).toBe(false);
     // Nothing LIVE is blocking — the block is the orphan alone.
     expect(view.blocking).toEqual([]);
+    expect(view.orphans).toEqual(["direction:narrator"]);
     // And it is pinned on the box that owns it: only that box's Accept can drop it, so a box
     // reading "accepted" over its own orphan would tell the reviewer to re-accept and then show
     // them nothing to re-accept.
-    expect(view.sections.get("brief")).toBe("stale");
-    expect(view.sections.get("characters")).toBe("accepted");
+    expect(view.sections.get("characters")).toBe("stale");
+    expect(view.sections.get("props")).toBe("accepted");
   });
 
   // The dead end: a section that loses its LAST live part has no rows, so the page would render no
@@ -277,20 +286,45 @@ describe("isDirectionSpendGateSatisfied", () => {
     expect(directionAcceptanceView(edited, acceptance).complete).toBe(false);
   });
 
-  // The piece-wide agreements have no downstream reading, so they re-block for the life of the piece.
-  it("re-blocks on an edit to the brief, the policy or a piece-wide waiver", () => {
-    const direction = makeDirection();
-    const acceptance = acceptAll(direction);
+  // A piece-wide waiver has no downstream reading, so it re-blocks for the life of the piece.
+  it("re-blocks on a piece-wide waiver written after the whole was accepted", () => {
+    const acceptance = acceptAll(makeDirection());
 
-    for (const edit of [
-      (d: Direction) => (d.brief.logline = "a girl wakes and stays"),
-      (d: Direction) => (d.policy.format!.fps = 30),
-      (d: Direction) => (d.waivers!["no-payoff"] = "an open ending"),
-    ]) {
-      const edited = makeDirection();
-      edit(edited);
-      expect(isDirectionSpendGateSatisfied(edited, acceptance)).toBe(false);
-    }
+    const edited = makeDirection();
+    edited.waivers!["no-payoff"] = "an open ending";
+    expect(isDirectionSpendGateSatisfied(edited, acceptance)).toBe(false);
+    expect(directionAcceptanceView(edited, acceptance).gateBlocking).toEqual([
+      { address: "direction:waivers.no-payoff", status: "unaccepted" },
+    ]);
+  });
+
+  const withLyrics = () => {
+    const direction = makeDirection();
+    direction.lyrics = [{ label: "Verse", singer: "alice", lines: ["lights down"] }];
+    return direction;
+  };
+
+  it("re-blocks on the policy edited after the whole was accepted", () => {
+    const acceptance = acceptAll(withLyrics());
+
+    const edited = withLyrics();
+    edited.policy.format!.fps = 30;
+    expect(isDirectionSpendGateSatisfied(edited, acceptance)).toBe(false);
+    expect(directionAcceptanceView(edited, acceptance).gateBlocking).toEqual([
+      { address: "direction:policy.format", status: "stale" },
+    ]);
+  });
+
+  it("does not re-block on the lyrics edited after the whole was accepted", () => {
+    const acceptance = acceptAll(withLyrics());
+
+    const edited = withLyrics();
+    edited.lyrics![0]!.lines = ["lights up"];
+    expect(isDirectionSpendGateSatisfied(edited, acceptance)).toBe(true);
+    const view = directionAcceptanceView(edited, acceptance);
+    expect(view.gateBlocking).toEqual([]);
+    expect(view.sections.get("lyrics")).toBe("stale");
+    expect(view.complete).toBe(false);
   });
 
   it("does not re-block on a shot's waiver written after the whole was accepted", () => {
@@ -354,6 +388,114 @@ describe("isDirectionSpendGateSatisfied", () => {
   });
 });
 
+describe("the brief", () => {
+  const briefParts = (direction: Direction) =>
+    [...directionPartHashes(direction).keys()].filter((a) => directionSectionOf(a) === "brief");
+
+  const withLegacyBriefSignOffs = (acceptance: ReturnType<typeof acceptAll>) => ({
+    ...acceptance,
+    parts: {
+      ...acceptance.parts,
+      "direction:brief.logline": {
+        partHash: "stale0000000",
+        acceptedAt: "2026-01-01T00:00:00.000Z",
+      },
+      "direction:brief.tone": { partHash: "stale1111111", acceptedAt: "2026-01-01T00:00:00.000Z" },
+    },
+  });
+
+  it("is a part with a hash and no sign-off", () => {
+    const direction = makeDirection();
+    expect(briefParts(direction)).toContain("direction:brief.logline");
+    expect(isSignedDirectionPart("direction:brief")).toBe(false);
+    expect(isSignedDirectionPart("direction:brief.logline")).toBe(false);
+    expect(isSignedDirectionPart("direction:policy")).toBe(true);
+    expect(isSignedDirectionPart("direction:policy.format")).toBe(true);
+
+    const view = directionAcceptanceView(direction, null);
+    expect([...view.parts.keys()].filter((a) => !isSignedDirectionPart(a))).toEqual([]);
+    expect(view.parts.size).toBe(signedPartCount(direction));
+    expect(view.blocking.map((b) => directionSectionOf(b.address))).not.toContain("brief");
+    expect(view.sections.get("brief")).toBe("accepted");
+  });
+
+  it("is stamped by no writer", () => {
+    const direction = makeDirection();
+    const whole = acceptAll(direction);
+    expect(Object.keys(whole.parts).filter((a) => !isSignedDirectionPart(a))).toEqual([]);
+    expect(whole.whole?.hash).toBe(directionHash(direction));
+
+    const bySection = applyDirectionSectionDecisions(direction, null, { brief: true });
+    expect(bySection).toEqual({ parts: {}, whole: null });
+
+    const byPart = applyDirectionPartDecisions(
+      direction,
+      null,
+      new Map(briefParts(direction).map((a) => [a, true])),
+    );
+    expect(byPart.accepted).toEqual([]);
+    expect(byPart.acceptance).toEqual({ parts: {}, whole: null });
+  });
+
+  it("holds neither the page nor the gate when edited or cut", () => {
+    for (const acceptance of [acceptAll(makeDirection()), acceptAllButWaivers(makeDirection())]) {
+      const before = directionAcceptanceView(makeDirection(), acceptance);
+      for (const edit of [
+        (d: Direction) => (d.brief.logline = "a girl wakes and stays"),
+        (d: Direction) => delete d.brief.tone,
+      ]) {
+        const edited = makeDirection();
+        edit(edited);
+        const view = directionAcceptanceView(edited, acceptance);
+        expect(view.blocking).toEqual(before.blocking);
+        expect(view.orphans).toEqual([]);
+        expect(view.complete).toBe(before.complete);
+        expect(isDirectionSpendGateSatisfied(edited, acceptance)).toBe(before.gateSatisfied);
+      }
+    }
+  });
+
+  it("owes no review for a sign-off an earlier state recorded, live or cut", () => {
+    const direction = makeDirection();
+    delete direction.brief.tone;
+    const total = signedPartCount(direction);
+
+    const legacy = withLegacyBriefSignOffs(acceptAll(direction));
+    const view = directionAcceptanceView(direction, legacy);
+    expect(view.orphans).toEqual([]);
+    expect(view.blocking).toEqual([]);
+    expect(view.complete).toBe(true);
+    expect(view.sections.get("brief")).toBe("accepted");
+    expect(isDirectionSpendGateSatisfied(direction, { ...legacy, whole: null })).toBe(true);
+    expect(summarizeDirectionAcceptance(direction, legacy)).toMatchObject({
+      status: "accepted",
+      blocking: 0,
+      gateBlocking: 0,
+      total,
+    });
+  });
+
+  it("sweeps a recorded sign-off on any write, before and after the whole was accepted", () => {
+    const direction = makeDirection();
+    const recorded = (acceptance: { parts: Record<string, unknown> } | null) =>
+      Object.keys(acceptance?.parts ?? {}).filter((a) => !isSignedDirectionPart(a));
+
+    const partial = withLegacyBriefSignOffs(acceptAllButWaivers(direction));
+    const bySection = applyDirectionSectionDecisions(direction, partial, { waivers: true });
+    expect(recorded(bySection)).toEqual([]);
+    expect(bySection.whole?.hash).toBe(directionHash(direction));
+
+    const byPart = applyDirectionPartDecisions(direction, partial, new Map()).acceptance;
+    expect(recorded(byPart)).toEqual([]);
+
+    const whole = withLegacyBriefSignOffs(acceptAll(direction));
+    const cascaded = applyDirectionShotCascade(direction, whole, ["01"]);
+    expect(cascaded.restamped).toEqual([]);
+    expect(recorded(cascaded.acceptance)).toEqual([]);
+    expect(cascaded.acceptance!.whole?.hash).toBe(directionHash(direction));
+  });
+});
+
 describe("songGateBlocking", () => {
   function songDirection(): Direction {
     const direction = makeDirection();
@@ -364,18 +506,17 @@ describe("songGateBlocking", () => {
     return direction;
   }
 
-  it("names the brief, policy and lyrics parts and nothing else", () => {
+  it("names the policy and lyrics parts and nothing else", () => {
     const direction = songDirection();
     const sections = new Set(
       songGateBlocking(direction, null).map((b) => directionSectionOf(b.address)),
     );
-    expect(sections).toEqual(new Set(["brief", "policy", "lyrics"]));
+    expect(sections).toEqual(new Set(["policy", "lyrics"]));
   });
 
-  it("clears once those three sections are accepted, the rest of the page unread", () => {
+  it("clears once those two sections are accepted, the rest of the page unread", () => {
     const direction = songDirection();
     const acceptance = applyDirectionSectionDecisions(direction, null, {
-      brief: true,
       policy: true,
       lyrics: true,
     });
@@ -383,18 +524,23 @@ describe("songGateBlocking", () => {
     expect(isDirectionSpendGateSatisfied(direction, acceptance)).toBe(false);
   });
 
-  it("re-blocks on a lyric edit and on a deleted brief field", () => {
+  it("re-blocks on a lyric edit and on deleted lyrics, and not on the brief", () => {
     const direction = songDirection();
     const acceptance = applyDirectionSectionDecisions(direction, null, {
-      brief: true,
       policy: true,
       lyrics: true,
     });
+    direction.brief = { logline: "a girl wakes and stays" };
+    expect(songGateBlocking(direction, acceptance)).toEqual([]);
+
     direction.lyrics = [{ label: "Verse", singer: "alice", lines: ["lights up"] }];
-    direction.brief = { logline: direction.brief!.logline };
     expect(songGateBlocking(direction, acceptance)).toEqual([
       { address: "direction:lyrics", status: "stale" },
-      { address: "direction:brief.tone", status: "deleted" },
+    ]);
+
+    delete direction.lyrics;
+    expect(songGateBlocking(direction, acceptance)).toEqual([
+      { address: "direction:lyrics", status: "deleted" },
     ]);
   });
 });
@@ -402,10 +548,10 @@ describe("songGateBlocking", () => {
 describe("applyDirectionSectionDecisions", () => {
   it("accepts only the parts the decided sections own", () => {
     const direction = makeDirection();
-    const acceptance = applyDirectionSectionDecisions(direction, null, { brief: true });
+    const acceptance = applyDirectionSectionDecisions(direction, null, { policy: true });
 
     const view = directionAcceptanceView(direction, acceptance);
-    expect(view.sections.get("brief")).toBe("accepted");
+    expect(view.sections.get("policy")).toBe("accepted");
     expect(view.sections.get("shots")).toBe("unaccepted");
     expect(view.complete).toBe(false);
     expect(acceptance.whole).toBeNull();
@@ -413,7 +559,7 @@ describe("applyDirectionSectionDecisions", () => {
 
   it("stamps the short-circuit only once every part is covered", () => {
     const direction = makeDirection();
-    expect(applyDirectionSectionDecisions(direction, null, { brief: true }).whole).toBeNull();
+    expect(applyDirectionSectionDecisions(direction, null, { policy: true }).whole).toBeNull();
     expect(acceptAll(direction).whole?.hash).toBe(directionHash(direction));
   });
 
@@ -425,7 +571,7 @@ describe("applyDirectionSectionDecisions", () => {
     expect(acceptance.whole).toBeNull();
     const view = directionAcceptanceView(direction, acceptance);
     expect(view.sections.get("shots")).toBe("unaccepted");
-    expect(view.sections.get("brief")).toBe("accepted");
+    expect(view.sections.get("policy")).toBe("accepted");
     expect(view.complete).toBe(false);
   });
 
@@ -433,11 +579,11 @@ describe("applyDirectionSectionDecisions", () => {
   // characters has not withdrawn anything.
   it("leaves an undecided section's acceptance standing", () => {
     const direction = makeDirection();
-    const first = applyDirectionSectionDecisions(direction, null, { brief: true });
+    const first = applyDirectionSectionDecisions(direction, null, { policy: true });
     const second = applyDirectionSectionDecisions(direction, first, { characters: true });
 
     const view = directionAcceptanceView(direction, second);
-    expect(view.sections.get("brief")).toBe("accepted");
+    expect(view.sections.get("policy")).toBe("accepted");
     expect(view.sections.get("characters")).toBe("accepted");
   });
 
@@ -449,35 +595,37 @@ describe("applyDirectionSectionDecisions", () => {
 
     const view = directionAcceptanceView(direction, revoked);
     expect(view.sections.get("shots")).toBe("unaccepted");
-    expect(view.sections.get("brief")).toBe("accepted");
+    expect(view.sections.get("policy")).toBe("accepted");
     expect(view.complete).toBe(false);
     expect(revoked.whole?.hash).toBeNull();
   });
 
   it("clears its own box's orphans when the section is re-accepted", () => {
-    const direction = makeDirection();
-    const acceptance = acceptAll(direction);
+    const acceptance = acceptAll(withNarrator());
 
     const cut = makeDirection();
-    delete cut.brief.tone;
     expect(directionAcceptanceView(cut, acceptance).complete).toBe(false);
 
-    const reaccepted = applyDirectionSectionDecisions(cut, acceptance, { brief: true });
-    expect(reaccepted.parts["direction:brief.tone"]).toBeUndefined();
+    const reaccepted = applyDirectionSectionDecisions(cut, acceptance, { characters: true });
+    expect(reaccepted.parts["direction:narrator"]).toBeUndefined();
+    expect(directionAcceptanceView(cut, reaccepted).complete).toBe(true);
     expect(isDirectionSpendGateSatisfied(cut, reaccepted)).toBe(true);
   });
 
   // A deletion is something a human has yet to read. Clearing its block from a DIFFERENT box's
-  // button would sign off on their behalf — the characters' Accept says nothing about a cut brief field.
-  it("leaves another box's orphan blocking", () => {
-    const direction = makeDirection();
-    const acceptance = acceptAll(direction);
+  // button would sign off on their behalf — the props' Accept says nothing about a cut narrator.
+  it("leaves another box's orphan blocking until the direction has been accepted whole", () => {
+    const acceptance = acceptAllButWaivers(withNarrator());
 
     const cut = makeDirection();
-    delete cut.brief.tone;
 
-    const reaccepted = applyDirectionSectionDecisions(cut, acceptance, { characters: true });
-    expect(reaccepted.parts["direction:brief.tone"]).toBeDefined();
+    const reaccepted = applyDirectionSectionDecisions(cut, acceptance, {
+      props: true,
+      waivers: true,
+    });
+    expect(reaccepted.parts["direction:narrator"]).toBeDefined();
+    expect(directionAcceptanceView(cut, reaccepted).blocking).toEqual([]);
+    expect(reaccepted.whole).toBeNull();
     expect(isDirectionSpendGateSatisfied(cut, reaccepted)).toBe(false);
   });
 
@@ -526,13 +674,13 @@ describe("applyDirectionPartDecisions", () => {
     const { acceptance, accepted } = applyDirectionPartDecisions(
       direction,
       null,
-      new Map([["direction:brief.tone", true]]),
+      new Map([["direction:policy.lang", true]]),
     );
 
-    expect(accepted).toEqual(["direction:brief.tone"]);
+    expect(accepted).toEqual(["direction:policy.lang"]);
     const view = directionAcceptanceView(direction, acceptance);
-    expect(view.parts.get("direction:brief.tone")).toBe("accepted");
-    expect(view.parts.get("direction:brief.logline")).toBe("unaccepted");
+    expect(view.parts.get("direction:policy.lang")).toBe("accepted");
+    expect(view.parts.get("direction:policy.format")).toBe("unaccepted");
     expect(acceptance.whole).toBeNull();
   });
 
@@ -545,10 +693,10 @@ describe("applyDirectionPartDecisions", () => {
       null,
       new Map([
         ["direction:sequence", true],
-        ["direction:brief.tone", true],
+        ["direction:policy.lang", true],
       ]),
     );
-    expect(accepted).toEqual(["direction:brief.tone"]);
+    expect(accepted).toEqual(["direction:policy.lang"]);
   });
 
   it("reports nothing when the part is already signed off at that hash", () => {
@@ -556,17 +704,17 @@ describe("applyDirectionPartDecisions", () => {
     const first = applyDirectionPartDecisions(
       direction,
       null,
-      new Map([["direction:brief.tone", true]]),
+      new Map([["direction:policy.lang", true]]),
     );
     const second = applyDirectionPartDecisions(
       direction,
       first.acceptance,
-      new Map([["direction:brief.tone", true]]),
+      new Map([["direction:policy.lang", true]]),
     );
 
     expect(second.accepted).toEqual([]);
-    expect(second.acceptance.parts["direction:brief.tone"]).toEqual(
-      first.acceptance.parts["direction:brief.tone"],
+    expect(second.acceptance.parts["direction:policy.lang"]).toEqual(
+      first.acceptance.parts["direction:policy.lang"],
     );
   });
 
@@ -586,21 +734,21 @@ describe("applyDirectionPartDecisions", () => {
   it("drops a record whether it is live or an orphan", () => {
     const direction = makeDirection();
     const cut = makeDirection();
-    delete cut.brief.tone;
+    delete cut.props!.lantern;
 
     const { acceptance, revoked } = applyDirectionPartDecisions(
       cut,
-      acceptAll(direction),
+      acceptAllButWaivers(direction),
       new Map([
-        ["direction:brief.tone", false],
-        ["direction:brief.logline", false],
+        ["direction:props.lantern", false],
+        ["direction:policy.format", false],
       ]),
     );
 
-    expect(revoked.sort()).toEqual(["direction:brief.logline", "direction:brief.tone"]);
-    expect(directionAcceptanceView(cut, acceptance).parts.get("direction:brief.logline")).toBe(
-      "unaccepted",
-    );
+    expect(revoked.sort()).toEqual(["direction:policy.format", "direction:props.lantern"]);
+    const view = directionAcceptanceView(cut, acceptance);
+    expect(view.orphans).toEqual([]);
+    expect(view.parts.get("direction:policy.format")).toBe("unaccepted");
   });
 
   it("stamps the short-circuit once every live part is covered", () => {
@@ -616,7 +764,7 @@ describe("applyDirectionPartDecisions", () => {
 describe("summarizeDirectionAcceptance", () => {
   it("counts what is left, and separates never-read from partly-settled", () => {
     const direction = makeDirection();
-    const total = directionPartHashes(direction).size;
+    const total = signedPartCount(direction);
 
     expect(summarizeDirectionAcceptance(direction, null)).toMatchObject({
       status: "unaccepted",
@@ -635,7 +783,7 @@ describe("summarizeDirectionAcceptance", () => {
       changed: { parts: 0, sections: [] },
     });
 
-    const partial = applyDirectionSectionDecisions(direction, null, { brief: true });
+    const partial = applyDirectionSectionDecisions(direction, null, { policy: true });
     const summary = summarizeDirectionAcceptance(direction, partial);
     expect(summary.status).toBe("partial");
     expect(summary.blocking).toBeGreaterThan(0);
@@ -677,16 +825,14 @@ describe("summarizeDirectionAcceptance", () => {
   // something the reviewer has to settle, and reporting "0 of 12" beside a blocked gate would read
   // as a bug in konte rather than a page to go re-read.
   it("reports a deletion-only block as work left to do", () => {
-    const direction = makeDirection();
-    const acceptance = acceptAll(direction);
+    const acceptance = acceptAll(withNarrator());
 
     const cut = makeDirection();
-    delete cut.brief.tone;
 
     const summary = summarizeDirectionAcceptance(cut, acceptance);
     expect(summary.status).toBe("partial");
     expect(summary.blocking).toBe(1);
-    expect(summary.changed).toEqual({ parts: 1, sections: ["brief"] });
+    expect(summary.changed).toEqual({ parts: 1, sections: ["characters"] });
   });
 });
 
@@ -955,31 +1101,53 @@ describe("applyDirectionShotCascade", () => {
     expect(directionAcceptanceView(cut, acceptance!).complete).toBe(true);
   });
 
-  // The sweep is scoped to what the gate has stopped reading. Losing a brief field is still a change
-  // a human has to sign, so its orphan stays and keeps blocking.
-  it("keeps a piece-wide section's orphan", () => {
+  it("sweeps an orphan outside the shot's arc once the whole was accepted", () => {
     const accepted = acceptAll(makeDirection());
 
     const cut = makeDirection();
-    delete cut.brief.tone;
+    delete cut.props!.lantern;
 
     const { acceptance } = applyDirectionShotCascade(cut, accepted, ["01"]);
-    expect(acceptance!.parts["direction:brief.tone"]).toBeDefined();
+    expect(acceptance!.parts["direction:props.lantern"]).toBeUndefined();
+    expect(directionAcceptanceView(cut, acceptance!).complete).toBe(true);
+    expect(isDirectionSpendGateSatisfied(cut, acceptance!)).toBe(true);
+  });
+
+  it("keeps a policy part's orphan after the whole was accepted", () => {
+    const withSong = makeDirection();
+    withSong.policy = { ...withSong.policy, song: "song" };
+    const accepted = acceptAll(withSong);
+
+    const cut = makeDirection();
+    const { acceptance } = applyDirectionShotCascade(cut, accepted, ["01"]);
+    expect(acceptance!.parts["direction:policy.song"]).toBeDefined();
+    expect(directionAcceptanceView(cut, acceptance!).orphans).toEqual(["direction:policy.song"]);
     expect(isDirectionSpendGateSatisfied(cut, acceptance!)).toBe(false);
   });
 
-  // The piece-wide agreements are not a shot's to settle — no shot's media speaks for the brief.
+  it("keeps an orphan outside the shot's arc before the whole was accepted", () => {
+    const partial = acceptAllButWaivers(makeDirection());
+
+    const cut = makeDirection();
+    delete cut.props!.lantern;
+    cut.sequence.shots![0]!.duration = 7;
+
+    const { acceptance } = applyDirectionShotCascade(cut, partial, ["01"]);
+    expect(acceptance!.parts["direction:props.lantern"]).toBeDefined();
+    expect(directionAcceptanceView(cut, acceptance!).orphans).toEqual(["direction:props.lantern"]);
+  });
+
   it("settles nothing outside the accepted shot's arc", () => {
     const accepted = acceptAll(makeDirection());
 
     const edited = makeDirection();
     (edited.sequence.shots![0] as NarrativeShot).action = "she wakes with a start";
-    edited.brief.logline = "a girl wakes and stays";
+    edited.policy.format!.fps = 30;
 
     const { acceptance } = applyDirectionShotCascade(edited, accepted, ["01"]);
     const view = directionAcceptanceView(edited, acceptance);
     expect(view.parts.get("direction:sequence.shots.01")).toBe("accepted");
-    expect(view.parts.get("direction:brief.logline")).toBe("stale");
+    expect(view.parts.get("direction:policy.format")).toBe("stale");
     expect(view.complete).toBe(false);
   });
 
@@ -1387,19 +1555,19 @@ describe("applyDirectionReferenceCascade", () => {
     expect(restamped).toEqual([]);
   });
 
-  // The rosters are piece-wide; accepting one image says nothing about the brief or another entry.
+  // The rosters are piece-wide; accepting one image says nothing about the policy or another entry.
   it("settles nothing outside the accepted image's own roster entry", () => {
     const accepted = acceptAll(makeDirection());
 
     const edited = makeDirection();
     edited.characters.alice!.description = "a girl in blue";
-    edited.brief.logline = "a girl wakes and stays";
+    edited.policy.format!.fps = 30;
     edited.props!.lantern!.description = "a tin lantern";
 
     const { acceptance } = applyDirectionReferenceCascade(edited, accepted, ["alice"]);
     const view = directionAcceptanceView(edited, acceptance);
     expect(view.parts.get("direction:characters.alice")).toBe("accepted");
-    expect(view.parts.get("direction:brief.logline")).toBe("stale");
+    expect(view.parts.get("direction:policy.format")).toBe("stale");
     expect(view.parts.get("direction:props.lantern")).toBe("stale");
     expect(view.complete).toBe(false);
   });

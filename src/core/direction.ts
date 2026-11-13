@@ -2743,8 +2743,8 @@ export function directionFindings(result: DirectionCheckResult, direction: Direc
         subject: e.subject ?? "",
         fixIn: { stage: "direction" },
         message: e.message,
-        // A shotless direction is one being written after its song: its brief, policy and lyrics are
-        // still accepted on their own.
+        // A shotless direction is one being written after its song: its policy and lyrics are still
+        // accepted on their own.
         ...(e.code === "empty-direction" ? { targets: [] } : {}),
       }),
     ),

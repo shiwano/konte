@@ -17,6 +17,7 @@ import {
 import {
   type DirectionPartStatus,
   directionAcceptanceView,
+  directionAcceptedWhole,
   summarizeDirectionAcceptance,
 } from "../../core/direction-acceptance.js";
 import { directionPartHashes } from "../../core/direction-hash.js";
@@ -47,7 +48,8 @@ import { type FeedbackView, feedbackLine, feedbackTag, printFeedback } from "./i
 interface PartEntry {
   address: string;
   section: DirectionSection;
-  status: DirectionPartStatus | "orphan";
+  // `unsigned`: a part that takes notes and no sign-off (the brief).
+  status: DirectionPartStatus | "orphan" | "unsigned";
   acceptedAt: string | null;
   content: DirectionPartContent | null;
   feedback: FeedbackView[];
@@ -92,10 +94,16 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
     feedback: feedbackOf(address),
   });
 
+  const statuses = new Map<string, PartEntry["status"]>(
+    [...subjectHashes.keys()].map((address) => [address, view.parts.get(address) ?? "unsigned"]),
+  );
+  // A waiver cancelling nothing is no part.
+  for (const address of check.waiverCoverage?.stale ?? []) statuses.delete(address);
+
   if (scope !== null) {
     // An exact part first: a scope that IS a part reports that part, even where parts nest under it
     // (`direction:sequence` is the root arc as well as the prefix over every shot).
-    const status = view.parts.get(scope);
+    const status = statuses.get(scope);
     if (status !== undefined || view.orphans.includes(scope)) {
       const entry = entryOf(scope, status ?? "orphan");
       printPart(entry, direction, videoRoot);
@@ -103,7 +111,7 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
     }
 
     const entries = [
-      ...[...view.parts]
+      ...[...statuses]
         .filter(([address]) => matchesAddressScope(address, scope))
         .map(([address, partStatus]) => entryOf(address, partStatus)),
       ...view.orphans
@@ -127,16 +135,17 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
 
   // Only a finding a person can act on: a roster finding before the direction is accepted is
   // premature (see reportableDirectionFindings).
-  const findings = reportableDirectionFindings(check.active, acceptance?.whole != null).map(
-    (f) => ({
-      code: f.code,
-      key: directionWaiverKey(f),
-      class: classifyDirectionFinding(f.code),
-      message: f.message,
-    }),
-  );
+  const findings = reportableDirectionFindings(
+    check.active,
+    directionAcceptedWhole(acceptance),
+  ).map((f) => ({
+    code: f.code,
+    key: directionWaiverKey(f),
+    class: classifyDirectionFinding(f.code),
+    message: f.message,
+  }));
 
-  const parts = [...view.parts].map(([address, status]) => entryOf(address, status));
+  const parts = [...statuses].map(([address, status]) => entryOf(address, status));
   // An accepted part that left the direction is invisible in the live part set, so it is listed
   // rather than dropped — it still holds the gate shut in the piece-wide sections, and elsewhere it
   // is a record awaiting the next write's sweep.
@@ -176,7 +185,10 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
     const sectionParts = parts.filter((p) => p.section === section);
     if (sectionParts.length === 0) continue;
     console.log("");
-    console.log(`${section}: ${view.sections.get(section) ?? "accepted"}`);
+    const unsigned = sectionParts.every((p) => p.status === "unsigned");
+    console.log(
+      `${section}: ${unsigned ? "unsigned" : (view.sections.get(section) ?? "accepted")}`,
+    );
     for (const p of sectionParts) console.log(`  ${partLine(p, width)}`);
   }
   if (orphans.length > 0) {

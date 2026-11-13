@@ -164,7 +164,7 @@ A narrative shot with `coverage: true` is one take the model cuts inside: `setup
 
 `policy.song` (a `reference:<id>` id) cuts the piece to a song: every span is `beats`, never `duration` (`ConstrainSpan`, `shot-span-mismatch` past it); `off-grid-duration` asks for a positive number of beats, and `off-beat-cut` (waivable) for a whole one. A beat falls where the injected take plays it (`songBeatSec`); the first shot holds the take's lead before beat 0, each cut lands on its beat's frame. Unread, a shot holds only beats and a build needing seconds stops on `SONG_UNREAD`. `DirectionIndex.timeline` carries it to every stage; `ctx.beat(n)` is beat `n` of the shot's span, in seconds. The song is the part `direction:policy.song`; a span rides `projectSpan`.
 
-`lyrics` (`[{ label, singer, lines }]`): `singer` is a character id or list; a line is text or `{ text, singer }`. Structural: `lyrics-without-song`, `lyrics-singer-unknown`, `lyrics-singer-empty`, `lyrics-empty-line`. `direction:lyrics` is one piece-wide part with its own section: a lyric edit holds a spend after `whole`.
+`lyrics` (`[{ label, singer, lines }]`): `singer` is a character id or list; a line is text or `{ text, singer }`. Structural: `lyrics-without-song`, `lyrics-singer-unknown`, `lyrics-singer-empty`, `lyrics-empty-line`. `direction:lyrics` is one piece-wide part with its own section: a lyric edit holds the song take's spend, and no other after `whole`.
 
 `placeDirectionLyrics` puts each line on the take's clock — where a person placed it (`SongAnalysis.lines`), else `placeLyricLines` (`song-lyrics.ts`), matching against the words heard and leaving a line unplaced where its opening is not heard. `lyricsInSpan` hands a shot or overlay the lines under its span as `ctx.lyrics`, frame-rounded so an unmoved placement hashes the same. The definition loader injects each video's song take (`withSongVariants`, under the definition import's lock); `definition-source.ts` folds its reading into the source fingerprint.
 
@@ -186,7 +186,7 @@ A `Voice` is `{ id, description }`: `id` is its own exposed `reference:<id>` sam
 
 ## Per-part hashing
 
-`directionPartHashes` (`direction-hash.ts`) is the set of reviewable parts: what it emits is what the review page must offer an Accept for and the gate demands. Key: the part's `direction:<field-path>`; value: everything a reviewer sees on it. One part per: the root arc (`sequence`), each filled brief field, each policy field (`policy.format`/`policy.lang`/`policy.fonts`, always), each shot, each non-root node, each waiver, each roster entry (`setups` included), each cast character voice (`characters.<id>.voice`, only while cast) and `narrator`.
+`directionPartHashes` (`direction-hash.ts`) is the set of reviewable parts: what it emits is what the review page shows and takes notes on, and — bar the brief's (`isSignedDirectionPart`) — what its Accept signs and the gate demands. Key: the part's `direction:<field-path>`; value: everything a reviewer sees on it. One part per: the root arc (`sequence`), each filled brief field, each policy field (`policy.format`/`policy.lang`/`policy.fonts`, always), each shot, each non-root node, each waiver, each roster entry (`setups` included), each cast character voice (`characters.<id>.voice`, only while cast) and `narrator`.
 
 - A character's hash excludes `voice` — look and voice are two assets accepted separately, each aging out on its own edit.
 - A shot's hash excludes its setup's framing/location and hashes the `setup` id — re-pointing a shot ages it out, re-describing a frame ages out only that setup's part.
@@ -200,17 +200,18 @@ A `Voice` is `{ id, description }`: `id` is its own exposed `reference:<id>` sam
 `direction-acceptance.ts` is the single reader of the acceptance record (gate, `status`, `doctor`, review page). A part's `DirectionPartStatus`: `accepted` (recorded hash matches live), `stale` (part changed), `unaccepted`.
 
 - `complete`/`blocking` are the page's and `status`'s — every live part at its accepted hash, no orphans.
-- `gateSatisfied`/`gateBlocking` are the spend gate's, and narrower: the record's `whole` (`{ hash, acceptedAt } | null`) marks one end-to-end sign-off; while null the gate is the full comparison, after it only `PIECE_WIDE_SECTIONS` (`brief`, `policy`, `lyrics`, `waivers`) hold a spend.
+- `gateSatisfied`/`gateBlocking` are the spend gate's, and narrower: the record's `whole` (`{ hash, acceptedAt } | null`) marks one end-to-end sign-off; while null the gate is the full comparison, after it only `PIECE_WIDE_SECTIONS` (`policy`, `waivers`) hold a spend.
 - A waiver on a shot, a boundary or a setup (`directionShotWaivers`) rides the review of the shots it plays in — a setup's, every shot with a frame on it.
 - A stale waiver is no part to sign (`WaiverCoverage.stale`, `signableParts`): an earlier sign-off of it is swept like a deleted waiver's, and it is `unaccepted` once it cancels a finding again.
 - `directionGatingSections` is the same split, for the page's button wording.
 
-The page accepts per section. `DIRECTION_SECTIONS` (`address.ts`): `brief`, `policy`, `lyrics`, `characters`, `props`, `locations`, `shots`, `waivers`; `directionSectionOf` routes every part to exactly one, guaranteeing every part an Accept. `characters` also takes a character's voice part and `narrator`; `locations` takes `setups.<id>` (the Locations & Setups box). A section's status is its weakest part's. The whole arc tree (root arc, child acts, every shot) is one Flow & Shots box (`shots`) — splitting a shot re-shapes the arc.
+The page has one Accept, which decides every acceptable section at once (`directionSectionAcceptable`: not `brief`, not `shots` while shotless). `DIRECTION_SECTIONS` (`address.ts`): `brief`, `policy`, `lyrics`, `characters`, `props`, `locations`, `shots`, `waivers`; `directionSectionOf` routes every part to exactly one. `characters` also takes a character's voice part and `narrator`; `locations` takes `setups.<id>` (the Locations & Setups box). A section's status is its weakest part's. The whole arc tree (root arc, child acts, every shot) is one Flow & Shots box (`shots`) — splitting a shot re-shapes the arc.
 
 Orphans — a part accepted and since deleted (the comparison is over the key set):
 
 - One counts against its own section (that box reads not-`accepted` even empty), since only that box's Accept drops it (`applyDirectionSectionDecisions` clears a decided box's own orphans, never another's).
 - Once `whole` stands, orphans outside the piece-wide sections are swept by the next write — leaving one would keep `complete` false forever.
+- A brief part is never signed: `signableParts` drops it, no writer stamps it, `konte accept direction:brief…` refuses (`DIRECTION_PART_UNSIGNED`), and `inspect` and the page list it `unsigned`. A note on one stands until the field is rewritten or the note closed — no accept answers it.
 - A deleted waiver is no orphan (`orphanOwesReview`): it never blocks and any write sweeps it, before `whole` too. Waivers sit in `projectNode`, not `projectNodeShape`, so `sequence` does not move either.
 - `isDirectionSpendGateSatisfied` short-circuits on `whole.hash === directionHash` only while `parts` is non-empty.
 
@@ -220,7 +221,7 @@ Three writers, all ending on `finalizeAcceptance` (sweep, then re-derive `whole`
 - `applyDirectionPartDecisions` (`konte accept direction[:<scope>]...`) expands each scope to its parts, keyed by part address, orphans included — one decided `false` is dropped, which is how `--off` clears it. A waivable finding holds no accept.
 - The media → direction cascade: an animatic/video shot accept signs off the direction shot and what it hangs on; a `reference:<id>` accept the part(s) it anchors. Touching either: read `references/cascades.md`.
 
-The spend gate (`judgeSpend`, `core/spend-gate.ts`) names every reason at once, the unaccepted ones only at the upstream-most rank: the direction's blocking parts, then the cast (the characters a `lineup` / `lineupTo` holds, every voice), then the consumed upstream. The reference stage is exempt from acceptance, bar the song: a run submitting the `policy.song` take needs `brief`, `policy` and `lyrics` accepted. A part a fix finding sits on is held from `konte accept direction` and the page's section Accept alike.
+The spend gate (`judgeSpend`, `core/spend-gate.ts`) names every reason at once, the unaccepted ones only at the upstream-most rank: the direction's blocking parts, then the cast (the characters a `lineup` / `lineupTo` holds, every voice), then the consumed upstream. The reference stage is exempt from acceptance, bar the song: a run submitting the `policy.song` take needs `policy` and `lyrics` accepted. A part a fix finding sits on is held from `konte accept direction` and the page's Accept alike.
 
 ## Policy fields
 

@@ -1,6 +1,6 @@
 import { animaticSetupState, stagingStageState } from "./board-analysis.js";
 import type { CheckContext, PatchSubject } from "./checks.js";
-import { isDirectionSpendGateSatisfied } from "./direction-acceptance.js";
+import { directionAcceptedWhole, isDirectionSpendGateSatisfied } from "./direction-acceptance.js";
 import type { Direction } from "./dsl/direction.js";
 import { buildDependencyGraph, type DependencyGraph } from "./graph.js";
 import { songVariantState } from "./song-variant.js";
@@ -41,7 +41,8 @@ export async function loadCheckContext(opts: {
     directionAccepted:
       direction !== null &&
       isDirectionSpendGateSatisfied(direction, manager?.getDirectionAcceptance() ?? null),
-    directionUnlocked: direction !== null && manager?.getDirectionAcceptance()?.whole != null,
+    directionUnlocked:
+      direction !== null && directionAcceptedWhole(manager?.getDirectionAcceptance()),
     reference,
     animatic,
     video,

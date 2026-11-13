@@ -13,6 +13,7 @@ import {
   directionAcceptanceView,
   directionCascadeReferenceIds,
   directionCascadeShotIds,
+  isSignedDirectionPart,
   summarizeDirectionAcceptance,
 } from "../../../core/direction-acceptance.js";
 import {
@@ -153,10 +154,10 @@ other; only \`dismiss\` refuses it. A composition or stem is accepted by its add
 which materializes it — the board's stem as the mix the motion is driven by.
 
 The direction: "direction" signs off every reviewable part at once, and
-"direction:<part>" every part under that scope — one part ("direction:brief.look")
-or a group ("direction:brief"), as "konte inspect direction" lists them; several
-scopes are decided together. A scope's accept drops the sign-off of any part under
-it since deleted. Nothing here is gated on the direction
+"direction:<part>" every part under that scope — one part ("direction:policy.format")
+or a group ("direction:policy"), as "konte inspect direction" lists them; several
+scopes are decided together. The brief takes notes and no sign-off. A scope's accept
+drops the sign-off of any part under it since deleted. Nothing here is gated on the direction
 check — the machine's verdict and the human's are separate, and "konte generate"
 enforces both.
 
@@ -169,9 +170,9 @@ Examples:
   konte accept video -y                    Accept every ready shot of the video
   konte accept v-abc123 --off              Clear the variant's acceptance
   konte accept direction                   Sign off the whole direction
-  konte accept direction:brief.logline     Sign off one direction part
-  konte accept direction:brief             Sign off every brief part
-  konte accept direction:brief.look direction:props -y
+  konte accept direction:policy.format     Sign off one direction part
+  konte accept direction:policy            Sign off every policy part
+  konte accept direction:policy.lang direction:props -y
                                            Sign off several direction scopes
   konte accept direction:props.mug --off   Clear that part's sign-off`,
     )
@@ -253,6 +254,12 @@ async function runDirectionAcceptance(
     }
   } else {
     for (const scope of partScopes) {
+      if (!isSignedDirectionPart(scope)) {
+        throw new KonteError(
+          "DIRECTION_PART_UNSIGNED",
+          `Cannot accept "${scope}": the brief takes notes and no sign-off — nothing waits on it`,
+        );
+      }
       const live = [...view.parts.keys()].filter((part) => matchesAddressScope(part, scope));
       if (live.length > 0 && !live.some(acceptable)) {
         throw new KonteError(

@@ -261,7 +261,7 @@ export function judgeSpend(
         unaccepted.push({
           rank: 0,
           headline:
-            `${song} is generated from the direction's brief, policy and lyrics — accept them ` +
+            `${song} is generated from the direction's policy and lyrics — accept them ` +
             "first: `konte preview direction`, or `konte accept <part>...`",
           lines: blocking.map(({ address, status }) => `  ${address} — ${partStatus(status)}`),
         });
