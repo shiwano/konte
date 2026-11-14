@@ -1,0 +1,14 @@
+{
+  "name": "konte",
+  "owner": {
+    "name": "shiwano"
+  },
+  "description": "konte, the tool that lets your coding agent run an AI video production end to end",
+  "plugins": [
+    {
+      "name": "konte",
+      "source": "./plugins/konte",
+      "description": "Install and bootstrap konte, the agent-operated AI video production tool"
+    }
+  ]
+}
