@@ -124,7 +124,6 @@ export {
   defineReference,
   type DefineReferenceOptions,
   type ReferenceRef,
-  type ReferenceCoarseRef,
   type ReferenceViewRef,
   type ReferenceViews,
 } from "./reference-builders.js";

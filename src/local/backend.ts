@@ -25,7 +25,6 @@ import { trimVideo } from "../core/ffmpeg.js";
 import { probeMediaDuration, probeVideo } from "../core/video-probe.js";
 import type { LocalAssetDefinition } from "../core/types/index.js";
 import { formatSeconds } from "../core/format-duration.js";
-import type { CoarseView } from "../core/view.js";
 
 // A middle take carries a fade at each end, the first and last one at one.
 async function assertCrossfadeFits(
@@ -165,9 +164,6 @@ export class LocalBackend implements GenerationBackend {
         });
         break;
       }
-      case "viewCoarse":
-        await this.renderViewCoarse(def.inputs, outputFile, resolvedDependencies);
-        break;
       case "render":
         if (def.mediaType === "video") {
           await this.renderVideo(def.inputs, outputFile, resolvedDependencies, onLog);
@@ -201,23 +197,6 @@ export class LocalBackend implements GenerationBackend {
     const ref = parsePlaceholder(placeholder);
     const key = ref ?? placeholder;
     return requireFileWithinRoot(this.videoRoot, resolvedDependencies[key] ?? placeholder);
-  }
-
-  private async renderViewCoarse(
-    inputs: Record<string, unknown>,
-    outputFile: string,
-    resolvedDependencies: Record<string, string>,
-  ): Promise<void> {
-    const { renderViewCoarse } = await import("../core/view-coarse.js");
-    const file = (key: string): Promise<string> =>
-      this.resolveDependencyFile(inputs[key] as string, resolvedDependencies);
-    await renderViewCoarse({
-      masterFile: await file("master"),
-      view: inputs.view as CoarseView,
-      canvas: { width: inputs.width as number, height: inputs.height as number },
-      outputFile,
-      cacheDir: path.join(this.videoRoot, ".konte", "cache", "moge"),
-    });
   }
 
   private async resizeImage(

@@ -1,4 +1,3 @@
-import { isCoarseName } from "./view.js";
 import { mixedSoundtracks } from "./song-bed.js";
 import {
   type ShotStage,
@@ -481,8 +480,7 @@ export function listUnusedAddresses(
   ]);
   const unused: string[] = [];
   for (const p of graph.dependencies.keys()) {
-    const name = assetNameOf(parseAddress(p));
-    if (needed.has(p) || synthesized.has(name) || isCoarseName(name)) continue;
+    if (needed.has(p) || synthesized.has(assetNameOf(parseAddress(p)))) continue;
     unused.push(p);
   }
   return unused;

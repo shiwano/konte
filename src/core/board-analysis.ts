@@ -1018,6 +1018,32 @@ function walkPictureChain(
   return { reached, reachedView, generative, touchedReference };
 }
 
+// The view images in the reference pool that are built from no `reference:<location>` of their
+// own location, as `<locationId>.<view>`. A view handed over whole (a `file`) is exempt.
+export function listViewAnchorGaps(reference: {
+  topLevelAssets?: Record<string, AssetDefinition>;
+}): string[] {
+  const assets = reference.topLevelAssets ?? {};
+  const entryOf = (address: string): AssetDefinition | undefined => {
+    const parsed = tryParseAddress(address);
+    return parsed?.stage === "reference" && parsed.kind === "reference"
+      ? assets[parsed.assetName]
+      : undefined;
+  };
+  const out: string[] = [];
+  for (const name of Object.keys(assets)) {
+    const view = parseViewName(name);
+    if (!view) continue;
+    const own = assets[name]!;
+    const walk = walkPictureChain(extractRefs(own), formatReferenceAddress(view.location), entryOf);
+    const generative = walk.generative || own.deterministic !== true;
+    if ((generative || walk.touchedReference) && !walk.reached) {
+      out.push(`${view.location}.${view.view}`);
+    }
+  }
+  return out;
+}
+
 /**
  * The positive prompts each exposed reference asset is generated with, keyed by asset name, read
  * down its chain to the next exposed asset.
@@ -1086,6 +1112,7 @@ export function animaticSetupState(
     deterministicPlateIds: gaps.deterministicPlates,
     unviewedPlateIds: gaps.unviewedPlates,
     unviewedBy: gaps.unviewedShots,
+    unanchoredViews: reference ? listViewAnchorGaps(reference) : [],
     referenceImageTexts: reference ? listReferenceImageTexts(reference) : {},
     acceptedPlateIds: plateIds.filter(
       (id) => state != null && acceptedVariantId(state, formatPlateAddress(id)) !== null,

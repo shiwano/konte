@@ -10,7 +10,6 @@ import type { PinOccurrence } from "../pin-check.js";
 import { declaredViews, type DirectionIndex } from "./direction.js";
 import { scriptTexts } from "./shot-script.js";
 import {
-  collectPlaceholderRefs,
   makeReferencePlaceholder,
   parsePlaceholder,
   runInReferenceDiscoveryMode,
@@ -23,14 +22,7 @@ import {
   type LocationIdOf,
   type ViewsOf,
 } from "./direction.js";
-import {
-  IMAGED_VIEWS,
-  coarseAssetName,
-  isCoarseView,
-  isImagedView,
-  viewAssetName,
-  type ImagedView,
-} from "../view.js";
+import { IMAGED_VIEWS, isImagedView, viewAssetName } from "../view.js";
 import { deriveReferenceSize } from "../canvas.js";
 
 type ReferenceAssetMap = Record<string, MediaAsset<MediaKind>>;
@@ -53,13 +45,6 @@ export type ReferenceViewRef<D> = {
   };
 };
 
-/** `coarse.<locationId>.<view>`: per location, the coarse of each view it declares but `front` and `back`. */
-export type ReferenceCoarseRef<D> = {
-  readonly [L in LocationIdOf<D>]: {
-    readonly [V in Exclude<ViewsOf<D, L>, "front" | "back">]: MediaAsset<"image">;
-  };
-};
-
 // Keys the merged result reserves for the ReferenceDefinition itself — an asset may not take one.
 const RESERVED_NAMES = new Set(["shots", "topLevelAssets", "exposedAssetNames", "prompts", "pins"]);
 
@@ -76,14 +61,9 @@ export interface DefineReferenceOptions<TAssets extends ReferenceAssetMap, D = u
   // `reference.<name>`. `format` is the working canvas the other stages render at.
   references: (args: { format: VideoFormat }) => TAssets;
   // Each location's view images, keyed by location id and view, each addressed
-  // `reference:view.<locationId>.<view>` whatever its asset is named and made from its `coarse`. Runs
-  // after `references`, which it receives. Its own declaration site (`view`): an adapter whose
-  // `allowedIn` lacks it is refused.
-  views?: (args: {
-    format: VideoFormat;
-    reference: ReferenceRef<TAssets>;
-    coarse: ReferenceCoarseRef<D>;
-  }) => ReferenceViews<D>;
+  // `reference:view.<locationId>.<view>` whatever its asset is named. Runs after `references`, which
+  // it receives. Its own declaration site (`view`): an adapter whose `allowedIn` lacks it is refused.
+  views?: (args: { format: VideoFormat; reference: ReferenceRef<TAssets> }) => ReferenceViews<D>;
 }
 
 /**
@@ -123,12 +103,9 @@ export function defineReference<const D, TAssets extends ReferenceAssetMap>(
   try {
     discovery = runInReferenceDiscoveryMode(() => opts.references({ format: canvas }), format);
     const reference = discovery.result as ReferenceRef<TAssets>;
-    const coarse = viewRefOf(direction, (id, view) =>
-      isCoarseView(view) ? coarseAssetName(id, view) : null,
-    ) as ReferenceCoarseRef<D>;
     views = opts.views
       ? runInReferenceDiscoveryMode(
-          () => opts.views!({ format: canvas, reference, coarse }),
+          () => opts.views!({ format: canvas, reference }),
           viewFormat,
           "view",
         )
@@ -161,9 +138,6 @@ export function defineReference<const D, TAssets extends ReferenceAssetMap>(
     }));
   }
 
-  assets = { ...assets, ...coarseAssets(direction, assets, viewFormat().size) };
-  assertCoarseDeclared(viewNames, assets);
-
   assertLyricsSung(index, assets, prompts, respellings);
 
   const definition: ReferenceDefinition = {
@@ -176,78 +150,22 @@ export function defineReference<const D, TAssets extends ReferenceAssetMap>(
 
   // `returned` already maps each name to its makeReferencePlaceholder() MediaAsset.
   return Object.assign(definition, returned, {
-    view: viewRefOf(direction, viewAssetName),
+    view: viewRefOf(direction),
   }) as ReferenceDefinition & ReferenceRef<TAssets> & { readonly view: ReferenceViewRef<D> };
 }
 
-// Per location, every view other than `front` it declares, each the placeholder `name` files its
-// image under — read off the direction, so one `views` has not returned yet is still reachable.
-function viewRefOf(
-  direction: DirectionEntry<unknown>,
-  name: (locationId: string, view: ImagedView) => string | null,
-): Record<string, Record<string, MediaAsset>> {
+// Per location, every view other than `front` it declares, each the placeholder of its image — read
+// off the direction, so one `views` has not returned yet is still reachable.
+function viewRefOf(direction: DirectionEntry<unknown>): Record<string, Record<string, MediaAsset>> {
   const out: Record<string, Record<string, MediaAsset>> = {};
   for (const [id, location] of Object.entries(locationsOf(direction))) {
     out[id] = {};
     for (const [view] of declaredViews(location.views)) {
       if (!isImagedView(view)) continue;
-      const assetName = name(id, view);
-      if (assetName === null) continue;
-      out[id][view] = makeMediaAsset(makeReferencePlaceholder(assetName));
+      out[id][view] = makeMediaAsset(makeReferencePlaceholder(viewAssetName(id, view)));
     }
   }
   return out;
-}
-
-// The coarse of every coarse view a location with a master declares, bar one whose view image
-// `views` returns made without it: the master drawn from the view's camera.
-function coarseAssets(
-  direction: DirectionEntry<unknown>,
-  assets: Record<string, AssetDefinition>,
-  canvas: { width: number; height: number },
-): Record<string, AssetDefinition> {
-  const out: Record<string, AssetDefinition> = {};
-  const used = new Set(Object.values(assets).flatMap((def) => collectPlaceholderRefs(def)));
-  for (const [id, location] of Object.entries(locationsOf(direction))) {
-    if (!(id in assets)) continue;
-    for (const [view] of declaredViews(location.views)) {
-      if (!isCoarseView(view)) continue;
-      const name = coarseAssetName(id, view);
-      if (viewAssetName(id, view) in assets && !used.has(`reference:${name}`)) continue;
-      out[name] = {
-        kind: "local",
-        operation: "viewCoarse",
-        mediaType: "image",
-        deterministic: true,
-        inputs: {
-          master: makeReferencePlaceholder(id),
-          view,
-          width: canvas.width,
-          height: canvas.height,
-        },
-      };
-    }
-  }
-  return out;
-}
-
-// A view drawn over its coarse needs the location's master.
-function assertCoarseDeclared(
-  viewNames: readonly string[],
-  assets: Record<string, AssetDefinition>,
-): void {
-  for (const name of viewNames) {
-    const coarse = `${name}#coarse`;
-    if (!collectPlaceholderRefs(assets[name]!).includes(`reference:${coarse}`)) continue;
-    const [, location, view] = name.split(".");
-    if (!(location! in assets)) {
-      throw new KonteError(
-        "INVALID_VIEW",
-        `defineReference: views.${location}.${view} is drawn from reference.${location}, which ` +
-          `\`references\` does not return`,
-      );
-    }
-  }
 }
 
 function locationsOf(direction: DirectionEntry<unknown>): Record<string, Partial<Location>> {

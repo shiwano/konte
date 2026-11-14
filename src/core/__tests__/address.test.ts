@@ -206,11 +206,6 @@ describe("delivery addresses", () => {
     expect(() => assertValidAddressScope("video:timeline.bg#delivery")).not.toThrow();
   });
 
-  it("accepts a view's coarse as a scope, back having none", () => {
-    expect(() => assertValidAddressScope("reference:view.studio.top#coarse")).not.toThrow();
-    expect(() => assertValidAddressScope("reference:view.studio.back#coarse")).toThrow(KonteError);
-  });
-
   it("rejects a #delivery suffix on a bare shot scope", () => {
     expect(() => assertValidAddressScope("video:shot.01#delivery")).toThrow(KonteError);
   });

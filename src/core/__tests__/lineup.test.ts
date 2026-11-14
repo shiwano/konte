@@ -2201,7 +2201,7 @@ describe("view", () => {
   });
 
   it("refuses a view its location does not declare", () => {
-    const dir = withSetups({ deck: { ...deck, view: "sideLeft" } });
+    const dir = withSetups({ deck: { ...deck, view: "side" } });
     expect(errorCodes(dir)).toContain("view-undeclared");
   });
 

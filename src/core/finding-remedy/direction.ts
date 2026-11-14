@@ -84,6 +84,9 @@ export const DIRECTION_FINDING_REMEDY: Record<DirectionFindingCode, string> = {
     "build the plate, or a plate-less setup's keyframe, from the image of the view the setup " +
     "faces (named) — a plate may instead be cut in from a plate that is — or waive it by its key " +
     "where the frame stands on the other view",
+  "view-unanchored":
+    "take the location's master named as an input image of the view image, or waive it by its " +
+    "key where the view is not drawn from the master",
   "view-unnamed":
     "ask for the landmark by that noun in the image's prompt, drawing the image from that view " +
     "— `front` is the way the master faces — or take it out of the view's `holds` where it does " +

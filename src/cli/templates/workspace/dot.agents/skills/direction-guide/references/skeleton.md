@@ -60,7 +60,7 @@ export default defineDirection({
           description: "The sash window at the far end, the room's only light.",
         },
       },
-      views: { front: { holds: ["counter", "window"] }, sideLeft: { holds: ["counter"] } },
+      views: { front: { holds: ["counter", "window"] }, side: { holds: ["counter"] } },
     },
   },
   setups: {
@@ -86,7 +86,7 @@ export default defineDirection({
       description: "Side on, both of them in one frame from the waist up.",
       location: "kitchen",
       framing: "medium",
-      view: "sideLeft",
+      view: "side",
       within: null,
       holds: ["counter"],
     },

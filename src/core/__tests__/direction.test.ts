@@ -1157,6 +1157,7 @@ describe("checkDirection setups", () => {
       deterministicPlates?: readonly string[];
       unviewed?: readonly string[];
       unviewedBy?: Record<string, string[]>;
+      unanchoredViews?: readonly string[];
       referenceImageTexts?: Record<string, string[]>;
       accepted?: readonly string[];
     } = {},
@@ -1178,6 +1179,7 @@ describe("checkDirection setups", () => {
     deterministicPlateIds: gaps.deterministicPlates ?? [],
     unviewedPlateIds: gaps.unviewed ?? [],
     unviewedBy: new Map(Object.entries(gaps.unviewedBy ?? {})),
+    unanchoredViews: gaps.unanchoredViews ?? [],
     referenceImageTexts: gaps.referenceImageTexts ?? {},
     acceptedPlateIds: gaps.accepted ?? [],
   });
@@ -1959,7 +1961,7 @@ describe("checkDirection setups", () => {
       state: AnimaticSetupState = plates(["top"]),
     ) =>
       checkDirection(d, { referenceAssetNames, animaticSetups: state }).active.filter((f) =>
-        ["view-unrealized", "plate-unviewed"].includes(f.code),
+        ["view-unrealized", "plate-unviewed", "view-unanchored"].includes(f.code),
       );
 
     it("demands an image of every view a location declares but front", () => {
@@ -2014,6 +2016,16 @@ describe("checkDirection setups", () => {
     it("waits for the view image before naming it", () => {
       const findings = codes(viewed, ["here"], plates(["top"], { unviewed: ["top"] }));
       expect(findings.map((f) => f.code)).toEqual(["view-unrealized"]);
+    });
+
+    it("demands a view image be made from its location's master", () => {
+      const findings = codes(
+        viewed,
+        ["here", "view.here.top"],
+        plates(["top"], { unanchoredViews: ["here.top"] }),
+      );
+      expect(findings.map((f) => [f.code, f.subject])).toEqual([["view-unanchored", "here.top"]]);
+      expect(findings[0]?.message).toContain("reference.here");
     });
 
     it("names the image of the way a setup faces as its anchor, before it exists", () => {

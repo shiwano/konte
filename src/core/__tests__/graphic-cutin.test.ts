@@ -405,6 +405,7 @@ describe("cutin setups", () => {
     deterministicPlateIds: [],
     unviewedPlateIds: [],
     unviewedBy: new Map(),
+    unanchoredViews: [],
     referenceImageTexts: {},
     acceptedPlateIds: [],
   });

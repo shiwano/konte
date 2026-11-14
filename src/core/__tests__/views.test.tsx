@@ -9,9 +9,10 @@ import { parseViewName } from "../view.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { adapters, asset, defineReference } from "../dsl/index.js";
 import { type Direction, defineDirection } from "../dsl/direction.js";
+import { checkViewAnchors } from "../direction-check.js";
 import { checkViewNamings } from "../direction.js";
-import { buildDependencyGraph, listUnusedAddresses } from "../graph.js";
-import { listReferenceImageTexts } from "../board-analysis.js";
+import { buildDependencyGraph } from "../graph.js";
+import { listReferenceImageTexts, listViewAnchorGaps } from "../board-analysis.js";
 import { collectFindings } from "../checks.js";
 import { spendHold } from "../finding.js";
 import { directionDefaults } from "./helpers/direction.js";
@@ -73,10 +74,9 @@ const reference = defineReference(direction, {
     const studio = asset("studio", imageGen, { prompt: "the studio" });
     return { studio };
   },
-  views: ({ reference, coarse }) => {
+  views: ({ reference }) => {
     const studioTop = asset("studioTop", imageEdit, {
-      image1: coarse.studio.top,
-      image2: reference.studio,
+      image1: reference.studio,
       prompt: "the studio from straight above the desk",
     });
     return { studio: { top: studioTop } };
@@ -110,11 +110,7 @@ describe("view addresses", () => {
 
 describe("defineReference views", () => {
   it("files a view image under its location and view, whatever its asset is named", () => {
-    expect(Object.keys(reference.topLevelAssets!)).toEqual([
-      "studio",
-      "view.studio.top",
-      "view.studio.top#coarse",
-    ]);
+    expect(Object.keys(reference.topLevelAssets!)).toEqual(["studio", "view.studio.top"]);
     expect(reference.exposedAssetNames).toEqual(["studio", "view.studio.top"]);
     expect(listReviewableAddresses(reference, "reference")).toContain("reference:view.studio.top");
   });
@@ -126,66 +122,23 @@ describe("defineReference views", () => {
     ]);
   });
 
-  it("declares a coarse for each view the location declares but back", () => {
-    const bare = defineReference(direction, {
+  it("wires a view built from another view to its filed address", () => {
+    const chained = defineReference(direction, {
       references: () => ({ studio: asset("studio", imageGen, { prompt: "the studio" }) }),
-    });
-    expect(bare.topLevelAssets!["view.studio.top#coarse"]).toEqual({
-      kind: "local",
-      operation: "viewCoarse",
-      mediaType: "image",
-      deterministic: true,
-      inputs: {
-        master: "__konte:reference:studio__",
-        view: "top",
-        width: expect.any(Number),
-        height: expect.any(Number),
+      views: ({ reference }) => {
+        const top = asset("top", imageEdit, { image1: reference.studio, prompt: "from above" });
+        const back = asset("back", imageEdit, {
+          image1: reference.studio,
+          image2: top,
+          prompt: "from behind",
+        });
+        return { studio: { top, back } } as never;
       },
     });
-    expect(bare.topLevelAssets).not.toHaveProperty(["view.studio.back#coarse"]);
-    expect(bare.exposedAssetNames).toEqual(["studio"]);
-  });
-
-  it("never skips a coarse as unused, so it is made before its view is written", () => {
-    const bare = defineReference(direction, {
-      references: () => ({ studio: asset("studio", imageGen, { prompt: "the studio" }) }),
-    });
-    const graph = buildDependencyGraph(null, null, bare);
-    expect(listUnusedAddresses(null, null, graph, bare)).not.toContain(
-      "reference:view.studio.top#coarse",
+    const graph = buildDependencyGraph(null, null, chained);
+    expect(graph.dependencies.get("reference:view.studio.back")).toEqual(
+      expect.arrayContaining(["reference:studio", "reference:view.studio.top"]),
     );
-  });
-
-  it("draws back from the master alone, with no coarse", () => {
-    const built = defineReference(direction, {
-      references: () => ({ studio: asset("studio", imageGen, { prompt: "the studio" }) }),
-      views: ({ reference }) => ({
-        studio: { back: asset("back", imageEdit, { image1: reference.studio, prompt: "back" }) },
-      }),
-    });
-    expect(built.topLevelAssets).not.toHaveProperty(["view.studio.back#coarse"]);
-    const graph = buildDependencyGraph(null, null, built);
-    expect(graph.dependencies.get("reference:view.studio.back")).toEqual(["reference:studio"]);
-  });
-
-  it("takes a view made without its coarse and declares no coarse for it", () => {
-    const built = defineReference(direction, {
-      references: () => ({ studio: asset("studio", imageGen, { prompt: "the studio" }) }),
-      views: ({ reference }) => ({
-        studio: { top: asset("top", imageEdit, { image1: reference.studio, prompt: "x" }) },
-      }),
-    });
-    expect(built.topLevelAssets).not.toHaveProperty(["view.studio.top#coarse"]);
-  });
-
-  it("parses a coarse's address", () => {
-    expect(parseAddress("reference:view.studio.top#coarse")).toEqual({
-      stage: "reference",
-      kind: "reference",
-      assetName: "view.studio.top#coarse",
-      delivery: false,
-    });
-    expect(parseViewName("reference:view.studio.top#coarse")).toBeNull();
   });
 
   it("refuses front, which is the location's master", () => {
@@ -210,8 +163,7 @@ describe("defineReference views", () => {
     expect(() =>
       defineReference(direction, {
         references: () => ({ studio: asset("studio", imageGen, { prompt: "the studio" }) }),
-        views: () =>
-          ({ studio: { sideLeft: asset("sideLeft", imageGen, { prompt: "x" }) } }) as never,
+        views: () => ({ studio: { side: asset("side", imageGen, { prompt: "x" }) } }) as never,
       }),
     ).toThrow(/not a view location "studio" declares/);
   });
@@ -230,7 +182,7 @@ describe("defineReference views", () => {
       references: () => ({ studio: asset("studio", imageGen, { prompt: "the studio" }) }),
       views: () => ({ studio: { top: undefined } }),
     });
-    expect(Object.keys(none.topLevelAssets!)).toEqual(["studio", "view.studio.top#coarse"]);
+    expect(Object.keys(none.topLevelAssets!)).toEqual(["studio"]);
   });
 
   it("reserves the name heading the view images", () => {
@@ -245,8 +197,8 @@ describe("defineReference views", () => {
     expect(() =>
       defineReference(direction, {
         references: () => ({ studio: asset("studio", imageGen, { prompt: "the studio" }) }),
-        views: ({ coarse }) => ({
-          studio: { top: asset("top", noViews, { image1: coarse.studio.top }) },
+        views: ({ reference }) => ({
+          studio: { top: asset("top", noViews, { image1: reference.studio }) },
         }),
       }),
     ).toThrow(/may only be declared in reference or shot/);
@@ -271,6 +223,51 @@ describe("reference.view", () => {
   });
 });
 
+describe("view-unanchored", () => {
+  const drawn = (image1?: unknown) =>
+    defineReference(direction, {
+      references: () => ({ studio: asset("studio", imageGen, { prompt: "the studio" }) }),
+      views: ({ reference }) => ({
+        studio: {
+          top: image1
+            ? asset("top", imageEdit, { image1: reference.studio, prompt: "from above" })
+            : asset("top", imageGen, { prompt: "a studio from above" }),
+        },
+      }),
+    });
+  const findings = (ref: ReturnType<typeof drawn>) =>
+    checkViewAnchors(listViewAnchorGaps(ref), new Set(ref.exposedAssetNames ?? [])).map(
+      (f) => `${f.code}_${f.subject}`,
+    );
+
+  it("flags a view drawn from nothing of its place", () => {
+    expect(findings(drawn())).toEqual(["view-unanchored_studio.top"]);
+  });
+
+  it("passes a view made from the master", () => {
+    expect(findings(drawn(true))).toEqual([]);
+  });
+
+  it("holds the reference spend before the direction is accepted or a board exists", async () => {
+    const { findings: found } = await collectFindings({
+      videoRoot: "",
+      direction: direction as unknown as Direction,
+      directionAccepted: false,
+      directionUnlocked: false,
+      reference: drawn(),
+      animatic: null,
+      video: null,
+      manager: null,
+      graph: null,
+      patches: [],
+      lang: null,
+    });
+    const view = found.filter((f) => f.code === "view-unanchored");
+    expect(view.map((f) => f.key)).toEqual(["view-unanchored_studio.top"]);
+    expect(spendHold(view[0]!, { command: "generate", stage: "reference" })).toBe("whole");
+  });
+});
+
 describe("view-unnamed", () => {
   const boarded = defineDirection({
     ...directionDefaults,
@@ -281,7 +278,7 @@ describe("view-unnamed", () => {
           desk: { name: "the desk", promptDepiction: "desk", description: "a plain desk, centre" },
           lamp: { name: "the lamp", promptDepiction: "floor lamp", description: "behind the desk" },
         },
-        views: { front: { holds: ["desk"] }, top: { holds: ["lamp"] } },
+        views: { front: { holds: ["desk"] }, back: { holds: ["lamp"] } },
       },
     },
     setups: directionDefaults.setups,
@@ -299,8 +296,8 @@ describe("view-unnamed", () => {
             ? asset("studio", adapters.imageFile, { path: "assets/files/studio.png" })
             : asset("studio", imageGen, { prompt: master }),
       }),
-      views: ({ coarse }) => ({
-        studio: { top: asset("top", imageEdit, { image1: coarse.studio.top, prompt: back }) },
+      views: ({ reference }) => ({
+        studio: { back: asset("back", imageEdit, { image1: reference.studio, prompt: back }) },
       }),
     });
   const findings = (ref: ReturnType<typeof drawn>) =>
@@ -316,13 +313,13 @@ describe("view-unnamed", () => {
 
   it("flags a landmark a view holds that its image's prompt does not say, no setup facing it", () => {
     expect(findings(drawn("the studio and its desk", "the studio from behind"))).toEqual([
-      "view-unnamed_studio.top.lamp",
+      "view-unnamed_studio.back.lamp",
     ]);
   });
 
   it("reads a view image's own prompt, not the master's", () => {
     expect(findings(drawn("a desk, a floor lamp", "the studio from behind"))).toEqual([
-      "view-unnamed_studio.top.lamp",
+      "view-unnamed_studio.back.lamp",
     ]);
   });
 

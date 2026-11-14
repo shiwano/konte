@@ -1,5 +1,5 @@
 import { adapters, asset, defineReference, seed } from "konte";
-import { imageMinimaxH3ImageView } from "konte/workspace/adapters/comfy/image_minimax_h3_image_view.js";
+import { imageMinimaxH3ImageEdit } from "konte/workspace/adapters/comfy/image_minimax_h3_image_edit.js";
 import { imageQwenImageEdit21 } from "konte/workspace/adapters/comfy/image_qwen_image_edit_2_1.js";
 import { falNanoBanana2, falNanoBanana2Edit } from "konte/workspace/adapters/fal/nano-banana-2.js";
 import direction from "./direction";
@@ -62,21 +62,24 @@ export default defineReference(direction, {
       narratorVoice,
     };
   },
-  views: ({ reference, coarse }) => ({
+  views: ({ reference }) => ({
     kitchen: {
-      top: asset("kitchenTop", imageMinimaxH3ImageView, {
-        image1: coarse.kitchen.top,
-        image2: reference.kitchen,
+      top: asset("kitchenTop", imageMinimaxH3ImageEdit, {
+        image1: reference.kitchen,
         prompt: {
-          view: {
-            room: "kitchen",
-            camera: "The camera looks straight down from above the centre of the kitchen.",
-            layout:
-              "The stove stands at the top of the frame, the wooden counter along the left edge, the round pine table at the bottom right.",
-            look: "its palette, materials and light",
-            coarseFill: "the kitchen's floor, counters and cupboards",
+          references: {
+            subjects: [
+              {
+                definition: "The kitchen in <Picture 1> is <Subject 1>.",
+                relation: {
+                  transfers: "its palette, materials and light, the camera position new.",
+                },
+              },
+            ],
+            target: "shows <Subject 1> seen from straight above the stove.",
           },
-          details: "The kitchen stands empty, the room still.",
+          details:
+            "Looking straight down: the hob fills the lower two thirds of the frame, the wooden counter the top third.",
           style: "2D-animated, flat cel shading.",
         },
       }),
