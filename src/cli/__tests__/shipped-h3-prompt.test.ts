@@ -2,6 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { getAssetEntry } from "../../core/address.js";
+import { checkPrompts, type PromptOccurrence } from "../../core/prompt-check.js";
 import type { ComfyAssetDefinition } from "../../core/types/index.js";
 import { loadDefinitionForAddress } from "../../core/stage-definitions.js";
 import { ctx, doctorChecks, initWorkspace, run, useTempWorkspace } from "./cli-fixtures.js";
@@ -149,6 +150,31 @@ describe("shipped MiniMax H3 prompts", () => {
     await expect(run(["inspect", "reference:still"], video)).rejects.toMatchObject({
       stderr: expect.stringContaining("it defines <Subject 1> alone"),
     });
+  });
+
+  it("takes the edit's no-other-lettering clause and no other negation", async () => {
+    const { video } = await initWorkspace(path.join(ctx.dir, "n"));
+    await fs.writeFile(
+      path.join(video, "reference.tsx"),
+      REFERENCE_TSX(`
+  const still = asset("still", imageMinimaxH3ImageEdit, {
+    image1: character,
+    prompt: {
+      references: {
+        subjects: [{ definition: "The creator in <Picture 1> is <Subject 1>.", relation: { partially: "her face remains." } }],
+        target: "shows <Subject 1> under a sign reading 'OPEN'.",
+      },
+      details: "The frame holds no other lettering, and she wears no hat.",
+    },
+  });
+  return { character, bgm, still };`),
+    );
+    const definition = (await loadDefinitionForAddress(video, "reference:still")) as {
+      prompts?: readonly PromptOccurrence[];
+    };
+    expect(checkPrompts(definition.prompts ?? []).map((f) => f.phrase)).toEqual([
+      "and she wears no hat",
+    ]);
   });
 
   it("derives R2A's length from the <d> words of the assembled prompt", async () => {

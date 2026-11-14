@@ -143,6 +143,7 @@ export const imageMinimaxH3ImageEdit = defineComfyAsset({
     image: { nodeId: "9", type: "image" },
   },
   minPixels: 4_000_000,
+  promptExemptions: [/\bno other (?:lettering|text)\b/i],
   validators: promptReferenceTags({
     tags: {
       Picture: [

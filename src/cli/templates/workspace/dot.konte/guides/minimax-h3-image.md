@@ -55,6 +55,7 @@ prompt: {
 - Light is drawn as written — "slanting golden light" turns the whole room warm. Name the light only where it changes.
 - A state or a figure of speech is drawn as written — "frayed at the elbows" frays them, "flushed dark red" paints the face red. Write the amount the frame should show.
 - Text in single quotes comes back verbatim: `a brass plate reading 'Nathan Garrideb'`.
+- `details` ends with `The frame holds no other lettering.`
 
 ## Known failures
 
@@ -64,5 +65,5 @@ prompt: {
 
 ## Avoid
 
-- No negative prompt — the sampler's negative is zeroed. State what the frame holds instead of what it lacks.
+- No negative prompt — the sampler's negative is zeroed. State what the frame holds instead of what it lacks; `no other lettering` is the one negation the prompt check takes.
 - A `[Shot N]`, a cut, a task type or a sound section — this model takes none.
