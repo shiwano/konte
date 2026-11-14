@@ -4,6 +4,7 @@ import { defineFalAsset } from "../dsl/fal-asset.js";
 import { inertInputs, requireOneOf } from "../dsl/validators/input-validators.js";
 import { promptReferenceTags } from "../dsl/validators/prompt-tags.js";
 import type { AdapterValidator } from "../dsl/validators/validator.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 // A name the adapter does not declare is a load error, not a validator that fires on nothing.
 const inputs = {
@@ -14,6 +15,7 @@ const inputs = {
 
 function define(validators: AdapterValidator | readonly AdapterValidator[]) {
   return defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "w.json",
     description: "test",
     inputs,
@@ -91,6 +93,7 @@ describe("assertValidatorInputs()", () => {
   it("guards a fal adapter too, not only a comfy one", () => {
     expect(() =>
       defineFalAsset({
+        allowedIn: ASSET_SITES,
         endpointId: "x/y",
         description: "test",
         mediaType: "image",

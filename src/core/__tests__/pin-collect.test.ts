@@ -8,10 +8,12 @@ import { harvestShotPictureCues } from "../composition-builder.js";
 import { pendingShot, shot, videoTimeline } from "./helpers/shot.js";
 import { defineDirection } from "../dsl/direction.js";
 import { directionDefaults, testDirection, plainDirection } from "./helpers/direction.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const FORMAT = { fps: 24, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } };
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test image adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "prompt" } },
@@ -19,6 +21,7 @@ const imageComfy = defineComfyAsset({
 });
 
 const motionComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "motion.json",
   description: "test motion adapter",
   inputs: {
@@ -40,6 +43,7 @@ function videoLayer(src: unknown): React.ReactElement {
 }
 
 const stillMotion = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "still-motion.json",
   description: "test motion adapter with no pin input",
   inputs: { prompt: { nodeId: "3", field: "text", type: "prompt" } },
@@ -217,6 +221,7 @@ describe("listVideoShotPins", () => {
 describe("listVideoShotPins windows", () => {
   // H3's clock and grid: a 2.5s beat derives a 73-frame take.
   const gridMotion = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "grid-motion.json",
     description: "test motion adapter on a frame grid",
     inputs: {
@@ -298,6 +303,7 @@ describe("listVideoShotPins windows", () => {
 
   describe("an end image the workflow anchors by frame index", () => {
     const anchored = defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "anchored-motion.json",
       description: "test motion adapter anchoring its end image by frame index",
       inputs: {
@@ -453,6 +459,7 @@ describe("listVideoShotPins windows", () => {
 describe("pin declaration", () => {
   const define = (input: Record<string, unknown>) =>
     defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "invalid.json",
       description: "test adapter",
       inputs: { knob: { nodeId: "1", field: "value", ...input } as never },
@@ -467,6 +474,7 @@ describe("pin declaration", () => {
   it("rejects two inputs pinning the same end", () => {
     expect(() =>
       defineComfyAsset({
+        allowedIn: ASSET_SITES,
         workflow: "invalid.json",
         description: "test adapter",
         inputs: {
@@ -481,6 +489,7 @@ describe("pin declaration", () => {
   it("accepts one input per end", () => {
     expect(() =>
       defineComfyAsset({
+        allowedIn: ASSET_SITES,
         workflow: "valid.json",
         description: "test adapter",
         inputs: {

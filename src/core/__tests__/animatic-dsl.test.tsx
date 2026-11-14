@@ -5,8 +5,10 @@ import { moves, pendingShot, shot, animaticTimeline } from "./helpers/shot.js";
 import { directionDefaults, testDirection } from "./helpers/direction.js";
 import { defineDirection } from "../dsl/direction.js";
 import { AnimaticDefinitionSchema, isPendingAnimaticShot } from "../types/animatic.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: {
@@ -16,6 +18,7 @@ const imageComfy = defineComfyAsset({
 });
 
 const editComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "edit.json",
   description: "test adapter",
   inputs: {
@@ -25,6 +28,7 @@ const editComfy = defineComfyAsset({
 });
 
 const animateComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: {

@@ -196,6 +196,7 @@ describe("animatic wiring gate", () => {
       `import { asset, definePatch, defineComfyAsset } from "konte";
 
 const editComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "edit.json",
   description: "test adapter",
   inputs: { image: { nodeId: "1", field: "image", type: "image" } },
@@ -246,6 +247,7 @@ export default definePatch<"image">(({ source }) => asset("patched", editComfy, 
       `import { asset, definePatch, defineComfyAsset } from "konte";
 
 const editComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "edit.json",
   description: "test adapter",
   inputs: { image: { nodeId: "1", field: "image", type: "image" } },
@@ -370,6 +372,7 @@ const SHEET_REFERENCE_TS = `import { defineComfyAsset, defineReference, asset } 
 import direction from "./direction";
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -387,6 +390,7 @@ import direction from "./direction";
 import reference from "./reference";
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "image.json",
   description: "test adapter",
   inputs: {
@@ -412,6 +416,7 @@ import reference from "./reference";
 import animatic from "./animatic";
 
 const animateComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "animate.json",
   description: "test adapter",
   inputs: {
@@ -765,6 +770,7 @@ describe("animatic acceptance gate (multi-shot)", () => {
 import animatic from "../animatic";
 
 const blend = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "blend.json",
   description: "test adapter",
   inputs: {
@@ -804,6 +810,7 @@ export default definePatch<"image">(({ source }) =>
       `import { asset, definePatch, defineComfyAsset } from "konte";
 
 const edit = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "edit.json",
   description: "test adapter",
   models: [{ filename: "m.safetensors", type: "checkpoint", url: "https://example.invalid/m" }],

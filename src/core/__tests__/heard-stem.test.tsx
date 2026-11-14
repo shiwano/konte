@@ -26,8 +26,10 @@ import { shotAcceptTargets } from "../shot-accept-targets.js";
 import { StateManager } from "../state/index.js";
 import { directionDefaults } from "./helpers/direction.js";
 import { writeSilentWav } from "./helpers/wav.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const image = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test image adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "prompt" } },
@@ -35,6 +37,7 @@ const image = defineComfyAsset({
 });
 
 const tts = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "tts.json",
   description: "test speech adapter",
   inputs: { script: { nodeId: "1", field: "text", type: "spokenText" } },
@@ -43,6 +46,7 @@ const tts = defineComfyAsset({
 
 // No words anywhere in its inputs: a door slam, or a recording.
 const recording = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "sfx.json",
   description: "test wordless audio adapter",
   inputs: { prompt: { nodeId: "1", field: "text", type: "prompt" } },
@@ -50,6 +54,7 @@ const recording = defineComfyAsset({
 });
 
 const ia2v = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "ia2v.json",
   description: "test audio-driven motion adapter",
   inputs: {
@@ -60,6 +65,7 @@ const ia2v = defineComfyAsset({
 });
 
 const t2v = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "t2v.json",
   description: "test motion adapter",
   inputs: { prompt: { nodeId: "1", field: "text", type: "prompt" } },

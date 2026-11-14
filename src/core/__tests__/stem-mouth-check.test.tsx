@@ -11,6 +11,7 @@ import { findUnmouthedStems } from "../stem-mouth-check.js";
 import type { AnimaticDefinition, VideoDefinition } from "../types/index.js";
 import { directionDefaults } from "./helpers/direction.js";
 import { moves } from "./helpers/shot.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const character = (name: string) => ({ name, description: name, promptDepiction: name });
 
@@ -155,18 +156,21 @@ describe("findUnmouthedStems", () => {
 
 describe("stem inputs collected from video.tsx", () => {
   const still = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "still.json",
     description: "test adapter",
     inputs: { prompt: { nodeId: "1", field: "text", type: "string" } },
     outputs: { result: { nodeId: "9", type: "image" } },
   });
   const tts = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "tts.json",
     description: "test adapter",
     inputs: { text: { nodeId: "1", field: "text", type: "string" } },
     outputs: { result: { nodeId: "9", type: "audio" } },
   });
   const lipSync = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "lip-sync.json",
     description: "test adapter",
     inputs: {
@@ -176,6 +180,7 @@ describe("stem inputs collected from video.tsx", () => {
     outputs: { result: { nodeId: "9", type: "video" } },
   });
   const voiceClone = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "voice-clone.json",
     description: "test adapter",
     inputs: { voice: { nodeId: "1", field: "audio", type: "audio" } },

@@ -115,11 +115,10 @@ export function registerAdapterListCommand(program: Command): void {
           MEDIA: entry.meta.mediaType,
           INPUTS: requiredInputNames(entry.meta).join(", ") || "-",
           IMPORT: entry.importFrom,
+          SITES: entry.meta.allowedIn.join(","),
           // The last column, so its length costs the table no alignment.
           DESCRIPTION: singleLine(
-            `${entry.meta.allowedIn ? `[${entry.meta.allowedIn.join("/")} only] ` : ""}${
-              entry.meta.description || "(none — add a description to the adapter)"
-            }`,
+            entry.meta.description || "(none — add a description to the adapter)",
           ),
         }));
         console.log(renderTable(rows));

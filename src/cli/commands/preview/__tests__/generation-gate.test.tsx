@@ -16,8 +16,10 @@ import { StateManager } from "../../../../core/state/index.js";
 import { directionDefaults } from "../../../../core/__tests__/helpers/direction.js";
 import { selectGenerationAssets } from "../../../../core/generation-selection.js";
 import { unsubmittedGenerationError } from "../generation-gate.js";
+import { ASSET_SITES } from "../../../../core/dsl/adapter.js";
 
 const still = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },

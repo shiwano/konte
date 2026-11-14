@@ -10,12 +10,14 @@ import { testDirection } from "./helpers/direction.js";
 import { KonteError } from "../errors.js";
 import { buildRenderPlan, buildStageReviewPlan, shotSpans } from "../render-plan.js";
 import { StateManager } from "../state/index.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 function el(...placed: unknown[]): React.ReactElement {
   return { type: Composition, props: { children: placed } } as unknown as React.ReactElement;
 }
 
 const animateComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: {
@@ -25,6 +27,7 @@ const animateComfy = defineComfyAsset({
 });
 
 const ttsComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "tts.json",
   description: "test adapter",
   inputs: {
@@ -34,6 +37,7 @@ const ttsComfy = defineComfyAsset({
 });
 
 const renderComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "render.json",
   description: "test adapter",
   inputs: {
@@ -43,6 +47,7 @@ const renderComfy = defineComfyAsset({
 });
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: {
@@ -52,6 +57,7 @@ const imageComfy = defineComfyAsset({
 });
 
 const animateWithImageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: {

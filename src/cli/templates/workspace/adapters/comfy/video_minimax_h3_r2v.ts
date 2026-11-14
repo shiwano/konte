@@ -34,6 +34,7 @@ export const videoMinimaxH3R2v = defineComfyAsset({
   workflow: "video_minimax_h3_r2v.json",
   description:
     "MiniMax H3 R2V — a ~≤15s shot from up to nine images, three clips, three audios; pins first/last frame to a panel, lip-syncs the stem.",
+  allowedIn: ["reference", "timeline", "shot"],
   guide: [
     "konte/guides/minimax-h3.md",
     "konte/guides/minimax-h3-picture.md",

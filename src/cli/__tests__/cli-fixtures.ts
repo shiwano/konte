@@ -73,12 +73,14 @@ const direction = defineDirection({
 });
 
 const animateComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "animate.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
   outputs: { result: { nodeId: "9", type: "video" } },
 });
 const enhanceComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "enhance.json",
   description: "test adapter",
   inputs: { source: { nodeId: "1", field: "video", type: "video" } },
@@ -122,12 +124,14 @@ const direction = defineDirection({
 });
 
 const animateComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "animate.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
   outputs: { result: { nodeId: "9", type: "video" } },
 });
 const enhanceComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "enhance.json",
   description: "test adapter",
   inputs: { source: { nodeId: "1", field: "video", type: "video" } },
@@ -167,12 +171,14 @@ const direction = defineDirection({
 });
 
 const animateComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "animate.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
   outputs: { result: { nodeId: "9", type: "video" } },
 });
 const ttsComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "tts.json",
   description: "test adapter",
   inputs: { text: { nodeId: "3", field: "text", type: "string" } },
@@ -209,12 +215,14 @@ const direction = defineDirection({
 });
 
 const animateComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "animate.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
   outputs: { result: { nodeId: "9", type: "video" } },
 });
 const ttsComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "tts.json",
   description: "test adapter",
   inputs: { text: { nodeId: "3", field: "text", type: "string" } },
@@ -309,6 +317,7 @@ const direction = defineDirection({
 });
 
 const animateComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "animate.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -351,6 +360,7 @@ const direction = defineDirection({
 });
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -495,6 +505,7 @@ const direction = defineDirection({
 });
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -532,6 +543,7 @@ const direction = defineDirection({
 });
 
 const animateComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "animate.json",
   description: "test adapter",
   inputs: { image: { nodeId: "1", field: "image", type: "image" } },
@@ -595,6 +607,7 @@ const TEST_CROSS_STAGE_STEM_ANIMATIC_TS = TEST_CROSS_STAGE_ANIMATIC_TS.replace(
   .replace(
     `const imageComfy = defineComfyAsset({`,
     `const ttsComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "tts.json",
   description: "test adapter",
   inputs: { text: { nodeId: "3", field: "text", type: "string" } },

@@ -6,6 +6,7 @@ export const audioZonos2VoiceClone = defineComfyAsset({
   workflow: "audio_zonos2_voice_clone.json",
   description:
     "ZONOS2 voice clone — narration from text in the voice of a reference clip; multilingual, no transcript. It reads a line, it cannot act one.",
+  allowedIn: ["reference", "timeline", "shot"],
   guide: "konte/guides/zonos2.md",
   nodes: [{ id: "zonos2-tts-comfyui-emotion" }],
   // No `models`: the loader names a repo, and its `download_if_missing` fetches the checkpoint

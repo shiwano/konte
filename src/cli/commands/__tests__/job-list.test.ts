@@ -25,6 +25,7 @@ const direction = defineDirection({
 });
 
 const animateComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "animate.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },

@@ -43,12 +43,14 @@ import { testDirection, plainDirection } from "./helpers/direction.js";
 import { imageFile } from "../dsl/adapters/index.js";
 import { KonteError } from "../errors.js";
 import type { VideoDefinition } from "../types/index.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 function el(): React.ReactElement {
   return { type: Composition, props: { children: [] } } as unknown as React.ReactElement;
 }
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: {
@@ -58,6 +60,7 @@ const imageComfy = defineComfyAsset({
 });
 
 const animateComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: {
@@ -68,6 +71,7 @@ const animateComfy = defineComfyAsset({
 });
 
 const renderComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "render.json",
   description: "test adapter",
   inputs: {},
@@ -512,6 +516,7 @@ describe("composition addresses", () => {
                 asset(
                   "motion",
                   defineComfyAsset({
+                    allowedIn: ASSET_SITES,
                     workflow: "w.json",
                     description: "test adapter",
                     inputs: {},
@@ -528,6 +533,7 @@ describe("composition addresses", () => {
                 asset(
                   "bg",
                   defineComfyAsset({
+                    allowedIn: ASSET_SITES,
                     workflow: "w.json",
                     description: "test adapter",
                     inputs: {},
@@ -625,6 +631,7 @@ describe("listFrameDeliverySources", () => {
                 asset(
                   "motion",
                   defineComfyAsset({
+                    allowedIn: ASSET_SITES,
                     workflow: "w.json",
                     description: "test adapter",
                     inputs: {},

@@ -26,6 +26,7 @@ import type { VideoRoots } from "../../core/roots.js";
 import type { LanguageTag } from "../../core/typography.js";
 import { readHeardSpeech } from "../../core/speech-hearing.js";
 import { execFileAsync } from "../../core/exec-file.js";
+import { ASSET_SITES } from "../../core/dsl/adapter.js";
 
 const recognizeSpeech = vi.hoisted(() => vi.fn());
 vi.mock("../../core/sherpa-binary.js", async (importOriginal) => ({
@@ -38,6 +39,7 @@ function el(): React.ReactElement {
 }
 
 const motionComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: {},
@@ -45,6 +47,7 @@ const motionComfy = defineComfyAsset({
 });
 
 const tts = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "tts.json",
   description: "test speech adapter",
   inputs: { script: { nodeId: "1", field: "text", type: "spokenText" } },
@@ -485,6 +488,7 @@ describe("waitForJob reattaching to the backend a reclaimed job was submitted on
   const comfyClientIdOf = (b: object) => (b as ComfyUIBackend).httpClient.clientId;
 
   const pickedComfy = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "animate.json",
     description: "test adapter with a preview output",
     inputs: {},

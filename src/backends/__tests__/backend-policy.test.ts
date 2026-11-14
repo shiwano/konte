@@ -16,12 +16,14 @@ import { shot, videoTimeline } from "../../core/__tests__/helpers/shot.js";
 import { testDirection } from "../../core/__tests__/helpers/direction.js";
 import type { ComfyAssetDefinition, KonteConfig, VideoDefinition } from "../../core/types/index.js";
 import { makeWorkspace, type Workspace } from "../../core/__tests__/helpers/workspace.js";
+import { ASSET_SITES } from "../../core/dsl/adapter.js";
 
 function el(): React.ReactElement {
   return { type: Composition, props: { children: [] } } as unknown as React.ReactElement;
 }
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },

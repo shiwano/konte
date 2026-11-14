@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { defineFalAsset } from "../dsl/fal-asset.js";
-import { asset } from "../dsl/adapter.js";
+import { ASSET_SITES, asset } from "../dsl/adapter.js";
 import { defineReference } from "../dsl/reference-builders.js";
 import {
   imageFile,
@@ -32,6 +32,7 @@ function el(): React.ReactElement {
 }
 
 const testAdapter = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "test.json",
   description: "test adapter",
   inputs: {
@@ -45,6 +46,7 @@ const testAdapter = defineComfyAsset({
 });
 
 const videoAdapter = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: {
@@ -218,6 +220,7 @@ describe("defineComfyAsset()", () => {
 
   it("prunes the source node of an omitted optional media input", () => {
     const adapter = defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "edit.json",
       description: "test adapter",
       inputs: {
@@ -241,6 +244,7 @@ describe("defineComfyAsset()", () => {
   // and the apply node with it, and say how the apply node is spliced out of the model chain.
   it("prunes an omitted optional input's whole branch, naming its pass-through", () => {
     const adapter = defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "edit.json",
       description: "test adapter",
       inputs: {
@@ -296,6 +300,7 @@ describe("defineComfyAsset()", () => {
   // declaration on its own loader node is what makes that structural rather than a filename guess.
   it("keeps a model declared by a surviving loader, even when a pruned node names the same file", () => {
     const adapter = defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "edit.json",
       description: "test adapter",
       inputs: {
@@ -338,6 +343,7 @@ describe("defineComfyAsset()", () => {
 
   it("sets outputNodeId for multi-output workflows", () => {
     const multiOutput = defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "multi.json",
       description: "test adapter",
       inputs: {
@@ -361,6 +367,7 @@ describe("defineComfyAsset()", () => {
 
   it("falls back to default value when user does not specify input", () => {
     const adapterWithDefault = defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "test.json",
       description: "test adapter",
       inputs: {
@@ -381,6 +388,7 @@ describe("defineComfyAsset()", () => {
 
   it("uses user value over default when both are provided", () => {
     const adapterWithDefault = defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "test.json",
       description: "test adapter",
       inputs: {
@@ -624,6 +632,7 @@ describe("deterministic flag", () => {
 
   it("lets generative adapters opt into deterministic", () => {
     const fixed = defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "fixed.json",
       description: "test adapter",
       inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -678,6 +687,7 @@ describe("audioTrim adapter", () => {
 
 describe("nested field paths", () => {
   const falNested = defineFalAsset({
+    allowedIn: ASSET_SITES,
     endpointId: "fal-ai/nested",
     description: "test adapter",
     mediaType: "audio",
@@ -698,6 +708,7 @@ describe("nested field paths", () => {
 
   it("omits an unset nested leaf that has no default", () => {
     const adapter = defineFalAsset({
+      allowedIn: ASSET_SITES,
       endpointId: "fal-ai/nested",
       description: "test adapter",
       mediaType: "audio",
@@ -715,6 +726,7 @@ describe("nested field paths", () => {
 describe("required input enforcement", () => {
   it("comfy: throws MISSING_REQUIRED_INPUT when a required image is omitted", () => {
     const adapter = defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "edit.json",
       description: "test adapter",
       inputs: {
@@ -735,6 +747,7 @@ describe("required input enforcement", () => {
 
   it("comfy: does not throw when an optional media input is omitted", () => {
     const adapter = defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "edit.json",
       description: "test adapter",
       inputs: {
@@ -751,6 +764,7 @@ describe("required input enforcement", () => {
 
   it("fal: throws MISSING_REQUIRED_INPUT when a required field is omitted", () => {
     const adapter = defineFalAsset({
+      allowedIn: ASSET_SITES,
       endpointId: "fal-ai/edit",
       description: "test adapter",
       mediaType: "image",
@@ -768,6 +782,7 @@ describe("required input enforcement", () => {
 describe("array media inputs", () => {
   it("fal: maps an array image field to a list of sources", () => {
     const adapter = defineFalAsset({
+      allowedIn: ASSET_SITES,
       endpointId: "fal-ai/nano-banana-2/edit",
       description: "test adapter",
       mediaType: "image",
@@ -785,6 +800,7 @@ describe("array media inputs", () => {
 
   it("fal: maps a single-element array image field to a list of one source", () => {
     const adapter = defineFalAsset({
+      allowedIn: ASSET_SITES,
       endpointId: "fal-ai/edit",
       description: "test adapter",
       mediaType: "image",
@@ -803,6 +819,7 @@ describe("array media inputs", () => {
 
 describe("fixed inputs", () => {
   const falMode = defineFalAsset({
+    allowedIn: ASSET_SITES,
     endpointId: "fal-ai/multi-mode",
     description: "test adapter",
     mediaType: "audio",
@@ -830,6 +847,7 @@ describe("fixed inputs", () => {
   it("rejects a fixed input whose invalid shape would fail silently", () => {
     const declare = (mode: Record<string, unknown>) => () =>
       defineFalAsset({
+        allowedIn: ASSET_SITES,
         endpointId: "fal-ai/multi-mode",
         description: "test adapter",
         mediaType: "audio",
@@ -858,6 +876,7 @@ describe("fixed inputs", () => {
 
 describe("derived comfy inputs", () => {
   const burst = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "burst.json",
     description: "test adapter",
     inputs: {
@@ -892,6 +911,7 @@ describe("derived comfy inputs", () => {
   it("rejects a derived input that also takes a value of its own", () => {
     const declare = (length: Record<string, unknown>, derive: Record<string, unknown>) => () =>
       defineComfyAsset({
+        allowedIn: ASSET_SITES,
         workflow: "burst.json",
         description: "test adapter",
         inputs: { length } as never,
@@ -913,6 +933,7 @@ describe("derived comfy inputs", () => {
 
   it("types what derive reads and returns", () => {
     defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "burst.json",
       description: "test adapter",
       inputs: {
@@ -938,6 +959,7 @@ describe("derived comfy inputs", () => {
 
 describe("format-derived comfy inputs (width/height/fps)", () => {
   const sizedAdapter = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "sized.json",
     description: "test adapter",
     inputs: {
@@ -1008,6 +1030,7 @@ describe("format-derived comfy inputs (width/height/fps)", () => {
 
 describe("grid (a model's own step)", () => {
   const griddedAdapter = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "gridded.json",
     description: "test adapter",
     inputs: {
@@ -1073,6 +1096,7 @@ describe("grid (a model's own step)", () => {
 describe("minPixels (the fewest pixels a model draws well)", () => {
   const sized = (minPixels: number) =>
     defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "sized.json",
       description: "test adapter",
       inputs: {
@@ -1149,6 +1173,7 @@ describe("minPixels (the fewest pixels a model draws well)", () => {
   it("is refused without exactly one width and one height", () => {
     expect(() =>
       defineComfyAsset({
+        allowedIn: ASSET_SITES,
         workflow: "w.json",
         description: "test adapter",
         inputs: { width: { nodeId: "1", field: "value", type: "width" } },
@@ -1162,6 +1187,7 @@ describe("minPixels (the fewest pixels a model draws well)", () => {
 
 describe("frames (a shot's duration on the model's clock)", () => {
   const clockedAdapter = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "clocked.json",
     description: "test adapter",
     inputs: {
@@ -1178,6 +1204,7 @@ describe("frames (a shot's duration on the model's clock)", () => {
   });
 
   const canvasAdapter = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "canvas.json",
     description: "test adapter",
     inputs: {
@@ -1276,6 +1303,7 @@ describe("frames (a shot's duration on the model's clock)", () => {
 
 describe("max (the model's ceiling)", () => {
   const cappedAdapter = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "capped.json",
     description: "test adapter",
     inputs: {
@@ -1326,6 +1354,7 @@ describe("max (the model's ceiling)", () => {
 
   it("judges only what is submitted — a ceiling on a pruned branch rejects nothing", () => {
     const branched = defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "branched.json",
       description: "test adapter",
       inputs: {
@@ -1357,6 +1386,7 @@ describe("max (the model's ceiling)", () => {
   it("rejects a ceiling the adapter could never enforce, where it is declared", () => {
     const declare = (input: Record<string, unknown>) =>
       defineComfyAsset({
+        allowedIn: ASSET_SITES,
         workflow: "bad.json",
         description: "test adapter",
         inputs: { x: input as never },
@@ -1385,6 +1415,7 @@ describe("max (the model's ceiling)", () => {
 
 describe("pin: { end } (an end image anchored by frame index)", () => {
   const anchoredAdapter = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "anchored.json",
     description: "test adapter",
     inputs: {
@@ -1486,6 +1517,7 @@ describe("pin: { end } (an end image anchored by frame index)", () => {
   it("rejects an anchor with no frame count, or one an input also writes, where it is declared", () => {
     const declare = (inputs: Record<string, unknown>) =>
       defineComfyAsset({
+        allowedIn: ASSET_SITES,
         workflow: "bad.json",
         description: "test adapter",
         inputs: inputs as never,
@@ -1516,6 +1548,7 @@ describe("pin: { end } (an end image anchored by frame index)", () => {
 
 describe("function default (computed from the build format)", () => {
   const framedAdapter = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "framed.json",
     description: "test adapter",
     inputs: {
@@ -1614,6 +1647,7 @@ describe("function default (computed from the build format)", () => {
 describe("declaration-time rejection of a grid or clock that would never be applied", () => {
   const define = (input: Record<string, unknown>) =>
     defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "invalid.json",
       description: "test adapter",
       inputs: { knob: { nodeId: "1", field: "value", ...input } as never },
@@ -1783,24 +1817,52 @@ describe("allowedIn", () => {
     ).toThrow(/may only be declared in patch/);
   });
 
-  it("refuses a delivery upscale, which is declared outside asset()", () => {
+  it("refuses a delivery upscale to an adapter that does not name it", () => {
     expect(() => upscale(editAdapter, { image1: makeMediaAsset<"image">("take.png") })).toThrow(
-      /may only be declared in patch or reference/,
+      /A delivery upscale: edit\.json may only be declared in patch or reference/,
     );
   });
 
-  it("leaves an adapter that names no sites callable everywhere", () => {
-    const { assets } = runTimelineInDiscoveryMode("animatic", () => {
-      asset("bg", testAdapter, { prompt: "sky" });
-      return {};
+  it("takes an upscaler in a delivery upscale and refuses it in asset()", () => {
+    const upscaler = defineComfyAsset({
+      workflow: "upscale.json",
+      description: "an upscaler",
+      allowedIn: ["upscale"],
+      inputs: {
+        video: { nodeId: "1", field: "video", type: "video", required: true },
+      },
+      outputs: {
+        video: { nodeId: "9", type: "video" },
+      },
     });
-    expect(Object.keys(assets)).toEqual(["bg"]);
+    const video = makeMediaAsset<"video">("take.mp4");
+    expect(() => upscale(upscaler, { video })).not.toThrow();
+    expect(() =>
+      runTimelineInDiscoveryMode("video", () => {
+        asset("big", upscaler, { video });
+        return {};
+      }),
+    ).toThrow(/may only be declared in upscale/);
+  });
+
+  it("names at least one site", () => {
+    expect(() =>
+      defineComfyAsset({
+        workflow: "none.json",
+        description: "no sites",
+        // @ts-expect-error an empty allowedIn names nowhere to declare the adapter
+        allowedIn: [],
+        inputs: {},
+        outputs: { image: { nodeId: "9", type: "image" } },
+      }),
+    ).toThrow(/allowedIn needs at least one of/);
   });
 });
 
 describe("adapter-supplied inputs", () => {
   it("names the comfy inputs a default or derive filled, not the ones the call site set", () => {
     const comfy = defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "w.json",
       description: "test adapter",
       inputs: {
@@ -1819,6 +1881,7 @@ describe("adapter-supplied inputs", () => {
 
   it("names the fal inputs a default or fixed value filled", () => {
     const fal = defineFalAsset({
+      allowedIn: ASSET_SITES,
       endpointId: "fal-ai/test",
       description: "test adapter",
       mediaType: "image",
@@ -1835,6 +1898,7 @@ describe("adapter-supplied inputs", () => {
 
   it("names a seconds input its default filled outside a shot", () => {
     const fal = defineFalAsset({
+      allowedIn: ASSET_SITES,
       endpointId: "fal-ai/test",
       description: "test adapter",
       mediaType: "video",

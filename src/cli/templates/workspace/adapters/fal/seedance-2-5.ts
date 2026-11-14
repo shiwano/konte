@@ -43,6 +43,7 @@ export const falSeedance25T2v = defineFalAsset({
   endpointId: "bytedance/seedance-2.5/text-to-video",
   description:
     "Seedance 2.5 T2V — keyframeless shot from a prompt; up to 30s in one pass, native audio, several connected beats holding identity and continuity across them.",
+  allowedIn: ["reference", "timeline", "shot"],
   mediaType: "video",
   guide: "konte/guides/seedance-2-5.md",
   inputs: {
@@ -81,6 +82,7 @@ export const falSeedance25I2v = defineFalAsset({
   endpointId: "bytedance/seedance-2.5/image-to-video",
   description:
     "Seedance 2.5 I2V — shot anchored on a keyframe, optionally landing on a second; up to 30s in one pass, native audio, holds identity through the motion.",
+  allowedIn: ["reference", "timeline", "shot"],
   mediaType: "video",
   guide: "konte/guides/seedance-2-5.md",
   inputs: {
@@ -128,6 +130,7 @@ export const falSeedance25R2v = defineFalAsset({
   endpointId: "bytedance/seedance-2.5/reference-to-video",
   description:
     "Seedance 2.5 R2V — shot built from up to 30 reference images, 10 clips and 10 audios; pick it when identity, a move or a voice has to come through as supplied.",
+  allowedIn: ["reference", "timeline", "shot"],
   mediaType: "video",
   guide: "konte/guides/seedance-2-5.md",
   inputs: {

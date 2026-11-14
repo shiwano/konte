@@ -26,12 +26,14 @@ import {
   ShotDefinitionSchema,
   VideoDefinitionSchema,
 } from "../types/index.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 function el(): React.ReactElement {
   return { type: Composition, props: { children: [] } } as unknown as React.ReactElement;
 }
 
 const testComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "w.json",
   description: "test adapter",
   inputs: {},
@@ -39,6 +41,7 @@ const testComfy = defineComfyAsset({
 });
 
 const animateComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: {
@@ -48,6 +51,7 @@ const animateComfy = defineComfyAsset({
 });
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: {
@@ -57,6 +61,7 @@ const imageComfy = defineComfyAsset({
 });
 
 const animateWithImageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: {
@@ -971,6 +976,7 @@ describe("full video definition", () => {
 
 describe("format-derived asset inputs", () => {
   const fpsComfy = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "fps.json",
     description: "test adapter",
     inputs: {

@@ -15,8 +15,10 @@ import { listReferenceImageTexts } from "../board-analysis.js";
 import { collectFindings } from "../checks.js";
 import { spendHold } from "../finding.js";
 import { directionDefaults } from "./helpers/direction.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const imageGen = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "prompt", type: "prompt" } },
@@ -24,6 +26,7 @@ const imageGen = defineComfyAsset({
 });
 
 const imageEdit = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "edit.json",
   description: "test adapter",
   inputs: {

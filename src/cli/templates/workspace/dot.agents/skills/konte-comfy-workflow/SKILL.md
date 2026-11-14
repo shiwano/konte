@@ -66,6 +66,7 @@ The generated adapter may carry a commented-out block:
 ### 2.6 Write the descriptions and the guide
 
 - `description` (emitted as a TODO) — one line: what the adapter generates, and when to pick it over its neighbours (mode, look lean, length lean). `konte adapter list` shows it — the next session picks an adapter by it. Match the already-fixed adapters' phrasing.
+- `allowedIn` (emitted empty, a load error) — the sites the adapter may be declared in. A model that only corrects a take that already exists (an inpaint) names `patch` alone; an upscaler names `upscale` alone.
 - A non-obvious input takes a one-line `description` — printed beside its type and default, it carries what those can't (units, gotchas).
 - `<name>.md` — the prompt-craft guide `konte adapter show` points at: prompt shape, length, mode/reference notes, and what to avoid. Write it from the model's official documentation and the adapter's actual schema; document only controls it exposes; per-input facts go in input descriptions.
 
@@ -79,12 +80,11 @@ Optional `validators` (one or an array) reject an input combination the model fo
 - A group where at least one must be set — `requireOneOf({ inputs: { instruct: "", character: "Auto" }, reason })`.
 - A negation this model is meant to be written with — `promptExemptions: [/…/]`, beside `validators`; every span one matches is cut from the value the prompt check reads. Leave it off a model with none.
 - An input whose value follows from the others — `derive: { <input>: (inputs) => … }` beside `validators`, the input declared with no `default`. `inputs` are the others resolved, a structured prompt assembled. konte fills it, and it leaves the call options and `adapter show`.
-- An edit model — uncomment `allowedIn` and name the sites it may be declared in.
 - Anything else: a pure function of the resolved inputs that returns why it rejects them, or nothing when they pass, reading only which are present.
 
 ### 2.8 Remove the Scaffold Comments
 
-- Remove the `// @generated` marker and every scaffold comment left unused — the `allowedIn`, `validators` and `promptExemptions` hints and any `// TODO` line.
+- Remove the `// @generated` marker and every scaffold comment left unused — the `validators` and `promptExemptions` hints and any `// TODO` line.
 
 ### 2.9 Verify
 

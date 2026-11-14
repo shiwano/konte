@@ -21,8 +21,10 @@ import {
 } from "../board-analysis.js";
 import { renderToHtml } from "../jsx-html.js";
 import { directionDefaults } from "./helpers/direction.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test image adapter",
   inputs: {
@@ -33,6 +35,7 @@ const imageComfy = defineComfyAsset({
 });
 
 const motionComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "motion.json",
   description: "test motion adapter",
   inputs: {

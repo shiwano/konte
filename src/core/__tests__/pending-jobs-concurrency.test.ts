@@ -22,12 +22,14 @@ import { StateManager } from "../state/index.js";
 import type { BackendKind, VideoDefinition } from "../types/index.js";
 import { makeWorkspace, type Workspace } from "./helpers/workspace.js";
 import type { VideoRoots } from "../roots.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 function el(): React.ReactElement {
   return { type: Composition, props: { children: [] } } as unknown as React.ReactElement;
 }
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -35,6 +37,7 @@ const imageComfy = defineComfyAsset({
 });
 
 const animateWithImageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: { image: { nodeId: "1", field: "image", type: "image" } },

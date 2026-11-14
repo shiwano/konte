@@ -54,8 +54,10 @@ describe("generateAdapterCode() hand-edit markers", () => {
     models: [],
   };
 
-  it("marks a missing guide, validators, prompt typing and exemptions", () => {
+  it("marks a missing guide, validators, prompt typing, exemptions and sites", () => {
     const code = generateAdapterCode("foo", "foo.json", analysis);
+    expect(code).toContain("TODO: name the sites it may be declared in");
+    expect(code).toContain("allowedIn: [],");
     expect(code).toContain("TODO: wire the craft guide");
     expect(code).toContain("TODO: a constraint across inputs");
     expect(code).toContain("TODO: type the model's natural-language conditioning input");

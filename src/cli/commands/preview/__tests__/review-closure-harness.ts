@@ -59,6 +59,7 @@ const animaticTsx = (
 import direction from "./direction";
 
 const frame = defineFalAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   endpointId: "test/frame",
   description: "test adapter",
   mediaType: "image",
@@ -66,6 +67,7 @@ const frame = defineFalAsset({
 });
 
 const tts = defineFalAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   endpointId: "test/tts",
   description: "test adapter",
   mediaType: "audio",
@@ -96,6 +98,7 @@ import direction from "./direction";
 import animaticStage from "./animatic";
 
 const animate = defineFalAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   endpointId: "test/animate",
   description: "test adapter",
   mediaType: "video",
@@ -103,6 +106,7 @@ const animate = defineFalAsset({
 });
 
 const ia2v = defineFalAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   endpointId: "test/ia2v",
   description: "test adapter",
   mediaType: "video",

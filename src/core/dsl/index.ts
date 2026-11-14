@@ -47,6 +47,7 @@ export {
   type AdapterInputs,
   type AdapterOutput,
   type AssetAdapter,
+  type AllowedSites,
   type AssetDeclarationSite,
 } from "./adapter.js";
 export {

@@ -21,12 +21,14 @@ import type { AssetDefinition, BackendKind, VideoDefinition } from "../types/ind
 import { testDirection } from "./helpers/direction.js";
 import { emptyAnimatic, emptyReference, shot, videoTimeline } from "./helpers/shot.js";
 import { makeWorkspace, type Workspace } from "./helpers/workspace.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 function el(): React.ReactElement {
   return { type: Composition, props: { children: [] } } as unknown as React.ReactElement;
 }
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -34,6 +36,7 @@ const imageComfy = defineComfyAsset({
 });
 
 const animateWithImageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: { image: { nodeId: "1", field: "image", type: "image" } },

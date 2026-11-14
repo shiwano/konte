@@ -6,6 +6,7 @@ export const imageMossImageT2i = defineComfyAsset({
   workflow: "image_moss_image_t2i.json",
   description:
     "MOSS-Image — generate a still from text for realistic subject, location or prop references. Choose it to establish readable physical structure: body build, garment cut, materials and shape from different views.",
+  allowedIn: ["reference", "plate", "timeline", "thumbnail", "shot"],
   guide: "konte/guides/moss-image.md",
   models: [
     {

@@ -2567,8 +2567,9 @@ export interface PromptStructureMeta {
 export declare function formatCutTime(seconds: number): string;
 export type AdapterBackendKind = "comfy" | "fal" | "local" | "file";
 /**
- * The six places `asset()` can be called from. A stage build reaches exactly one — a shot build
- * clears the timeline context. `view` is `defineReference`'s `views`.
+ * Where an adapter can be declared: the places `asset()` can be called from, and `upscale`, a
+ * delivery's `upscale()`. A stage build reaches exactly one — a shot build clears the timeline
+ * context. `view` is `defineReference`'s `views`.
  */
 export type AssetDeclarationSite =
   | "patch"
@@ -2577,7 +2578,9 @@ export type AssetDeclarationSite =
   | "view"
   | "timeline"
   | "thumbnail"
-  | "shot";
+  | "shot"
+  | "upscale";
+export type AllowedSites = readonly [AssetDeclarationSite, ...AssetDeclarationSite[]];
 export interface AdapterMetaInput {
   type: string;
   required: boolean;
@@ -2610,7 +2613,7 @@ export interface AdapterMeta {
   ref: string;
   inputs: Record<string, AdapterMetaInput>;
   guide?: string | readonly string[];
-  allowedIn?: readonly AssetDeclarationSite[];
+  allowedIn: AllowedSites;
   promptExemptions?: readonly RegExp[];
   spokenTextPattern?: RegExp;
   minPixels?: number;
@@ -8750,8 +8753,7 @@ export declare function respell(line: string, as: string): string;
  *
  * The adapter's input names drive completion, so you only pass what that upscaler takes.
  *
- * A delivery upscale is the one generated asset declared outside `asset()`, so an adapter that names
- * the `asset()` sites it takes is refused here.
+ * An adapter whose `allowedIn` lacks `upscale` is refused.
  */
 export declare function upscale<A extends AssetAdapter<any, any>>(
   adapter: A,
@@ -9100,7 +9102,7 @@ export interface ComfyAssetConfig<
   validators?: AdapterValidator | readonly AdapterValidator[];
   promptExemptions?: readonly RegExp[];
   spokenTextPattern?: RegExp;
-  allowedIn?: readonly AssetDeclarationSite[];
+  allowedIn: AllowedSites;
   minPixels?: number;
 }
 export type ComfyDerive<
@@ -9263,7 +9265,7 @@ export interface FalAssetConfig<
   validators?: AdapterValidator | readonly AdapterValidator[];
   promptExemptions?: readonly RegExp[];
   spokenTextPattern?: RegExp;
-  allowedIn?: readonly AssetDeclarationSite[];
+  allowedIn: AllowedSites;
 }
 export type FalInputTSType<T extends FalInputDef> = T extends {
   type: "string" | "seconds";

@@ -27,6 +27,7 @@ export const audioMinimaxH3R2a = defineComfyAsset({
   workflow: "audio_minimax_h3_r2a.json",
   description:
     "MiniMax H3 R2A — one ≤15s spoken line, cast off up to nine images and three audios; with none, the description designs the voice. The delivery is acted out of the scene the prompt describes.",
+  allowedIn: ["reference", "timeline", "shot"],
   guide: [
     "konte/guides/minimax-h3.md",
     "konte/guides/minimax-h3-sound.md",

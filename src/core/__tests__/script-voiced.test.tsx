@@ -13,8 +13,10 @@ import { minimaxH3Dialogue } from "../dsl/validators/index.js";
 import type { ScriptLine } from "../dsl/direction.js";
 import { directionDefaults } from "./helpers/direction.js";
 import type { AnimaticDefinition } from "../types/index.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const image = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test image adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "prompt" } },
@@ -22,6 +24,7 @@ const image = defineComfyAsset({
 });
 
 const tts = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "tts.json",
   description: "test speech adapter",
   inputs: { script: { nodeId: "1", field: "text", type: "spokenText" } },
@@ -31,6 +34,7 @@ const tts = defineComfyAsset({
 // An audio processor: its `prompt` describes the treatment, not the words. Reading it as words
 // would call the recording behind it readable and then refuse the lines it holds.
 const cleanup = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "clean-audio.json",
   description: "test audio-processor adapter",
   inputs: {
@@ -43,6 +47,7 @@ const cleanup = defineComfyAsset({
 // A model that takes its lines in its conditioning rather than in a `spokenText` input, and says
 // where: H3's `<d>[Japanese] …</d>`.
 const dialogueInPrompt = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "r2a.json",
   description: "test dialogue-in-prompt adapter",
   inputs: { prompt: { nodeId: "1", field: "prompt", type: "prompt" } },
@@ -52,6 +57,7 @@ const dialogueInPrompt = defineComfyAsset({
 
 // The same adapter with nothing declared — its prompt stays treatment prose.
 const undeclaredDialogue = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "r2a-undeclared.json",
   description: "test dialogue-in-prompt adapter with no pattern",
   inputs: { prompt: { nodeId: "1", field: "prompt", type: "prompt" } },
@@ -59,6 +65,7 @@ const undeclaredDialogue = defineComfyAsset({
 });
 
 const recording = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "load-audio.json",
   description: "test audio-with-no-text adapter",
   inputs: { gain: { nodeId: "1", field: "gain", type: "number" } },

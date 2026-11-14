@@ -7,11 +7,13 @@ import { shot, videoTimeline } from "./helpers/shot.js";
 import { defineDirection } from "../dsl/direction.js";
 import { minimaxH3Dialogue } from "../dsl/validators/index.js";
 import { directionDefaults, testDirection, plainDirection } from "./helpers/direction.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const FREEZE = /\bnothing\s+moves\b/i;
 const FORMAT = { fps: 24, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } };
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: {
@@ -29,6 +31,7 @@ const imageComfy = defineComfyAsset({
 // A model that takes its lines in the conditioning and says where — the only shape the script
 // exemption reads.
 const dialogueComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "r2a.json",
   description: "test dialogue-in-prompt adapter",
   inputs: { prompt: { nodeId: "1", field: "prompt", type: "prompt" } },
@@ -249,6 +252,7 @@ describe("prompt collection", () => {
 
   it("leaves a definition built with no prompt input carrying none", () => {
     const promptless = defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "up.json",
       description: "test adapter",
       inputs: { image: { nodeId: "1", field: "image", type: "image" } },

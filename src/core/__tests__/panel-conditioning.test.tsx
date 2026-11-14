@@ -4,8 +4,10 @@ import { defineAnimatic, asset, Composition, Panel } from "../dsl/index.js";
 import { listPanelConditioning } from "../board-analysis.js";
 import { moves, shot, pendingShot, animaticTimeline } from "./helpers/shot.js";
 import { testDirection } from "./helpers/direction.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: {
@@ -16,6 +18,7 @@ const imageComfy = defineComfyAsset({
 });
 
 const resize = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "resize.json",
   description: "test adapter",
   inputs: { image: { nodeId: "1", field: "image", type: "image" } },

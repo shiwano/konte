@@ -32,18 +32,21 @@ useTempWorkspace();
 // voices. TEST_VIDEO_TSX types all three `"string"`, so it collects nothing to list.
 const TYPED_TEXT_VIDEO_TSX = TEST_VIDEO_TSX.replace(
   `const animateComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "animate.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
   outputs: { result: { nodeId: "9", type: "video" } },
 });
 const ttsComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "tts.json",
   description: "test adapter",
   inputs: { text: { nodeId: "3", field: "text", type: "string" } },
   outputs: { result: { nodeId: "9", type: "audio" } },
 });`,
   `const animateComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "animate.json",
   description: "test adapter",
   inputs: {
@@ -53,6 +56,7 @@ const ttsComfy = defineComfyAsset({
   outputs: { result: { nodeId: "9", type: "video" } },
 });
 const ttsComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "tts.json",
   description: "test adapter",
   inputs: { text: { nodeId: "3", field: "text", type: "spokenText" } },

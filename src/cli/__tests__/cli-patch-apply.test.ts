@@ -210,6 +210,7 @@ export default definePatch<"image">(({ source }) => {
         `import { asset, definePatch, adapters, defineComfyAsset } from "konte";
 
 const fix = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "fix.json",
   description: "test adapter",
   inputs: { image: { type: "image", nodeId: "1", field: "image" } },

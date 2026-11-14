@@ -20,6 +20,7 @@ import { makeWorkspace, type Workspace } from "./helpers/workspace.js";
 const fakeUpscale: AssetAdapter<Record<string, unknown>, "video"> = {
   type: "video",
   meta: {
+    allowedIn: ["upscale"],
     backend: "fal",
     mediaType: "video",
     description: "test upscaler",

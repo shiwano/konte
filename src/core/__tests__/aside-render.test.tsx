@@ -9,10 +9,12 @@ import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { testDirection } from "./helpers/direction.js";
 import { animaticTimeline, asideShot, moves, shot } from "./helpers/shot.js";
 import { StateManager } from "../state/index.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const NO_LINES: LineTimer = async () => undefined;
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },

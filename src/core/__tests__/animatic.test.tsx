@@ -32,8 +32,10 @@ import { StateManager } from "../state/index.js";
 import { directionDefaults } from "./helpers/direction.js";
 import type { VariantMedia, VideoDefinition } from "../types/index.js";
 import type { ShotScript } from "../dsl/shot-script.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const ttsComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "tts.json",
   description: "test adapter",
   inputs: { text: { nodeId: "3", field: "text", type: "string" } },
@@ -42,6 +44,7 @@ const ttsComfy = defineComfyAsset({
 
 // A plain motion model, for the case that tries to hide one inside the animatic.
 const motionComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "motion.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -49,6 +52,7 @@ const motionComfy = defineComfyAsset({
 });
 
 const stillComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "still.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -57,6 +61,7 @@ const stillComfy = defineComfyAsset({
 
 // An audio-driven motion model: the shape the whole stem mechanism exists for.
 const ia2vComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "ia2v.json",
   description: "test adapter",
   inputs: {
@@ -997,6 +1002,7 @@ describe("animatic silent tail", () => {
   it("measures from the last sound of any kind", async () => {
     const SFX = "animatic:shot.01.door";
     const spokenTts = defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "tts.json",
       description: "test adapter",
       inputs: { text: { nodeId: "3", field: "text", type: "spokenText" } },

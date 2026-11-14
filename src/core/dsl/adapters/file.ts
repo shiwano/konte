@@ -1,6 +1,6 @@
 import type { FileAssetDefinition } from "../../types/index.js";
 import type { MediaKind } from "../builders.js";
-import type { AssetAdapter } from "../adapter.js";
+import { ASSET_SITES, type AssetAdapter } from "../adapter.js";
 
 const FILES_PREFIX = "assets/files/";
 
@@ -13,6 +13,7 @@ function createFileAdapter<T extends MediaKind>(mediaType: T): AssetAdapter<File
     type: mediaType,
     meta: {
       backend: "file",
+      allowedIn: ASSET_SITES,
       mediaType,
       description: `Reference an existing ${mediaType} under assets/files/ — no generation.`,
       ref: "file",

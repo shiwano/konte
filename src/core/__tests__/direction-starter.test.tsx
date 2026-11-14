@@ -22,6 +22,7 @@ import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { directionDefaults } from "./helpers/direction.js";
 import type { LanguageTag } from "../typography.js";
 import { moves } from "./helpers/shot.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 // The stage-bound `shot` starter is what `defineAnimatic`/`defineVideo` inject into their timeline.
 // These tests exercise the starter's runtime directly (duration/action/script/framing injection, the
@@ -32,6 +33,7 @@ const sbShot = (d: Parameters<typeof getDirectionIndex>[0]) =>
   makeAnimaticShotStarter(getDirectionIndex(d));
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -39,6 +41,7 @@ const imageComfy = defineComfyAsset({
 });
 
 const videoComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "video.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },

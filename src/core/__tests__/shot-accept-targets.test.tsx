@@ -9,32 +9,38 @@ import { StateManager } from "../state/index.js";
 import { testDirection } from "./helpers/direction.js";
 import { shot, videoTimeline } from "./helpers/shot.js";
 import { stageReviewDecidableAddresses } from "../shot-accept-targets.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const stitch = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "stitch.json",
   description: "test adapter",
   inputs: { source: { nodeId: "1", field: "audio", type: "audio" } },
   outputs: { result: { nodeId: "9", type: "image" } },
 });
 const speak = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "speak.json",
   description: "test adapter",
   inputs: { over: { nodeId: "1", field: "image", type: "image" } },
   outputs: { result: { nodeId: "9", type: "audio" } },
 });
 const hum = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "hum.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "1", field: "text", type: "prompt" } },
   outputs: { result: { nodeId: "9", type: "audio" } },
 });
 const animate = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: { source: { nodeId: "1", field: "image", type: "image" } },
   outputs: { result: { nodeId: "9", type: "video" } },
 });
 const condition = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "condition.json",
   description: "test adapter",
   inputs: { audio: { nodeId: "1", field: "audio", type: "audio" } },

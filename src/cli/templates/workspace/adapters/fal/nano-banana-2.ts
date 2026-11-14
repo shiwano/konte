@@ -4,6 +4,7 @@ export const falNanoBanana2 = defineFalAsset({
   endpointId: "fal-ai/nano-banana-2",
   description:
     "Nano Banana 2 — generate a still from a prompt; fast iteration, strong multilingual text, real-world accuracy.",
+  allowedIn: ["reference", "plate", "timeline", "thumbnail", "shot"],
   mediaType: "image",
   guide: "konte/guides/nano-banana-2.md",
   inputs: {
@@ -72,6 +73,7 @@ export const falNanoBanana2Edit = defineFalAsset({
   endpointId: "fal-ai/nano-banana-2/edit",
   description:
     "Nano Banana 2 Edit — controlled change to existing frame(s), preserving the rest; fast iteration, strong multilingual text.",
+  allowedIn: ["reference", "view", "plate", "timeline", "thumbnail", "shot", "patch"],
   mediaType: "image",
   guide: "konte/guides/nano-banana-2.md",
   inputs: {

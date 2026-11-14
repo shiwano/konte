@@ -170,6 +170,7 @@ export default defineVideo(direction, {
       videoWithAsset(
         "defineComfyAsset",
         `asset("still", defineComfyAsset({
+        allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
         workflow: "image.json",
         description: "test adapter",
         inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },

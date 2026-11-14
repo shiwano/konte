@@ -16,8 +16,10 @@ import {
   videoTimeline,
 } from "../../../../core/__tests__/helpers/shot.js";
 import { handleGetReelState } from "../reel-review.js";
+import { ASSET_SITES } from "../../../../core/dsl/adapter.js";
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -25,6 +27,7 @@ const imageComfy = defineComfyAsset({
 });
 
 const animateComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -160,6 +163,7 @@ describe("shot allAccepted", () => {
 
 describe("a shot whose motion is made from a still it never places", () => {
   const animateWithImage = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "animate-image.json",
     description: "test adapter",
     inputs: { image: { nodeId: "1", field: "image", type: "image" } },

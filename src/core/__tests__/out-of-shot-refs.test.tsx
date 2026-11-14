@@ -11,8 +11,10 @@ import { runTimelineInRenderMode } from "../dsl/shot-context.js";
 import { StateManager } from "../state/index.js";
 import { directionDefaults, testDirection } from "./helpers/direction.js";
 import { moves, shot, animaticTimeline, videoTimeline } from "./helpers/shot.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const animateComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -20,6 +22,7 @@ const animateComfy = defineComfyAsset({
 });
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -27,6 +30,7 @@ const imageComfy = defineComfyAsset({
 });
 
 const ttsComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "tts.json",
   description: "test adapter",
   inputs: { text: { nodeId: "3", field: "text", type: "string" } },

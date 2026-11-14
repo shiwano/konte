@@ -76,6 +76,7 @@ describe("adapter show command", () => {
   it("prints every adapter a shared ref matches, each pointing at the shared guide", async () => {
     const twin = (name: string) => `import { defineComfyAsset } from "konte";
 export const ${name} = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "shared_ref.json",
   description: "wraps ${name}",
   guide: "./shared.md",
@@ -126,6 +127,7 @@ export const ${name} = defineComfyAsset({
   it("marks a guide whose file is gone, and keeps printing the schema", async () => {
     const source = `import { defineComfyAsset } from "konte";
 export const missingGuide = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "missing_guide.json",
   description: "names a guide that is not there",
   guide: "konte/guides/no-such-guide.md",
@@ -143,6 +145,7 @@ export const missingGuide = defineComfyAsset({
   it("lists required inputs first, keeping declaration order within each group", async () => {
     const source = `import { defineComfyAsset } from "konte";
 export const ordered = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "ordered.json",
   description: "declares its required inputs last",
   inputs: {
@@ -170,6 +173,7 @@ export const ordered = defineComfyAsset({
   it("prints every adapter a ref matches, under a count of them", async () => {
     const twin = (name: string) => `import { defineComfyAsset } from "konte";
 export const ${name} = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "shared_ref.json",
   description: "wraps ${name}",
   inputs: {},
@@ -218,6 +222,7 @@ export const ${name} = defineComfyAsset({
   it("quotes each allowed value in the VALUES column", async () => {
     const source = `import { defineComfyAsset } from "konte";
 export const banded = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "banded.json",
   description: "takes a labelled band",
   inputs: {

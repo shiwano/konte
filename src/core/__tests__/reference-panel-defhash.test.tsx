@@ -4,8 +4,10 @@ import { defineReference, defineAnimatic, asset, Composition, Panel } from "../d
 import { moves, shot, animaticTimeline } from "./helpers/shot.js";
 import { testDirection, plainDirection } from "./helpers/direction.js";
 import { definitionHashForAddress } from "../composition-resource.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },

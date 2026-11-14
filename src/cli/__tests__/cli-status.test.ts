@@ -970,6 +970,7 @@ describe("status command", () => {
           .replace(
             "export default defineAnimatic",
             `const ttsComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "tts.json",
   description: "test adapter",
   inputs: { text: { nodeId: "3", field: "text", type: "string" } },

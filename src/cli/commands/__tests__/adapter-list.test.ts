@@ -4,7 +4,15 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initWorkspace, run, runCapture } from "../../__tests__/harness.js";
 
-const COLUMNS = ["ADAPTER", "BACKEND", "MEDIA", "INPUTS", "IMPORT", "DESCRIPTION"] as const;
+const COLUMNS = [
+  "ADAPTER",
+  "BACKEND",
+  "MEDIA",
+  "INPUTS",
+  "IMPORT",
+  "SITES",
+  "DESCRIPTION",
+] as const;
 type Row = Record<(typeof COLUMNS)[number], string>;
 
 let tmpDir: string;
@@ -54,6 +62,7 @@ describe("adapter list command", () => {
     expect(rowFor(rows, "videoMinimaxH3R2v")).toMatchObject({
       BACKEND: "comfy",
       IMPORT: "konte/workspace/adapters/comfy/video_minimax_h3_r2v.js",
+      SITES: "reference,timeline,shot",
     });
     expect(rowFor(rows, "videoMinimaxH3R2v")?.DESCRIPTION).not.toBe("");
 
@@ -176,6 +185,7 @@ describe("adapter list command", () => {
       path.join(workspaceDir, "adapters", "comfy", "wordy.ts"),
       `import { defineComfyAsset } from "konte";
 export const wordy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "wordy.json",
   description: ${JSON.stringify(long)},
   inputs: {},

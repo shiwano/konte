@@ -1,6 +1,6 @@
 import { KonteError } from "../../errors.js";
 import type { LocalAssetDefinition } from "../../types/index.js";
-import type { AssetAdapter } from "../adapter.js";
+import { ASSET_SITES, type AssetAdapter } from "../adapter.js";
 import { getActiveFormat } from "../shot-context.js";
 import { buildJsxStage, type JsxCanvas, resolveJsxCanvas } from "./jsx-document.js";
 import type { ColorString } from "./local.js";
@@ -36,6 +36,7 @@ export const jsxVideo: AssetAdapter<JsxVideoInputs, "video"> = {
   type: "video",
   meta: {
     backend: "local",
+    allowedIn: ASSET_SITES,
     mediaType: "video",
     description:
       "Chromium bake of a JSX tree to an MP4 on a frame-stepped clock — a game, a simulation or a canvas drawn by requestAnimationFrame.",

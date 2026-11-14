@@ -5,8 +5,10 @@ import { minimaxH3Dialogue } from "../dsl/validators/index.js";
 import type { AdapterValidator } from "../dsl/validators/index.js";
 import type { AnimaticDefinition } from "../types/animatic.js";
 import { directionDefaults } from "./helpers/direction.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const image = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test image adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "prompt" } },
@@ -25,6 +27,7 @@ const cutFitsVariant: AdapterValidator = (inputs) => {
 cutFitsVariant.inputs = ["prompt", "length"];
 
 const speech = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "r2a.json",
   description: "test speech adapter",
   validators: [cutFitsVariant],
@@ -46,6 +49,7 @@ const speech = defineComfyAsset({
 
 // A model that asks for its clip length in seconds — the other spelling of the same thing.
 const sfx = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "sfx.json",
   description: "test SFX adapter measured in seconds",
   inputs: {
@@ -205,6 +209,7 @@ describe("an adapter's clip length", () => {
     // Either spelling counts: a frame count and a duration are two lengths.
     expect(() =>
       defineComfyAsset({
+        allowedIn: ASSET_SITES,
         workflow: "two-lengths.json",
         description: "test adapter giving its clip length twice",
         inputs: {
@@ -219,6 +224,7 @@ describe("an adapter's clip length", () => {
   it("fills from the words only where the adapter can read them", () => {
     expect(() =>
       defineComfyAsset({
+        allowedIn: ASSET_SITES,
         workflow: "wordless.json",
         description: "test adapter that declares no words",
         inputs: {

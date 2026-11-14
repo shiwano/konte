@@ -10,12 +10,13 @@ import { getActiveFormat, seed, type BuildFormat } from "./shot-context.js";
 import { estimateSpeechSec } from "../speech-duration.js";
 import { GRID_HOLD_OVERRUN, OVERFLOW_FLOOR, recordClipLength } from "./clip-length-collect.js";
 import {
+  assertAllowedIn,
   assertPinInputs,
   assertStemInputs,
   buildMetaInputs,
   type DeclaredPin,
   type AssetAdapter,
-  type AssetDeclarationSite,
+  type AllowedSites,
 } from "./adapter.js";
 import {
   assertValidatorInputs,
@@ -163,8 +164,7 @@ export interface ComfyAssetConfig<
   validators?: AdapterValidator | readonly AdapterValidator[];
   promptExemptions?: readonly RegExp[];
   spokenTextPattern?: RegExp;
-  // Where `asset()` may declare this adapter, when it is not every site (see AdapterMeta).
-  allowedIn?: readonly AssetDeclarationSite[];
+  allowedIn: AllowedSites;
   // See `AdapterMeta.minPixels`. Needs one `width` and one `height` input.
   minPixels?: number;
 }
@@ -363,6 +363,7 @@ export function defineComfyAsset<
     string,
     (inputs: Record<string, unknown>) => unknown
   >;
+  assertAllowedIn(config.allowedIn);
   assertComfyInputs(config.inputs);
   const sizeKeys = assertMinPixels(config);
   assertDerivedInputs(derive, config.inputs);
@@ -387,7 +388,7 @@ export function defineComfyAsset<
       ...(config.guide ? { guide: config.guide } : {}),
       ...(config.promptExemptions ? { promptExemptions: config.promptExemptions } : {}),
       ...(config.spokenTextPattern ? { spokenTextPattern: config.spokenTextPattern } : {}),
-      ...(config.allowedIn ? { allowedIn: config.allowedIn } : {}),
+      allowedIn: config.allowedIn,
       ...(config.minPixels !== undefined ? { minPixels: config.minPixels } : {}),
       ...(config.models ? { models: config.models } : {}),
       ...(config.nodes ? { nodes: config.nodes } : {}),

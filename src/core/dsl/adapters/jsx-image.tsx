@@ -1,5 +1,5 @@
 import type { LocalAssetDefinition } from "../../types/index.js";
-import type { AssetAdapter } from "../adapter.js";
+import { ASSET_SITES, type AssetAdapter } from "../adapter.js";
 import { buildJsxStage, type JsxCanvas, resolveJsxCanvas } from "./jsx-document.js";
 import type { ColorString } from "./local.js";
 
@@ -33,6 +33,7 @@ export const jsxImage: AssetAdapter<JsxImageInputs, "image"> = {
   type: "image",
   meta: {
     backend: "local",
+    allowedIn: ASSET_SITES,
     mediaType: "image",
     description:
       "Chromium render of a JSX tree to a PNG — a title card, a telop plate, or a composited layout fed to a model as one image.",

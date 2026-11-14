@@ -57,6 +57,7 @@ import { internalTestPlate } from "konte";
 import direction from "./direction";
 
 const plateAdapter = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "plate.json",
   description: "test adapter",
   inputs: {},

@@ -7,8 +7,10 @@ import type { AnimaticDefinition } from "../types/animatic.js";
 import { defineDirection } from "../dsl/direction.js";
 import { directionDefaults, testDirection } from "./helpers/direction.js";
 import { moves, pendingShot, shot, animaticTimeline } from "./helpers/shot.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },

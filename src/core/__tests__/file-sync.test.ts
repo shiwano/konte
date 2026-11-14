@@ -10,8 +10,10 @@ import { syncFileAssets } from "../file-sync.js";
 import { StateManager } from "../state/index.js";
 import { isVariantStale } from "../staleness.js";
 import { plainDirection } from "./helpers/direction.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const simpleComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "w.json",
   description: "test adapter",
   inputs: {},

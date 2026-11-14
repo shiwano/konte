@@ -14,8 +14,10 @@ import {
 } from "../dsl/index.js";
 import { moves, shot, animaticTimeline, videoTimeline } from "./helpers/shot.js";
 import { testDirection } from "./helpers/direction.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: {
@@ -225,6 +227,7 @@ describe("type inference", () => {
 
   it("leaves out, and finds, a soundtrack anchored to an unknown shot at runtime", () => {
     const audioComfy = defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "tts.json",
       description: "test adapter",
       inputs: { text: { nodeId: "3", field: "text", type: "string" } },

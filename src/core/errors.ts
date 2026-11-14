@@ -82,8 +82,7 @@ export type KonteErrorCode =
   // only the model knows, checked by the adapter's own `validators`. MISSING_REQUIRED_INPUT's
   // counterpart for what konte's schema cannot express.
   | "INVALID_ADAPTER_INPUT"
-  // An adapter that names the sites it may be declared in (`allowedIn`) was called from another
-  // one — an edit model in a shot, which has no take for it to work on.
+  // An adapter was declared outside the sites its `allowedIn` names — an inpaint in a shot.
   | "ADAPTER_OUT_OF_SCOPE"
   | "DELIVERY_NOT_REROLLABLE"
   // A reroll was pointed at a deterministic asset: the same inputs give the same output, so there

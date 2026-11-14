@@ -16,8 +16,10 @@ import {
 } from "../dsl/direction.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { directionDefaults } from "./helpers/direction.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const videoComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "video.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },

@@ -20,12 +20,14 @@ import { JobIndex } from "../job-index.js";
 import { describePendingJob } from "../pending-jobs.js";
 import type { GenerationJob } from "../types/index.js";
 import type { KonteState } from "../types/index.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 function el(): React.ReactElement {
   return { type: Composition, props: { children: [] } } as unknown as React.ReactElement;
 }
 
 const imageGen = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -33,6 +35,7 @@ const imageGen = defineComfyAsset({
 });
 
 const compose = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "compose.json",
   description: "test adapter",
   inputs: {
@@ -43,6 +46,7 @@ const compose = defineComfyAsset({
 });
 
 const animate = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: {
@@ -339,6 +343,7 @@ describe("describePendingJob (reference dependency)", () => {
 // base, so its long edge is 1024.
 describe("reference canvas", () => {
   const sized = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "sized.json",
     description: "test adapter",
     inputs: {

@@ -18,8 +18,10 @@ import { HARVEST_TYPOGRAPHY, renderToHtml } from "../jsx-html.js";
 import { harvestAudioStructure } from "../composition-builder.js";
 import type { ScriptLine } from "../dsl/direction.js";
 import { directionDefaults } from "./helpers/direction.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const image = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test image adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "prompt" } },
@@ -27,6 +29,7 @@ const image = defineComfyAsset({
 });
 
 const tts = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "tts.json",
   description: "test speech adapter",
   inputs: { script: { nodeId: "1", field: "text", type: "spokenText" } },
@@ -34,6 +37,7 @@ const tts = defineComfyAsset({
 });
 
 const motion = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "motion.json",
   description: "test motion adapter",
   inputs: { prompt: { nodeId: "1", field: "text", type: "prompt" } },
@@ -42,6 +46,7 @@ const motion = defineComfyAsset({
 
 // No words anywhere in its inputs: a door slam, a whoosh.
 const sfx = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "sfx.json",
   description: "test sound-effect adapter",
   inputs: { prompt: { nodeId: "1", field: "text", type: "prompt" } },

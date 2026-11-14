@@ -75,6 +75,7 @@ import direction from "./direction";
 import animatic from "./animatic";
 
 const animateComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "animate.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -123,6 +124,7 @@ import direction from "./direction";
 import animatic from "./animatic";
 
 const animateComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "animate.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -145,6 +147,7 @@ import direction from "./direction";
 import animatic from "./animatic";
 
 const animateComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "animate.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -152,6 +155,7 @@ const animateComfy = defineComfyAsset({
 });
 
 const upscaleComfy = defineComfyAsset({
+  allowedIn: ["upscale"],
   workflow: "upscale.json",
   description: "test upscaler",
   inputs: {
@@ -191,6 +195,7 @@ const ANIMATIC_TS = `import { defineAnimatic, defineComfyAsset, asset, Compositi
 import direction from "./direction";
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -215,6 +220,7 @@ import direction from "./direction";
 import animatic from "./animatic";
 
 const animateComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "animate.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },

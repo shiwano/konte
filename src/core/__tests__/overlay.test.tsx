@@ -29,6 +29,7 @@ import { renderToHtml } from "../jsx-html.js";
 import { StateManager } from "../state/index.js";
 import { checkTailwindClasses } from "../tailwind-classes.js";
 import { directionDefaults } from "./helpers/direction.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const NO_LINES: LineTimer = async () => undefined;
 
@@ -132,6 +133,7 @@ describe("overlay", () => {
 
   it("refuses an asset declared inside it", () => {
     const still = defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "image.json",
       description: "test adapter",
       inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -175,12 +177,14 @@ describe("a shot's lines", () => {
 
 describe("an overlay's picture", () => {
   const sound = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "audio.json",
     description: "test adapter",
     inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
     outputs: { result: { nodeId: "9", type: "audio" } },
   });
   const moving = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "video.json",
     description: "test adapter",
     inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -323,6 +327,7 @@ describe("the overlay as a leaf", () => {
   });
 
   const still = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "image.json",
     description: "test adapter",
     inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },

@@ -5,8 +5,10 @@ import { asset, defineDirection, defineVideo } from "../dsl/index.js";
 import { computeExportPlanDigest, computeExportSignature } from "../export-signature.js";
 import type { VideoDefinition } from "../types/index.js";
 import { directionDefaults } from "./helpers/direction.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const voice = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "voice.json",
   description: "test adapter",
   inputs: { text: { nodeId: "3", field: "text", type: "string" } },

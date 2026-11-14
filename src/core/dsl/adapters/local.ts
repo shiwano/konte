@@ -4,7 +4,7 @@ import type { LocalAssetDefinition } from "../../types/index.js";
 import { KonteError } from "../../errors.js";
 import type { MediaAsset } from "../builders.js";
 import { getActiveFormat } from "../shot-context.js";
-import type { AssetAdapter } from "../adapter.js";
+import { ASSET_SITES, type AssetAdapter } from "../adapter.js";
 
 export type ColorString = `#${string}`;
 
@@ -40,6 +40,7 @@ export const imageResize: AssetAdapter<ImageResizeInputs, "image"> = {
   type: "image",
   meta: {
     backend: "local",
+    allowedIn: ASSET_SITES,
     mediaType: "image",
     description:
       "ffmpeg resize of an existing image to an exact size — pins a ComfyUI workflow's output size by sizing its input.",
@@ -88,6 +89,7 @@ export const imageCrop: AssetAdapter<ImageCropInputs, "image"> = {
   type: "image",
   meta: {
     backend: "local",
+    allowedIn: ASSET_SITES,
     mediaType: "image",
     description:
       "ffmpeg crop of a window out of an existing image, scaled to the working canvas — the setups " +
@@ -156,6 +158,7 @@ function createTrimAdapter<T extends "video" | "audio">(
     type: mediaType,
     meta: {
       backend: "local",
+      allowedIn: ASSET_SITES,
       mediaType,
       description: `ffmpeg trim of an existing ${mediaType} to a start/duration window.`,
       ref: "trim",
@@ -197,6 +200,7 @@ export const audioRetime: AssetAdapter<AudioRetimeInputs, "audio"> = {
   type: "audio",
   meta: {
     backend: "local",
+    allowedIn: ASSET_SITES,
     mediaType: "audio",
     description:
       "ffmpeg tempo change of an existing audio take to an exact duration, pitch left alone — " +
@@ -248,6 +252,7 @@ export const audioConcat: AssetAdapter<AudioConcatInputs, "audio"> = {
   type: "audio",
   meta: {
     backend: "local",
+    allowedIn: ASSET_SITES,
     mediaType: "audio",
     description:
       "ffmpeg concatenation of existing audio takes, in order, into one — a song made in parts " +
@@ -301,6 +306,7 @@ export const videoFrame: AssetAdapter<VideoFrameInputs, "image"> = {
   type: "image",
   meta: {
     backend: "local",
+    allowedIn: ASSET_SITES,
     mediaType: "image",
     description:
       "ffmpeg extraction of one frame from a video — the seam image a next motion segment is conditioned on, to run a take past a model's maximum duration.",

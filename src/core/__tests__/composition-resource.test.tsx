@@ -22,8 +22,10 @@ import { testDirection } from "./helpers/direction.js";
 import { isAcceptedStale } from "../staleness.js";
 import { StateManager } from "../state/index.js";
 import type { ShotDefinition, VideoDefinition } from "../types/index.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const animateComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -31,6 +33,7 @@ const animateComfy = defineComfyAsset({
 });
 
 const audioComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "audio.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },

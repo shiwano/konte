@@ -4,8 +4,10 @@ import { Composition, Panel, asset, defineAnimatic, defineDirection } from "../d
 import { directionPartHashes } from "../direction-hash.js";
 import type { Direction } from "../dsl/direction.js";
 import { directionDefaults } from "./helpers/direction.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test image adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "prompt" } },

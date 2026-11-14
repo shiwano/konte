@@ -202,6 +202,7 @@ export default defineAnimatic(direction, {
       source.replace(`Panel } from "konte";`, `Panel, defineComfyAsset } from "konte";`).replace(
         "export default",
         `const promptedImage = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "image.json",
   description: "test adapter",
   inputs: {

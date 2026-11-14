@@ -1,6 +1,6 @@
 import type { LocalAssetDefinition } from "../../types/index.js";
 import type { MediaAsset } from "../builders.js";
-import type { AssetAdapter } from "../adapter.js";
+import { ASSET_SITES, type AssetAdapter } from "../adapter.js";
 import { parseColorString } from "./local.js";
 
 // konte's own fixture adapters, for the tests that have to drive an asset offline without a vendor.
@@ -25,6 +25,7 @@ export const internalTestImage: AssetAdapter<InternalTestImageInputs, "image"> =
   type: "image",
   meta: {
     backend: "local",
+    allowedIn: ASSET_SITES,
     mediaType: "image",
     description: "konte's own test fixture: a sized image, resized from `image` when one is given.",
     ref: "internal-test",
@@ -67,6 +68,7 @@ export const internalTestPlate: AssetAdapter<InternalTestPlateInputs, "image"> =
   type: "image",
   meta: {
     backend: "local",
+    allowedIn: ASSET_SITES,
     mediaType: "image",
     description: "konte's own test fixture: a solid canvas konte accepts itself.",
     ref: "internal-test-plate",

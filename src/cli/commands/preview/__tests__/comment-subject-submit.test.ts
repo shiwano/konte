@@ -43,6 +43,7 @@ const ANIMATIC_TS = `import { defineAnimatic, defineComfyAsset, asset, Compositi
 import direction from "./direction";
 
 const frame = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -64,6 +65,7 @@ import direction from "./direction";
 import animatic from "./animatic";
 
 const animate = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "animate.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "1", field: "text", type: "string" } },
@@ -71,6 +73,7 @@ const animate = defineComfyAsset({
 });
 
 const tts = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "tts.json",
   description: "test adapter",
   inputs: { text: { nodeId: "1", field: "text", type: "string" } },

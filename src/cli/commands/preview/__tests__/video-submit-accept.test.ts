@@ -36,6 +36,7 @@ const ANIMATIC_TS = `import { defineAnimatic, defineComfyAsset, asset, Compositi
 import direction from "./direction";
 
 const frameComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -59,6 +60,7 @@ const VIDEO_TSX = `import { Composition, Video, defineVideo, defineComfyAsset, a
 import direction from "./direction";
 
 const animate = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "animate.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "1", field: "text", type: "string" } },
@@ -85,6 +87,7 @@ const VIDEO_WITH_UNREADY_AUDIO_TSX = `import { Audio, Composition, Video, define
 import direction from "./direction";
 
 const animate = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "animate.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "1", field: "text", type: "string" } },
@@ -92,6 +95,7 @@ const animate = defineComfyAsset({
 });
 
 const tts = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "tts.json",
   description: "test adapter",
   inputs: { text: { nodeId: "1", field: "text", type: "string" } },
@@ -118,6 +122,7 @@ const VIDEO_PENDING_02_TSX = `import { Composition, Video, defineVideo, defineCo
 import direction from "./direction";
 
 const animate = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "animate.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "1", field: "text", type: "string" } },
@@ -139,6 +144,7 @@ const VIDEO_WITH_STILL_TSX = `import { Composition, Video, defineVideo, defineCo
 import direction from "./direction";
 
 const still = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "still.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "1", field: "text", type: "string" } },
@@ -146,6 +152,7 @@ const still = defineComfyAsset({
 });
 
 const animate = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "animate.json",
   description: "test adapter",
   inputs: {
@@ -595,6 +602,7 @@ const VIDEO_OVERLAY_TSX = `import { Composition, Image, Video, defineVideo, defi
 import direction from "./direction";
 
 const animate = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "animate.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "1", field: "text", type: "string" } },
@@ -602,6 +610,7 @@ const animate = defineComfyAsset({
 });
 
 const still = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "1", field: "text", type: "string" } },
@@ -664,6 +673,7 @@ const REFERENCE_LOGO_TS = `import { defineReference, defineComfyAsset, asset } f
 import direction from "./direction";
 
 const still = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "1", field: "text", type: "string" } },

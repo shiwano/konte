@@ -6,6 +6,7 @@ export const audioStableAudio3Medium = defineComfyAsset({
   workflow: "audio_stable_audio_3_medium.json",
   description:
     "Stable Audio 3 Medium — SFX, a one-shot or an instrumental bed from a prompt, cut to the shot it plays over; never vocals.",
+  allowedIn: ["reference", "timeline", "shot"],
   guide: "konte/guides/stable-audio-3.md",
   models: [
     {

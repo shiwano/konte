@@ -34,6 +34,7 @@ const REFERENCE_TS = `import { defineReference, defineComfyAsset, asset } from "
 import direction from "./direction";
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -64,6 +65,7 @@ const VIDEO_TSX = `import { Composition, Video, defineVideo, defineComfyAsset, a
 import direction from "./direction";
 
 const animate = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "animate.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "1", field: "text", type: "string" } },

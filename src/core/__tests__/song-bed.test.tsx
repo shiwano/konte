@@ -16,8 +16,10 @@ import { SONG_BED_ID, mixedSoundtracks } from "../song-bed.js";
 import type { AnimaticDefinition, VideoDefinition } from "../types/index.js";
 import { directionDefaults } from "./helpers/direction.js";
 import { moves } from "./helpers/shot.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const stillComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "still.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -25,6 +27,7 @@ const stillComfy = defineComfyAsset({
 });
 
 const ttsComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "tts.json",
   description: "test adapter",
   inputs: { text: { nodeId: "3", field: "text", type: "string" } },
@@ -32,6 +35,7 @@ const ttsComfy = defineComfyAsset({
 });
 
 const ia2vComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "ia2v.json",
   description: "test adapter",
   inputs: {
@@ -43,6 +47,7 @@ const ia2vComfy = defineComfyAsset({
 
 // A model timing its picture to its `stem` input, which konte fills on a song.
 const stemComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "stem.json",
   description: "test adapter",
   inputs: {
@@ -371,6 +376,7 @@ describe("an adapter's stem input on a piece cut to its song", () => {
   it("is one audio per adapter", () => {
     const declare = (inputs: Parameters<typeof defineComfyAsset>[0]["inputs"]) => () =>
       defineComfyAsset({
+        allowedIn: ASSET_SITES,
         workflow: "x.json",
         description: "test adapter",
         inputs,

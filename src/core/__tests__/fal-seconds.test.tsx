@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { defineFalAsset } from "../dsl/fal-asset.js";
-import { asset } from "../dsl/adapter.js";
+import { ASSET_SITES, asset } from "../dsl/adapter.js";
 import { Composition } from "../dsl/composition/composition.js";
 import { runInDiscoveryMode } from "../dsl/shot-context.js";
 import type { FalAssetDefinition } from "../types/index.js";
 
 const candidates = defineFalAsset({
+  allowedIn: ASSET_SITES,
   endpointId: "fal-ai/candidates",
   description: "test adapter",
   mediaType: "video",
@@ -21,6 +22,7 @@ const candidates = defineFalAsset({
 });
 
 const whole = defineFalAsset({
+  allowedIn: ASSET_SITES,
   endpointId: "fal-ai/whole",
   description: "test adapter",
   mediaType: "video",

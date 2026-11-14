@@ -6,6 +6,7 @@ export const imageKrea2TurboT2i = defineComfyAsset({
   workflow: "image_krea2_turbo_t2i.json",
   description:
     "Krea 2 Turbo — generate a still from text in eight steps. Choose it for illustrated or stylized references whose line, palette and shading establish the piece's finished look. Describe the subject and target style in words.",
+  allowedIn: ["reference", "plate", "timeline", "thumbnail", "shot"],
   guide: "konte/guides/krea2-turbo.md",
   models: [
     {

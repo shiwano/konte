@@ -19,11 +19,13 @@ import {
 } from "../board-analysis.js";
 import { plainDirection, testDirection } from "./helpers/direction.js";
 import { animaticTimeline, moves, shot } from "./helpers/shot.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 // The stage-side half of the staging class — what `stagingStageState` hands `checkDirection`.
 // Built through the real DSL rather than by hand, since the order a panel's inputs arrive in is
 // exactly what `slot-order-mismatch` reads.
 const keyframe = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "keyframe.json",
   description: "test keyframe adapter",
   inputs: {
@@ -235,6 +237,7 @@ describe("listPanelReferenceReach", () => {
 // `promptDepiction`.
 describe("listPlateRecrops", () => {
   const plated = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "plated.json",
     description: "test keyframe adapter taking its pictures in numbered slots",
     inputs: {

@@ -16,6 +16,7 @@ export const falMinimaxH3MaxT2v = defineFalAsset({
   endpointId: "minimax/h3-max/text-to-video",
   description:
     "MiniMax H3 Max T2V — keyframeless 5-15s shot from a prompt with synchronized audio (dialogue lip-sync, foley, ambience, music); strong prompt adherence, holds one look across cuts.",
+  allowedIn: ["reference", "timeline", "shot"],
   mediaType: "video",
   guide: "konte/guides/minimax-h3-max.md",
   spokenTextPattern: SPOKEN_LINE,
@@ -45,6 +46,7 @@ export const falMinimaxH3MaxI2v = defineFalAsset({
   endpointId: "minimax/h3-max/image-to-video",
   description:
     "MiniMax H3 Max I2V — 5-15s shot from a first and/or last frame with synchronized audio; the output ratio follows the frame passed.",
+  allowedIn: ["reference", "timeline", "shot"],
   mediaType: "video",
   guide: "konte/guides/minimax-h3-max.md",
   spokenTextPattern: SPOKEN_LINE,
@@ -89,6 +91,7 @@ export const falMinimaxH3MaxR2v = defineFalAsset({
   endpointId: "minimax/h3-max/reference-to-video",
   description:
     "MiniMax H3 Max R2V — 5-15s shot built from up to 9 reference images, 3 clips and 3 audios with synchronized audio; pick it when identity, a move or a voice has to come through as supplied.",
+  allowedIn: ["reference", "timeline", "shot"],
   mediaType: "video",
   guide: "konte/guides/minimax-h3-max.md",
   spokenTextPattern: SPOKEN_LINE,

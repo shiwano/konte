@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { asset } from "../dsl/adapter.js";
+import { ASSET_SITES, asset } from "../dsl/adapter.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { upscale } from "../dsl/delivery-upscale.js";
 import { defineFalAsset } from "../dsl/fal-asset.js";
@@ -10,6 +10,7 @@ import type { ComfyAssetDefinition, FalAssetDefinition } from "../types/index.js
 import { plainDirection } from "./helpers/direction.js";
 
 const structured = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "structured.json",
   description: "a model that reads named sections",
   inputs: {
@@ -124,6 +125,7 @@ describe("a structured prompt", () => {
 
   it("is assembled for a delivery upscale too", () => {
     const upscaler = defineFalAsset({
+      allowedIn: ["upscale"],
       endpointId: "fal-ai/structured-upscale",
       description: "an upscaler with a structured prompt",
       mediaType: "video",
@@ -169,6 +171,7 @@ describe("a structured prompt", () => {
   it("is refused on an input that is not a prompt", () => {
     expect(() =>
       defineComfyAsset({
+        allowedIn: ASSET_SITES,
         workflow: "bad.json",
         description: "a structure on a plain string",
         inputs: {

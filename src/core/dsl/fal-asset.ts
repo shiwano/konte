@@ -4,12 +4,13 @@ import type { MediaKind, MediaAsset } from "./builders.js";
 import { getActiveFormat, seed } from "./shot-context.js";
 import { setFieldPath } from "./set-field-path.js";
 import {
+  assertAllowedIn,
   assertFixedInputs,
   assertPinInputs,
   assertStemInputs,
   buildMetaInputs,
   type AssetAdapter,
-  type AssetDeclarationSite,
+  type AllowedSites,
 } from "./adapter.js";
 import {
   assertValidatorInputs,
@@ -79,8 +80,7 @@ export interface FalAssetConfig<
   validators?: AdapterValidator | readonly AdapterValidator[];
   promptExemptions?: readonly RegExp[];
   spokenTextPattern?: RegExp;
-  // Where `asset()` may declare this adapter, when it is not every site (see AdapterMeta).
-  allowedIn?: readonly AssetDeclarationSite[];
+  allowedIn: AllowedSites;
 }
 
 type FalInputTSType<T extends FalInputDef> = T extends {
@@ -183,6 +183,7 @@ export function defineFalAsset<
   const TInputs extends Record<string, FalInputDef>,
   const TMedia extends MediaKind,
 >(config: FalAssetConfig<TInputs, TMedia>): AssetAdapter<FalCallOptions<TInputs>, TMedia> {
+  assertAllowedIn(config.allowedIn);
   assertFixedInputs(config.inputs);
   assertPinInputs(config.inputs);
   assertStemInputs(config.inputs);
@@ -200,7 +201,7 @@ export function defineFalAsset<
       ...(config.guide ? { guide: config.guide } : {}),
       ...(config.promptExemptions ? { promptExemptions: config.promptExemptions } : {}),
       ...(config.spokenTextPattern ? { spokenTextPattern: config.spokenTextPattern } : {}),
-      ...(config.allowedIn ? { allowedIn: config.allowedIn } : {}),
+      allowedIn: config.allowedIn,
     },
     createDefinition(userInputs: FalCallOptions<TInputs>): FalAssetDefinition {
       const inputs: Record<string, unknown> = {};

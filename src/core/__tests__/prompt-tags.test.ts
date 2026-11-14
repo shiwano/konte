@@ -4,6 +4,7 @@ import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { makeMediaAsset } from "../dsl/builders.js";
 import { KonteError } from "../errors.js";
 import type { ComfyAssetDefinition } from "../types/index.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const validator = promptReferenceTags({
   prompt: "prompt",
@@ -229,6 +230,7 @@ describe("promptReferenceTags with the bare form", () => {
 
 describe("adapter validators hook", () => {
   const adapter = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "test.json",
     description: "test adapter",
     inputs: {
@@ -251,6 +253,7 @@ describe("adapter validators hook", () => {
 
   it("raises a returned rejection as the typed error", () => {
     const rejecting = defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "test.json",
       description: "test adapter",
       inputs: { prompt: { nodeId: "3", field: "prompt", type: "string", default: "" } },
@@ -281,6 +284,7 @@ describe("adapter validators hook", () => {
     // it would let one reject on a value the definition does not carry.
     const seen: Record<string, unknown>[] = [];
     const branching = defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "test.json",
       description: "test adapter",
       inputs: {

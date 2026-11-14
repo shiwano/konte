@@ -12,8 +12,10 @@ import {
 import { directionDefaults, testDirection } from "./helpers/direction.js";
 import { moves } from "./helpers/shot.js";
 import { buildDependencyGraph } from "../graph.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: {

@@ -12,6 +12,7 @@ export const falVideoUpscale = defineFalAsset({
   endpointId: "fal-ai/video-upscaler",
   description:
     "RealESRGAN video upscaler by a scale factor — for export.delivery.upscale.video, not for authoring a shot.",
+  allowedIn: ["upscale"],
   mediaType: "video",
   inputs: {
     video: { field: "video_url", type: "video", required: true },

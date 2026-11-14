@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import { asset, defineDirection, defineReference, respell } from "../dsl/index.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { directionDefaults } from "./helpers/direction.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const music = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "music.json",
   description: "test adapter",
   inputs: {

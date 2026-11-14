@@ -6,12 +6,14 @@ import { Composition } from "../dsl/composition/composition.js";
 import { shot, videoTimeline } from "./helpers/shot.js";
 import { testDirection, plainDirection } from "./helpers/direction.js";
 import { buildDependencyGraph } from "../graph.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 function el(): React.ReactElement {
   return { type: Composition, props: { children: [] } } as unknown as React.ReactElement;
 }
 
 const simpleComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: {},
@@ -19,6 +21,7 @@ const simpleComfy = defineComfyAsset({
 });
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: {
@@ -28,6 +31,7 @@ const imageComfy = defineComfyAsset({
 });
 
 const animateWithImageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: {
@@ -37,6 +41,7 @@ const animateWithImageComfy = defineComfyAsset({
 });
 
 const animateWithBg = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: {
@@ -46,6 +51,7 @@ const animateWithBg = defineComfyAsset({
 });
 
 const mergeComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "merge.json",
   description: "test adapter",
   inputs: {

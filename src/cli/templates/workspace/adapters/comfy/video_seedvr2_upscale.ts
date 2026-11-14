@@ -6,6 +6,7 @@ export const videoSeedvr2Upscale = defineComfyAsset({
   workflow: "video_seedvr2_upscale.json",
   description:
     "SeedVR2 — restores and enlarges a finished clip, no prompt. For export.delivery.upscale.video only.",
+  allowedIn: ["upscale"],
   guide: "konte/guides/seedvr2.md",
   nodes: [{ id: "seedvr2_videoupscaler" }],
   models: [

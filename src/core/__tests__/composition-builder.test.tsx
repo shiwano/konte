@@ -29,10 +29,12 @@ import { applyResolutionDefinitions } from "../definition-hashes.js";
 import { writeDefinitionSnapshot } from "../definition-snapshot.js";
 import { StateManager } from "../state/index.js";
 import type { AssetDefinition, VariantMedia } from "../types/index.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const NO_LINES: LineTimer = async () => undefined;
 
 const animateComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: {
@@ -42,6 +44,7 @@ const animateComfy = defineComfyAsset({
 });
 
 const audioComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "audio.json",
   description: "test adapter",
   inputs: {
@@ -643,6 +646,7 @@ describe("buildFullCompositionHtml", () => {
 
   it("injects timeline soundtracks as a full-span audio group", async () => {
     const audioComfy = defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "tts.json",
       description: "test adapter",
       inputs: { text: { nodeId: "3", field: "text", type: "string" } },
@@ -711,6 +715,7 @@ describe("buildFullCompositionHtml", () => {
     "lays a $sourceSec s bed over a 4 s span lap by lap when loop is $loop",
     async ({ sourceSec, loop, passes }) => {
       const audioComfy = defineComfyAsset({
+        allowedIn: ASSET_SITES,
         workflow: "tts.json",
         description: "test adapter",
         inputs: { text: { nodeId: "3", field: "text", type: "string" } },
@@ -772,6 +777,7 @@ describe("buildFullCompositionHtml", () => {
 
   it("honors a variant override for a timeline soundtrack", async () => {
     const audioComfyLocal = defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "tts.json",
       description: "test adapter",
       inputs: { text: { nodeId: "3", field: "text", type: "string" } },
@@ -822,6 +828,7 @@ describe("buildFullCompositionHtml", () => {
 
   it("ignores a timeline override whose variant belongs to a different asset", async () => {
     const audioComfyLocal = defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "tts.json",
       description: "test adapter",
       inputs: { text: { nodeId: "3", field: "text", type: "string" } },
@@ -1634,6 +1641,7 @@ describe("Video/Audio data attributes", () => {
 // gate gates on the same ref and reports healthy.
 describe("out-of-shot refs in a composition", () => {
   const imageComfy = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "image.json",
     description: "test adapter",
     inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -1929,6 +1937,7 @@ describe("ref partition (pictureRefs / stemRefs)", () => {
   // has to be consulted too, or the ref is invisible to every one of them.
   it("captures a ref a function component pulls in from a closure", () => {
     const imageComfy = defineComfyAsset({
+      allowedIn: ASSET_SITES,
       workflow: "image.json",
       description: "test adapter",
       inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -2021,6 +2030,7 @@ describe("ref partition (pictureRefs / stemRefs)", () => {
 // from while the reel lock holds its motion.
 describe("the board frame stand-in", () => {
   const boardComfy = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "still.json",
     description: "test adapter",
     inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
@@ -2028,6 +2038,7 @@ describe("the board frame stand-in", () => {
   });
 
   const animateFromImageComfy = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "i2v.json",
     description: "test adapter",
     inputs: { image: { nodeId: "1", field: "image", type: "image" } },

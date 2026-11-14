@@ -41,8 +41,9 @@ import { shiftSongSpan, songSpanOfInputs, withSongSpan } from "./song-window.js"
 export type AdapterBackendKind = "comfy" | "fal" | "local" | "file";
 
 /**
- * The six places `asset()` can be called from. A stage build reaches exactly one — a shot build
- * clears the timeline context. `view` is `defineReference`'s `views`.
+ * Where an adapter can be declared: the places `asset()` can be called from, and `upscale`, a
+ * delivery's `upscale()`. A stage build reaches exactly one — a shot build clears the timeline
+ * context. `view` is `defineReference`'s `views`.
  */
 export type AssetDeclarationSite =
   | "patch"
@@ -51,7 +52,21 @@ export type AssetDeclarationSite =
   | "view"
   | "timeline"
   | "thumbnail"
-  | "shot";
+  | "shot"
+  | "upscale";
+
+export type AllowedSites = readonly [AssetDeclarationSite, ...AssetDeclarationSite[]];
+
+// Every `asset()` site, for konte's built-in adapters.
+export const ASSET_SITES = [
+  "patch",
+  "plate",
+  "reference",
+  "view",
+  "timeline",
+  "thumbnail",
+  "shot",
+] as const satisfies AllowedSites;
 
 export interface AdapterMetaInput {
   type: string;
@@ -106,9 +121,8 @@ export interface AdapterMeta {
   // file. A list is read in order: the grammar a model's decodes share first, this decode's own
   // last. `adapter show` resolves each to an absolute path and prints that, never the body.
   guide?: string | readonly string[];
-  // Where `asset()` may declare this adapter, when it is not every site. An edit model works on a
-  // take that has to exist first, so it names `patch` and `reference`. Enforced in `registerAsset`.
-  allowedIn?: readonly AssetDeclarationSite[];
+  // Where this adapter may be declared. Enforced in `registerAsset` and `upscale()`.
+  allowedIn: AllowedSites;
   // The negations this model reads as an instruction rather than as an exclusion. A span one of
   // these matches is cut out of a `prompt` or `negativePrompt` value before the prompt check reads
   // it.
@@ -350,6 +364,7 @@ const SITE_REACH: Record<AssetDeclarationSite, string> = {
   plate: "in defineAnimatic's plates callback, one setup's frame",
   view: "in reference.tsx's views, one location's view",
   patch: "a correction of one take, in patches/<variantId>.ts",
+  upscale: "in defineVideo's export.delivery.upscale, a delivery's upscale()",
 };
 
 function declarationSite(): AssetDeclarationSite | undefined {
@@ -361,6 +376,22 @@ function declarationSite(): AssetDeclarationSite | undefined {
   if (getThumbnailContext()) return "thumbnail";
   if (getShotContext()) return "shot";
   return undefined;
+}
+
+export function assertAllowedIn(allowedIn: readonly AssetDeclarationSite[] | undefined): void {
+  if (!allowedIn || allowedIn.length === 0) {
+    throw new Error(
+      `allowedIn needs at least one of ${(Object.keys(SITE_REACH) as AssetDeclarationSite[]).join(", ")}`,
+    );
+  }
+}
+
+export function outOfScope(meta: AdapterMeta, subject: string): KonteError {
+  return new KonteError(
+    "ADAPTER_OUT_OF_SCOPE",
+    `${subject}: ${meta.ref} may only be declared in ${meta.allowedIn.join(" or ")}`,
+    meta.allowedIn.map((allowed) => `${allowed} — ${SITE_REACH[allowed]}`),
+  );
 }
 
 // Where the active declaration is, for an error the adapter raises about the inputs — sibling shots
@@ -398,17 +429,9 @@ function registerAsset<TName extends string, TAdapter extends AssetAdapter<any, 
   given: AdapterInputs<TAdapter>,
 ): BrandedMediaAsset<TName, TAdapter> {
   validateAssetName(name);
-  const allowedIn = adapter.meta.allowedIn;
-  if (allowedIn) {
-    const site = declarationSite();
-    if (!site || !allowedIn.includes(site)) {
-      throw new KonteError(
-        "ADAPTER_OUT_OF_SCOPE",
-        `Asset "${name}" in ${assetLocation()}: ${adapter.meta.ref} may only be declared in ` +
-          allowedIn.join(" or "),
-        allowedIn.map((allowed) => `${allowed} — ${SITE_REACH[allowed]}`),
-      );
-    }
+  const site = declarationSite();
+  if (site && !adapter.meta.allowedIn.includes(site)) {
+    throw outOfScope(adapter.meta, `Asset "${name}" in ${assetLocation()}`);
   }
   const rendered = renderedAsset(name, adapter);
   if (rendered) return rendered as BrandedMediaAsset<TName, TAdapter>;
@@ -439,7 +462,6 @@ function registerAsset<TName extends string, TAdapter extends AssetAdapter<any, 
   // adapter builds, under the same site precedence the branches below register by. Restored rather
   // than cleared: an adapter may declare assets of its own while building — a `jsxImage` whose
   // `build` calls `asset()` — and the outer name has to survive that.
-  const site = declarationSite();
   const referenceCtx = site === "reference" || site === "view" ? getReferenceContext() : null;
   const outerAssetName = referenceCtx?.activeAssetName;
   if (referenceCtx) referenceCtx.activeAssetName = name;

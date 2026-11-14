@@ -21,7 +21,7 @@ A patch's callback declares steps with the same `asset()` a stage file uses and 
 - Keyed by the source variant — two variants at one address can each carry a patch, both naming a step `patched`.
 - The stage is the corrected take's — a step is cleaned, pruned and grouped alongside it.
 - `patch` is a reserved asset name — a reference asset's suffix is a bare name, so `reference:patch` would otherwise name both an asset and the axis.
-- An edit model reaches a stage only through a patch — `allowedIn` names the `asset()` sites an adapter takes, and one that omits `shot`/`timeline` is refused in a stage file (`ADAPTER_OUT_OF_SCOPE`).
+- An edit model reaches a stage only through a patch — `allowedIn` names the sites an adapter takes, and one that omits `shot`/`timeline` is refused in a stage file (`ADAPTER_OUT_OF_SCOPE`).
 - Declaration order is dependency order — a step can only reference a handle that already exists.
 - A current step is reused — `currentPoolVariant` matches the step's definition hash, so editing one step re-runs only it and what follows.
 - The source's address is judged against the pinned take's own content, not what it resolves to — else every step would go input-stale once the patched take was accepted.

@@ -7,11 +7,13 @@ import { defineFalAsset } from "../dsl/fal-asset.js";
 import { StateManager } from "../state/manager.js";
 import type { AssetDefinition, ReferenceDefinition } from "../types/index.js";
 import { makeWorkspace, type Workspace } from "./helpers/workspace.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const ADDRESS = "reference:test";
 
 const adapter = (steps: number | undefined) =>
   defineFalAsset({
+    allowedIn: ASSET_SITES,
     endpointId: "fal-ai/test",
     description: "test adapter",
     mediaType: "image",
@@ -95,6 +97,7 @@ describe("adapter drift", () => {
   it("reads a nested default the adapter added or removed as the adapter's change", async () => {
     const nested = (format: string | undefined) =>
       defineFalAsset({
+        allowedIn: ASSET_SITES,
         endpointId: "fal-ai/test",
         description: "test adapter",
         mediaType: "audio",
@@ -112,6 +115,7 @@ describe("adapter drift", () => {
   it("reads an input re-pointed at another node as the adapter's change", async () => {
     const pointedAt = (nodeId: string) =>
       defineComfyAsset({
+        allowedIn: ASSET_SITES,
         workflow: "w.json",
         description: "test adapter",
         inputs: { prompt: { nodeId, field: "text", type: "prompt", required: true } },

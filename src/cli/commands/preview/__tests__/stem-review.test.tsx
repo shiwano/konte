@@ -33,6 +33,7 @@ import {
   videoTimeline,
 } from "../../../../core/__tests__/helpers/shot.js";
 import { directionDefaults, testDirection } from "../../../../core/__tests__/helpers/direction.js";
+import { ASSET_SITES } from "../../../../core/dsl/adapter.js";
 
 let dir: string;
 let manager: StateManager;
@@ -313,12 +314,14 @@ describe("buildAudioAssets shotId tagging", () => {
 // refs do not resolve is refused, and nothing it would have signed off may be left accepted behind it.
 describe("unlandedShotLeaves", () => {
   const pictureComfy = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "image.json",
     description: "test adapter",
     inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
     outputs: { result: { nodeId: "9", type: "image" } },
   });
   const voiceComfy = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "audio.json",
     description: "test adapter",
     inputs: { text: { nodeId: "3", field: "text", type: "string" } },
@@ -591,12 +594,14 @@ describe("unlandedShotLeaves", () => {
 // accept over the line it signs off, and re-opened with the composition once that line is re-picked.
 describe("unlandedShotLeaves — the board's stem", () => {
   const still = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "still.json",
     description: "test adapter",
     inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
     outputs: { result: { nodeId: "9", type: "image" } },
   });
   const tts = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "tts.json",
     description: "test adapter",
     inputs: { text: { nodeId: "3", field: "text", type: "string" } },
@@ -688,12 +693,14 @@ describe("unlandedShotLeaves — the board's stem", () => {
 // variant is reserved must leave no file-less take behind.
 describe("prepareShotStem / commitShotStem — the board's mix", () => {
   const still = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "still.json",
     description: "test adapter",
     inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
     outputs: { result: { nodeId: "9", type: "image" } },
   });
   const tts = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "tts.json",
     description: "test adapter",
     inputs: { text: { nodeId: "3", field: "text", type: "string" } },
@@ -891,6 +898,7 @@ describe("timelineStemVerdict", () => {
 // which include the shot's own per-asset takes, not just its leaves.
 describe("unreleasedShotLeaves", () => {
   const pictureComfy = defineComfyAsset({
+    allowedIn: ASSET_SITES,
     workflow: "image.json",
     description: "test adapter",
     inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },

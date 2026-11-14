@@ -17,8 +17,10 @@ import type { StageDefinition } from "../../../../core/types/index.js";
 import { directionDefaults } from "../../../../core/__tests__/helpers/direction.js";
 import { buildAssetStatus, needsReviewItems } from "../../../../core/status-report.js";
 import { handleGetReelState } from "../reel-review.js";
+import { ASSET_SITES } from "../../../../core/dsl/adapter.js";
 
 const voice = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "voice.json",
   description: "test adapter",
   inputs: { text: { nodeId: "3", field: "text", type: "string" } },
@@ -26,6 +28,7 @@ const voice = defineComfyAsset({
 });
 
 const still = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },

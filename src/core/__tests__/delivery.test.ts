@@ -21,6 +21,7 @@ import type { DeliveryUpscaleFn, KonteState, VideoDefinition } from "../types/in
 const fakeUpscale: AssetAdapter<Record<string, unknown>, "video"> = {
   type: "video",
   meta: {
+    allowedIn: ["upscale"],
     backend: "fal",
     mediaType: "video",
     description: "test upscaler",

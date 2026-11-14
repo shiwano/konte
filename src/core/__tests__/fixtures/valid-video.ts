@@ -2,12 +2,14 @@ import { defineComfyAsset } from "../../dsl/comfy-asset.js";
 import { defineDirection, defineVideo, asset } from "../../dsl/index.js";
 import { Composition } from "../../dsl/composition/composition.js";
 import { directionDefaults } from "../helpers/direction.js";
+import { ASSET_SITES } from "../../dsl/adapter.js";
 
 function el(): React.ReactElement {
   return { type: Composition, props: { children: [] } } as unknown as React.ReactElement;
 }
 
 const animateComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: {
@@ -18,6 +20,7 @@ const animateComfy = defineComfyAsset({
 });
 
 const ttsComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "tts.json",
   description: "test adapter",
   inputs: {
@@ -28,6 +31,7 @@ const ttsComfy = defineComfyAsset({
 });
 
 const renderComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "render.json",
   description: "test adapter",
   inputs: {

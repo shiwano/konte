@@ -6,6 +6,7 @@ export const audioAceStep15XlTurbo = defineComfyAsset({
   workflow: "audio_ace_step1_5_xl_turbo.json",
   description:
     "ACE-Step 1.5 XL turbo — a sung song, or a bed with lyrics left empty, from tags, cut to the shot it plays over. A fallback for a song whose takes keep missing the declared tempo.",
+  allowedIn: ["reference", "timeline", "shot"],
   guide: "konte/guides/ace-step.md",
   models: [
     {

@@ -138,8 +138,7 @@ function renderEntry(entry: AdapterCatalogEntry, unconfigured: boolean | null): 
     const hint = guide.path ? (index === 0 ? `  ${readHint}` : "") : "  (missing)";
     lines.push(`guide   ${guide.path ?? guide.specifier}${hint}`);
   });
-  if (entry.meta.allowedIn)
-    lines.push(`scope   declared in ${entry.meta.allowedIn.join(", ")} only`);
+  lines.push(`sites   ${entry.meta.allowedIn.join(", ")}`);
   // The specifier, plus how to import it — a named export, so a bare path would misread as a
   // default import (TS2613). A prebuilt adapter comes through the `adapters` namespace.
   lines.push(`import  ${entry.importFrom}`);

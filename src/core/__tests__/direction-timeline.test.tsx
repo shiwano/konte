@@ -14,6 +14,7 @@ import { directionDefaults } from "./helpers/direction.js";
 import { moves } from "./helpers/shot.js";
 import { songVariant, steadySong } from "./helpers/song.js";
 import { withSongVariants } from "../dsl/song-context.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 const secondsDirection = (durations: number[], fps = 24): Direction =>
   ({
@@ -134,6 +135,7 @@ describe("resolveDirectionTimeline", () => {
 });
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },

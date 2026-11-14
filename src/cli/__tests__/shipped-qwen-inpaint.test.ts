@@ -147,7 +147,7 @@ describe("shipped Qwen 2.1 inpaint adapter", () => {
   it("is declared in a patch only", async () => {
     const projectDir = await initPatchProject();
     const { stdout } = await run(["adapter", "show", model.adapter], projectDir);
-    expect(stdout).toContain("declared in patch only");
+    expect(stdout).toContain("sites   patch\n");
   });
 });
 
@@ -195,7 +195,7 @@ export default defineReference(direction, { references: () => {
       0,
     ]);
     const { stdout } = await run(["adapter", "show", "imageQwenImageEdit21"], projectDir);
-    expect(stdout).toContain("declared in reference, timeline, shot only");
+    expect(stdout).toContain("sites   reference, timeline, shot\n");
     expect(stdout).toContain("qwen-image-edit-2-1.md");
   });
 

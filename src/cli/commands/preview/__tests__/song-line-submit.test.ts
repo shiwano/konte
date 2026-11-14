@@ -36,6 +36,7 @@ const REFERENCE_TS = `import { defineReference, defineComfyAsset, asset } from "
 import direction from "./direction";
 
 const music = defineComfyAsset({
+  allowedIn: ["patch", "plate", "reference", "view", "timeline", "thumbnail", "shot"],
   workflow: "music.json",
   description: "test adapter",
   inputs: { lyrics: { nodeId: "1", field: "lyrics", type: "spokenText" } },

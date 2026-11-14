@@ -102,12 +102,10 @@ const DESCRIPTION_PLACEHOLDER = `description: "TODO: what this generates, and wh
 // call — and it decides what the prompt check reads, and on which polarity.
 const PROMPT_TYPE_PLACEHOLDER = `// TODO: type the model's natural-language conditioning inputs — "prompt" and "negativePrompt" (a spoken line stays "string")`;
 
-// An edit model works on a take that has to exist first, and only the author knows whether this
-// workflow is one.
+// Which sites a workflow belongs in is the author's call.
 const ALLOWED_IN_PLACEHOLDER = [
-  `  // Uncomment if this workflow only works on a take that already exists (an edit model). The`,
-  `  // sites are "patch", "plate", "reference", "timeline" and "shot"; omitted means all five:`,
-  `  // allowedIn: ["patch", "reference"],`,
+  `  // TODO: name the sites it may be declared in — "reference", "view", "plate", "timeline", "thumbnail", "shot", "patch", "upscale"`,
+  `  allowedIn: [],`,
 ];
 
 // A guide and a `validators` block are the author's, and a re-emit drops them with every other hand edit.
@@ -162,7 +160,7 @@ export function generateAdapterCode(
   lines.push(`export const ${exportName} = defineComfyAsset({`);
   lines.push(`  workflow: "${workflowFile}",`);
   lines.push(`  ${DESCRIPTION_PLACEHOLDER}`);
-  if (!prompts) lines.push(...ALLOWED_IN_PLACEHOLDER);
+  lines.push(...ALLOWED_IN_PLACEHOLDER);
   if (guideSpecifier) {
     lines.push(`  guide: "${guideSpecifier}",`);
   } else {

@@ -20,6 +20,7 @@ import type {
   PanelDefinition,
   VideoDefinition,
 } from "../types/index.js";
+import { ASSET_SITES } from "../dsl/adapter.js";
 
 function el(): React.ReactElement {
   return { type: Composition, props: { children: [] } } as unknown as React.ReactElement;
@@ -37,6 +38,7 @@ function composed(...srcs: Array<{ src: string }>): React.ReactElement {
 }
 
 const simpleComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: {},
@@ -44,6 +46,7 @@ const simpleComfy = defineComfyAsset({
 });
 
 const comfyA = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "a.json",
   description: "test adapter",
   inputs: {},
@@ -51,6 +54,7 @@ const comfyA = defineComfyAsset({
 });
 
 const comfyB = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "b.json",
   description: "test adapter",
   inputs: {},
@@ -58,6 +62,7 @@ const comfyB = defineComfyAsset({
 });
 
 const ttsComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "tts.json",
   description: "test adapter",
   inputs: {},
@@ -65,6 +70,7 @@ const ttsComfy = defineComfyAsset({
 });
 
 const enhanceComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "enhance.json",
   description: "test adapter",
   inputs: {
@@ -74,6 +80,7 @@ const enhanceComfy = defineComfyAsset({
 });
 
 const mergeComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "merge.json",
   description: "test adapter",
   inputs: {
@@ -84,6 +91,7 @@ const mergeComfy = defineComfyAsset({
 });
 
 const imageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: {
@@ -93,6 +101,7 @@ const imageComfy = defineComfyAsset({
 });
 
 const animateWithImageComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: {
@@ -102,6 +111,7 @@ const animateWithImageComfy = defineComfyAsset({
 });
 
 const animateWithBg = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: {
@@ -111,6 +121,7 @@ const animateWithBg = defineComfyAsset({
 });
 
 const seedComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "animate.json",
   description: "test adapter",
   inputs: {

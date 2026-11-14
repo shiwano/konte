@@ -5,14 +5,17 @@ import { asset, defineDirection, defineVideo, soundtrack } from "../../dsl/index
 import { testDirection } from "../../__tests__/helpers/direction.js";
 import { shot, videoTimeline } from "../../__tests__/helpers/shot.js";
 import { commentSubjectAddresses } from "../subject.js";
+import { ASSET_SITES } from "../../dsl/adapter.js";
 
 const pictureComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "image.json",
   description: "test adapter",
   inputs: { prompt: { nodeId: "3", field: "text", type: "string" } },
   outputs: { result: { nodeId: "9", type: "image" } },
 });
 const voiceComfy = defineComfyAsset({
+  allowedIn: ASSET_SITES,
   workflow: "tts.json",
   description: "test adapter",
   inputs: { text: { nodeId: "3", field: "text", type: "string" } },
