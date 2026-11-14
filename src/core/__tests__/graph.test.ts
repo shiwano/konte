@@ -13,7 +13,7 @@ import {
   videoDependentsHoldVerdicts,
   type DependencyGraph,
 } from "../graph.js";
-import { listSetupAnchorGaps, listViewAnchorGaps, listSetupNestGaps } from "../board-analysis.js";
+import { listSetupAnchorGaps, listSetupNestGaps } from "../board-analysis.js";
 import type {
   AnimaticDefinition,
   AssetDefinition,
@@ -2159,41 +2159,5 @@ describe("videoDependentsHoldVerdicts", () => {
 
   it("does not hold when no video take is reached", () => {
     expect(videoDependentsHoldVerdicts(graph, "video:shot.01.motion", verdicts({}))).toBe(false);
-  });
-});
-
-describe("listViewAnchorGaps", () => {
-  const comfy = (inputs: Record<string, unknown>): AssetDefinition =>
-    ({ kind: "comfy", workflow: "a.json", inputs }) as unknown as AssetDefinition;
-
-  it("names a view image built from no master of its location", () => {
-    expect(
-      listViewAnchorGaps({
-        topLevelAssets: {
-          room: comfy({}),
-          other: comfy({}),
-          "view.room.top": comfy({ image: "__konte:reference:other__" }),
-          "view.room.back": comfy({}),
-        },
-      }),
-    ).toEqual(["room.top", "room.back"]);
-  });
-
-  it("follows the chain to the master and passes a file handed over whole", () => {
-    expect(
-      listViewAnchorGaps({
-        topLevelAssets: {
-          room: comfy({}),
-          step: comfy({ image: "__konte:reference:room__" }),
-          "view.room.top": comfy({ image: "__konte:reference:step__" }),
-          "view.room.back": {
-            kind: "file",
-            path: "assets/files/back.png",
-            type: "image",
-            deterministic: true,
-          } as unknown as AssetDefinition,
-        },
-      }),
-    ).toEqual([]);
   });
 });

@@ -39,7 +39,7 @@ prompt: {
 - A panel of another shot passed in any slot leaks its light and windows into the frame — pass the plate and the sheets only.
 - The next moment of the same take is an edit of its previous frame: that frame as `image1`, `partially` preserved, `details` writing only what moves. One generation only — an edit of an edit comes back grainy.
 - A closer plate is the parent plate as `image1`, `{ transfers }`, sized against the set ("the sofa's arm fills the left third of the frame").
-- A view image passes `reference.<location>` as `image1`, `{ transfers }`, `target` saying where the camera now stands ("seen from straight above the desk").
+- A view image is `imageMinimaxH3ImageView`'s.
 
 ## Literal reading
 

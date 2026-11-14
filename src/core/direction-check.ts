@@ -94,7 +94,6 @@ export type DirectionFindingCode =
   // ask for a landmark a setup facing that way holds.
   | "view-unrealized"
   | "plate-unviewed"
-  | "view-unanchored"
   | "view-unnamed"
   | "multi-sentence-action"
   | "off-grid-duration"
@@ -381,7 +380,6 @@ export type AnimaticSetupState = {
   deterministicPlateIds: readonly string[];
   unviewedPlateIds: readonly string[];
   unviewedBy: ReadonlyMap<string, readonly string[]>;
-  unanchoredViews: readonly string[];
   referenceImageTexts: Readonly<Record<string, readonly string[]>>;
   // Setup ids whose plate has an accepted take.
   acceptedPlateIds: readonly string[];
@@ -916,33 +914,7 @@ export function checkSetups(
   // Board-gated like the three anchor findings: with no plates read there is nothing to be missing.
   if (plates) findings.push(...checkAxisCuts(axisCuts, plates, judgedBy!, generated!));
   if (animatic) findings.push(...checkUnowedPlates(setups, shotsPerSetup, animatic, axisCuts));
-  if (animatic && referenceAssetNames !== undefined) {
-    findings.push(...checkViewAnchors(animatic.unanchoredViews, anchored!));
-  }
   return findings;
-}
-
-/**
- * `view-unanchored` over the view images `listViewAnchorGaps` names (`<locationId>.<view>`), held
- * back for a location with no master yet.
- */
-export function checkViewAnchors(
-  unanchoredViews: readonly string[],
-  anchored: ReadonlySet<string>,
-): DirectionFinding[] {
-  return unanchoredViews.flatMap((key) => {
-    const [location, view] = key.split(".") as [string, string];
-    if (!anchored.has(location)) return [];
-    return [
-      {
-        code: "view-unanchored" as const,
-        subject: key,
-        message:
-          `the view image \`reference.view.${location}.${view}\` is built from no ` +
-          `\`reference.${location}\``,
-      },
-    ];
-  });
 }
 
 /**

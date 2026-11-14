@@ -233,7 +233,6 @@ const DIRECTION_FINDING_TRAITS: DirectionTraitsOf<DirectionFindingCode> = {
   "setup-atomized": judged(waive("stage+downstream", ROSTER)),
   "view-unrealized": waive("downstream", ROSTER),
   "plate-unviewed": waive("stage+downstream", ROSTER),
-  "view-unanchored": waive("stage+downstream"),
   "view-unnamed": judged(waive("stage+downstream", ROSTER)),
   "multi-sentence-action": waive("stage+downstream"),
   "off-grid-duration": fixDirection,

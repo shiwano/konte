@@ -51,7 +51,6 @@ const FINDING_CLASS: Record<DirectionFindingCode, DirectionFindingClass> = {
   "unused-setup": "setups",
   "setup-atomized": "setups",
   "plate-unviewed": "setups",
-  "view-unanchored": "setups",
   "view-unnamed": "setups",
   // A fused-shot content check on the action prose (like empty-synopsis): it gates generate and is
   // never deferred.
@@ -129,7 +128,6 @@ const WAIVER_ON_SHOT: Record<DirectionFindingCode, WaiverShotScope> = {
   "setup-atomized": null,
   "view-unrealized": null,
   "plate-unviewed": null,
-  "view-unanchored": null,
   "view-unnamed": null,
   "multi-sentence-action": "shot",
   "off-grid-duration": "shot",
@@ -199,7 +197,6 @@ const FIX_STAGE: Record<DirectionFindingCode, FindingFixStage> = {
   "setup-atomized": "direction",
   "view-unrealized": "reference",
   "plate-unviewed": "animatic",
-  "view-unanchored": "reference",
   "view-unnamed": "reference",
   "multi-sentence-action": "direction",
   "off-grid-duration": "direction",

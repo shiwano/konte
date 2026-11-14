@@ -47,7 +47,10 @@ const GIT_SOURCES: ReadonlyArray<GitSource> = [
     map: {
       "templates/image_moss_image_t2i.json": "image_moss_image_t2i",
       "templates/video_minimax_h3_r2v.json": "video_minimax_h3_r2v",
-      "templates/image_minimax_h3_image_edit.json": "image_minimax_h3_image_edit",
+      "templates/image_minimax_h3_image_edit.json": [
+        "image_minimax_h3_image_edit",
+        "image_minimax_h3_image_view",
+      ],
       "templates/image_qwen_image_2_1_image_edit.json": [
         "image_qwen_image_edit_2_1",
         "image_qwen_image_edit_2_1_inpaint",
@@ -181,6 +184,13 @@ const PATCHES: Record<string, (workflow: ComfyUIWorkflow) => void> = {
       workflow[id] = { class_type: LOAD_IMAGE.classType, inputs: { image: LOAD_IMAGE.value } };
       node.inputs[`images.image_${i}`] = [id, 0];
     }
+    pruneUnreachable(workflow);
+  },
+  // The edit's workflow, taking a view's coarse and the master only.
+  image_minimax_h3_image_view: (workflow) => {
+    PATCHES.image_minimax_h3_image_edit!(workflow);
+    const [, node] = onlyNode(workflow, "MiniMaxH3ImageConditioning");
+    for (let i = 3; i <= 9; i++) delete node.inputs[`images.image_${i}`];
     pruneUnreachable(workflow);
   },
 };

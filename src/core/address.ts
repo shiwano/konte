@@ -1,5 +1,11 @@
 import { assertNever } from "./assert.js";
-import { IMAGED_VIEWS, VIEW_NAME_BODY, viewAssetName, type ImagedView } from "./view.js";
+import {
+  COARSE_NAME_BODY,
+  IMAGED_VIEWS,
+  VIEW_NAME_BODY,
+  viewAssetName,
+  type ImagedView,
+} from "./view.js";
 import { KonteError } from "./errors.js";
 import type { PinOccurrence } from "./pin-check.js";
 import type { PromptOccurrence } from "./prompt-check.js";
@@ -78,8 +84,10 @@ const PLATE_SUFFIX_PATTERN = new RegExp(`^plate\\.(${NAME_BODY})$`);
 // thumbnail's delivery frame itself.
 const THUMBNAIL_SUFFIX_PATTERN = new RegExp(`^thumbnail(?:\\.(${NAME_BODY})|(#frame|#still))$`);
 // A location's view image, `view.<locationId>.<view>`, filed under that key by `defineReference`'s
-// `views`.
-const REFERENCE_SUFFIX_PATTERN = new RegExp(`^(${NAME_BODY}|${VIEW_NAME_BODY})$`);
+// `views`, and its coarse, `view.<locationId>.<view>#coarse`.
+const REFERENCE_SUFFIX_PATTERN = new RegExp(
+  `^(${NAME_BODY}|${VIEW_NAME_BODY}|${COARSE_NAME_BODY})$`,
+);
 // Non-capturing forms, for the scope patterns.
 const NAME_SLOT = `(?:\\.${NAME_BODY}|${RESERVED_NAME_BODY})`;
 const VARIANT_ID_BODY = "v-[a-zA-Z0-9]+";
@@ -420,9 +428,9 @@ const ADDRESS_SCOPE_PATTERN = new RegExp(
 );
 
 // A reference scope: the whole stage `reference`, one asset `reference:<name>`, a location's views
-// (`reference:view.<locationId>`) or one of them, or its patch axis.
+// (`reference:view.<locationId>`) or one of them, a view's coarse, or its patch axis.
 const REFERENCE_SCOPE_PATTERN = new RegExp(
-  `^reference(:([a-zA-Z0-9_-]+|view\\.${NAME_BODY}(\\.(${IMAGED_VIEWS.join("|")}))?|${PATCH_SCOPE_BODY}))?$`,
+  `^reference(:([a-zA-Z0-9_-]+|view\\.${NAME_BODY}(\\.(${IMAGED_VIEWS.join("|")}))?|${COARSE_NAME_BODY}|${PATCH_SCOPE_BODY}))?$`,
 );
 
 // A direction scope: the whole stage `direction`, one feedback part `direction:<part>`, or a

@@ -55,6 +55,8 @@ export const TOOL_CHECKSUMS: Readonly<Record<string, string>> = {
     "19f9357b4cdc98920affa3d4ac2bb064d035b59d1ff39cec0fcedce8f5a681f6",
   "https://github.com/shiwano/beat-this-onnx/releases/download/final0/frontend.json":
     "8a34752320ca399658b7d16488c40134f5b03b628f1aac4e495ad04a5c075472",
+  "https://github.com/shiwano/moge-onnx/releases/download/v1/moge-2-vitb-normal-int8.onnx":
+    "2d8c9f76b37379ef487686289a0f1b96fc26f3ee5b9acbe7005960699574fe71",
   "https://registry.npmjs.org/@typescript/typescript-darwin-arm64/-/typescript-darwin-arm64-7.0.2.tgz":
     "902e2fe1cf0799198ef902c6b8c310a450fef629a6baba41d45641ef75c04ebd",
   "https://registry.npmjs.org/@typescript/typescript-darwin-x64/-/typescript-darwin-x64-7.0.2.tgz":

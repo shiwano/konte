@@ -41,7 +41,7 @@ export default defineReference(direction, {
 ```
 
 - `defineReference(direction, { references, views? })` — `references` receives `{ format }` and declares assets with `asset()` (both `file` and generative adapters); returning one exposes it as `reference.<name>`. Address: `reference:<name>`.
-- `views` receives `{ format, reference }` and returns a location's view images, `{ <locationId>: { back | side | top: asset(…) } }` — authoring → staging-guide's plates.md.
+- `views` receives `{ format, reference, coarse }` and returns a location's view images, `{ <locationId>: { back | sideLeft | sideRight | top: asset(…) } }`, each but `back` painted over `coarse.<locationId>.<view>` — authoring → staging-guide's plates.md.
 - A reference asset may depend only on other reference assets, never on an animatic/video asset.
 - Return only what other stages consume — an asset used solely as an input to another reference asset (a blank `latent` feeding a generated `key`) is left un-returned; it still generates, but is never reviewed.
 - A location's `reference:<id>` is its master; the way it faces is `front` — draw it facing the way the location's `description` declares (`view-unnamed`).

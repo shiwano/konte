@@ -407,8 +407,8 @@ describe("defineDirection", () => {
             description: "from the wall",
             location: "studio",
             framing: "wide",
-            // @ts-expect-error "studio" declares no side view
-            view: "side",
+            // @ts-expect-error "studio" declares no sideLeft view
+            view: "sideLeft",
             holds: ["desk"],
             within: null,
           },

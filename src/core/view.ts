@@ -1,7 +1,7 @@
 // The way a camera faces in its location. `front` is the location master's (`reference:<id>`),
-// `back` its reverse, `side` square to the `front` axis — one side only: a place whose two side walls
-// differ is two locations — and `top` straight down.
-export const VIEWS = ["front", "back", "side", "top"] as const;
+// `back` its reverse, `sideLeft` from the master's left wall toward its right, `sideRight` the
+// reverse, and `top` straight down.
+export const VIEWS = ["front", "back", "sideLeft", "sideRight", "top"] as const;
 
 export type View = (typeof VIEWS)[number];
 
@@ -25,6 +25,29 @@ const VIEW_NAME_PATTERN = new RegExp(`^${VIEW_NAME_BODY}$`);
 
 export function viewAssetName(locationId: string, view: ImagedView): string {
   return `view.${locationId}.${view}`;
+}
+
+// The views drawn over a coarse. `back` is drawn from the master alone.
+export type CoarseView = Exclude<ImagedView, "back">;
+
+const COARSE_VIEWS = IMAGED_VIEWS.filter((v): v is CoarseView => v !== "back");
+
+export function isCoarseView(value: unknown): value is CoarseView {
+  return (COARSE_VIEWS as readonly unknown[]).includes(value);
+}
+
+// A view's coarse, `view.<locationId>.<view>#coarse`: the master drawn from the view's camera, which
+// konte declares for every coarse view a location with a master declares.
+export const COARSE_NAME_BODY = `view\\.([a-zA-Z0-9_-]+)\\.(${COARSE_VIEWS.join("|")})#coarse`;
+
+export function coarseAssetName(locationId: string, view: CoarseView): string {
+  return `${viewAssetName(locationId, view)}#coarse`;
+}
+
+const COARSE_NAME_PATTERN = new RegExp(`^${COARSE_NAME_BODY}$`);
+
+export function isCoarseName(name: string): boolean {
+  return COARSE_NAME_PATTERN.test(name);
 }
 
 // The location and view a reference asset name or address is filed under, or null for any other.

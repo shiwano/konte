@@ -284,18 +284,10 @@ export const CRITICS: readonly Critic[] = [
         checks: "A coverage take outside the adapter guide's length range.",
       },
       {
-        code: "view-instant-missing",
-        checks: "A view entry's `summary` is not that picture's instant.",
-      },
-      {
-        code: "view-unmeasured",
+        code: "view-unplaced",
         checks:
-          "A view's camera height and what is in frame are not written in things the master shows.",
+          "A view's layout does not say, in place words, where each landmark lies in its coarse — or puts one where the coarse does not.",
         machine: ["view-unnamed"],
-      },
-      {
-        code: "view-relaid",
-        checks: "A view lays the room out again wall by wall.",
       },
       {
         code: "view-unbuilt",

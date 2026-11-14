@@ -19,7 +19,7 @@ import {
   formatSilentTail,
 } from "./animatic-overflow.js";
 import { compositionClassSubjects } from "./composition-builder.js";
-import { type AnimaticSetupState, checkViewAnchors } from "./direction-check.js";
+import { type AnimaticSetupState } from "./direction-check.js";
 import {
   type SongVariantState,
   type StaleWaiver,
@@ -44,7 +44,7 @@ import {
   collectTransitiveDependents,
   listBoardlessVideoShots,
 } from "./graph.js";
-import { acceptedIn, listReferenceImageTexts, listViewAnchorGaps } from "./board-analysis.js";
+import { acceptedIn, listReferenceImageTexts } from "./board-analysis.js";
 import { findUnheldLandmarks } from "./landmark-held-check.js";
 import { type PinOccurrence, pinFindings } from "./pin-check.js";
 import { type PromptOccurrence, promptFindings } from "./prompt-check.js";
@@ -210,7 +210,7 @@ const DIRECTION_CHECK: Check = {
       ];
     }
     return directionFindings(directionCheckOf(ctx)!, ctx.direction).filter(
-      (f) => f.code !== "view-unanchored" && f.code !== "view-unnamed",
+      (f) => f.code !== "view-unnamed",
     );
   },
   staleWaivers: (ctx) => directionCheckOf(ctx)?.staleWaivers ?? [],
@@ -218,29 +218,25 @@ const DIRECTION_CHECK: Check = {
 
 // Off the reference pool alone, so it holds the reference spend before an animatic exists.
 const VIEW_CHECK: Check = {
-  codes: ["view-unanchored", "view-unnamed"],
+  codes: ["view-unnamed"],
   run: (ctx) => {
     if (!ctx.direction || !ctx.reference) return [];
     const waivers = ctx.direction.waivers ?? {};
     const accepted = acceptedOf(ctx);
-    return [
-      ...checkViewAnchors(
-        listViewAnchorGaps(ctx.reference),
-        new Set(ctx.reference.exposedAssetNames ?? []),
-      ),
-      ...checkViewNamings(ctx.direction, listReferenceImageTexts(ctx.reference)),
-    ].flatMap((f): Finding[] => {
-      const key = directionWaiverKey(f);
-      if (key in waivers || signedOffBy(f.judgedBy, accepted)) return [];
-      return [
-        registryFinding(f, {
-          subject: f.subject ?? "",
-          fixIn: { stage: "reference" },
-          message: f.message,
-          key,
-        }),
-      ];
-    });
+    return [...checkViewNamings(ctx.direction, listReferenceImageTexts(ctx.reference))].flatMap(
+      (f): Finding[] => {
+        const key = directionWaiverKey(f);
+        if (key in waivers || signedOffBy(f.judgedBy, accepted)) return [];
+        return [
+          registryFinding(f, {
+            subject: f.subject ?? "",
+            fixIn: { stage: "reference" },
+            message: f.message,
+            key,
+          }),
+        ];
+      },
+    );
   },
 };
 
