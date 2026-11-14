@@ -10,7 +10,12 @@ One still, edited from `image1` with the references passed beside it.
 prompt: {
   references: {
     subjects: [
-      { definition: "The sitting room in <Picture 1> is <Subject 1>.", relation: "fully preserved" },
+      {
+        definition: "The sitting room in <Picture 1> is <Subject 1>.",
+        relation: {
+          partially: "its walls, furniture, light and camera position remain, while a figure now sits in its right armchair.",
+        },
+      },
       {
         definition: "The man in the grey frock coat in <Picture 2> is <Subject 2>.",
         relation: { partially: "his face, hair and coat remain, while his pose changes to seated." },
@@ -23,11 +28,15 @@ prompt: {
 }
 ```
 
-- A `definition` names one `<Subject N>`, numbered from 1 in order, and the `<Picture N>` it comes from, element first: `The brass lamp on the desk in <Picture 1> is <Subject 3>.`
-- `relation` is one of four — `"fully preserved"`, `{ partially }` (what remains, then what changes), `{ transfers }` (the property and the carrier it lands on: `the light and colour carried onto the new camera position.`), `{ weakly }` (the borrowed quality and what may vary).
+- A `definition` names one `<Subject N>`, numbered from 1 in order, and the `<Picture N>` it comes from, element first: `The brass lamp on the desk in <Picture 1> is <Subject 3>.` It is written from what the image shows — open it first.
+- One identity shown in two images cites each: `The boy in the apron in <Picture 2> and <Picture 3> is <Subject 2>.`
+- `relation` is one of four — `"fully preserved"`, `{ partially }` (what remains, then what changes), `{ transfers }` (the property and the carrier it lands on: `the exact colour transferred to the coat of <Subject 1>.`; its definition names the property: `The colour of the scarf in <Picture 3> is <Subject 2>.`), `{ weakly }` (the borrowed quality and what may vary).
+- `"fully preserved"` is a subject nothing touches. One a figure stands in front of, casts a shadow on, or that moves, turns or is relit is `{ partially }`.
 - `target` is one sentence after `The target image`, the changed or new state first.
 - `details` is only what changes and what is new — a fully preserved subject appears there as its bare `<Subject N>`, as an anchor, never re-described.
 - Every wired `imageN` is named as `<Picture N>`.
+- `target` and `details` narrate the finished frame: `The cup now stands on the windowsill`.
+- A removed object is written as what fills its place (`bare floorboards run where the rug lay`). A moved object leaves its old place; a copy adds an instance — say which.
 
 ## Length
 
@@ -35,17 +44,17 @@ prompt: {
 
 ## Frames
 
-- `image1` is the picture edited — the plate for a shot's opening keyframe, `fully preserved`.
+- `image1` is the picture edited — the plate for a shot's opening keyframe, `partially` preserved: its walls, furniture, light and camera position remain, while the figures stand in it.
 - A panel of another shot passed in any slot leaks its light and windows into the frame — pass the plate and the sheets only.
 - The next moment of the same take is an edit of its previous frame: that frame as `image1`, `partially` preserved, `details` writing only what moves. One generation only — an edit of an edit comes back grainy.
-- A closer plate is the parent plate as `image1`, `{ transfers }`, sized against the set ("the sofa's arm fills the left third of the frame").
+- A closer plate is the parent plate as `image1`, `{ partially }` — its walls, furniture and light remain, while the camera moves in — sized against the set ("the sofa's arm fills the left third of the frame").
 - A view image is `imageMinimaxH3ImageView`'s.
 
 ## Literal reading
 
 - Light is drawn as written — "slanting golden light" turns the whole room warm. Name the light only where it changes.
 - A state or a figure of speech is drawn as written — "frayed at the elbows" frays them, "flushed dark red" paints the face red. Write the amount the frame should show.
-- Text in English double quotes comes back verbatim: `a brass plate reading "Nathan Garrideb"`.
+- Text in single quotes comes back verbatim: `a brass plate reading 'Nathan Garrideb'`.
 
 ## Known failures
 

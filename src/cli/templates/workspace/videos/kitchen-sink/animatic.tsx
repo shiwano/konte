@@ -31,7 +31,10 @@ const still = (
 
 const room = (picture: number, what = "kitchen"): Subject => ({
   definition: `The empty ${what} in <Picture ${picture}> is <Subject 1>.`,
-  relation: "fully preserved",
+  relation: {
+    partially:
+      "its walls, fixtures, light and camera position remain, while the figures stand in it.",
+  },
 });
 const cook = (picture: number, subject: number): Subject => ({
   definition: `The boy in the apron in <Picture ${picture}> is <Subject ${subject}>.`,
@@ -153,7 +156,10 @@ export default defineAnimatic(direction, {
             [
               {
                 definition: "The kitchen and the boy at the stove in <Picture 1> are <Subject 1>.",
-                relation: "fully preserved",
+                relation: {
+                  partially:
+                    "the kitchen, the boy at the stove and the smoke remain, while a second figure walks in at the left.",
+                },
               },
               rival(2, 2),
             ],
