@@ -56,6 +56,7 @@ import type {
 } from "../types.js";
 import { AcceptButton } from "./accept-button.js";
 import { CheckIcon, CommentIcon, FilmIcon, GridIcon, MenuIcon, VolumeIcon } from "./icons.js";
+import { AuditionAudio } from "./audition-audio.js";
 import { SongLineEditsContext, SongSummary, SongTrack, unplacedLineCount } from "./song-track.js";
 import { buildPinIndex, CommentThread, RosterCard } from "./comment-thread.js";
 import { FrameOverlay } from "./frame-overlay.js";
@@ -838,7 +839,12 @@ function ReferenceMedia({
   onOpenDetail,
 }: {
   asset: ReferenceAssetInfo;
-  variant: { imageUrl: string | null; fileUrl?: string | null; song?: SongReadingInfo };
+  variant: {
+    imageUrl: string | null;
+    fileUrl?: string | null;
+    song?: SongReadingInfo;
+    auditionGain?: number;
+  };
   overlay?: React.ReactNode;
   onOpenDetail: () => void;
 }): React.ReactElement {
@@ -859,9 +865,13 @@ function ReferenceMedia({
           <VolumeIcon size={32} />
         </span>
         {variant.fileUrl && (
-          <audio className="reference-card-audio" src={variant.fileUrl} controls preload="none">
-            <track kind="captions" />
-          </audio>
+          <AuditionAudio
+            className="reference-card-audio"
+            src={variant.fileUrl}
+            gain={variant.auditionGain}
+            controls
+            preload="none"
+          />
         )}
         {overlay}
       </div>
@@ -1066,6 +1076,7 @@ function ReferenceRow({
       imageUrl: string | null;
       fileUrl?: string | null;
       song?: SongReadingInfo;
+      auditionGain?: number;
       size?: { width: number; height: number };
     });
 
@@ -1224,6 +1235,7 @@ function ReferenceDetailModal({
       imageUrl: string | null;
       fileUrl?: string | null;
       song?: SongReadingInfo;
+      auditionGain?: number;
       size?: { width: number; height: number };
     });
 
@@ -1288,14 +1300,13 @@ function ReferenceDetailModal({
               <span className="reference-card-audio-glyph">
                 <VolumeIcon size={48} />
               </span>
-              <audio
+              <AuditionAudio
                 className="reference-detail-audio-player"
                 src={shown.fileUrl}
+                gain={shown.auditionGain}
                 controls
                 autoPlay
-              >
-                <track kind="captions" />
-              </audio>
+              />
             </div>
           ) : (
             <video

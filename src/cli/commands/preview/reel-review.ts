@@ -42,6 +42,7 @@ import {
 import { shotAcceptTargets, shotNeedsVerdict } from "../../../core/shot-accept-targets.js";
 import { loadPatchCatalog, patchHashesOf } from "../../../core/patch.js";
 import { parsePlaceholder } from "../../../core/dsl/shot-context.js";
+import type { LevelKind } from "../../../core/audio-level.js";
 import { KonteError, errorMessage } from "../../../core/errors.js";
 import { errorResponse, htmlResponse, jsonResponse } from "../../page-host/http.js";
 import type { Direction } from "../../../core/dsl/direction.js";
@@ -366,6 +367,7 @@ export async function handleGetReelState(
     assetBaseUrl,
     patchHashesOf(patchCatalog),
     assetInfo,
+    reelLevelKinds(video),
   );
 
   // Audio assets declared on a shot belong to the audio track, not the shot (video) accept —
@@ -482,6 +484,7 @@ function reelAssetBuilder(
   assetBaseUrl: string,
   patchHashes: ReturnType<typeof patchHashesOf>,
   assetInfo: ReturnType<typeof createAssetInfoBuilder>,
+  levelKinds: ReadonlyMap<string, LevelKind>,
 ) {
   return (assetName: string, addr: string, resolvedVariantId: string | undefined) => {
     const acceptedId = manager.getAcceptedVariant(addr);
@@ -514,9 +517,26 @@ function reelAssetBuilder(
         (vid) => variantMediaUrl(manager, addr, vid, assetBaseUrl) ?? null,
         patchHashes,
         (vid) => assetInfo(addr, vid),
+        undefined,
+        levelKinds.get(addr),
       ),
     };
   };
+}
+
+// What the mix levels each audio address the stage plays as. The song plays in its own track.
+function reelLevelKinds(video: StageDefinition): Map<string, LevelKind> {
+  const kinds = new Map<string, LevelKind>();
+  for (const st of video.timelineSoundtracks ?? []) {
+    const address = parsePlaceholder(st.src.src);
+    if (address) kinds.set(address, "bed");
+  }
+  for (const shot of video.shots) {
+    for (const [address, kind] of Object.entries(shot.cueKinds ?? {})) {
+      if (!isStemAddress(address)) kinds.set(address, kind);
+    }
+  }
+  return kinds;
 }
 
 function standInCause(

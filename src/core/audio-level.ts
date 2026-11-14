@@ -21,7 +21,7 @@ export function isVoiceKind(kind: CueKind | undefined): boolean {
  * A cue kind, the timeline bed a `soundtrack()` places, the song `policy.song` names, or the
  * `ambience` a `<Video hasAudio>` clip carries in a shot with no lines.
  */
-type LevelKind = CueKind | "bed" | "song" | "ambience";
+export type LevelKind = CueKind | "bed" | "song" | "ambience";
 
 // Where each kind sits. `sfx` is levelled by true peak instead: integrated loudness measured over
 // a 200 ms transient is not a number worth trusting.
@@ -80,6 +80,19 @@ export function audioLevelling(
 
 export function levellingGain(kind: LevelKind, loudness: AudioLoudness | undefined): number {
   return audioLevelling(kind, loudness).gain;
+}
+
+/**
+ * The gain a review plays an audio take at: where the mix puts it as a `kind` source. Undefined at
+ * unity, and for a take that is not audio or was never measured.
+ */
+export function auditionGain(
+  kind: LevelKind | undefined,
+  media: VariantMedia | undefined,
+): number | undefined {
+  if (!kind || media?.kind !== "audio") return undefined;
+  const { gain } = audioLevelling(kind, media.loudness);
+  return gain === 1 ? undefined : gain;
 }
 
 /**

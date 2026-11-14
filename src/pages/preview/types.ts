@@ -369,6 +369,7 @@ interface VariantBeforeInfo {
   variantStatus: VariantStatus;
   imageUrl: string | null;
   fileUrl?: string | null;
+  auditionGain?: number;
 }
 
 // One take in a gallery — the card the reviewer picks among, on any stage.
@@ -419,6 +420,8 @@ export interface VariantInfo {
   info?: AssetInfo;
   // A take of the song `policy.song` names, once read.
   song?: SongReadingInfo;
+  // The gain an audio take plays at to sound where the mix puts it; absent at unity.
+  auditionGain?: number;
 }
 
 // One asset in the flat reference pool. Reference has no shots/compositions — so a reference

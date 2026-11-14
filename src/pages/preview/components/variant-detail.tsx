@@ -3,6 +3,7 @@ import { useState } from "react";
 import { formatRelativeTime } from "../format-time.js";
 import type { MediaKind, VariantInfo } from "../types.js";
 import { isNewVariant } from "../review/new-variant.js";
+import { AuditionAudio } from "./audition-audio.js";
 import { CheckIcon, VolumeIcon } from "./icons.js";
 import { Modal } from "./modal.js";
 import { SongTrack } from "./song-track.js";
@@ -95,9 +96,13 @@ export function VariantDetail({
               <span className="variant-detail-audio-glyph">
                 <VolumeIcon size={48} />
               </span>
-              <audio src={fileUrl} controls autoPlay preload="auto">
-                <track kind="captions" />
-              </audio>
+              <AuditionAudio
+                src={fileUrl}
+                gain={viewingBefore ? before.auditionGain : variant.auditionGain}
+                controls
+                autoPlay
+                preload="auto"
+              />
             </div>
           ) : (
             <span className="variant-detail-empty">?</span>

@@ -59,6 +59,7 @@ import { readDefinitionSnapshot } from "../../../core/definition-snapshot.js";
 import type { PatchChainVariants } from "./asset-info.js";
 import { readVariantThumbnails } from "../../../core/variant-thumbnails.js";
 import { inferMediaType } from "../../../core/media-type.js";
+import { auditionGain, type LevelKind } from "../../../core/audio-level.js";
 
 // Read before the accept lands: `setAccepted` overwrites the dismissal it records.
 export function noteOverturned(
@@ -93,10 +94,12 @@ type VariantCandidate = {
     variantStatus: "none" | "accepted";
     imageUrl: string | null;
     fileUrl: string | null;
+    auditionGain?: number;
   } | null;
   size?: { width: number; height: number };
   info?: AssetInfo;
   song?: SongReadingInfo;
+  auditionGain?: number;
 };
 
 type AddressFeedback = {
@@ -132,6 +135,8 @@ export function buildVariantCandidates(
   patchHashes?: PatchHashes,
   buildInfo?: (variantId: string) => AssetInfo | undefined,
   buildSong?: (variantId: string) => SongReadingInfo | undefined,
+  // What the mix levels this address as; its audio takes are auditioned at that level.
+  levelKind?: LevelKind,
 ): VariantCandidate[] {
   const variants: VariantCandidate[] = [];
   try {
@@ -148,6 +153,8 @@ export function buildVariantCandidates(
         const info = buildInfo?.(vid);
         const song = buildSong?.(vid);
         const size = mediaVisualSize(v.media ?? null);
+        const gain = auditionGain(levelKind, v.media);
+        const sourceGain = auditionGain(levelKind, source?.media);
         return {
           variantId: vid,
           variantStatus: (vid === acceptedId ? "accepted" : "none") as "none" | "accepted",
@@ -167,8 +174,10 @@ export function buildVariantCandidates(
                     | "accepted",
                   imageUrl: buildVariantUrl(v.derivedFrom, source),
                   fileUrl: buildFileUrl ? buildFileUrl(v.derivedFrom, source) : null,
+                  ...(sourceGain !== undefined ? { auditionGain: sourceGain } : {}),
                 }
               : null,
+          ...(gain !== undefined ? { auditionGain: gain } : {}),
           ...(size ? { size } : {}),
           ...(info ? { info } : {}),
           ...(song ? { song } : {}),

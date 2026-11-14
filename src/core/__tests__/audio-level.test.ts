@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   audioLevelling,
+  auditionGain,
   clampEffectiveGain,
   type CueKind,
   cueKindsBySrc,
@@ -410,5 +411,29 @@ describe("playedLufs", () => {
     expect(playedLufs(undefined, 1)).toBeNull();
     expect(playedLufs({ integratedLufs: null, truePeakDb: -1 }, 1)).toBeNull();
     expect(playedLufs({ integratedLufs: -14, truePeakDb: -1 }, 0)).toBeNull();
+  });
+});
+
+describe("auditionGain", () => {
+  const audio = (integratedLufs: number | null) => ({
+    kind: "audio" as const,
+    durationSec: 3,
+    channels: 1,
+    sampleRate: 48000,
+    loudness: { integratedLufs, truePeakDb: -1 },
+  });
+
+  it("brings a voice take to where the mix puts it", () => {
+    expect(auditionGain("voice", audio(-24))).toBeCloseTo(10 ** (6 / 20));
+    expect(auditionGain("voice", audio(-12))).toBeCloseTo(10 ** (-6 / 20));
+  });
+
+  it("is undefined at unity, without a kind, and for an unmeasured take", () => {
+    expect(auditionGain("voice", audio(-18))).toBeUndefined();
+    expect(auditionGain(undefined, audio(-30))).toBeUndefined();
+    expect(auditionGain("voice", audio(null))).toBeUndefined();
+    expect(
+      auditionGain("voice", { kind: "audio", durationSec: 3, channels: 1, sampleRate: 48000 }),
+    ).toBeUndefined();
   });
 });

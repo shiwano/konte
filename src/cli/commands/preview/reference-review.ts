@@ -1,4 +1,5 @@
 import { cascadeDirectionReferenceAccepts } from "../../../core/accept-cascade.js";
+import type { LevelKind } from "../../../core/audio-level.js";
 import { buildDependencyGraph } from "../../../core/graph.js";
 import { buildKeepGraph } from "./keep-graph.js";
 import { referenceGroups } from "./reference-groups.js";
@@ -91,6 +92,12 @@ type ReferenceRosterEntry = {
   description: string;
   needsReview: boolean;
 };
+
+function voiceLevelKind(entries: ReferenceRosterEntry[] | undefined): LevelKind | undefined {
+  if (entries?.some((e) => e.kind === "character-voice")) return "voice";
+  if (entries?.some((e) => e.kind === "narrator-voice")) return "narration";
+  return undefined;
+}
 
 function referenceRosterEntries(
   direction: Direction | null,
@@ -198,6 +205,7 @@ export async function handleGetReferenceState(
       patchHashes,
       (vid) => assetInfo(addr, vid),
       (vid) => songReading(manager, direction, addr, vid),
+      voiceLevelKind(rosterEntries.get(assetName)),
     );
     const chosen = variantId ? manager.tryGetAssetState(addr)?.variants?.[variantId] : undefined;
 

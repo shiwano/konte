@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { formatRelativeTime } from "../format-time.js";
 import type { MediaKind, VariantInfo } from "../types.js";
 import { isNewVariant } from "../review/new-variant.js";
+import { AuditionAudio } from "./audition-audio.js";
 import { CheckIcon, InfoIcon, VolumeIcon } from "./icons.js";
 
 // Touch/pen devices have no hover, so a hover-gated <video> would never play
@@ -137,9 +138,13 @@ export function VariantTile({
         )}
       </button>
       {isAudio && shownFileUrl && (
-        <audio className="variant-tile-audio" src={shownFileUrl} controls preload="none">
-          <track kind="captions" />
-        </audio>
+        <AuditionAudio
+          className="variant-tile-audio"
+          src={shownFileUrl}
+          gain={viewingBefore ? before.auditionGain : variant.auditionGain}
+          controls
+          preload="none"
+        />
       )}
       <div className="variant-tile-actions">
         <button
