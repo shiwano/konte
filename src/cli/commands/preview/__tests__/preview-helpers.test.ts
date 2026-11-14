@@ -339,6 +339,28 @@ describe("buildVariantCandidates", () => {
     expect(candidates.map((c) => c.variantId)).toEqual([v1]);
   });
 
+  it("carries a take's measured pixel size, and none for an unmeasured take", async () => {
+    const mgr = await StateManager.init(tmpDir);
+    const addr = "reference:character";
+    const measured = mgr.reserveVariantId(addr);
+    const unmeasured = mgr.reserveVariantId(addr);
+    setFile(mgr, addr, measured, "measured.png");
+    setFile(mgr, addr, unmeasured, "unmeasured.png");
+    mgr.ensureAssetState(addr).variants![measured]!.media = {
+      kind: "image",
+      width: 1024,
+      height: 1536,
+    };
+
+    const candidates = buildVariantCandidates(mgr, addr, null, null, () => null);
+
+    expect(candidates.find((c) => c.variantId === measured)?.size).toEqual({
+      width: 1024,
+      height: 1536,
+    });
+    expect(candidates.find((c) => c.variantId === unmeasured)).not.toHaveProperty("size");
+  });
+
   it("de-emphasizes a definition-stale accepted variant below a fresh newer one", async () => {
     const mgr = await StateManager.init(tmpDir);
     const addr = "video:shot.01.motion";

@@ -19,6 +19,7 @@ import {
 } from "../../../core/staleness.js";
 import { generatedOrigin, isReviewLeaf } from "../../../core/variant-lineage.js";
 import { variantOwningFile } from "../../../core/variant-dir.js";
+import { mediaVisualSize } from "../../../core/variant-media.js";
 import { errorMessage } from "../../../core/errors.js";
 import { parseJsonBody } from "../../page-host/http.js";
 import { resolveLens } from "../../../core/direction.js";
@@ -93,6 +94,7 @@ type VariantCandidate = {
     imageUrl: string | null;
     fileUrl: string | null;
   } | null;
+  size?: { width: number; height: number };
   info?: AssetInfo;
   song?: SongReadingInfo;
 };
@@ -145,6 +147,7 @@ export function buildVariantCandidates(
         const source = v.derivedFrom ? target.variants?.[v.derivedFrom] : null;
         const info = buildInfo?.(vid);
         const song = buildSong?.(vid);
+        const size = mediaVisualSize(v.media ?? null);
         return {
           variantId: vid,
           variantStatus: (vid === acceptedId ? "accepted" : "none") as "none" | "accepted",
@@ -166,6 +169,7 @@ export function buildVariantCandidates(
                   fileUrl: buildFileUrl ? buildFileUrl(v.derivedFrom, source) : null,
                 }
               : null,
+          ...(size ? { size } : {}),
           ...(info ? { info } : {}),
           ...(song ? { song } : {}),
         };

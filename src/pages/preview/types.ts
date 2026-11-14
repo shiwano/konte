@@ -414,6 +414,8 @@ export interface VariantInfo {
   imageUrl: string | null;
   fileUrl?: string | null;
   before?: VariantBeforeInfo | null;
+  // The take's pixel size, where measured.
+  size?: { width: number; height: number };
   info?: AssetInfo;
   // A take of the song `policy.song` names, once read.
   song?: SongReadingInfo;

@@ -758,6 +758,7 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
 function ReferenceImageMedia({
   asset,
   imageUrl,
+  size,
   pins,
   thread,
   pendingPin,
@@ -770,6 +771,7 @@ function ReferenceImageMedia({
 }: {
   asset: ReferenceAssetInfo;
   imageUrl: string | null;
+  size?: { width: number; height: number };
   pins: FeedbackInfo[];
   thread: CommentThreadBinding;
   pendingPin: { x: number; y: number } | null;
@@ -796,7 +798,15 @@ function ReferenceImageMedia({
     >
       {imageUrl ? (
         <img
-          className="reference-card-img"
+          className={`reference-card-img${size ? " reference-card-img--sized" : ""}`}
+          style={
+            size
+              ? ({
+                  "--img-ratio": size.width / size.height,
+                  "--img-width": `${size.width}px`,
+                } as React.CSSProperties)
+              : undefined
+          }
           src={imageUrl}
           alt={asset.assetName}
           loading="lazy"
@@ -1056,6 +1066,7 @@ function ReferenceRow({
       imageUrl: string | null;
       fileUrl?: string | null;
       song?: SongReadingInfo;
+      size?: { width: number; height: number };
     });
 
   const isImage = asset.mediaKind === "image";
@@ -1099,6 +1110,7 @@ function ReferenceRow({
           <ReferenceImageMedia
             asset={asset}
             imageUrl={shown.imageUrl}
+            size={shown.size}
             pins={asset.feedback}
             thread={thread}
             pendingPin={pendingPin}
@@ -1212,6 +1224,7 @@ function ReferenceDetailModal({
       imageUrl: string | null;
       fileUrl?: string | null;
       song?: SongReadingInfo;
+      size?: { width: number; height: number };
     });
 
   const pinIndexById = buildPinIndex(asset.feedback, thread.pendingFeedback, thread);
@@ -1256,6 +1269,7 @@ function ReferenceDetailModal({
             <ReferenceImageMedia
               asset={asset}
               imageUrl={shown.imageUrl}
+              size={shown.size}
               pins={asset.feedback}
               thread={thread}
               pendingPin={pendingPin}

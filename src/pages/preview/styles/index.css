@@ -4426,6 +4426,12 @@ body:has(.reference-preview) {
   display: block;
 }
 
+/* A lazy image holds its measured box before it loads, so a jump past it lands where it aimed. */
+.reference-card-media--pinnable .reference-card-img--sized {
+  aspect-ratio: var(--img-ratio);
+  width: min(100%, var(--img-width), calc(min(78vh, 900px) * var(--img-ratio)));
+}
+
 .reference-card-audio-glyph {
   color: var(--text-muted);
 }
@@ -4500,6 +4506,10 @@ body:has(.reference-preview) {
 .reference-detail-image .reference-card-img {
   max-height: 74vh;
   object-fit: contain;
+}
+
+.reference-detail-image .reference-card-img--sized {
+  width: min(100%, var(--img-width), calc(74vh * var(--img-ratio)));
 }
 
 .reference-detail-video {
