@@ -2207,4 +2207,33 @@ describe("listViewAnchorGaps", () => {
       }),
     ).toEqual([]);
   });
+
+  it("names a view image built only from another view of its location", () => {
+    expect(
+      listViewAnchorGaps({
+        topLevelAssets: {
+          room: comfy({}),
+          "view.room.back": {
+            kind: "file",
+            path: "assets/files/back.png",
+            type: "image",
+            deterministic: true,
+          } as unknown as AssetDefinition,
+          "view.room.top": comfy({ image: "__konte:reference:view.room.back__" }),
+        },
+      }),
+    ).toEqual(["room.top"]);
+  });
+
+  it("passes a view image reaching the master through another view", () => {
+    expect(
+      listViewAnchorGaps({
+        topLevelAssets: {
+          room: comfy({}),
+          "view.room.back": comfy({ image: "__konte:reference:room__" }),
+          "view.room.top": comfy({ image: "__konte:reference:view.room.back__" }),
+        },
+      }),
+    ).toEqual([]);
+  });
 });

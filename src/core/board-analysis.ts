@@ -127,7 +127,7 @@ export function listSetupAnchorGaps(
       [formatPlateAddress(setupId)],
       formatReferenceAddress(location),
       entryOf,
-      viewImage,
+      { view: viewImage },
     );
     if ((walk.generative || walk.touchedReference) && !walk.reached) unanchoredPlates.push(setupId);
     if (walk.reached && viewImage !== undefined && !walk.reachedView) unviewedPlates.push(setupId);
@@ -178,7 +178,7 @@ export function listSetupAnchorGaps(
     const viewImage =
       setupId in plates || location === undefined ? undefined : viewImageOf(setupId, location);
     const panels = lanePanels(shot, frame.lane).map((panel) => panel.address);
-    const walk = walkPictureChain(panels, target, entryOf, viewImage);
+    const walk = walkPictureChain(panels, target, entryOf, { view: viewImage });
     if (!walk.generative) {
       deterministicShots.set(setupId, (deterministicShots.get(setupId) ?? 0) + 1);
       continue;
@@ -986,12 +986,13 @@ function animaticEntryResolver(
 // true of the whole chain once the whole chain has been seen.
 //
 // A view image of a location (`reference:view.<id>.<view>`) is that location: reaching one reaches
-// `reference:<id>`. `view`, where given, is the one image `reachedView` asks for exactly.
+// `reference:<id>`, unless `exact`. `view`, where given, is the one image `reachedView` asks for
+// exactly.
 function walkPictureChain(
   roots: readonly string[],
   target: string,
   entryOf: (address: string) => AssetDefinition | undefined,
-  view?: string,
+  { view, exact = false }: { view?: string; exact?: boolean } = {},
 ): { reached: boolean; reachedView: boolean; generative: boolean; touchedReference: boolean } {
   const seen = new Set<string>();
   const stack = [...roots];
@@ -1001,7 +1002,10 @@ function walkPictureChain(
   let touchedReference = false;
   while (stack.length > 0) {
     const address = stack.pop()!;
-    if (address === target || `reference:${parseViewName(address)?.location}` === target) {
+    if (
+      address === target ||
+      (!exact && `reference:${parseViewName(address)?.location}` === target)
+    ) {
       reached = true;
     }
     if (address === view) reachedView = true;
@@ -1019,7 +1023,8 @@ function walkPictureChain(
 }
 
 // The view images in the reference pool that are built from no `reference:<location>` of their
-// own location, as `<locationId>.<view>`. A view handed over whole (a `file`) is exempt.
+// own location, as `<locationId>.<view>`; another view of it is not its master. A view handed over
+// whole (a `file`) is exempt.
 export function listViewAnchorGaps(reference: {
   topLevelAssets?: Record<string, AssetDefinition>;
 }): string[] {
@@ -1035,7 +1040,12 @@ export function listViewAnchorGaps(reference: {
     const view = parseViewName(name);
     if (!view) continue;
     const own = assets[name]!;
-    const walk = walkPictureChain(extractRefs(own), formatReferenceAddress(view.location), entryOf);
+    const walk = walkPictureChain(
+      extractRefs(own),
+      formatReferenceAddress(view.location),
+      entryOf,
+      { exact: true },
+    );
     const generative = walk.generative || own.deterministic !== true;
     if ((generative || walk.touchedReference) && !walk.reached) {
       out.push(`${view.location}.${view.view}`);
