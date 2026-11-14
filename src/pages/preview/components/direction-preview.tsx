@@ -31,7 +31,7 @@ import { type ResetAction, ResetButton, ReviewHeaderActions } from "./review-hea
 
 const SHORTCUTS: ShortcutRows = [
   [["J", "K"], "Next / previous shot"],
-  [["N", "P"], "Next / previous change or handoff note"],
+  [["N", "P"], "Next / previous part to review"],
   [["A"], "Accept / un-accept the direction"],
   [["Esc"], "Close the side panel"],
   [["S"], "Toggle hide-stale notes"],
@@ -461,27 +461,20 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
       onToggleHideStale={() => session.setHideStale(!session.hideStale)}
       shortcuts={SHORTCUTS}
       headerExtra={
-        <>
-          <button
-            type="button"
-            className="ctrl-btn vp-next-unreviewed"
-            onClick={() => stepStop(1)}
-            disabled={stops.length === 0}
-            title="Jump to the next change or handoff note (N)"
-          >
-            Next change
-            {stops.length > 0 && <span className="vp-shots-action-count">{stops.length}</span>}
-          </button>
-          <ReviewHeaderActions
-            acceptCurrent={{
-              accepted,
-              what: "The direction",
-              disabled: !available,
-              onClick: toggleAccept,
-            }}
-            reset={resetAction}
-          />
-        </>
+        <ReviewHeaderActions
+          next={{
+            count: stops.length,
+            title: "Jump to the next part changed since your accept or carrying a handoff note (N)",
+            onClick: () => stepStop(1),
+          }}
+          acceptCurrent={{
+            accepted,
+            what: "The direction",
+            disabled: !available,
+            onClick: toggleAccept,
+          }}
+          reset={resetAction}
+        />
       }
       submitting={session.submitting}
       submitted={session.submitted}

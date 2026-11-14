@@ -5,22 +5,22 @@ import { Modal } from "./modal.js";
 
 // "Next" with the count of what still needs a verdict — the same progress signal on every review
 // page (remaining, not a fraction). Un-accepting raises it.
-export function NextUnreviewedButton({
-  count,
-  noun,
-  onClick,
-}: {
-  count: number;
-  noun: string;
-  onClick: () => void;
-}): React.ReactElement {
+export type NextToReview = { count: number; onClick: () => void } & (
+  | { noun: string }
+  | { title: string }
+);
+
+export function NextUnreviewedButton(next: NextToReview): React.ReactElement {
+  const { count, onClick } = next;
   return (
     <button
       type="button"
       className="ctrl-btn vp-next-unreviewed"
       onClick={onClick}
       disabled={count === 0}
-      title={`Jump to the next ${noun} you haven't accepted yet (N)`}
+      title={
+        "title" in next ? next.title : `Jump to the next ${next.noun} you haven't accepted yet (N)`
+      }
     >
       Next to review
       {count > 0 && <span className="vp-shots-action-count">{count}</span>}
@@ -39,7 +39,7 @@ export function ReviewHeaderActions({
   acceptAll,
   reset,
 }: {
-  next?: { count: number; noun: string; onClick: () => void };
+  next?: NextToReview;
   // The one thing the page is pointed at. The full-screen review has no shot list beside the
   // frame to reach for, so its verdict is taken here — what the A key signs off, as a button.
   acceptCurrent?: {
