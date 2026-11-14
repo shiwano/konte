@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { makeCaptureWorkspace } from "../hyperframes.js";
+import { linkIntoWorkspace, makeCaptureWorkspace, serveCaptureWorkspace } from "../hyperframes.js";
 
 let videoRoot: string;
 
@@ -34,5 +34,24 @@ describe("makeCaptureWorkspace", () => {
 
     await expect(fs.stat(stale)).rejects.toMatchObject({ code: "ENOENT" });
     expect((await fs.stat(recent)).isDirectory()).toBe(true);
+  });
+});
+
+describe("serveCaptureWorkspace", () => {
+  it("serves a take linked in from the video's assets", async () => {
+    const take = path.join(videoRoot, "assets", "animatic", "shot.01.first", "v-1", "panel.png");
+    await fs.mkdir(path.dirname(take), { recursive: true });
+    await fs.writeFile(take, "panel");
+    const workspace = await makeCaptureWorkspace(videoRoot, "capture-");
+    await linkIntoWorkspace(take, path.join(workspace, "panel.png"));
+
+    const server = await serveCaptureWorkspace(workspace, 24);
+    try {
+      const res = await fetch(`${server.url}/panel.png`);
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe("panel");
+    } finally {
+      server.close();
+    }
   });
 });

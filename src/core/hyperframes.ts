@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { format } from "node:util";
-import type { CaptureSession } from "@hyperframes/producer";
+import type { CaptureSession, FileServerHandle } from "@hyperframes/producer";
 import { ensureChromium } from "./chromium.js";
 import { KonteError, errorMessage } from "./errors.js";
 import { leadPathWithFfmpeg } from "./ffmpeg-binary.js";
@@ -101,6 +101,22 @@ export async function linkIntoWorkspace(source: string, target: string): Promise
     if (code !== "EXDEV" && code !== "EPERM" && code !== "EACCES") throw err;
     await fs.copyFile(source, target);
   }
+}
+
+/**
+ * The file server a capture session loads its workspace from. A take in the workspace is a link to
+ * a file outside it, which the server refuses by default.
+ */
+export async function serveCaptureWorkspace(
+  workspace: string,
+  fps: number,
+): Promise<FileServerHandle> {
+  const { createFileServer } = await loadHyperFramesProducer();
+  return createFileServer({
+    projectDir: workspace,
+    fps: { num: fps, den: 1 },
+    allowOutsideProjectAssets: true,
+  });
 }
 
 const GOOGLE_FONTS_LINK = /<link\b[^>]*\bhref="https:\/\/fonts\.googleapis\.com\/[^"]*"[^>]*>/gi;
@@ -289,6 +305,7 @@ export async function compositeWithHyperFrames(options: {
       fps,
       quality,
       entryFile: "index.html",
+      allowOutsideProjectAssets: true,
       ...(options.workers !== undefined && { workers: options.workers }),
       ...(options.screenshotCapture && {
         producerConfig: producer.resolveConfig({ forceScreenshot: true }),

@@ -8,6 +8,7 @@ import {
   linkIntoWorkspace,
   loadHyperFramesProducer,
   makeCaptureWorkspace,
+  serveCaptureWorkspace,
   silenceHyperFramesLogs,
 } from "./hyperframes.js";
 
@@ -34,13 +35,8 @@ export async function captureHtmlToImage(options: {
   await ensureHyperFrames();
   await fs.mkdir(path.dirname(outputFile), { recursive: true });
 
-  const {
-    createFileServer,
-    createCaptureSession,
-    initializeSession,
-    captureFrame,
-    closeCaptureSession,
-  } = await loadHyperFramesProducer();
+  const { createCaptureSession, initializeSession, captureFrame, closeCaptureSession } =
+    await loadHyperFramesProducer();
 
   const restoreLogs = silenceHyperFramesLogs();
   const workspace = await makeCaptureWorkspace(options.videoRoot, "still-");
@@ -55,7 +51,7 @@ export async function captureHtmlToImage(options: {
     // The server is closed in its own finally, and before the session's: a rejection from
     // `createCaptureSession` (Chromium failing to start) would otherwise leave a listening handle
     // behind that keeps the process alive, and so would a throw from `closeCaptureSession`.
-    const server = await createFileServer({ projectDir: workspace, fps: { num: 1, den: 1 } });
+    const server = await serveCaptureWorkspace(workspace, 1);
     try {
       const session = await createCaptureSession(server.url, path.dirname(outputFile), {
         width: size.width,

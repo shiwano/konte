@@ -116,6 +116,7 @@ describe("captureHtmlToImage", () => {
     expect(createFileServerMock).toHaveBeenCalledWith({
       projectDir: "/tmp/konte-still-mock",
       fps: { num: 1, den: 1 },
+      allowOutsideProjectAssets: true,
     });
   });
 

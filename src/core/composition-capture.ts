@@ -385,6 +385,7 @@ async function captureCompositionFramesUnwrapped(
     linkIntoWorkspace,
     loadHyperFramesProducer,
     makeCaptureWorkspace,
+    serveCaptureWorkspace,
     silenceHyperFramesLogs,
   } = await import("./hyperframes.js");
   const { buildAssetUrl, parseServedAssetUrl } = await import("./composition-builder.js");
@@ -433,13 +434,8 @@ async function captureCompositionFramesUnwrapped(
   const results: ThumbnailInfo[] = new Array(plan.length);
 
   if (plan.some((p) => !p.cached)) {
-    const {
-      createFileServer,
-      createCaptureSession,
-      initializeSession,
-      captureFrame,
-      closeCaptureSession,
-    } = await loadHyperFramesProducer();
+    const { createCaptureSession, initializeSession, captureFrame, closeCaptureSession } =
+      await loadHyperFramesProducer();
 
     const restoreLogs = silenceHyperFramesLogs();
     let workspace: string | undefined;
@@ -488,10 +484,7 @@ async function captureCompositionFramesUnwrapped(
       // The page-side runtime quantizes every seek onto its own fps grid and falls back to 30 when
       // the server does not name one — so an unstated fps rounds a 24fps panel's start back over
       // the cut before it, and the frame captured for a keyframe is the OUTGOING one.
-      const server = await createFileServer({
-        projectDir: workspace,
-        fps: { num: compositionResult.fps, den: 1 },
-      });
+      const server = await serveCaptureWorkspace(workspace, compositionResult.fps);
 
       const { injector, suppliedVideoIds } = await buildVideoFrameInjector(
         harvestCompositionVideos(captureHtml),

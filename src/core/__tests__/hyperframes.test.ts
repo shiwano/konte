@@ -234,6 +234,7 @@ describe("compositeWithHyperFrames", () => {
       fps: 30,
       quality: "standard",
       entryFile: "index.html",
+      allowOutsideProjectAssets: true,
     });
     expect(executeRenderJobMock).toHaveBeenCalledWith(
       { id: "mock-job", warnings: [] },
