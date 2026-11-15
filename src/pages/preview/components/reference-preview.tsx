@@ -356,7 +356,7 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
   const scrollTo = useCallback((attr: "address" | "row" | "group", value: string) => {
     containerRef.current
       ?.querySelector(`[data-${attr}="${CSS.escape(value)}"]`)
-      ?.scrollIntoView({ behavior: "smooth", block: attr === "group" ? "start" : "center" });
+      ?.scrollIntoView({ block: attr === "group" ? "start" : "center" });
   }, []);
   const scrollToAsset = useCallback((address: string) => scrollTo("address", address), [scrollTo]);
 
