@@ -143,7 +143,7 @@ You can mix backends in one project. The agent opens settings when needed and gu
 | have no capable GPU             | [Comfy API](https://platform.comfy.org) | Requires an API key; paid per generation. Comfy Cloud, the managed deployment, runs workflows whose nodes and models it already has, which konte checks. For any other workflow, the agent guides you through creating your own deployment.         |
 | want a closed model             | [fal.ai](https://fal.ai/)               | Requires an API key; paid per generation. Adds models no ComfyUI can host, such as MiniMax H3 Max, Seedance, and Nano Banana. Closed models alone cannot run konte's whole workflow.                                                                |
 
-Your own images, video, and audio work too. konte manages the local tools for resizing, trimming, and assembly.
+Want a backend or model konte doesn't support yet? [Let us know](https://github.com/shiwano/konte/issues/new?template=support.yml).
 
 ### Bring your own ComfyUI workflow
 
