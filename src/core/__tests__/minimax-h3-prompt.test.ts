@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { minimaxH3Prompt } from "../dsl/validators/minimax-h3.js";
+import { minimaxH3CutSource, minimaxH3Prompt } from "../dsl/validators/minimax-h3.js";
 import { LANGUAGE_NAMES } from "../typography.js";
 
+const r2i = minimaxH3Prompt({ mode: "r2i", prompt: "prompt", length: "length" });
 const r2a = minimaxH3Prompt({
   mode: "r2a",
   prompt: "prompt",
@@ -261,12 +262,20 @@ describe("minimaxH3Prompt() — shots", () => {
     expect(r2v({ prompt, length: 124 }, ctx)).toBeUndefined();
   });
 
+  it("takes a cut on a still", () => {
+    const prompt = six({
+      description:
+        "watercolor. [Shot 1] She stands. [Shot 2] At 00:00.500, the camera cuts to her hands.",
+    });
+    expect(r2i({ prompt, length: 22 }, ctx)).toBeUndefined();
+  });
+
   it("blames a repeated shot number on the back-reference that caused it", () => {
     const prompt = six({
       description:
         "watercolor. [Shot 1] She stands. [Shot 2] At 00:01.000, the camera cuts in, as pale as [Shot 1].",
     });
-    expect(r2v({ prompt, length: 42 }, ctx)).toContain("name it in words instead");
+    expect(r2i({ prompt, length: 42 }, ctx)).toContain("name it in words instead");
   });
 
   it("rejects cut times that do not rise", () => {
@@ -355,5 +364,25 @@ describe("minimaxH3Prompt() — declared inputs", () => {
 
   it("names no reference slot outside R2A, whose shape does not turn on them", () => {
     expect(r2v.inputs).toEqual(["prompt", "length"]);
+  });
+});
+
+describe("minimaxH3CutSource()", () => {
+  it("returns [Shot 1] of a description that cuts", () => {
+    const prompt = six({
+      subjects: "<Picture 2> is the frame this take cuts from.",
+      description:
+        "watercolor. [Shot 1] The frame of <Picture 2>. [Shot 2] At 00:00.200, the camera cuts to <Picture 1>.",
+    });
+    expect(minimaxH3CutSource(prompt)?.trim()).toBe("The frame of <Picture 2>.");
+  });
+
+  it("returns nothing where the description does not cut", () => {
+    expect(minimaxH3CutSource(six())).toBeUndefined();
+  });
+
+  it("reads only the description", () => {
+    const prompt = six({ summary: "[reference generation] [Shot 1] a [Shot 2] b" });
+    expect(minimaxH3CutSource(prompt)).toBeUndefined();
   });
 });

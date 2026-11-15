@@ -84,6 +84,10 @@ export default defineDirection({
     // Same reason one step further: the board declares no plates, so the axial push-in from 01 to
     // 02 has nothing nesting its two frames.
     "axis-unrealized_deskMedium.deskWide": "fixture board declares no plates",
+    // Wiring the previous panel would chain each shot's board to the one before it, which every plan and
+    // cascade count in the suite would then see.
+    "panel-unlinked_01.02": "fixture shots are boarded independently",
+    "panel-unlinked_02.03": "fixture shots are boarded independently",
   },
   sequence: {
     lens: "satisfying-process",
@@ -155,7 +159,7 @@ export default defineReference(direction, { references: () => {
 const ANIMATIC_TS = `import { defineAnimatic, asset, adapters, Composition, Panel } from "konte";
 // @ts-expect-error konte's fixture adapter is runtime-only, outside the workspace's generated types.
 import { internalTestPlate } from "konte";
-import { imageMinimaxH3ImageEdit } from "konte/workspace/adapters/comfy/image_minimax_h3_image_edit.js";
+import { imageMinimaxH3R2i } from "konte/workspace/adapters/comfy/image_minimax_h3_r2i.js";
 import direction from "./direction";
 import reference from "./reference";
 
@@ -168,30 +172,28 @@ export default defineAnimatic(direction, {
     });
 
     const still = (canvas: string, body: string) => ({
-      references: {
-        subjects: [
-          { definition: \`The \${canvas} in <Picture 1>, the studio mark on the wall behind, is <Subject 1>.\`, relation: "fully preserved" as const },
-          {
-            definition: "The creator in <Picture 2> is <Subject 2>.",
-            relation: { partially: "her face and dress remain, while her pose is new." },
-          },
-        ] as const,
-        target: "shows <Subject 2> drawn onto <Subject 1>.",
+      subjectDefinitions: [\`<Picture 1> is \${canvas}, the studio mark on the wall behind.\`, "<Picture 2> is the creator."],
+      summary: {
+        tasks: ["keyframe completion"] as ["keyframe completion"],
+        text: "The shot is drawn onto the canvas.",
       },
-      details: body,
-      style: "2D-animated.",
+      retentionAnalysis: [
+        "<Picture 1> ([Shot 1] frame): fully_preserved - the canvas is kept as it is.",
+        "<Picture 2> (appears in [Shot 1]): attribute_transfer - the creator's face and dress are carried onto a new pose.",
+      ],
+      detailedDescription: { style: "2D-animated.", shots: [body] as [string] },
     });
 
     const shotFn = (id: string, first: string, next: string) => () => {
-      const firstPanel = asset("first", imageMinimaxH3ImageEdit, {
+      const firstPanel = asset("first", imageMinimaxH3R2i, {
         image1: latent,
         image2: reference.character,
-        prompt: still("empty canvas", first),
+        prompt: still("the empty canvas", first),
       });
-      const lastPanel = asset("last", imageMinimaxH3ImageEdit, {
+      const lastPanel = asset("last", imageMinimaxH3R2i, {
         image1: firstPanel,
         image2: reference.character,
-        prompt: still("frame this shot opens on", next),
+        prompt: still("the frame this shot opens on", next),
       });
       return <Composition>
 <Panel src={firstPanel} blocking={\`The creator carries shot \${id} through to its end.\`} camera="fixed" />

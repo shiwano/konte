@@ -2,20 +2,27 @@ import type { ImageInputOccurrence } from "../image-inputs.js";
 import type { AdapterMeta } from "./adapter.js";
 import { parsePlaceholder } from "./shot-context.js";
 
-// Where a stage's plain image inputs are gathered while it is being built, read by `plate-unnested`
-// and `landmark-unheld`. Collected as `asset()` runs, like the pins (see pin-collect).
+// Where a stage's plain image inputs are gathered while it is being built, read by `panel-unlinked`,
+// `plate-unnested` and `landmark-unheld`. Collected as `asset()` runs, like the pins (see
+// pin-collect). Alongside them, every address declared with a `readsPrevPanel` adapter.
 let sink: ImageInputOccurrence[] | null = null;
+let readers: Set<string> | null = null;
 let seen: Set<string> | null = null;
 
 // Called from `beginPromptCollection`.
 export function beginImageInputCollection(): void {
   sink = [];
+  readers = new Set();
   seen = new Set();
 }
 
-export function endImageInputCollection(): ImageInputOccurrence[] {
-  const collected = sink ?? [];
+export function endImageInputCollection(): {
+  imageInputs: ImageInputOccurrence[];
+  prevPanelReaders: string[];
+} {
+  const collected = { imageInputs: sink ?? [], prevPanelReaders: [...(readers ?? [])] };
   sink = null;
+  readers = null;
   seen = null;
   return collected;
 }
@@ -28,6 +35,7 @@ export function recordImageInputs(
   generative: boolean,
 ): void {
   if (!sink) return;
+  if (meta.readsPrevPanel) readers?.add(address);
   for (const [name, def] of Object.entries(meta.inputs)) {
     if (def.type !== "image" || def.pin) continue;
     const value = inputs[name];

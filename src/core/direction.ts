@@ -42,8 +42,11 @@ import {
   type PlateRecrop,
   type ShotPanels,
   type AxisCut,
+  type PanelSeam,
   checkJoinPins,
   checkKeyPins,
+  checkPanelLinks,
+  checkReturnLinks,
   type HoldsSetupRef,
   checkArc,
   checkCharacterVoices,
@@ -113,7 +116,8 @@ import {
   waiverShotScope,
 } from "./direction-findings.js";
 
-// A waiver read by watching a shot: its review address, what it waives, and the shots it plays in.
+// A waiver read by watching a shot: its review address, what it waives, and the shots it plays in —
+// one, or both sides of a boundary.
 export type ShotWaiver = {
   address: string;
   code: DirectionFindingCode;
@@ -121,6 +125,15 @@ export type ShotWaiver = {
   reason: string;
   shotIds: string[];
 };
+
+function boundaryShots(pairs: readonly FramePair[]): Map<string, [string, string]> {
+  return new Map(
+    pairs.map(({ frame, from }) => [
+      `${from.shotId}.${frame.shotId}${frame.lane === "cutin" ? ".cutin" : ""}`,
+      [from.shotId, frame.shotId],
+    ]),
+  );
+}
 
 function shotsBySetup(direction: Direction): Map<string, string[]> {
   const out = new Map<string, string[]>();
@@ -133,6 +146,12 @@ function shotsBySetup(direction: Direction): Map<string, string[]> {
 
 export function directionShotWaivers(direction: Direction): ShotWaiver[] {
   const shotIds = new Set(collectShots(direction).map((s) => s.id));
+  const boundaries = boundaryShots(
+    joinBoundaries(direction).flatMap(({ frame, previousFrame }) =>
+      previousFrame ? [{ frame, from: previousFrame }] : [],
+    ),
+  );
+  const returns = boundaryShots(frameReturns(direction));
   const onSetup = shotsBySetup(direction);
   const out: ShotWaiver[] = [];
   for (const [key, reason] of Object.entries(direction.waivers ?? {})) {
@@ -142,7 +161,14 @@ export function directionShotWaivers(direction: Direction): ShotWaiver[] {
     if (!on) continue;
     // A shot's subject opens with its id; an id holds no `.`.
     const head = subject.split(".")[0] ?? "";
-    const ids = on === "setup" ? (onSetup.get(subject) ?? []) : shotIds.has(head) ? [head] : [];
+    const ids =
+      on === "boundary"
+        ? ((code === "return-unlinked" ? returns : boundaries).get(subject) ?? [])
+        : on === "setup"
+          ? (onSetup.get(subject) ?? [])
+          : shotIds.has(head)
+            ? [head]
+            : [];
     if (ids.length === 0) continue;
     out.push({
       address: formatDirectionWaiverAddress(key),
@@ -786,8 +812,9 @@ export type StagingStageState = {
     // The take the frame renders.
     take: string;
   }[];
-  // The seam reading: the two keyframes each developed shot answers a boundary with.
-  // `join-unpinned` reads the opening keyframe as the seam of a long take.
+  // The seam reading: the two keyframes each developed shot answers a boundary with, and what the
+  // opening one was handed of the frame before it. `join-unpinned` reads the opening keyframe as
+  // the seam of a long take; `panel-unlinked` reads the rest against the `within` declarations.
   shotPanels: readonly ShotPanels[];
 };
 
@@ -910,6 +937,8 @@ function checkStaging(
       : []),
     ...(stage ? checkJoinPins(shots, stage.videoPins, stage.shotPanels) : []),
     ...(stage ? checkKeyPins(shots, stage.videoPins, stage.shotPanels) : []),
+    ...(stage ? checkPanelLinks(boardSeams(axisCutPairs(direction), stage.shotPanels)) : []),
+    ...(stage ? checkReturnLinks(boardSeams(frameReturns(direction), stage.shotPanels)) : []),
     ...checkPassers(direction, stage?.videoPassers, referenceAssetNames),
   ];
 }
@@ -1116,7 +1145,69 @@ function nestingChain(
   return [...new Set([...take(fromPath), ...take(toPath)])];
 }
 
+// The cuts a frame has to carry across: an omitted join
+// across two setups on ONE `within` axis — story time runs on and the camera has moved only along
+// that axis. The plate nesting already carries the room (`plate-unnested`); what the frame before
+// it carries is the subject — her light, her size against the set, where she stands.
+//
+// `"continuous"` owes the board nothing here: the seam is the next shot's opening keyframe, and the
+// take before landing on it is the video's to answer (`join-unpinned`). A story-time jump
+// carries nothing (she may have moved), a second axis is a different camera, two frames holding no
+// subject in common have no subject to carry, an aside between the two shots is a card the take
+// does not run through, and a coverage shot's panel is its opening frame, not where its camera
+// ended. A seam is judged only where both shots are on the board and the opening
+// keyframe has a slot for the frame — the rest is not this finding's to report.
+//
+// Each lane is its own camera: a wipe carries across the seam from the wipe before it, and a main
+// frame from the main frame before it.
+function axisCutPairs(direction: Direction): FramePair[] {
+  const setups = direction.setups ?? {};
+  return joinBoundaries(direction).flatMap(({ frame, previousFrame }) =>
+    previousFrame !== undefined &&
+    !previousFrame.coverage &&
+    isAxisCut(setups, frame, previousFrame) &&
+    sharesSubject(previousFrame, frame)
+      ? [{ frame, from: previousFrame }]
+      : [],
+  );
+}
+
 type FramePair = { frame: ShotFrame; from: ShotFrame };
+
+// The pairs answered on the board: judged where both frames are on the board and the opening
+// keyframe's model reads a previous panel.
+function boardSeams(pairs: readonly FramePair[], continuity: readonly ShotPanels[]): PanelSeam[] {
+  const byFrame = new Map(continuity.map((entry) => [frameKey(entry), entry]));
+  return pairs.flatMap(({ frame, from }) => {
+    const here = byFrame.get(frameKey(frame));
+    const before = byFrame.get(frameKey(from));
+    if (!here?.carries || !before) return [];
+    return [
+      {
+        id: frame.shotId,
+        lane: frame.lane,
+        from: from.shotId,
+        fromPanel: before.lastPanel,
+        linked: here.linked,
+        opening: here.firstPanel,
+      },
+    ];
+  });
+}
+
+// An omitted join between two different setups of one `within` axis. Anything the author wrote at the
+// boundary moves story time or is no cut, and two frames of one setup are `join-undeclared` until
+// they say which.
+function isAxisCut(
+  setups: Readonly<Record<string, Setup>>,
+  frame: ShotFrame,
+  previous: ShotFrame,
+): boolean {
+  if (frame.join !== undefined) return false;
+  if (previous.setup === frame.setup) return false;
+  const root = withinRoot(setups, frame.setup);
+  return root !== undefined && root === withinRoot(setups, previous.setup);
+}
 
 // Two frames that both hold subjects but none in common — a cut from one face to another — carry
 // nothing across. A frame with no subject declared may still hold a prop, so it is read as sharing.
@@ -1140,11 +1231,12 @@ function showsSubjectOf(other: ShotFrame, frame: ShotFrame): boolean {
  */
 export type FrameReturn = FramePair;
 
-// None across a story-time jump or an aside, from a coverage shot, between frames holding no
-// subject in common, across a cutaway of its lane in another place, or across any frame showing the
-// subject.
+// None across a story-time jump or an aside, from a coverage shot,
+// between frames holding no subject in common, into a frame an axis cut already carries, across a
+// cutaway of its lane in another place, or across any frame showing the subject.
 export function frameReturns(direction: Direction): FrameReturn[] {
   const setups = direction.setups ?? {};
+  const carried = new Set(axisCutPairs(direction).map(({ frame }) => frameKey(frame)));
   const out: FrameReturn[] = [];
   let run: ShotFrame[] = [];
   let previousShotId: string | undefined;
@@ -1158,6 +1250,7 @@ export function frameReturns(direction: Direction): FrameReturn[] {
     if (frames.some((f) => f.join === "jump-back" || f.join === "jump-forward")) run = [];
     for (const frame of frames) {
       if (frame.join !== undefined || setups[frame.setup] === undefined) continue;
+      if (carried.has(frameKey(frame))) continue;
       let at = run.length - 1;
       while (at >= 0 && !(run[at]!.lane === frame.lane && run[at]!.setup === frame.setup)) at--;
       const from = run[at];

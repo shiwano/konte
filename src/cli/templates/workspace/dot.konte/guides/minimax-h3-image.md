@@ -1,6 +1,6 @@
 # MiniMax H3 Image
 
-One still, edited from `image1` with the references passed beside it.
+One still, edited from `image1` with the references passed beside it — a plate, a view, a reference or a patch. A shot's keyframes are `imageMinimaxH3R2i`'s.
 
 ## Prompt Shape
 
@@ -38,15 +38,8 @@ prompt: {
 - `target` and `details` narrate the finished frame: `The cup now stands on the windowsill`.
 - A removed object is written as what fills its place (`bare floorboards run where the rug lay`). A moved object leaves its old place; a copy adds an instance — say which.
 
-## Length
+## Plates and Views
 
-- 120–220 English words for a shot with a plate and two or three sheets.
-
-## Frames
-
-- `image1` is the picture edited — the plate for a shot's opening keyframe, `partially` preserved: its walls, furniture, light and camera position remain, while the figures stand in it.
-- A panel of another shot passed in any slot leaks its light and windows into the frame — pass the plate and the sheets only.
-- The next moment of the same take is an edit of its previous frame: that frame as `image1`, `partially` preserved, `details` writing only what moves. One generation only — an edit of an edit comes back grainy.
 - A closer plate is the parent plate as `image1`, `{ partially }` — its walls, furniture and light remain, while the camera moves in — sized against the set ("the sofa's arm fills the left third of the frame").
 - A view image passes `reference.<location>` as `image1`, `{ partially }` — its walls, furniture and light remain, while the camera moves — `target` saying where the camera now stands ("seen from straight above the desk").
 

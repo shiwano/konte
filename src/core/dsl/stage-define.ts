@@ -271,7 +271,7 @@ export function defineStage(args: DefineStageArgs): StageBuild {
 
   const prompts = endPromptCollection();
   const pins = endPinCollection();
-  const imageInputs = endImageInputCollection();
+  const { imageInputs, prevPanelReaders } = endImageInputCollection();
   const stemInputs = endStemInputCollection();
   const clipLengths = endClipLengthCollection();
   const respellings = endRespellCollection();
@@ -290,6 +290,7 @@ export function defineStage(args: DefineStageArgs): StageBuild {
       prompts: prompts.length > 0 ? prompts : undefined,
       pins: pins.length > 0 ? pins : undefined,
       imageInputs: imageInputs.length > 0 ? imageInputs : undefined,
+      prevPanelReaders: prevPanelReaders.length > 0 ? prevPanelReaders : undefined,
       stemInputs: stemInputs.length > 0 ? stemInputs : undefined,
       respellings,
       ...(buildFindings.length > 0 ? { buildFindings } : {}),

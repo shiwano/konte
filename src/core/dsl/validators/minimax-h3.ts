@@ -3,10 +3,10 @@ import { formatCutTime } from "../prompt-structure.js";
 import type { AdapterValidator } from "./validator.js";
 
 /**
- * Which decode the adapter runs. R2V always takes the six sections; R2A takes them only when a
- * reference is wired, and three named fields when none is.
+ * Which decode the adapter runs. R2V and R2I always take the six sections; R2A takes them only when
+ * a reference is wired, and three named fields when none is.
  */
-export type MinimaxH3Mode = "r2a" | "r2v";
+export type MinimaxH3Mode = "r2i" | "r2a" | "r2v";
 
 export interface MinimaxH3PromptSpec {
   mode: MinimaxH3Mode;
@@ -124,6 +124,21 @@ export function minimaxH3Prompt(spec: MinimaxH3PromptSpec): AdapterValidator {
     ]),
   ];
   return validator;
+}
+
+/**
+ * The span of an H3 prompt that names the frame a cut comes from: `[Shot 1]` of a
+ * `detailed_description` that cuts to a `[Shot 2]`. Undefined where the description does not cut.
+ * `promptReferenceTags`' `prevPanel.within`.
+ */
+export function minimaxH3CutSource(prompt: string): string | undefined {
+  const description = parseSections(prompt).find((s) => s.name === "detailed_description")?.body;
+  if (description === undefined) return undefined;
+  const markers = [...description.matchAll(SHOT_MARKER)];
+  const first = markers.find((m) => m[1] === "1");
+  const second = markers.find((m) => m[1] === "2");
+  if (first === undefined || second === undefined || second.index <= first.index) return undefined;
+  return description.slice(first.index + first[0].length, second.index);
 }
 
 interface Section {

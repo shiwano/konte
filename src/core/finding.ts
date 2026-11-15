@@ -164,6 +164,8 @@ const ACCEPT_JUDGED_CODES = [
   "join-unpinned",
   "join-unshown",
   "opening-key",
+  "panel-unlinked",
+  "return-unlinked",
   "prompt-negation",
   "prompt-not-yet",
   "prompt-double-negative",
@@ -258,6 +260,8 @@ const DIRECTION_FINDING_TRAITS: DirectionTraitsOf<DirectionFindingCode> = {
   "join-unpinned": judged(waive("stage+downstream")),
   "join-unshown": judged(waive("stage+downstream")),
   "opening-key": judged(waive("stage", "always", "take")),
+  "panel-unlinked": judged(waive("stage+downstream")),
+  "return-unlinked": judged(waive("stage+downstream")),
   "song-unreferenced": {
     ...fixDirection,
     holds: { spend: { reach: "downstream" }, accept: true },

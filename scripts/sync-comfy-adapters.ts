@@ -64,7 +64,11 @@ const GIT_SOURCES: ReadonlyArray<GitSource> = [
 // Workflows with no upstream — authored by hand under `WORKFLOW_DIR/konte`, so vendoring only
 // checks that the file is there.
 const LOCAL_DIR = "konte";
-const LOCAL_WORKFLOWS: ReadonlyArray<string> = ["audio_minimax_h3_r2a", "audio_zonos2_voice_clone"];
+const LOCAL_WORKFLOWS: ReadonlyArray<string> = [
+  "image_minimax_h3_r2i",
+  "audio_minimax_h3_r2a",
+  "audio_zonos2_voice_clone",
+];
 
 function sourceLabel(gitUrl: string): string {
   return gitUrl.replace(/^[a-z]+:\/\//, "").replace(/\.git$/, "");

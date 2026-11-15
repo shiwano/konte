@@ -36,8 +36,8 @@ const relationText = (label: string, relation: Relation): string => {
 export const imageMinimaxH3ImageEdit = defineComfyAsset({
   workflow: "image_minimax_h3_image_edit.json",
   description:
-    "MiniMax H3 Image — a still edited from image1 with up to eight more reference images, drawn at 4MP or more; the origin of a frame on its plate, a plate cut from its parent's, or the next moment of the same take, never a sheet.",
-  allowedIn: ["reference", "view", "plate", "timeline", "thumbnail", "shot", "patch"],
+    "MiniMax H3 Image — a still edited from image1 with up to eight more reference images, drawn at 4MP or more; a plate, a plate cut from its parent's, or a view of a location, never a sheet. A shot's keyframes are imageMinimaxH3R2i's.",
+  allowedIn: ["reference", "view", "plate", "timeline", "thumbnail", "patch"],
   guide: "konte/guides/minimax-h3-image.md",
   models: [
     {

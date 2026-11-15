@@ -167,6 +167,17 @@ export const DIRECTION_FINDING_REMEDY: Record<DirectionFindingCode, string> = {
   "opening-key":
     "the take moves past the moment its key holds: pass the key to a reference input alone, or " +
     "waive it by its key where the take is meant to open on it",
+  "panel-unlinked":
+    "the shot cuts from the shot before (`<from>-<id>`) along one camera axis, so the frame " +
+    "carries across. Pass the panel named to one of the opening keyframe's image inputs and name " +
+    "it `[Shot 1]` in the prompt, or waive the seam by its key where the cut is meant to re-open " +
+    "the frame",
+  "return-unlinked":
+    "the shot returns across a cutaway to the setup of an earlier shot (`<from>-<id>`), so it " +
+    "opens where that shot left the subject. Pass the panel named to one of the opening " +
+    "keyframe's image inputs and name it `[Shot 1]` in the prompt, writing in the prompt what " +
+    "changed while the camera was away; declare `jump-forward` or waive the return by its key " +
+    "where nothing carries across",
   "song-unreferenced": "declare the song as `reference:<song>` in reference.tsx",
   "lyric-unplaced":
     "a person places the line on the song's review page (`konte preview reference`), or run " +

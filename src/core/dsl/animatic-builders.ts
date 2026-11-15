@@ -9,6 +9,7 @@ import { lineText } from "../types/script.js";
 import type { ShotScript } from "./shot-script.js";
 import type { AnyShotInput, MediaAsset, OverlayContext, SoundtrackEntry } from "./builders.js";
 import { readAnimaticShot } from "./animatic.js";
+import { setShotPanels } from "./panel-collect.js";
 import { type AnimaticRef, createAnimaticRef } from "./animatic-ref.js";
 import type {
   DirectionEntry,
@@ -506,6 +507,10 @@ export function defineAnimatic<
         context,
         ...(continuedBy ? { continuedBy } : {}),
       });
+      setShotPanels(
+        input,
+        [...panels, ...cutinPanels].map((panel) => panel.address),
+      );
       if (index.graphicIds.has(input.id)) {
         if (panels.length > 0) {
           throw new KonteError(

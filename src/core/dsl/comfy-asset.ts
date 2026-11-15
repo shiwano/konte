@@ -6,7 +6,8 @@ import type {
 import { KonteError } from "../errors.js";
 import { workflowContentHash } from "../workflow-content-hash.js";
 import type { MediaKind, MediaAsset } from "./builders.js";
-import { getActiveFormat, seed, type BuildFormat } from "./shot-context.js";
+import { getActiveFormat, getShotContext, seed, type BuildFormat } from "./shot-context.js";
+import { panelInputs } from "./panel-collect.js";
 import { estimateSpeechSec } from "../speech-duration.js";
 import { GRID_HOLD_OVERRUN, OVERFLOW_FLOOR, recordClipLength } from "./clip-length-collect.js";
 import {
@@ -165,6 +166,8 @@ export interface ComfyAssetConfig<
   promptExemptions?: readonly RegExp[];
   spokenTextPattern?: RegExp;
   allowedIn: AllowedSites;
+  // See `AdapterMeta.readsPrevPanel`.
+  readsPrevPanel?: true;
   // See `AdapterMeta.minPixels`. Needs one `width` and one `height` input.
   minPixels?: number;
 }
@@ -389,6 +392,7 @@ export function defineComfyAsset<
       ...(config.promptExemptions ? { promptExemptions: config.promptExemptions } : {}),
       ...(config.spokenTextPattern ? { spokenTextPattern: config.spokenTextPattern } : {}),
       allowedIn: config.allowedIn,
+      ...(config.readsPrevPanel ? { readsPrevPanel: true } : {}),
       ...(config.minPixels !== undefined ? { minPixels: config.minPixels } : {}),
       ...(config.models ? { models: config.models } : {}),
       ...(config.nodes ? { nodes: config.nodes } : {}),
@@ -402,7 +406,11 @@ export function defineComfyAsset<
       const prunedNodes: string[] = [];
       const prunedPassThroughs: Record<string, string> = {};
       const format = getActiveFormat();
-      const validatorContext = { promptInput };
+      const validatorContext = {
+        promptInput,
+        shotId: getShotContext()?.shotId,
+        panels: panelInputs(userInputs),
+      };
       const resolveDefault = (
         d: AdapterInputDefault | undefined,
       ): string | number | boolean | undefined => (typeof d === "function" ? d(format) : d);

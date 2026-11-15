@@ -139,6 +139,10 @@ function renderEntry(entry: AdapterCatalogEntry, unconfigured: boolean | null): 
     lines.push(`guide   ${guide.path ?? guide.specifier}${hint}`);
   });
   lines.push(`sites   ${entry.meta.allowedIn.join(", ")}`);
+  if (entry.meta.readsPrevPanel)
+    lines.push(
+      "cut     readsPrevPanel — another shot's panel passed to an image input is the frame the cut comes from",
+    );
   // The specifier, plus how to import it — a named export, so a bare path would misread as a
   // default import (TS2613). A prebuilt adapter comes through the `adapters` namespace.
   lines.push(`import  ${entry.importFrom}`);

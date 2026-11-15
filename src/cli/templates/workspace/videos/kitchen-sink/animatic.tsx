@@ -12,38 +12,38 @@ import {
   seed,
 } from "konte";
 import { audioZonos2VoiceClone } from "konte/workspace/adapters/comfy/audio_zonos2_voice_clone.js";
-import { imageMinimaxH3ImageEdit } from "konte/workspace/adapters/comfy/image_minimax_h3_image_edit.js";
+import { imageMinimaxH3R2i } from "konte/workspace/adapters/comfy/image_minimax_h3_r2i.js";
 import direction from "./direction";
 import reference from "./reference";
 
-type Prompt = AdapterInputs<typeof imageMinimaxH3ImageEdit>["prompt"];
-type Subject = Prompt["references"]["subjects"][number];
+type Still = {
+  task: "reference generation" | "keyframe completion";
+  defines: readonly string[];
+  retains: readonly string[];
+  summary: string;
+  described: string;
+  cutFrom?: string;
+};
 
-const still = (
-  subjects: readonly [Subject, ...Subject[]],
-  target: string,
-  details: string,
-): Prompt => ({
-  references: { subjects, target },
-  details,
-  style: "2D-animated, flat cel shading.",
-});
-
-const room = (picture: number, what = "kitchen"): Subject => ({
-  definition: `The empty ${what} in <Picture ${picture}> is <Subject 1>.`,
-  relation: {
-    partially:
-      "its walls, fixtures, light and camera position remain, while the figures stand in it.",
+const still = ({
+  task,
+  defines,
+  retains,
+  summary,
+  described,
+  cutFrom,
+}: Still): AdapterInputs<typeof imageMinimaxH3R2i>["prompt"] => ({
+  subjectDefinitions: [...defines],
+  summary: { tasks: [task], text: summary },
+  retentionAnalysis: [...retains],
+  detailedDescription: {
+    style: "2D-animated.",
+    shots: cutFrom ? [cutFrom, `the camera cuts to ${described}`] : [described],
   },
 });
-const cook = (picture: number, subject: number): Subject => ({
-  definition: `The boy in the apron in <Picture ${picture}> is <Subject ${subject}>.`,
-  relation: { partially: "his face, hair and apron remain, while his pose is new." },
-});
-const rival = (picture: number, subject: number): Subject => ({
-  definition: `The woman in the cardigan in <Picture ${picture}> is <Subject ${subject}>.`,
-  relation: { partially: "her face, hair and cardigan remain, while her pose is new." },
-});
+
+const kept = (label: string, what: string) =>
+  `${label} (appears in [Shot 1]): fully_preserved - ${what}`;
 
 export default defineAnimatic(direction, {
   plates: ({ format }) => {
@@ -89,31 +89,34 @@ export default defineAnimatic(direction, {
   },
   timeline: ({ shot, plates }) => ({
     shots: shot("01", ({ script, lineup, duration }) => {
-      const first = asset("first", imageMinimaxH3ImageEdit, {
-        image1: plates.kitchenWide,
-        image2: reference.cook,
-        prompt: still(
-          [room(1), cook(2, 2)],
-          "shows <Subject 2> at the stove of <Subject 1>, flipping eggs.",
-          "He stands at the stove, the pan tilted in his right hand, the eggs in the air above it.",
-        ),
-      });
-      // The same take a moment on: an edit of the opening frame.
-      const last = asset("last", imageMinimaxH3ImageEdit, {
-        image1: first,
-        seed: seed(),
-        prompt: still(
-          [
-            {
-              definition: "The boy at the stove in <Picture 1> is <Subject 1>.",
-              relation: {
-                partially: "the room, the framing and the boy remain, while his arms move.",
-              },
-            },
+      const first = asset("first", imageMinimaxH3R2i, {
+        image1: reference.cook,
+        image2: plates.kitchenWide,
+        prompt: still({
+          task: "reference generation",
+          defines: ["<Subject 1> is the boy in <Picture 1>.", "<Picture 2> is the empty frame."],
+          retains: [
+            kept("<Subject 1>", "his face and apron."),
+            kept("<Picture 2>", "the framing and the room."),
           ],
-          "shows <Subject 1> lifting the eggs onto a plate.",
-          "The pan tips over a white plate in his left hand; a thin line of smoke rises behind it.",
-        ),
+          summary: "The boy flips eggs at the stove.",
+          described: "A wide shot; <Subject 1> stands at the stove flipping eggs.",
+        }),
+      });
+      const last = asset("last", imageMinimaxH3R2i, {
+        image1: reference.cook,
+        image2: first,
+        seed: seed(),
+        prompt: still({
+          task: "keyframe completion",
+          defines: ["<Subject 1> is the boy in <Picture 1>.", "<Picture 2> is the opening frame."],
+          retains: [
+            kept("<Subject 1>", "his face and apron."),
+            kept("<Picture 2>", "the framing and the room."),
+          ],
+          summary: "The boy lifts the eggs onto a plate.",
+          described: "The same wide shot; the boy lifts the eggs onto a plate.",
+        }),
       });
       const line = asset("line", audioZonos2VoiceClone, {
         referenceAudio: reference.cookVoice,
@@ -139,33 +142,41 @@ export default defineAnimatic(direction, {
       );
     })
       .nextShot("02", ({ script, lineupTo }) => {
-        // One take runs on from 01, so this keyframe is the seam: video.tsx pins 01's end to it.
-        const first = asset("first", imageMinimaxH3ImageEdit, {
-          image1: plates.kitchenWide,
-          image2: reference.cook,
-          prompt: still(
-            [room(1), cook(2, 2)],
-            "shows <Subject 2> cooking at the stove of <Subject 1> as smoke starts to rise.",
-            "A thin grey line of smoke rises from the pan beside his shoulder.",
-          ),
-        });
-        const last = asset("last", imageMinimaxH3ImageEdit, {
-          image1: first,
-          image2: reference.rival,
-          prompt: still(
-            [
-              {
-                definition: "The kitchen and the boy at the stove in <Picture 1> are <Subject 1>.",
-                relation: {
-                  partially:
-                    "the kitchen, the boy at the stove and the smoke remain, while a second figure walks in at the left.",
-                },
-              },
-              rival(2, 2),
+        // One take runs on from 01, so this keyframe is the seam: video.tsx pins 01's end to it, and
+        // no previous panel is taken.
+        const first = asset("first", imageMinimaxH3R2i, {
+          image1: reference.cook,
+          image2: plates.kitchenWide,
+          prompt: still({
+            task: "reference generation",
+            defines: ["<Subject 1> is the boy in <Picture 1>.", "<Picture 2> is the empty frame."],
+            retains: [
+              kept("<Subject 1>", "his face and apron."),
+              kept("<Picture 2>", "the framing and the room."),
             ],
-            "shows <Subject 2> walked in at the left of <Subject 1>.",
-            "She stands at the left edge of the frame, her nose wrinkled, sniffing at the smoke.",
-          ),
+            summary: "The boy keeps cooking as smoke starts to rise.",
+            described: "The boy at the stove as a thin line of smoke rises.",
+          }),
+        });
+        const last = asset("last", imageMinimaxH3R2i, {
+          image1: reference.rival,
+          image2: reference.cook,
+          image3: first,
+          prompt: still({
+            task: "keyframe completion",
+            defines: [
+              "<Subject 1> is the woman in <Picture 1>.",
+              "<Subject 2> is the boy in <Picture 2>.",
+              "<Picture 3> is the opening frame.",
+            ],
+            retains: [
+              kept("<Subject 1>", "her face and cardigan."),
+              kept("<Subject 2>", "his face and apron."),
+              kept("<Picture 3>", "the framing and the room."),
+            ],
+            summary: "The woman has walked in and stands left of the boy.",
+            described: "The woman stands at left, sniffing, the boy at right.",
+          }),
         });
         const line = asset("line", audioZonos2VoiceClone, {
           referenceAudio: reference.rivalVoice,
@@ -183,36 +194,47 @@ export default defineAnimatic(direction, {
           </Composition>
         );
       })
-      .nextShot("03", ({ script, cutin }) => {
-        const key = asset("key", imageMinimaxH3ImageEdit, {
-          image1: plates.kitchenMedium,
-          image2: reference.rival,
-          image3: reference.cook,
-          prompt: still(
-            [room(1), rival(2, 2), cook(3, 3)],
-            "shows <Subject 2> and <Subject 3> in <Subject 1>, smoke billowing between them.",
-            "<Subject 2> stands at the left and <Subject 3> at the right, both waving their hands at a thick grey cloud of smoke.",
-          ),
-        });
-        const insert = asset("insert", imageMinimaxH3ImageEdit, {
-          image1: reference.view.kitchen.top,
-          image2: reference.pan,
-          prompt: still(
-            [
-              {
-                definition: "The kitchen seen from above in <Picture 1> is <Subject 1>.",
-                relation: {
-                  transfers: "its palette and light, carried onto the close view of the pan.",
-                },
-              },
-              {
-                definition: "The dented iron pan in <Picture 2> is <Subject 2>.",
-                relation: { partially: "its dents and iron finish remain, while it now smokes." },
-              },
+      .nextShot("03", ({ script, cutin, shot }) => {
+        const key = asset("key", imageMinimaxH3R2i, {
+          image1: reference.rival,
+          image2: reference.cook,
+          image3: plates.kitchenMedium,
+          image4: shot("02").image("last"),
+          prompt: still({
+            task: "reference generation",
+            defines: [
+              "<Subject 1> is the woman in <Picture 1>.",
+              "<Subject 2> is the boy in <Picture 2>.",
+              "<Picture 3> is the empty frame.",
+              "<Picture 4> is the frame this take continues from.",
             ],
-            "shows <Subject 2> filling the frame, smoking.",
-            "Grey smoke curls up off the pan's blackened base and out of the top of the frame.",
-          ),
+            retains: [
+              kept("<Subject 1>", "her face and cardigan."),
+              kept("<Subject 2>", "his face and apron."),
+              kept("<Picture 3>", "the framing and the room."),
+              kept("<Picture 4>", "the moment it holds."),
+            ],
+            summary: "Smoke billows between the woman and the boy.",
+            cutFrom: "The frame of <Picture 4>.",
+            described: "a medium shot, the woman at left and the boy at right waving at the smoke.",
+          }),
+        });
+        const insert = asset("insert", imageMinimaxH3R2i, {
+          image1: reference.pan,
+          image2: reference.view.kitchen.top,
+          prompt: still({
+            task: "reference generation",
+            defines: [
+              "<Subject 1> is the pan in <Picture 1>.",
+              "<Subject 2> is the kitchen in <Picture 2>.",
+            ],
+            retains: [
+              kept("<Subject 1>", "its dents and iron finish."),
+              "<Subject 2> (appears in [Shot 1]): attribute_transfer - its palette and light.",
+            ],
+            summary: "The smoking pan fills the frame.",
+            described: "The smoking pan fills the frame.",
+          }),
         });
         const shout = asset("shout", audioZonos2VoiceClone, {
           referenceAudio: reference.tone,
@@ -238,14 +260,19 @@ export default defineAnimatic(direction, {
             </div>
           ),
         });
-        const wipe = asset("wipe", imageMinimaxH3ImageEdit, {
-          image1: plates.kitchenClose,
-          image2: reference.cook,
-          prompt: still(
-            [room(1), cook(2, 2)],
-            "shows <Subject 2> leaning over the table of <Subject 1>, reading the recipe.",
-            "He leans in on both hands, his eyes on a handwritten recipe card on the table.",
-          ),
+        const wipe = asset("wipe", imageMinimaxH3R2i, {
+          image1: reference.cook,
+          image2: plates.kitchenClose,
+          prompt: still({
+            task: "reference generation",
+            defines: ["<Subject 1> is the boy in <Picture 1>.", "<Picture 2> is the empty frame."],
+            retains: [
+              kept("<Subject 1>", "his face and apron."),
+              kept("<Picture 2>", "the framing and the room."),
+            ],
+            summary: "The boy leans over the table.",
+            described: "The boy leans in over the table, reading the recipe.",
+          }),
         });
         const narration = asset("narration", audioZonos2VoiceClone, {
           referenceAudio: reference.narratorVoice,
@@ -264,14 +291,22 @@ export default defineAnimatic(direction, {
       .nextShot("05", ({ framing, location, setup }) => (
         <Composition>
           <Panel
-            src={asset("key", imageMinimaxH3ImageEdit, {
-              image1: plates.kitchenClose,
-              image2: reference.cook,
-              prompt: still(
-                [room(1), cook(2, 2)],
-                "shows <Subject 2> grinning over a plate of eggs on the table of <Subject 1>.",
-                "A white plate of fried eggs sits in the foreground; he grins over it.",
-              ),
+            src={asset("key", imageMinimaxH3R2i, {
+              image1: reference.cook,
+              image2: plates.kitchenClose,
+              prompt: still({
+                task: "reference generation",
+                defines: [
+                  "<Subject 1> is the boy in <Picture 1>.",
+                  "<Picture 2> is the empty frame.",
+                ],
+                retains: [
+                  kept("<Subject 1>", "his face and apron."),
+                  kept("<Picture 2>", "the framing and the room."),
+                ],
+                summary: "The boy grins over the plate of eggs he has set down.",
+                described: "The plate of eggs on the table, the boy grinning over it.",
+              }),
             })}
             alt={`${setup} ${framing} ${location}`}
             blocking="He sets the plate down and grins."
@@ -280,14 +315,23 @@ export default defineAnimatic(direction, {
         </Composition>
       ))
       .nextShot("06", () => {
-        const key = asset("key", imageMinimaxH3ImageEdit, {
-          image1: plates.yardWide,
-          image2: reference.rival,
-          prompt: still(
-            [room(1, "yard"), rival(2, 2)],
-            "shows <Subject 2> in <Subject 1> holding up a slice of burnt toast.",
-            "She stands between the gate and the tree, the black toast held up in her right hand.",
-          ),
+        const key = asset("key", imageMinimaxH3R2i, {
+          image1: reference.rival,
+          image2: plates.yardWide,
+          prompt: still({
+            task: "reference generation",
+            defines: [
+              "<Subject 1> is the woman in <Picture 1>.",
+              "<Picture 2> is the empty frame.",
+            ],
+            retains: [
+              kept("<Subject 1>", "her face and cardigan."),
+              kept("<Picture 2>", "the framing and the yard."),
+            ],
+            summary: "The woman holds up a slice of burnt toast in the yard.",
+            described:
+              "A wide shot; <Subject 1> stands between the gate and the tree holding burnt toast.",
+          }),
         });
         return (
           <Composition>
@@ -300,15 +344,25 @@ export default defineAnimatic(direction, {
         return (
           <Composition>
             <Panel
-              src={asset("key", imageMinimaxH3ImageEdit, {
-                image1: plates.kitchenMedium,
-                image2: reference.rival,
-                image3: reference.cook,
-                prompt: still(
-                  [room(1), rival(2, 2), cook(3, 3)],
-                  "shows <Subject 3> laughing, a fresh pan in his hands, in <Subject 1>.",
-                  "<Subject 2> stands at the left; <Subject 3> at the right holds a new pan in both hands, laughing.",
-                ),
+              src={asset("key", imageMinimaxH3R2i, {
+                image1: reference.rival,
+                image2: reference.cook,
+                image3: plates.kitchenMedium,
+                prompt: still({
+                  task: "reference generation",
+                  defines: [
+                    "<Subject 1> is the woman in <Picture 1>.",
+                    "<Subject 2> is the boy in <Picture 2>.",
+                    "<Picture 3> is the empty frame.",
+                  ],
+                  retains: [
+                    kept("<Subject 1>", "her face and cardigan."),
+                    kept("<Subject 2>", "his face and apron."),
+                    kept("<Picture 3>", "the framing and the room."),
+                  ],
+                  summary: "The boy laughs, the fresh pan in his hands.",
+                  described: "The woman at left, the boy at right holding the fresh pan, laughing.",
+                }),
               })}
               blocking="She hands it over; he laughs."
               camera="Holds."

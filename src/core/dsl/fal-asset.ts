@@ -1,7 +1,8 @@
 import type { FalAssetDefinition } from "../types/index.js";
 import { KonteError } from "../errors.js";
 import type { MediaKind, MediaAsset } from "./builders.js";
-import { getActiveFormat, seed } from "./shot-context.js";
+import { getActiveFormat, getShotContext, seed } from "./shot-context.js";
+import { panelInputs } from "./panel-collect.js";
 import { setFieldPath } from "./set-field-path.js";
 import {
   assertAllowedIn,
@@ -81,6 +82,8 @@ export interface FalAssetConfig<
   promptExemptions?: readonly RegExp[];
   spokenTextPattern?: RegExp;
   allowedIn: AllowedSites;
+  // See `AdapterMeta.readsPrevPanel`.
+  readsPrevPanel?: true;
 }
 
 type FalInputTSType<T extends FalInputDef> = T extends {
@@ -202,6 +205,7 @@ export function defineFalAsset<
       ...(config.promptExemptions ? { promptExemptions: config.promptExemptions } : {}),
       ...(config.spokenTextPattern ? { spokenTextPattern: config.spokenTextPattern } : {}),
       allowedIn: config.allowedIn,
+      ...(config.readsPrevPanel ? { readsPrevPanel: true } : {}),
     },
     createDefinition(userInputs: FalCallOptions<TInputs>): FalAssetDefinition {
       const inputs: Record<string, unknown> = {};
@@ -263,7 +267,11 @@ export function defineFalAsset<
         }
       }
 
-      runValidators(config.validators, resolved, { promptInput });
+      runValidators(config.validators, resolved, {
+        promptInput,
+        shotId: getShotContext()?.shotId,
+        panels: panelInputs(userInputs),
+      });
 
       const adapterSuppliedInputs = Object.keys(inputLabels).filter((k) =>
         supplied.has(inputLabels[k]!),

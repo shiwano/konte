@@ -75,6 +75,7 @@ The generated adapter may carry a commented-out block:
 Optional `validators` (one or an array) reject an input combination the model forbids but each input's type allows, failing the load before any spend.
 
 - A model that names its references by ordinal — `promptReferenceTags({ tags: { Picture: ["image1", …] } })`, each tag's slots in numbering order; it reads the adapter's one `"prompt"` input, so name `prompt:` only where there are two. `form: "bare"` for a model writing them as prose (`image 1`) rather than `<Picture 1>`; `{ slots: [...], exhaustive: false }` when naming a wired slot is the author's call or the count is only a ceiling; `[]` for a tag this workflow cannot take.
+- An image model drawing animatic keyframes that reads another shot's panel as the frame a cut comes from (H3 R2I's `[Shot 1]`) — `readsPrevPanel: true` beside `validators`, and `prevPanel: { tag, within }` on `promptReferenceTags`, `within` returning the span the panel's ordinal belongs in (`minimaxH3CutSource`).
 - A model whose prompt is a fixed grammar of named sections — declare a `structure` on its `"prompt"` input; read [prompt-structure.md](references/prompt-structure.md).
 - An input the model won't read in this configuration — `inertInputs({ inputs: { negativePrompt: [" ", ""] }, when: { useLightning: true }, reason, fix })`, each input mapped to the value that means "not set". `whenNot` states the condition as an absence.
 - A group where at least one must be set — `requireOneOf({ inputs: { instruct: "", character: "Auto" }, reason })`.

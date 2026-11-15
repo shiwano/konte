@@ -110,6 +110,7 @@ export const ${name} = defineComfyAsset({
   });
 
   it.each([
+    ["imageMinimaxH3R2i", ["minimax-h3.md", "minimax-h3-picture.md", "minimax-h3-r2i.md"]],
     [
       "videoMinimaxH3R2v",
       ["minimax-h3.md", "minimax-h3-picture.md", "minimax-h3-sound.md", "minimax-h3-r2v.md"],

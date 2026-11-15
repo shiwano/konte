@@ -6,6 +6,7 @@ import { checkPrompts, type PromptOccurrence } from "../../core/prompt-check.js"
 import type { ComfyAssetDefinition } from "../../core/types/index.js";
 import { loadDefinitionForAddress } from "../../core/stage-definitions.js";
 import { ctx, doctorChecks, initWorkspace, run, useTempWorkspace } from "./cli-fixtures.js";
+import { writeFixtureVideo } from "./fixture-video.js";
 
 vi.setConfig({ testTimeout: 60000 });
 
@@ -13,6 +14,7 @@ useTempWorkspace();
 
 const REFERENCE_TSX = (body: string) => `import { defineReference, asset, adapters } from "konte";
 import { imageMinimaxH3ImageEdit } from "konte/workspace/adapters/comfy/image_minimax_h3_image_edit.js";
+import { imageMinimaxH3R2i } from "konte/workspace/adapters/comfy/image_minimax_h3_r2i.js";
 import { videoMinimaxH3R2v } from "konte/workspace/adapters/comfy/video_minimax_h3_r2v.js";
 import { audioMinimaxH3R2a } from "konte/workspace/adapters/comfy/audio_minimax_h3_r2a.js";
 import direction from "./direction";
@@ -83,8 +85,61 @@ const ASSETS = `
   });
   return { character, bgm, still, motion, cast, line };`;
 
+// R2I draws a shot's keyframes alone, so its calls sit in the fixture's board: 02 cuts from 01.
+const ANIMATIC_TSX = (
+  shot01: string,
+  shot02: string,
+) => `import { defineAnimatic, asset, Composition, Panel } from "konte";
+import { imageMinimaxH3R2i } from "konte/workspace/adapters/comfy/image_minimax_h3_r2i.js";
+import direction from "./direction";
+import reference from "./reference";
+
+export default defineAnimatic(direction, {
+  timeline: ({ shot }) => ({
+    shots: shot("01", () => {
+${shot01}
+      return <Composition><Panel src={instant} /></Composition>;
+    })
+      .nextShot("02", ({ shot }) => {
+${shot02}
+        return <Composition><Panel src={still} /></Composition>;
+      })
+      .nextPendingShot("03"),
+  }),
+});
+`;
+
+const INSTANT = `
+      const instant = asset("instant", imageMinimaxH3R2i, {
+        image1: reference.character,
+        prompt: {
+          subjectDefinitions: ["<Subject 1> is the creator in <Picture 1>."],
+          summary: { tasks: ["reference generation"], text: "She looks up." },
+          retentionAnalysis: ["<Subject 1> (appears in [Shot 1]): fully_preserved - her face and dress."],
+          detailedDescription: { style: "2D-animated.", shots: ["She looks up."] },
+        },
+      });`;
+
+const CUT = `
+        const still = asset("still", imageMinimaxH3R2i, {
+          image1: reference.character,
+          image2: shot("01").image("instant"),
+          prompt: {
+            subjectDefinitions: ["<Subject 1> is the creator in <Picture 1>.", "<Picture 2> is the frame this take cuts from."],
+            summary: { tasks: ["reference generation", "keyframe completion"], text: "She looks up." },
+            retentionAnalysis: [
+              "<Subject 1> (appears in [Shot 2]): fully_preserved - her face and dress.",
+              "<Picture 2> ([Shot 1] frame): fully_preserved - the frame it cuts from.",
+            ],
+            detailedDescription: {
+              style: "2D-animated.",
+              shots: ["The frame of <Picture 2>.", "the camera cuts in to her face."],
+            },
+          },
+        });`;
+
 async function promptOf(videoRoot: string, name: string): Promise<ComfyAssetDefinition> {
-  const address = `reference:${name}`;
+  const address = name.includes(":") ? name : `reference:${name}`;
   const definition = await loadDefinitionForAddress(videoRoot, address);
   return getAssetEntry(definition, address) as ComfyAssetDefinition;
 }
@@ -128,6 +183,68 @@ describe("shipped MiniMax H3 prompts", () => {
     expect((await promptOf(video, "line")).inputs["10.prompt"]).toMatch(
       /^subject_definitions: [\s\S]*\n\ndetailed_description: live-action\. \[Shot 1\] She says,/,
     );
+  });
+
+  it("assembles R2I's sections and burst, cut or not", async () => {
+    const { video } = await initWorkspace(path.join(ctx.dir, "i"));
+    await writeFixtureVideo(video);
+    await fs.writeFile(path.join(video, "animatic.tsx"), ANIMATIC_TSX(INSTANT, CUT));
+
+    const still = (await promptOf(video, "animatic:shot.02.still")).inputs;
+    expect(still["10.prompt"]).toBe(
+      [
+        "subject_definitions: <Subject 1> is the creator in <Picture 1>.\n<Picture 2> is the frame this take cuts from.",
+        "summary: [reference generation + keyframe completion] She looks up.",
+        "retention_analysis: <Subject 1> (appears in [Shot 2]): fully_preserved - her face and dress.\n<Picture 2> ([Shot 1] frame): fully_preserved - the frame it cuts from.",
+        "detailed_description: 2D-animated. [Shot 1] The frame of <Picture 2>. [Shot 2] At 00:00.500, the camera cuts in to her face.",
+        "overall_soundscape: N/A",
+        "non_diegetic_music: N/A",
+      ].join("\n\n"),
+    );
+    expect([still["10.length"], still["17.batch_index"]]).toEqual([22, 17]);
+    const instant = (await promptOf(video, "animatic:shot.01.instant")).inputs;
+    expect([instant["10.length"], instant["17.batch_index"]]).toEqual([5, 0]);
+  });
+
+  it("refuses R2I outside a shot", async () => {
+    const { video } = await initWorkspace(path.join(ctx.dir, "x"));
+    await fs.writeFile(
+      path.join(video, "reference.tsx"),
+      REFERENCE_TSX(`
+  const still = asset("still", imageMinimaxH3R2i, {
+    image1: character,
+    prompt: {
+      subjectDefinitions: ["<Subject 1> is the creator in <Picture 1>."],
+      summary: { tasks: ["reference generation"], text: "She looks up." },
+      retentionAnalysis: ["<Subject 1> (appears in [Shot 1]): fully_preserved - her face."],
+      detailedDescription: { style: "2D-animated.", shots: ["She looks up."] },
+    },
+  });
+  return { character, bgm, still };`),
+    );
+    await expect(run(["inspect", "reference:still"], video)).rejects.toMatchObject({
+      stderr: expect.stringContaining("ADAPTER_OUT_OF_SCOPE"),
+    });
+  });
+
+  it("refuses H3 Image in a shot", async () => {
+    const { video } = await initWorkspace(path.join(ctx.dir, "e"));
+    await writeFixtureVideo(video);
+    await fs.writeFile(
+      path.join(video, "animatic.tsx"),
+      ANIMATIC_TSX(INSTANT, CUT)
+        .replace(
+          "import { imageMinimaxH3R2i }",
+          'import { imageMinimaxH3ImageEdit } from "konte/workspace/adapters/comfy/image_minimax_h3_image_edit.js";\nimport { imageMinimaxH3R2i }',
+        )
+        .replace(
+          'const instant = asset("instant", imageMinimaxH3R2i, {',
+          'asset("edit", imageMinimaxH3ImageEdit, { image1: reference.character, prompt: { references: { subjects: [{ definition: "The creator in <Picture 1> is <Subject 1>.", relation: "fully preserved" }], target: "shows <Subject 1>." }, details: "x" } });\n      const instant = asset("instant", imageMinimaxH3R2i, {',
+        ),
+    );
+    await expect(run(["inspect", "animatic:shot.01.instant"], video)).rejects.toMatchObject({
+      stderr: expect.stringContaining("ADAPTER_OUT_OF_SCOPE"),
+    });
   });
 
   it("refuses a subject defined out of order", async () => {
@@ -232,6 +349,34 @@ describe("shipped MiniMax H3 prompts", () => {
   // @ts-expect-error a structured prompt takes no string
   asset("g", videoMinimaxH3R2v, { image1: character, prompt: "summary: [keyframe completion] x" });
   return { character, bgm };`),
+    );
+
+    const typeCheck = (await doctorChecks(video)).find((check) => check.name === "type check");
+    expect(typeCheck?.details.join("\n") ?? "").toBe("");
+    expect(typeCheck?.status).toBe("PASS");
+  });
+
+  it("refuses by type what R2I's grammar does not take", async () => {
+    const { video } = await initWorkspace(path.join(ctx.dir, "t"));
+    await writeFixtureVideo(video);
+    const ok = `subjectDefinitions: [], retentionAnalysis: []`;
+    const image1 = "image1: reference.character";
+    await fs.writeFile(
+      path.join(video, "animatic.tsx"),
+      ANIMATIC_TSX(
+        `${INSTANT}
+      // @ts-expect-error R2I keeps one cut at most
+      asset("a", imageMinimaxH3R2i, { ${image1}, prompt: { ${ok}, summary: { tasks: ["reference generation"], text: "x" }, detailedDescription: { style: "s", shots: ["a", "b", "c"] } } });
+      // @ts-expect-error konte sets R2I's cut time
+      asset("h", imageMinimaxH3R2i, { ${image1}, prompt: { ${ok}, summary: { tasks: ["reference generation"], text: "x" }, detailedDescription: { style: "s", shots: ["a", { at: 1, text: "b" }] } } });
+      // @ts-expect-error konte sets R2I's burst
+      asset("i", imageMinimaxH3R2i, { ${image1}, length: 22, prompt: { ${ok}, summary: { tasks: ["reference generation"], text: "x" }, detailedDescription: { style: "s", shots: ["a"] } } });
+      // @ts-expect-error R2I takes no audio task
+      asset("b", imageMinimaxH3R2i, { ${image1}, prompt: { ${ok}, summary: { tasks: ["audio reuse"], text: "x" }, detailedDescription: { style: "s", shots: ["a"] } } });
+      // @ts-expect-error R2I writes its own sound sections
+      asset("c", imageMinimaxH3R2i, { ${image1}, prompt: { ${ok}, summary: { tasks: ["reference generation"], text: "x" }, detailedDescription: { style: "s", shots: ["a"] }, overallSoundscape: "N/A" } });`,
+        CUT,
+      ),
     );
 
     const typeCheck = (await doctorChecks(video)).find((check) => check.name === "type check");

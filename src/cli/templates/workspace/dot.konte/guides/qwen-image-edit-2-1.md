@@ -48,7 +48,7 @@ Describe only the change. Name what stays by its role, in one blanket clause; re
 
 ## Avoid
 
-- A new viewpoint, a cut, a change of framing or a new composition in a shot, or another view of a location — draw those with `imageMinimaxH3ImageEdit`.
+- A new viewpoint, cut, framing or composition in a shot — `imageMinimaxH3R2i`; another view of a location — `imageMinimaxH3ImageEdit`.
 - Style conversion in a shot; settle the look in the reference stage.
 - A restyle of a picture already drawn, such as an anime sheet into the piece's look; redraw it from text in that look.
 - A nonempty `negativePrompt` at `cfg: 1`; the adapter rejects it. At the default `cfg: 4`, target observed artifacts with short terms.

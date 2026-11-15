@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { makeMediaAsset, type MediaAsset, type StageShots } from "../dsl/builders.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import {
   Composition,
@@ -6,7 +7,10 @@ import {
   adapters,
   asset,
   defineAnimatic,
+  defineDirection,
   defineReference,
+  defineVideo,
+  promptReferenceTags,
 } from "../dsl/index.js";
 import {
   listPanelPromptText,
@@ -17,7 +21,7 @@ import {
   listShotContinuity,
   listShownReferences,
 } from "../board-analysis.js";
-import { plainDirection, testDirection } from "./helpers/direction.js";
+import { directionDefaults, plainDirection, testDirection } from "./helpers/direction.js";
 import { animaticTimeline, moves, shot } from "./helpers/shot.js";
 import { ASSET_SITES } from "../dsl/adapter.js";
 
@@ -569,9 +573,321 @@ describe("listShownReferences", () => {
   });
 });
 
-// The seam of a long take is the opening keyframe, which the video's end pin is read against.
+// The seam adapter: a model that reads another shot's panel as the frame the cut comes from.
+const seamKeyframe = defineComfyAsset({
+  workflow: "seam.json",
+  description: "test seam keyframe adapter",
+  inputs: {
+    prompt: { nodeId: "1", field: "text", type: "prompt" },
+    place: { nodeId: "2", field: "image", type: "image" },
+    frame: { nodeId: "3", field: "image", type: "image" },
+  },
+  outputs: { result: { nodeId: "9", type: "image" } },
+  allowedIn: ASSET_SITES,
+  readsPrevPanel: true,
+});
+
 describe("listShotContinuity", () => {
-  it("reads the first and last panels of every developed shot", () => {
+  const board = (frame?: string) =>
+    defineAnimatic(testDirection(format), {
+      timeline: () =>
+        animaticTimeline([
+          shot("01", {
+            duration: 5,
+            build: () => (
+              <Composition>
+                <Panel
+                  src={asset("first", seamKeyframe, { prompt: "the two of them" })}
+                  {...moves}
+                />
+                <Panel
+                  src={asset("last", seamKeyframe, {
+                    prompt: "she is alone",
+                    place: asset("painting", keyframe, { prompt: "a painting" }),
+                  })}
+                />
+              </Composition>
+            ),
+          }),
+          shot("02", {
+            duration: 5,
+            // The test `shot()` helper mints each shot off its own inline direction, so the ctx
+            // accessor cannot reach across; the address the real one hands back is what matters here.
+            build: () => (
+              <Composition>
+                <Panel
+                  src={asset("first", seamKeyframe, {
+                    prompt: "in on her",
+                    place: sheets.ferryDeck,
+                    ...(frame ? { frame: makeMediaAsset<"image">(`__konte:${frame}__`) } : {}),
+                  })}
+                  {...moves}
+                />
+              </Composition>
+            ),
+          }),
+        ]),
+    });
+
+  it("reads the seam panels of every developed shot, and what the opening one was handed", () => {
+    const read = listShotContinuity(board("animatic:shot.01.last"));
+    expect(read.map((entry) => entry.shotId)).toEqual(["01", "02"]);
+    expect(read[0]?.lastPanel).toBe("animatic:shot.01.last");
+    expect(read[1]?.carries).toBe(true);
+    expect(read[1]?.linked).toContain("animatic:shot.01.last");
+  });
+
+  it("records a keyframe whose model reads a previous panel and was handed none", () => {
+    const read = listShotContinuity(board());
+    expect(read[1]?.carries).toBe(true);
+    expect(read[1]?.linked).toEqual([]);
+  });
+
+  it("links nothing through an input that carries no other shot's panel", () => {
+    const read = listShotContinuity(board("reference:ferryDeck"));
+    expect(read[1]?.linked).toEqual([]);
+  });
+
+  it("links nothing through another shot's asset that is no panel", () => {
+    const read = listShotContinuity(board("animatic:shot.01.painting"));
+    expect(read[1]?.linked).toEqual([]);
+  });
+
+  // 03 is handed 02's panel, which was itself drawn from 01's: the frame the cut comes from is 02's.
+  it("links only the panel handed, not the panels behind it", () => {
+    const panel = (address: string) => makeMediaAsset<"image">(`__konte:${address}__`);
+    const read = listShotContinuity(
+      defineAnimatic(testDirection(format), {
+        timeline: () =>
+          animaticTimeline([
+            shot("01", {
+              duration: 5,
+              build: () => (
+                <Composition>
+                  <Panel src={asset("last", seamKeyframe, { prompt: "she is alone" })} {...moves} />
+                </Composition>
+              ),
+            }),
+            shot("02", {
+              duration: 5,
+              build: () => (
+                <Composition>
+                  <Panel
+                    src={asset("first", seamKeyframe, {
+                      prompt: "the window",
+                      frame: panel("animatic:shot.01.last"),
+                    })}
+                    {...moves}
+                  />
+                </Composition>
+              ),
+            }),
+            shot("03", {
+              duration: 5,
+              build: () => (
+                <Composition>
+                  <Panel
+                    src={asset("first", seamKeyframe, {
+                      prompt: "back on her",
+                      frame: panel("animatic:shot.02.first"),
+                    })}
+                    {...moves}
+                  />
+                </Composition>
+              ),
+            }),
+          ]),
+      }),
+    );
+    expect(read[2]?.linked).toEqual(["animatic:shot.02.first"]);
+  });
+
+  // A panel of another shot shown as is draws nothing, so it carries no seam of its own.
+  it("carries nothing on another shot's panel shown as is", () => {
+    const read = listShotContinuity(
+      defineAnimatic(testDirection(format), {
+        timeline: () =>
+          animaticTimeline([
+            shot("01", {
+              duration: 5,
+              build: () => (
+                <Composition>
+                  <Panel src={asset("last", seamKeyframe, { prompt: "she is alone" })} {...moves} />
+                </Composition>
+              ),
+            }),
+            shot("02", {
+              duration: 5,
+              build: () => (
+                <Composition>
+                  <Panel
+                    src={makeMediaAsset<"image">("__konte:animatic:shot.01.last__")}
+                    {...moves}
+                  />
+                </Composition>
+              ),
+            }),
+          ]),
+      }),
+    );
+    expect(read[1]?.firstPanel).toBe("animatic:shot.01.last");
+    expect(read[1]?.carries).toBe(false);
+  });
+});
+
+// Built on a real two-shot direction: `shot(id)` and `animatic.shot(id)` are what mark a panel.
+describe("the frame a cut comes from", () => {
+  const cutKeyframe = defineComfyAsset({
+    workflow: "cut.json",
+    description: "test cut keyframe adapter",
+    inputs: {
+      prompt: { nodeId: "1", field: "text", type: "prompt" },
+      image1: { nodeId: "2", field: "image", type: "image" },
+    },
+    outputs: { result: { nodeId: "9", type: "image" } },
+    allowedIn: ASSET_SITES,
+    readsPrevPanel: true,
+    validators: promptReferenceTags({
+      tags: { Picture: ["image1"] },
+      prevPanel: { tag: "Picture", within: (prompt) => /FROM:(.*?)TO:/s.exec(prompt)?.[1] },
+    }),
+  });
+  const direction = defineDirection({
+    ...directionDefaults,
+    sequence: {
+      lens: "mini-drama",
+      pleasure: "cute",
+      shots: [
+        {
+          id: "01",
+          role: "ordinary",
+          action: "calm open",
+          setup: "front",
+          duration: 5,
+          lineup: [],
+        },
+        { id: "02", role: "hero", action: "the payoff", setup: "front", duration: 3, lineup: [] },
+      ],
+    },
+  });
+  const cut = (image1: MediaAsset<"image">) =>
+    asset("first", cutKeyframe, { prompt: "<Picture 1> on the wall", image1 });
+  const board = (handed: (shot: StageShots) => MediaAsset<"image">) =>
+    defineAnimatic(direction, {
+      timeline: ({ shot }) => ({
+        shots: shot("01", () => (
+          <Composition>
+            <Panel
+              src={asset("last", keyframe, {
+                prompt: "she is alone",
+                place: asset("painting", keyframe, { prompt: "a painting" }),
+              })}
+              {...moves}
+            />
+          </Composition>
+        )).nextShot("02", ({ shot }) => (
+          <Composition>
+            <Panel src={cut(handed(shot as StageShots))} {...moves} />
+          </Composition>
+        )),
+      }),
+    });
+
+  it("is asked of another shot's panel", () => {
+    expect(() => board((shot) => shot("01").image("last"))).toThrow(
+      "has no place for the frame a cut comes from",
+    );
+  });
+
+  it("is not asked of another shot's asset that is no panel", () => {
+    expect(() => board((shot) => shot("01").image("painting"))).not.toThrow();
+  });
+
+  it("is asked in a video of the animatic's panel", () => {
+    const animatic = board((shot) => shot("01").image("painting"));
+    const video = (name: string) =>
+      defineVideo(direction, {
+        timeline: ({ shot }) => ({
+          shots: shot("01", () => <Composition />).nextShot("02", () => {
+            cut(animatic.shot("01").image(name));
+            return <Composition />;
+          }),
+        }),
+      });
+    expect(() => video("last")).toThrow("has no place for the frame a cut comes from");
+    expect(() => video("painting")).not.toThrow();
+  });
+
+  it("is asked in a video of a panel a shot shares from another", () => {
+    const animatic = defineAnimatic(direction, {
+      timeline: ({ shot }) => ({
+        shots: shot("01", () => (
+          <Composition>
+            <Panel src={asset("last", keyframe, { prompt: "she is alone" })} {...moves} />
+          </Composition>
+        )).nextShot("02", ({ shot }) => (
+          <Composition>
+            <Panel src={shot("01").image("last")} {...moves} />
+          </Composition>
+        )),
+      }),
+    });
+    expect(() =>
+      defineVideo(direction, {
+        timeline: ({ shot }) => ({
+          shots: shot("01", () => <Composition />).nextShot("02", () => {
+            cut(animatic.shot("02").image("last"));
+            return <Composition />;
+          }),
+        }),
+      }),
+    ).toThrow("has no place for the frame a cut comes from");
+  });
+});
+
+// A plate baked by a model that reads a previous panel (H3 R2I) under a panel drawn by one that does
+// not.
+const platePrevPanel = defineComfyAsset({
+  workflow: "plate.json",
+  description: "plate adapter reading a previous panel",
+  inputs: {
+    prompt: { nodeId: "1", field: "text", type: "prompt" },
+    image: { nodeId: "2", field: "image", type: "image" },
+  },
+  outputs: { result: { nodeId: "9", type: "image" } },
+  allowedIn: ASSET_SITES,
+  readsPrevPanel: true,
+});
+
+describe("a plate's own model is not the shot's", () => {
+  it("does not report carries for a panel whose model reads no previous panel", () => {
+    const animatic = defineAnimatic(testDirection(format), {
+      plates: () => ({
+        front: asset("front", platePrevPanel, { prompt: "the deck, empty" }),
+      }),
+      timeline: ({ plates }) =>
+        animaticTimeline([
+          shot("01", {
+            duration: 5,
+            build: () => (
+              <Composition>
+                <Panel
+                  src={asset("first", keyframe, { prompt: "her", place: plates.front })}
+                  {...moves}
+                />
+              </Composition>
+            ),
+          }),
+        ]),
+    });
+    expect(listShotContinuity(animatic)[0]?.carries).toBe(false);
+  });
+});
+
+// The seam of a long take is the opening keyframe, which the video's end pin is read against — so
+// the panels are listed off a board on which no adapter reads a previous panel at all.
+describe("a board reading no previous panel still lists its panels", () => {
+  it("reads first and last panels, carrying nothing", () => {
     const animatic = defineAnimatic(testDirection(format), {
       timeline: () =>
         animaticTimeline([
@@ -592,7 +908,102 @@ describe("listShotContinuity", () => {
         lane: "main",
         firstPanel: "animatic:shot.01.first",
         lastPanel: "animatic:shot.01.last",
+        carries: false,
+        linked: [],
       },
     ]);
+  });
+});
+
+// Shot 00, whose last panel the seam tests below hand on.
+const prevShot = () =>
+  shot("00", {
+    duration: 5,
+    build: () => (
+      <Composition>
+        <Panel src={asset("last", keyframe, { prompt: "her" })} {...moves} />
+      </Composition>
+    ),
+  });
+
+describe("a wrapped keyframe still answers for the seam", () => {
+  it("reads the previous panel through a resize declared in the same shot", () => {
+    const animatic = defineAnimatic(testDirection(format), {
+      timeline: () =>
+        animaticTimeline([
+          prevShot(),
+          shot("01", {
+            duration: 5,
+            build: () => {
+              const real = asset("real", seamKeyframe, {
+                prompt: "in on her",
+                frame: makeMediaAsset<"image">("__konte:animatic:shot.00.last__"),
+              });
+              return (
+                <Composition>
+                  <Panel
+                    src={asset("wrapped", adapters.imageResize, {
+                      image: real,
+                      width: 64,
+                      height: 64,
+                    })}
+                    {...moves}
+                  />
+                </Composition>
+              );
+            },
+          }),
+        ]),
+    });
+    const read = listShotContinuity(animatic)[1];
+    expect(read?.firstPanel).toBe("animatic:shot.01.wrapped");
+    expect(read?.carries).toBe(true);
+    expect(read?.linked).toContain("animatic:shot.00.last");
+  });
+});
+
+describe("the previous panel handed through a wrapper", () => {
+  const board = (source: () => MediaAsset<"image">) =>
+    defineAnimatic(testDirection(format), {
+      timeline: () =>
+        animaticTimeline([
+          prevShot(),
+          shot("01", {
+            duration: 5,
+            build: () => (
+              <Composition>
+                <Panel
+                  src={asset("first", seamKeyframe, { prompt: "in on her", frame: source() })}
+                  {...moves}
+                />
+              </Composition>
+            ),
+          }),
+        ]),
+    });
+
+  it("does not link through a deterministic step of the shot's own", () => {
+    const read = listShotContinuity(
+      board(() =>
+        asset("small", adapters.imageResize, {
+          image: makeMediaAsset<"image">("__konte:animatic:shot.00.last__"),
+          width: 64,
+          height: 64,
+        }),
+      ),
+    )[1];
+    expect(read?.linked).toEqual([]);
+  });
+
+  it("does not link through a generative keyframe of the shot's own", () => {
+    const read = listShotContinuity(
+      board(() =>
+        asset("sketch", keyframe, {
+          prompt: "her",
+          place: makeMediaAsset<"image">("__konte:animatic:shot.00.last__"),
+        }),
+      ),
+    )[1];
+    expect(read?.linked).toEqual([]);
   });
 });

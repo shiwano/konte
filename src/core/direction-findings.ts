@@ -78,6 +78,8 @@ const FINDING_CLASS: Record<DirectionFindingCode, DirectionFindingClass> = {
   "join-unpinned": "staging",
   "join-unshown": "staging",
   "opening-key": "staging",
+  "panel-unlinked": "staging",
+  "return-unlinked": "staging",
   // The song the piece is cut to. Never deferred.
   "song-unreferenced": "song",
   "lyric-unplaced": "song",
@@ -95,7 +97,7 @@ export function isDirectionFindingCode(code: string): code is DirectionFindingCo
 // Where what a waiver of the code lets through plays, read off its subject: inside one shot (the
 // shot, one of its frames, or a subject in one), across the boundary `<from>.<to>` between two, in
 // every shot with a frame on the setup it names, or in no one shot (null).
-type WaiverShotScope = "shot" | "setup" | null;
+type WaiverShotScope = "shot" | "boundary" | "setup" | null;
 
 const WAIVER_ON_SHOT: Record<DirectionFindingCode, WaiverShotScope> = {
   "missing-role": null,
@@ -154,6 +156,8 @@ const WAIVER_ON_SHOT: Record<DirectionFindingCode, WaiverShotScope> = {
   "join-unpinned": "shot",
   "join-unshown": "shot",
   "opening-key": "shot",
+  "panel-unlinked": "boundary",
+  "return-unlinked": "boundary",
   "song-unreferenced": null,
   "lyric-unplaced": null,
   "song-overrun": null,
@@ -224,6 +228,8 @@ const FIX_STAGE: Record<DirectionFindingCode, FindingFixStage> = {
   "join-unpinned": "video",
   "join-unshown": "video",
   "opening-key": "video",
+  "panel-unlinked": "animatic",
+  "return-unlinked": "animatic",
   "song-unreferenced": "reference",
   "lyric-unplaced": "direction",
   "song-overrun": "direction",
