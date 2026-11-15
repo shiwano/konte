@@ -573,6 +573,13 @@ describe("listShownReferences", () => {
   });
 });
 
+// What declares a test model a reader of the previous panel, with no ordinal it has to find.
+const readsPrevPanel = (slots: readonly string[]) =>
+  promptReferenceTags({
+    tags: { Picture: { slots, exhaustive: false } },
+    prevPanel: { tag: "Picture", within: (prompt) => prompt },
+  });
+
 // The seam adapter: a model that reads another shot's panel as the frame the cut comes from.
 const seamKeyframe = defineComfyAsset({
   workflow: "seam.json",
@@ -584,7 +591,7 @@ const seamKeyframe = defineComfyAsset({
   },
   outputs: { result: { nodeId: "9", type: "image" } },
   allowedIn: ASSET_SITES,
-  readsPrevPanel: true,
+  validators: readsPrevPanel(["place", "frame"]),
 });
 
 describe("listShotContinuity", () => {
@@ -746,7 +753,6 @@ describe("the frame a cut comes from", () => {
     },
     outputs: { result: { nodeId: "9", type: "image" } },
     allowedIn: ASSET_SITES,
-    readsPrevPanel: true,
     validators: promptReferenceTags({
       tags: { Picture: ["image1"] },
       prevPanel: { tag: "Picture", within: (prompt) => /FROM:(.*?)TO:/s.exec(prompt)?.[1] },
@@ -856,7 +862,7 @@ const platePrevPanel = defineComfyAsset({
   },
   outputs: { result: { nodeId: "9", type: "image" } },
   allowedIn: ASSET_SITES,
-  readsPrevPanel: true,
+  validators: readsPrevPanel(["image"]),
 });
 
 describe("a plate's own model is not the shot's", () => {

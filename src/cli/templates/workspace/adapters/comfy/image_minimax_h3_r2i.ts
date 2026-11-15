@@ -198,5 +198,4 @@ export const imageMinimaxH3R2i = defineComfyAsset({
       prevPanel: { tag: "Picture", within: minimaxH3CutSource },
     }),
   ],
-  readsPrevPanel: true,
 });

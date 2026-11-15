@@ -102,6 +102,7 @@ export function promptReferenceTags(spec: PromptReferenceTagsSpec): AdapterValid
     ...groups.flatMap((group) => group.slots),
     ...(spec.prompt ? [spec.prompt] : []),
   ];
+  if (prevPanel) validator.readsPrevPanel = true;
   return validator;
 }
 

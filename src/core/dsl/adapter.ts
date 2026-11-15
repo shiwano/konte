@@ -134,7 +134,8 @@ export interface AdapterMeta {
   // quoted line as prompt text.
   spokenTextPattern?: RegExp;
   // The model reads the previous shot's last panel, passed to one of its image inputs, as the frame
-  // a cut comes from (H3's `[Shot 1]`). `panel-unlinked` asks only such an adapter for that panel.
+  // a cut comes from (H3's `[Shot 1]`) — derived from `promptReferenceTags({ prevPanel })`.
+  // `panel-unlinked` asks only such an adapter for that panel.
   readsPrevPanel?: true;
   // The fewest pixels the model draws well. A `width` × `height` that resolves under it is raised,
   // aspect kept, until it reaches it.

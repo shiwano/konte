@@ -23,6 +23,7 @@ import {
   assertValidatorInputs,
   promptInputName,
   runValidators,
+  validatorsReadPrevPanel,
   type AdapterValidator,
 } from "./validators/index.js";
 import type { PromptStructure, PromptStructureValue } from "./prompt-structure.js";
@@ -166,8 +167,6 @@ export interface ComfyAssetConfig<
   promptExemptions?: readonly RegExp[];
   spokenTextPattern?: RegExp;
   allowedIn: AllowedSites;
-  // See `AdapterMeta.readsPrevPanel`.
-  readsPrevPanel?: true;
   // See `AdapterMeta.minPixels`. Needs one `width` and one `height` input.
   minPixels?: number;
 }
@@ -392,7 +391,7 @@ export function defineComfyAsset<
       ...(config.promptExemptions ? { promptExemptions: config.promptExemptions } : {}),
       ...(config.spokenTextPattern ? { spokenTextPattern: config.spokenTextPattern } : {}),
       allowedIn: config.allowedIn,
-      ...(config.readsPrevPanel ? { readsPrevPanel: true } : {}),
+      ...(validatorsReadPrevPanel(config.validators) ? { readsPrevPanel: true } : {}),
       ...(config.minPixels !== undefined ? { minPixels: config.minPixels } : {}),
       ...(config.models ? { models: config.models } : {}),
       ...(config.nodes ? { nodes: config.nodes } : {}),

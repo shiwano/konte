@@ -17,6 +17,7 @@ import {
   assertValidatorInputs,
   promptInputName,
   runValidators,
+  validatorsReadPrevPanel,
   type AdapterValidator,
 } from "./validators/index.js";
 import type { PromptStructure, PromptStructureValue } from "./prompt-structure.js";
@@ -82,8 +83,6 @@ export interface FalAssetConfig<
   promptExemptions?: readonly RegExp[];
   spokenTextPattern?: RegExp;
   allowedIn: AllowedSites;
-  // See `AdapterMeta.readsPrevPanel`.
-  readsPrevPanel?: true;
 }
 
 type FalInputTSType<T extends FalInputDef> = T extends {
@@ -205,7 +204,7 @@ export function defineFalAsset<
       ...(config.promptExemptions ? { promptExemptions: config.promptExemptions } : {}),
       ...(config.spokenTextPattern ? { spokenTextPattern: config.spokenTextPattern } : {}),
       allowedIn: config.allowedIn,
-      ...(config.readsPrevPanel ? { readsPrevPanel: true } : {}),
+      ...(validatorsReadPrevPanel(config.validators) ? { readsPrevPanel: true } : {}),
     },
     createDefinition(userInputs: FalCallOptions<TInputs>): FalAssetDefinition {
       const inputs: Record<string, unknown> = {};

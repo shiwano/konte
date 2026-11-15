@@ -8723,6 +8723,7 @@ export type AdapterValidator = ((
   context?: AdapterValidatorContext,
 ) => string | undefined) & {
   inputs?: readonly string[];
+  readsPrevPanel?: true;
 };
 /**
  * The adapter's own shape: `promptInput` is the name of its one `"prompt"` input, undefined when it
@@ -9058,7 +9059,6 @@ export interface ComfyAssetConfig<
   promptExemptions?: readonly RegExp[];
   spokenTextPattern?: RegExp;
   allowedIn: AllowedSites;
-  readsPrevPanel?: true;
   minPixels?: number;
 }
 export type ComfyDerive<
@@ -9222,7 +9222,6 @@ export interface FalAssetConfig<
   promptExemptions?: readonly RegExp[];
   spokenTextPattern?: RegExp;
   allowedIn: AllowedSites;
-  readsPrevPanel?: true;
 }
 export type FalInputTSType<T extends FalInputDef> = T extends {
   type: "string" | "seconds";

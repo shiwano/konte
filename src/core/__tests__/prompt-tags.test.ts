@@ -419,6 +419,28 @@ describe("the previous panel", () => {
     ).toBeUndefined();
   });
 
+  it("declares the adapter that carries it a reader of the previous panel", () => {
+    const adapter = (validators?: ReturnType<typeof promptReferenceTags>) =>
+      defineComfyAsset({
+        workflow: "cut.json",
+        description: "cut",
+        inputs: {
+          prompt: { nodeId: "1", field: "text", type: "prompt" },
+          image1: { nodeId: "2", field: "image", type: "image" },
+          image2: { nodeId: "3", field: "image", type: "image" },
+          image3: { nodeId: "4", field: "image", type: "image" },
+        },
+        outputs: { result: { nodeId: "9", type: "image" } },
+        allowedIn: ASSET_SITES,
+        ...(validators ? { validators } : {}),
+      });
+    expect(adapter(tags).meta.readsPrevPanel).toBe(true);
+    expect(
+      adapter(promptReferenceTags({ tags: { Picture: ["image1"] } })).meta.readsPrevPanel,
+    ).toBe(undefined);
+    expect(adapter().meta.readsPrevPanel).toBe(undefined);
+  });
+
   it("refuses a tag the spec does not declare", () => {
     expect(() =>
       promptReferenceTags({

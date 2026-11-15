@@ -16,6 +16,9 @@ export type AdapterValidator = ((
   // The bundled validator factories fill it. A hand-written validator is a bare function and
   // declares nothing, so the check covers it only as far as its author sets this.
   inputs?: readonly string[];
+  // The model reads another shot's panel, passed to one of the inputs it checks, as the frame a cut
+  // comes from — set by `promptReferenceTags({ prevPanel })`. The adapter's `readsPrevPanel`.
+  readsPrevPanel?: true;
 };
 
 /**
@@ -36,6 +39,15 @@ export function promptInputName(inputs: Record<string, { type: string }>): strin
     .filter(([, def]) => def.type === "prompt")
     .map(([name]) => name);
   return named.length === 1 ? named[0] : undefined;
+}
+
+// Whether any validator declares the model a reader of the previous panel.
+export function validatorsReadPrevPanel(
+  validators: AdapterValidator | readonly AdapterValidator[] | undefined,
+): boolean {
+  if (!validators) return false;
+  const list = Array.isArray(validators) ? validators : [validators as AdapterValidator];
+  return list.some((validator) => validator.readsPrevPanel === true);
 }
 
 // An adapter may carry several independent validators; they run in declaration order, and the first
