@@ -43,7 +43,7 @@ https://github.com/user-attachments/assets/752ed713-a210-44b8-ba14-74973285ecb7
 
 ## Quick start
 
-**Requirements:** Claude Code, Codex or Muse and a [generation backend](#backends). Supports macOS, Linux, and Windows (including WSL). konte needs no Node.js, Python, or other runtime installation.
+**Requirements:** Claude Code, Codex or Muse, plus a [generation backend](#backends) for AI generation. Supports macOS, Linux, and Windows (including WSL). konte needs no Node.js, Python, or other runtime installation.
 
 Create a workspace directory, then install the plugin, run setup in a chat opened there, and check in (`$` = terminal, `>` = agent chat).
 
@@ -141,7 +141,7 @@ You can mix backends in one project. The agent opens settings when needed and gu
 | ------------------------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | have a capable GPU, or rent one | [ComfyUI](https://comfy.org/download)   | Requires ComfyUI-Manager. konte installs models and nodes; plan on 16 GB of VRAM (24 GB is comfortable) and tens of gigabytes of first-run downloads. Run locally or on a GPU host such as [RunPod](https://docs.runpod.io/tutorials/pods/comfyui). |
 | have no capable GPU             | [Comfy API](https://platform.comfy.org) | Requires an API key; paid per generation. Comfy Cloud, the managed deployment, runs workflows whose nodes and models it already has, which konte checks. For any other workflow, the agent guides you through creating your own deployment.         |
-| want a closed model             | [fal.ai](https://fal.ai/)               | Requires an API key; paid per generation. Adds models no ComfyUI can host, such as MiniMax H3 Max, Seedance, and Nano Banana. Closed models alone cannot run konte's whole workflow.                                                                |
+| want a closed model             | [fal.ai](https://fal.ai/)               | Requires an API key; paid per generation. Adds models no ComfyUI can host, such as MiniMax H3 Max, Seedance, and Nano Banana.                                                                                                                       |
 
 Want a backend or model konte doesn't support yet? [Let us know](https://github.com/shiwano/konte/issues/new?template=support.yml).
 
