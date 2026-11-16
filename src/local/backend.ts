@@ -25,6 +25,7 @@ import { trimVideo } from "../core/ffmpeg.js";
 import { probeMediaDuration, probeVideo } from "../core/video-probe.js";
 import type { LocalAssetDefinition } from "../core/types/index.js";
 import { formatSeconds } from "../core/format-duration.js";
+import type { OrbitPose } from "../core/image-orbit.js";
 
 // A middle take carries a fade at each end, the first and last one at one.
 async function assertCrossfadeFits(
@@ -164,6 +165,9 @@ export class LocalBackend implements GenerationBackend {
         });
         break;
       }
+      case "orbit":
+        await this.renderOrbit(def.inputs, outputFile, resolvedDependencies);
+        break;
       case "render":
         if (def.mediaType === "video") {
           await this.renderVideo(def.inputs, outputFile, resolvedDependencies, onLog);
@@ -197,6 +201,21 @@ export class LocalBackend implements GenerationBackend {
     const ref = parsePlaceholder(placeholder);
     const key = ref ?? placeholder;
     return requireFileWithinRoot(this.videoRoot, resolvedDependencies[key] ?? placeholder);
+  }
+
+  private async renderOrbit(
+    inputs: Record<string, unknown>,
+    outputFile: string,
+    resolvedDependencies: Record<string, string>,
+  ): Promise<void> {
+    const { renderOrbit } = await import("../core/image-orbit.js");
+    await renderOrbit({
+      masterFile: await this.resolveDependencyFile(inputs.master as string, resolvedDependencies),
+      pose: inputs.pose as OrbitPose,
+      size: { width: inputs.width as number, height: inputs.height as number },
+      outputFile,
+      cacheDir: path.join(this.videoRoot, ".konte", "cache", "moge"),
+    });
   }
 
   private async resizeImage(

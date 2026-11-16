@@ -83,6 +83,7 @@ export {
 } from "./direction.js";
 export { jsxImage, type JsxImageInputs, type JsxImageCanvas } from "./adapters/index.js";
 export { jsxVideo, type JsxVideoInputs } from "./adapters/index.js";
+export { imageOrbit, type ImageOrbitInputs } from "./adapters/index.js";
 export { upscale } from "./delivery-upscale.js";
 export {
   asset,
@@ -221,6 +222,7 @@ import {
   videoFile,
   videoFrame,
   videoTrim,
+  imageOrbit,
 } from "./adapters/index.js";
 
 export const adapters = {
@@ -236,6 +238,7 @@ export const adapters = {
   videoFrame,
   jsxImage,
   jsxVideo,
+  imageOrbit,
 };
 export function seed(): string & { readonly __brand: "KontePlaceholder" } {
   return "" as any;

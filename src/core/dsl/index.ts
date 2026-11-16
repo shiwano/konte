@@ -11,6 +11,7 @@ import {
   videoFile,
   videoFrame,
   videoTrim,
+  imageOrbit,
 } from "./adapters/index.js";
 // Runtime only, and not in `adapters` — see the file header.
 export {
@@ -82,6 +83,7 @@ export type { ReferenceDefinition } from "../types/reference.js";
 export { imageFile, videoFile, audioFile } from "./adapters/index.js";
 export { jsxImage, type JsxImageInputs, type JsxImageCanvas } from "./adapters/index.js";
 export { jsxVideo, type JsxVideoInputs } from "./adapters/index.js";
+export { imageOrbit, type ImageOrbitInputs } from "./adapters/index.js";
 export {
   defineComfyAsset,
   type AdapterInputDef,
@@ -230,4 +232,5 @@ export const adapters = {
   videoFrame,
   jsxImage,
   jsxVideo,
+  imageOrbit,
 };

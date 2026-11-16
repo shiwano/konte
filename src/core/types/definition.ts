@@ -132,6 +132,7 @@ export const LocalAssetDefinitionSchema = z.object({
     "frame",
     "render",
     "cutFrame",
+    "orbit",
   ]),
   mediaType: z.enum(["image", "video", "audio"]),
   inputs: z.record(z.string(), z.unknown()),

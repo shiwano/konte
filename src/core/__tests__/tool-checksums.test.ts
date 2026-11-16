@@ -3,6 +3,7 @@ import { toolDownloadUrls } from "../../../scripts/lib/tool-download-urls.js";
 import { chromiumDownloadUrl } from "../chromium.js";
 import { cloudflaredDownloadSource } from "../cloudflared-binary.js";
 import { BEAT_THIS_URLS } from "../beat-this.js";
+import { MOGE_URLS } from "../moge.js";
 import { KonteError } from "../errors.js";
 import { ffmpegDownloadSources } from "../ffmpeg-binary.js";
 import { IPADIC_URL } from "../japanese-reading.js";
@@ -61,6 +62,7 @@ const RESOLVERS: Record<string, (platform: NodeJS.Platform, arch: string) => str
     PARAKEET_URL,
   ],
   beatThis: () => BEAT_THIS_URLS,
+  moge: () => MOGE_URLS,
   ipadic: () => [IPADIC_URL],
 };
 

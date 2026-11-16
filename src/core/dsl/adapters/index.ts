@@ -7,6 +7,7 @@ export {
 } from "./internal-test.js";
 export { jsxImage, type JsxImageInputs, type JsxImageCanvas } from "./jsx-image.js";
 export { jsxVideo, type JsxVideoInputs } from "./jsx-video.js";
+export { imageOrbit, type ImageOrbitInputs } from "./image-orbit.js";
 export {
   imageResize,
   imageCrop,

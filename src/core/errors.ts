@@ -252,6 +252,8 @@ export type KonteErrorCode =
   | "SHERPA_SETUP_FAILED"
   // The managed Beat This! model could not be provisioned.
   | "BEAT_THIS_SETUP_FAILED"
+  // The managed MoGe model, which reads a master's depth for `imageOrbit`, could not be provisioned.
+  | "MOGE_SETUP_FAILED"
   // The managed IPADIC, which reads a Japanese line's pronunciation, could not be provisioned.
   | "IPADIC_SETUP_FAILED"
   | "TUNNEL_FAILED"
