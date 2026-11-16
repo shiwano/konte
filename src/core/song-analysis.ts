@@ -41,6 +41,7 @@ async function decodeMono(file: string): Promise<Float32Array> {
  * stands.
  */
 export async function analyzeSongVariant(opts: {
+  variantId: string;
   file: string;
   outputHash: string | null | undefined;
   videoRoot: string;
@@ -64,6 +65,7 @@ export async function analyzeSongVariant(opts: {
   fs.mkdirSync(opts.workDir, { recursive: true });
   try {
     const { vocals } = await songParts(opts.videoRoot, {
+      variantId: opts.variantId,
       file: opts.file,
       outputHash: opts.outputHash,
     });

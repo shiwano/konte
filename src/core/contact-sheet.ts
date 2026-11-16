@@ -355,7 +355,7 @@ interface ContactSheetResult {
   reused: boolean;
 }
 
-function contactSheetDir(videoRoot: string): string {
+export function contactSheetDir(videoRoot: string): string {
   return path.join(videoRoot, ".konte", "cache", "contact-sheets");
 }
 

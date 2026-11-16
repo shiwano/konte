@@ -167,6 +167,38 @@ describe("clean command", () => {
     await expect(fs.access(thumbCache)).rejects.toThrow();
   });
 
+  it("removes a cleaned variant's song separations and crops", async () => {
+    const { v2 } = await setupVariants();
+
+    const songParts = path.join(projectDir, ".konte/cache/song-parts", v2);
+    const crops = path.join(projectDir, ".konte/cache/crops", v2);
+    await fs.mkdir(path.join(songParts, "hash"), { recursive: true });
+    await fs.writeFile(path.join(songParts, "hash/vocals.wav"), "wav");
+    await fs.mkdir(crops, { recursive: true });
+    await fs.writeFile(path.join(crops, "overview-abc.png"), "png");
+
+    await run(["clean", "--delete-undecided", "--yes"], projectDir);
+
+    await expect(fs.access(songParts)).rejects.toThrow();
+    await expect(fs.access(crops)).rejects.toThrow();
+  });
+
+  it("removes contact sheets on an unscoped run only", async () => {
+    await setupVariants();
+    const sheets = path.join(projectDir, ".konte/cache/contact-sheets");
+    await fs.mkdir(sheets, { recursive: true });
+    await fs.writeFile(path.join(sheets, "abc123-p01-def456.jpg"), "img");
+    await fs.writeFile(path.join(sheets, "abc123-p01.json"), "{}");
+
+    const scoped = await run(["clean", "video:shot.01", "--yes"], projectDir);
+    expect(scoped.stdout).not.toContain("contact sheet");
+    await fs.access(path.join(sheets, "abc123-p01-def456.jpg"));
+
+    const { stdout } = await run(["clean", "--yes"], projectDir);
+    expect(stdout).toContain("Removed 1 contact sheet(s).");
+    expect(await fs.readdir(sheets)).toEqual([]);
+  });
+
   it("removes composition thumbnail caches but leaves feedback frames", async () => {
     const compDir = path.join(
       projectDir,

@@ -19,6 +19,7 @@ import { buildOrphanContext, listStrayVariantDirs } from "../../core/orphans.js"
 import { StateManager } from "../../core/state/index.js";
 import { activeGenerationVariantIds, patchFilePath } from "../../core/patch.js";
 import { prerollVariantDir } from "../../core/preview-preroll.js";
+import { songPartsVariantDir } from "../../core/song-parts.js";
 import {
   assetDir,
   patchBucketDir,
@@ -28,6 +29,7 @@ import {
 } from "../../core/variant-dir.js";
 import { collectDescendants } from "../../core/variant-lineage.js";
 import { removePathSafely } from "./clean-utils.js";
+import { cropVariantDir } from "./probe/crop.js";
 
 const KONTE_DIR = ".konte";
 const CACHE_DIR = "cache";
@@ -93,7 +95,17 @@ function variantLeftoverPaths(videoRoot: string, variantId: string): string[] {
     path.join(videoRoot, KONTE_DIR, CACHE_DIR, AUDIO_DIR, variantId),
     path.join(videoRoot, KONTE_DIR, CACHE_DIR, MOTION_DIR, variantId),
     prerollVariantDir(videoRoot, variantId),
+    songPartsVariantDir(videoRoot, variantId),
+    cropVariantDir(videoRoot, variantId),
     patchFilePath(videoRoot, variantId),
+  ];
+}
+
+// Everything one variant owns on disk.
+export function variantPaths(videoRoot: string, address: string, variantId: string): string[] {
+  return [
+    ...variantAssetPaths(videoRoot, address, variantId),
+    ...variantLeftoverPaths(videoRoot, variantId),
   ];
 }
 
@@ -353,10 +365,7 @@ export async function collectOrphans(opts: {
         variantId,
         kind: "output",
         address,
-        paths: [
-          ...variantLeftoverPaths(videoRoot, variantId),
-          ...variantAssetPaths(videoRoot, address, variantId),
-        ],
+        paths: [...variantPaths(videoRoot, address, variantId)],
       });
     }
   }
@@ -603,10 +612,7 @@ export async function removeOrphans(opts: {
             variantId: id,
             kind: "output",
             address: patch.address,
-            paths: [
-              ...variantLeftoverPaths(videoRoot, id),
-              ...variantAssetPaths(videoRoot, patch.address, id),
-            ],
+            paths: [...variantPaths(videoRoot, patch.address, id)],
           });
         }
       }

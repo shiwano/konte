@@ -414,7 +414,7 @@ async function runAsOwner(
       media &&
       mediaHasAudio(media)
     ) {
-      const workDir = path.join(videoRoot, ".konte", "cache", "heard", variantId, workerId);
+      const workDir = path.join(videoRoot, ".konte", "cache", "heard", `${variantId}-${workerId}`);
       try {
         const heard = await hearSpeech(
           path.resolve(videoRoot, outputFile),

@@ -1,7 +1,7 @@
+import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { Command } from "commander";
 import {
-  addressToCacheSegments,
   assertValidAddressScope,
   isCompositionAddress,
   matchesAddressScope,
@@ -17,11 +17,10 @@ import {
   loadPatchCatalog,
   patchAssetAddress,
   patchChainTargets,
-  patchFilePath,
   patchStepEntries,
 } from "../../core/patch.js";
 import { listThumbnailAddressDirs } from "../../core/variant-thumbnails.js";
-import { variantDir, variantsHostedBy } from "../../core/variant-dir.js";
+import { variantsHostedBy } from "../../core/variant-dir.js";
 import {
   acceptedConsumers,
   collectDescendants,
@@ -52,18 +51,16 @@ import {
   orphanTotal,
   orphanVariantKeys,
   removeOrphans,
+  variantPaths,
 } from "./clean-orphans.js";
 import { type CascadeFailedJob, cascadeFailPendingJobs } from "../../core/job-cascade.js";
-import { prerollVariantDir } from "../../core/preview-preroll.js";
+import { contactSheetDir } from "../../core/contact-sheet.js";
 import { requireVideoRoot } from "../context.js";
 import { currentPoolVariant } from "../patch-orchestrator.js";
 
 const KONTE_DIR = ".konte";
 const CACHE_DIR = "cache";
-const LOGS_DIR = "logs";
 const THUMBNAILS_DIR = "thumbnails";
-const AUDIO_DIR = "audio";
-const MOTION_DIR = "motion";
 
 // Why a variant is deletable. The last four hold generated media; only `undecided` is added by
 // --delete-undecided.
@@ -124,6 +121,7 @@ type CleanedVariant = {
 type CleanResult = {
   removed: CleanedVariant[];
   removedCompositionCaches: string[];
+  removedContactSheets: string[];
 };
 
 interface CleanOptions {
@@ -344,6 +342,9 @@ async function executeClean(opts: CleanOptions): Promise<void> {
     if (opts.addressScope && !matchesAddressScope(cacheAddress, opts.addressScope)) continue;
     compositionCaches.push(dir);
   }
+  // Contact sheets are keyed by the invocation that drew them, not by an address.
+  const contactSheetFiles = opts.addressScope ? [] : await listContactSheetFiles(videoRoot);
+  const contactSheets = contactSheetFiles.filter(isSheetImage);
 
   const jobManager = new JobManager(videoRoot);
   const allJobs = await jobManager.listJobs();
@@ -454,24 +455,8 @@ async function executeClean(opts: CleanOptions): Promise<void> {
         continue;
       }
 
-      const paths: string[] = [];
-      paths.push(variantDir(videoRoot, address, variantId));
       // A patch script names one take, so it dies with it: "no orphaned patch" stays an invariant.
-      paths.push(patchFilePath(videoRoot, variantId));
-      paths.push(
-        path.join(videoRoot, KONTE_DIR, LOGS_DIR, `${variantId}.log`),
-        path.join(
-          videoRoot,
-          KONTE_DIR,
-          CACHE_DIR,
-          THUMBNAILS_DIR,
-          ...addressToCacheSegments(address),
-          variantId,
-        ),
-        path.join(videoRoot, KONTE_DIR, CACHE_DIR, AUDIO_DIR, variantId),
-        path.join(videoRoot, KONTE_DIR, CACHE_DIR, MOTION_DIR, variantId),
-        prerollVariantDir(videoRoot, variantId),
-      );
+      const paths = variantPaths(videoRoot, address, variantId);
 
       const category: CleanCategory = variant.metadata?.error
         ? "failed"
@@ -550,20 +535,29 @@ async function executeClean(opts: CleanOptions): Promise<void> {
   // enters the call — it consents without prompting, but the summary is disclosed. Non-TTY
   // without --yes/--no fails CONFIRMATION_REQUIRED inside confirmAction.
   if (
-    (collected.length > 0 || compositionCaches.length > 0 || orphanTotal(planned) > 0) &&
+    (collected.length > 0 ||
+      compositionCaches.length > 0 ||
+      contactSheetFiles.length > 0 ||
+      orphanTotal(planned) > 0) &&
     !opts.dryRun
   ) {
     let totalSize = 0;
     for (const p of [
       ...collected.flatMap((entry) => entry.paths),
       ...compositionCaches,
+      ...contactSheetFiles,
       ...orphanPlanPaths(videoRoot, plan),
     ]) {
       totalSize += await getPathSize(p);
     }
     const acceptedOrphans = plan.targets.reduce((n, t) => n + t.acceptedCount, 0);
     const confirmed = await confirmDeletion({
-      subjects: summarySubjects(collected.length, compositionCaches.length, planned),
+      subjects: summarySubjects(
+        collected.length,
+        compositionCaches.length,
+        contactSheets.length,
+        planned,
+      ),
       totalSize,
       note:
         acceptedOrphans > 0
@@ -580,7 +574,11 @@ async function executeClean(opts: CleanOptions): Promise<void> {
   }
 
   // Pass 2: state mutation inside lock + filesystem deletion
-  const result: CleanResult = { removed: [], removedCompositionCaches: [] };
+  const result: CleanResult = {
+    removed: [],
+    removedCompositionCaches: [],
+    removedContactSheets: [],
+  };
   let removedOrphans: OrphanCounts = planned;
   let removedOrphanAddresses = plan.targets.map((t) => t.address);
 
@@ -589,6 +587,7 @@ async function executeClean(opts: CleanOptions): Promise<void> {
       result.removed.push({ address: entry.address, category: entry.category });
     }
     result.removedCompositionCaches = [...compositionCaches];
+    result.removedContactSheets = [...contactSheets];
   } else {
     ({ counts: removedOrphans, removedAddresses: removedOrphanAddresses } = await removeOrphans({
       videoRoot,
@@ -715,6 +714,11 @@ async function executeClean(opts: CleanOptions): Promise<void> {
     for (const dir of compositionCaches) {
       if (await removePathSafely(dir)) result.removedCompositionCaches.push(dir);
     }
+    for (const file of contactSheetFiles) {
+      if ((await removePathSafely(file)) && isSheetImage(file)) {
+        result.removedContactSheets.push(file);
+      }
+    }
   }
 
   // Pass 3: cascade-fail pending jobs whose dependencies were cleaned
@@ -742,12 +746,21 @@ async function executeClean(opts: CleanOptions): Promise<void> {
 
   const removedCount = result.removed.length;
   const cacheCount = result.removedCompositionCaches.length;
-  if (removedCount === 0 && cacheCount === 0 && orphanTotal(removedOrphans) === 0) {
+  const sheetCount = result.removedContactSheets.length;
+  if (
+    removedCount === 0 &&
+    cacheCount === 0 &&
+    sheetCount === 0 &&
+    orphanTotal(removedOrphans) === 0
+  ) {
     console.log("Nothing to clean.");
   } else {
     const subjects = opts.dryRun
-      ? summarySubjects(removedCount, cacheCount, removedOrphans)
-      : [...summarySubjects(removedCount, cacheCount, null), ...orphanSubjects(removedOrphans)];
+      ? summarySubjects(removedCount, cacheCount, sheetCount, removedOrphans)
+      : [
+          ...summarySubjects(removedCount, cacheCount, sheetCount, null),
+          ...orphanSubjects(removedOrphans),
+        ];
     if (cascadeFailed.length > 0) {
       subjects.push(`${cascadeFailed.length} pending job(s) cascade-failed`);
     }
@@ -790,11 +803,27 @@ async function executeClean(opts: CleanOptions): Promise<void> {
   }
 }
 
+async function listContactSheetFiles(videoRoot: string): Promise<string[]> {
+  const dir = contactSheetDir(videoRoot);
+  const entries = await fs.readdir(dir).catch(() => [] as string[]);
+  return entries.map((name) => path.join(dir, name));
+}
+
+function isSheetImage(file: string): boolean {
+  return file.endsWith(".jpg");
+}
+
 // A headline the breakdown under it itemizes: one total for the orphaned leftovers.
-function summarySubjects(variants: number, caches: number, orphans: OrphanCounts | null): string[] {
+function summarySubjects(
+  variants: number,
+  caches: number,
+  sheets: number,
+  orphans: OrphanCounts | null,
+): string[] {
   const subjects: string[] = [];
   if (variants > 0) subjects.push(`${variants} variant(s)`);
   if (caches > 0) subjects.push(`${caches} composition cache(s)`);
+  if (sheets > 0) subjects.push(`${sheets} contact sheet(s)`);
   const orphanCount = orphans ? orphanTotal(orphans) : 0;
   if (orphanCount > 0) subjects.push(`${orphanCount} orphaned leftover(s)`);
   return subjects;
@@ -838,6 +867,8 @@ Removes, freeing their generated files, jobs, logs and caches:
     records nothing pending depends on. Unscoped runs only.
   - stray variant directories: a variant directory under assets/ that no state row records.
     Unscoped runs only.
+  - contact sheets: every sheet a probe or review drew; the next one redraws it. Unscoped
+    runs only.
 
 What will be deleted is itemized by class, printed under -y too. Deletion is confirmed
 first (-y to proceed, --no to abort).

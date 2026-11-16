@@ -38,6 +38,11 @@ interface Rect {
   parts: { value: number; percent: boolean }[];
 }
 
+/** A take's crop renders. Keyed by variant like the audio/motion caches, so `clean` reaches it. */
+export function cropVariantDir(videoRoot: string, variantId: string): string {
+  return path.join(videoRoot, ".konte", "cache", "crops", variantId);
+}
+
 function collectRect(value: string, previous: string[]): string[] {
   return [...previous, value];
 }
@@ -225,8 +230,7 @@ Examples:
         ?.outputHash;
       const digest = (value: unknown): string => sha256Hex(JSON.stringify(value)).slice(0, 12);
       // One directory and one pair of sheets per take the image argument resolves to.
-      const key = digest(variantId);
-      const cropDir = path.join(videoRoot, ".konte", "cache", "crops", key);
+      const cropDir = cropVariantDir(videoRoot, variantId);
       await fs.mkdir(cropDir, { recursive: true });
       const sourceKey = [source.variantId, sourceHash ?? null];
       // A hashless source can change under the same path, so its crops are never trusted.
@@ -298,7 +302,7 @@ Examples:
         if (!kept.has(entry)) await fs.rm(path.join(cropDir, entry), { force: true });
       }
 
-      const sheetKey = `crop-${key}`;
+      const sheetKey = `crop-${variantId}`;
       const overviewCell: ContactSheetCell = {
         label: `${source.address} ${size.width}x${size.height}`,
         file: overviewFile,

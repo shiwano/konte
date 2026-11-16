@@ -61,12 +61,13 @@ export async function runSongAnalysisJob(
         const outputHash = variant.outputHash;
         const reading = SongReadingSchema.parse(
           await analyzeSongVariant({
+            variantId: job.variantId,
             file: path.resolve(videoRoot, variant.file),
             outputHash,
             videoRoot,
             lang: job.lang,
             // One directory per run: a run superseded by `song analyze` may still be reading.
-            workDir: path.join(videoRoot, ".konte", "cache", "song", id, workerId),
+            workDir: path.join(videoRoot, ".konte", "cache", "song", `${id}-${workerId}`),
             log: (line) => jobManager.appendLog(id, line),
           }),
         );
