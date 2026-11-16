@@ -30,7 +30,8 @@ For concept or shot work, open the reference of the form `drafting-guide` step 3
   - final image — the last frame you can picture (read-aloud test below).
   - share line — what a viewer says handing it on; "it's cute" is a pleasure, not a line.
   - model's reach — whether the chosen adapter supports the payoff's demands; `konte adapter show <adapter>` and the guides it names.
-- Cut any pitch that hits a `drafting-guide` step 3 ban, however good — a feeling other than the one asked for, a surface it cannot play on (a feed with the sound off needs the picture to carry it).
+- Cut any pitch that hits a `drafting-guide` step 3 ban, however good — a feeling the brief rules out, a surface it cannot play on (a feed with the sound off needs the picture to carry it).
+- Give the three different `pleasure`s unless the brief fixes one.
 - Keep one safe and one strange among the three — the safe one is the yardstick, never the banned obvious version; three near each other let the human choose nothing.
 
 ## Name the prop, not the quality

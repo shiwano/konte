@@ -31,10 +31,11 @@ The lines:
 
 - Why, and where it plays — the purpose (a laugh among friends, a portfolio piece, a product's feed) and the surface (a feed thumbed with the sound off, a screen watched sitting down). The two set the runtime, what the first second must do, and whether on-screen text carries the piece.
 - The form — offer the four, a reference's form as the first guess: a story (someone wants something, events follow), persuasion (a claim and its reasons — a promo, an explainer), a process (one subject made or changed), a mood (a motif).
-- The feeling they want left behind — offer the `pleasure` vocabulary (`direction-guide`'s lenses.md) and let them pick, never ask cold; then the one line they want a viewer to say afterwards.
 - The picture in their head — ask openly what they see, then go deeper into whatever they mention first (a figure, a light, a pace), never across a checklist. Write it back as they told it and let them correct you.
 - Which way this piece goes, and which way it must not — this piece, never taste in general or AI video at large. For a work they name, ask _which thing_ in it — a rhythm, a face, a palette, the shape of a joke. Ask the refused side as a direction the piece could plausibly take, e.g. "cute, or unsettling?". The refused side is the first draft of `outOfScope`.
 - What is fixed — runtime, a song to cut to, a character or product that must appear, the language, a deadline, a spend ceiling.
+
+Never ask the feeling (`pleasure`) or the viewer's line — each pitch carries its own; a script's or a source's goes into the treatment, marked as yours. One the human volunteers is fixed.
 
 ## 4. Choose the backend and model — before the pitch
 
