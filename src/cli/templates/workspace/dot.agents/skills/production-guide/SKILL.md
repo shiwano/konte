@@ -22,7 +22,7 @@ Choose each shot's production method; done = its required anchors and duration a
 5. Pick the adapter that offers every anchor named, and reaches the shot's length — `konte adapter list --backend <kind>`, then `konte adapter show <adapter>` for its inputs. None on the backend offers them all → change adapter, or drop an anchor deliberately and say which. A shot longer than the model's maximum clip → Past the model's clip cap.
 6. Open on the cheap pass — the adapter's fast/low-fidelity mode (`konte adapter show` for the ladder). A slow-pass quality guard like a negative prompt is a second-pass tool for a drift you've _seen_, never a first-pass guess.
 
-## References — carried, not pinned
+## References
 
 - Tagged references build the shot — images, and on some models clips and audio: subjects, sets, costumes, styles, a recorded move, a voice.
 - References steer, they do not pin — a panel passed as a reference carries framing, palette and style; its pixels do not open the clip. Only a first/last-frame anchor does.
@@ -46,7 +46,7 @@ Pin the last frame only where no plausible landing will do:
 
 "The action completes" never qualifies — a cut hides endpoint imprecision that interpolation can't; a leap, a draw, a waking face all land on their own.
 
-- Two pinned frames are less control, not more — the model must thread a constrained path, and the authored `last` (an image edit plus its review) is paid before any motion.
+- Two pinned frames are less control — the model must thread a constrained path, and the authored `last` (an image edit plus its review) is paid before any motion.
 - The pair decides the quality — if a viewer couldn't draw the one obvious trajectory between the frames, the model can't either, and the clip morphs.
 - The two ends are one step apart, never independent generations — derive one from the other by an image edit changing only the intended delta; every unintended difference (lighting, lens, a background detail) is spent mid-clip as identity morph. Wire: the animatic shot declares two `<Panel>`s, the adapter takes them as its first/last-frame anchors.
 - A declared long take (the shot after declares `join: "continuous"`) — pin this take's end to that shot's first panel (`endImage: animatic.shot("02").image("first")`) and open that shot's take on the same frame (`startImage`).

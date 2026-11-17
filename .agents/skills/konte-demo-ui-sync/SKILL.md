@@ -33,9 +33,9 @@ Rebuild part (`review-ui.tsx`) → real source (`src/pages/preview/`):
 - `Timeline` → `components/review-timeline.tsx`, `components/variant-summary-button.tsx`
 - `ShotList`, `ShotCard` → `components/shot-list.tsx`
 - `ReferenceReview`, `MediaTools` → `components/reference-preview.tsx`, `components/frame-overlay.tsx`
-- `DirectionReview`, `DirectionSection` → `components/direction-preview.tsx`
-- `DirectionRoster`, `DirectionLocations` → `components/direction/roster.tsx`; `ShotScript` → `components/direction/script.tsx`
-- `DirectionFlow` pacing map → `components/direction-map.tsx`
+- `DirectionReview` → `components/direction-preview.tsx`
+- `DirectionRail` → `components/direction/rail.tsx`; `DirectionTable` → `components/direction/dir-table.tsx`; `ShotScript` → `components/direction/script.tsx`
+- Not rebuilt yet, to add → `components/direction/peek.tsx` (with `components/direction-map.tsx`), `brief.tsx`, `policy.tsx`, `waivers.tsx`, `lyrics.tsx`
 - `CSS` constant → `styles/index.css`
 
 Rebuild part (`settings-ui.tsx`) → real source (`src/pages/settings/`):

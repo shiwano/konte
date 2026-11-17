@@ -18,7 +18,7 @@ Hand the user these steps:
 - The VM reaches the network only through an HTTP proxy (Tailscale userspace networking) → set `HTTP_PROXY` to its `http://` address where konte runs, the way API keys are set. Leave `HTTPS_PROXY` unset — fal and Comfy Cloud are `https://` and stay direct.
 - **`comfy.comfyui.autoInstallNodes: false`** — a custom node pack runs arbitrary code on the user's machine. Hand the user the packs each comfy adapter's `nodes` lists to install.
 - `comfy.comfyui.autoInstallModels` writes to the user's disk — ask the user before leaving it on.
-- An authenticating reverse proxy in front of ComfyUI → `comfy.comfyui.headers` (the ComfyUI connection section); it must also forward the WebSocket upgrade on `/ws`.
+- An authenticating reverse proxy in front of ComfyUI → `comfy.comfyui.headers`; it must also forward the WebSocket upgrade on `/ws`.
 
 ## Pitfalls
 

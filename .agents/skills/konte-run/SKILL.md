@@ -9,7 +9,7 @@ Serve konte's review UI (`konte preview`, a React SPA) offline from a crafted fi
 
 ## Routing (`$ARGUMENTS`)
 
-The first argument picks the mode, an optional second the stage (`video` default; also `animatic` / `reference` / `direction`). With no arguments, infer from the request — default `show video`.
+The first argument picks the mode, an optional second the stage (`video` default). With no arguments, infer from the request — default `show video`.
 
 - `show` → serve a live preview for the human, hand over the URL, leave the server up. No driver.
 - `drive` → agent path: headless Chrome screenshots / clicks via `drive.mjs`.
@@ -29,7 +29,7 @@ bun run build:embed-ui    # embed dist -> src/core/generated/ui-assets.ts
 ## Run — show the preview to the human
 
 1. If the user's workspace already has generated media, `--cwd` is that video dir (`<workspace>/videos/<name>/`); otherwise make a fixture (agent path step 1).
-2. Serve it in the background. `--no-auto-close` is essential — without it the server exits when the auto-opened browser disconnects, before the user looks.
+2. Serve it in the background. `--no-auto-close` — without it the server exits when the auto-opened browser disconnects, before the user looks.
 
    ```bash
    bun run konte --cwd <video-dir> preview video --no-auto-close --port 4655 &
@@ -104,7 +104,7 @@ google-chrome --headless=new --disable-gpu --no-sandbox --window-size=1400,900 \
 
 - Video preview needs every shot ready — `/api/state` returns `RENDER_PLAN_FAILED` (`N asset(s) have no ready variant`) if any shot's motion has no ready variant; add one. `animatic` / `reference` render an asset with no ready variant empty.
 - Feedback is outside `konte.state.json` — comments live in `review/<stage>/feedback.json` (keyed by full address), handoffs in `review/<stage>/handoffs/*.json`. Annotation coords are frame-normalized (0–1).
-- file-sync registers `file` assets undecided; the fixture accepts all but the audio, so the audio track needs review.
+- file-sync registers `file` assets undecided; the fixture accepts all but the audio.
 - Crafted variants must read non-stale — staleness fires only on a non-null `definitionHash` mismatch or a changed `inputFingerprints` entry, so dummy variants use `definitionHash: null` + `inputFingerprints: {}`.
 - A take is badged new while its `status` is `"none"` and it is not stale; beside an accepted one it is also `undecidedBesideAccepted`, which the reel shows in the accepted one's place. An accept settles the rest as `"dismissed"`. Flip `status` to control what needs review.
 - setup-fixture patches the fixture video by string replace — a changed `reference.tsx`/`video.tsx` shape can silently no-op it; check those first if a fixture asset is missing.

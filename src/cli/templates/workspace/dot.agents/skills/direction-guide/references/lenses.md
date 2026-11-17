@@ -32,4 +32,4 @@ The emotional reward a node aims for, independent of the lens (a `mini-drama` ca
 
 - `defineLens({ name, payoff, roles })` — in `defineDirection`'s `lenses`, referenced by `name` from any node.
 - Each entry of `roles` declares its `role` and dramatic `fn` (`ground` / `turn` / `build` / `payoff` / `settle`; omit for a container role).
-- Keep them rare and shaped like the built-ins.
+- Keep them shaped like the built-ins.

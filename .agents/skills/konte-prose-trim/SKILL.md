@@ -20,7 +20,7 @@ Delete the explanation an agent adds by reflex, in any doc, comment or output st
 - Rationale clauses — "so that…", "which means…", "because…" hung off a rule that stands without them.
 - Evidence and provenance — measurements, benchmarks, "we found", "testing showed", how the conclusion was reached. The conclusion ships; the investigation does not.
 - Mechanism the reader cannot act on.
-- Restatement of a sibling skill, `AGENTS.md`, a type, a schema, or the code under the comment. Route to the owner in one line.
+- Restatement of a sibling skill, `AGENTS.md`, a type or a schema. Route to the owner in one line.
 - Meta-commentary on the document — "this section covers", "as mentioned above", "note that", "it's worth mentioning".
 - Self-justification — "this is deliberate", "not an oversight", "for clarity", and justifying an omission ("X is in AGENTS.md, won't re-explain") — leave it out silently.
 - Editorializing — "simply", "just", "powerful", "elegant", "of course".

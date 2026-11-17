@@ -40,7 +40,7 @@ Stage each shot's frame, cut and motion from its `action`; done = the read-test 
 - Pass a reference image for every one of them — a subject only a sleeve or a fist of whom is in frame is fed too, never waived. A keyframe drawn from an earlier keyframe inherits what that one stood on.
 - Pass them in the same order — the slot order is the other half of what decides who lands where.
 - `<Cutin>` keyframes answer `ctx.cutin.lineup` / `lineupTo` by the rules above and stand on that setup's plate.
-- `ctx.lineupTo` is a `blocking` note waiting to be written — the panel it changes out of says the move (`blocking`, above) and the last keyframe's slots take the new order.
+- `ctx.lineupTo` is a `blocking` note waiting to be written — the panel it changes out of says the move (`blocking`) and the last keyframe's slots take the new order.
 - Size and angle come from the shot's `setup` — change either by editing the setup. Low angle empowers, high diminishes, eye level observes — pick from the `action` and write it into the setup's `description`, so the next shot on it inherits the camera.
 - Every panel prompt names the camera's height and angle — only the ones its plate has.
 - Say where each figure meets the floor — otherwise a keyframe on a plate comes back with the figures pasted in front of it. Further from the lens: feet higher in the frame, figure smaller.

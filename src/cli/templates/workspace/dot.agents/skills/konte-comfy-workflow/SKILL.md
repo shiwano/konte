@@ -34,7 +34,7 @@ konte adapter comfy import $ARGUMENTS
 ### 2.2 Rename Field Keys
 
 - Improve field names to be descriptive, using the `// NodeClass → Target.field` comment above each input as guidance; keep the `// …` comments — they document the data flow.
-- Resolve the `// TODO: type the model's natural-language conditioning inputs` line — type those inputs per the Types section of the rename conventions.
+- Resolve the `// TODO: type the model's natural-language conditioning inputs` line — type those inputs per the rename conventions' Input types section.
 - Field keys are lowerCamelCase (e.g. `clipName`); the `field` property keeps the original ComfyUI name (`field: "clip_name"`) — never change it.
 - Naming, typing, combo `values`, grids, format-derived defaults and branches → [rename-conventions.md](references/rename-conventions.md). Match the already-fixed adapters (no `// @generated`).
 
@@ -59,7 +59,7 @@ The generated adapter may carry a commented-out block:
 // prompt: { nodeId: "361", field: "text", type: "string", default: "pc game, console game, ..." },
 ```
 
-- These are inputs (prompts, images, videos, seeds) the workflow author left inside a subgraph — often a negative prompt.
+- Inputs (prompts, images, videos, seeds) the workflow author left inside a subgraph — often a negative prompt.
 - When one is worth controlling, uncomment, rename and retype it using 2.2 (e.g. key `negativePrompt`, type `"negativePrompt"`); add an expected-but-missing input by hand.
 - Then delete the remaining unexposed commented lines (including the `// --- Hidden … ---` header once nothing under it is exposed).
 
@@ -77,7 +77,7 @@ Optional `validators` (one or an array) reject an input combination the model fo
 - A model that names its references by ordinal — `promptReferenceTags({ tags: { Picture: ["image1", …] } })`, each tag's slots in numbering order; it reads the adapter's one `"prompt"` input, so name `prompt:` only where there are two. `form: "bare"` for a model writing them as prose (`image 1`) rather than `<Picture 1>`; `{ slots: [...], exhaustive: false }` when naming a wired slot is the author's call or the count is only a ceiling; `[]` for a tag this workflow cannot take.
 - An image model drawing animatic keyframes that reads another shot's panel as the frame a cut comes from (H3 R2I's `[Shot 1]`) — `prevPanel: { tag, within }` on `promptReferenceTags`, `within` returning the span the panel's ordinal belongs in (`minimaxH3CutSource`).
 - A model whose prompt is a fixed grammar of named sections — declare a `structure` on its `"prompt"` input; read [prompt-structure.md](references/prompt-structure.md).
-- An input the model won't read in this configuration — `inertInputs({ inputs: { negativePrompt: [" ", ""] }, when: { useLightning: true }, reason, fix })`, each input mapped to the value that means "not set". `whenNot` states the condition as an absence.
+- An input the model won't read in this configuration — `inertInputs({ inputs: { negativePrompt: [" ", ""] }, when: { useLightning: true }, reason, fix })`, each input mapped to the value that means "not set". `whenNot` states the condition as an absence; `whenUnset: { … }` holds while every input it names is unset.
 - A group where at least one must be set — `requireOneOf({ inputs: { instruct: "", character: "Auto" }, reason })`.
 - A negation this model is meant to be written with — `promptExemptions: [/…/]`, beside `validators`; every span one matches is cut from the value the prompt check reads. Leave it off a model with none.
 - An input whose value follows from the others — `derive: { <input>: (inputs) => … }` beside `validators`, the input declared with no `default`. `inputs` are the others resolved, a structured prompt assembled. konte fills it, and it leaves the call options and `adapter show`.

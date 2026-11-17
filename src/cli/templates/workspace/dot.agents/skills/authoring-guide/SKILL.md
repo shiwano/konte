@@ -18,7 +18,7 @@ Declare shots, assets and dependencies in the stage files; done = `konte status`
 ## The three definition files
 
 - Each file default-exports its definition; a stage reaches another's assets by `import` + closure, never by passing one into another.
-- Every DSL name is imported from `konte` — `define*`, `asset`, `panel`, `soundtrack`, the `<Composition>` components; none is ambient.
+- Every DSL name is imported from `konte` — `define*`, `asset`, `soundtrack`, the `<Composition>` components.
 - A shot's words are keyed by who says them — `script.cat[0]`, and `script.speaker[0]` / `script.narration[0]` for the two variants that anchor to no roster (a mob's label is prose, never a key). Each is that speaker's lines in shot order.
 
 ### reference.tsx — defineReference()
@@ -44,7 +44,7 @@ export default defineReference(direction, {
 - `views` receives `{ format, reference }` and returns a location's view images, `{ <locationId>: { back | side | top: asset(…) } }` — authoring → staging-guide's plates.md.
 - A reference asset may depend only on other reference assets, never on an animatic/video asset.
 - Return only what other stages consume — an asset used solely as an input to another reference asset (a blank `latent` feeding a generated `key`) is left un-returned; it still generates, but is never reviewed.
-- A location's `reference:<id>` is its master; the way it faces is `front` — draw it facing the way the location's `description` declares (`view-unnamed`).
+- A location's `reference:<id>` is its master; the way it faces is `front` — draw it facing the way the location's `description` declares.
 - Return each character, prop, location and cast voice under its roster id — a `lineup`'s `cat` needs `reference:cat`; other shared assets (`bgm`) are fine. A setup or landmark takes no reference asset — its plate is on the animatic.
 - A real subject's reference starts from the file its roster `description` names — as `file`, or redrawn by an image edit adapter; text-only generation, when none was found, is said in the preview summary.
 - Let konte size a generated reference — `width`/`height` derive off the canvas' long edge: portrait for a character, a landscape master at twice it for a location, square for the rest; pass neither. A canvas-shaped overlay takes `...format.size`.
@@ -93,7 +93,7 @@ export default defineAnimatic(direction, {
 - `defineAnimatic(direction, { plates?, timeline })` — `{ size, fps }` derive from the direction. `timeline` receives `{ format }`, the injected `shot`/`graphicShot`/`pendingShot`/`asideShot` starters and what `plates` returned, declares shared assets at the top, and returns `{ shots, soundtracks?, overlay? }`.
 - `plates` receives `{ format }` and returns one image asset per setup id — addressed `animatic:plate.<id>`, handed to `timeline` unchanged.
 - Shots come from the direction — the injected `shot(id, …).nextShot(id, …)` is the only way to mint a shot; the shot's `duration` and `script` are injected into the build, never written here.
-- `pendingShot(id)` / `.nextPendingShot(id)` — the undeveloped shot, injected alongside `shot`; it declares nothing. Develop it by swapping in `shot(id, …)` / `.nextShot(id, …)`.
+- `pendingShot(id)` / `.nextPendingShot(id)` — the undeveloped shot; it declares nothing.
 - `asideShot(id)` / `.nextAsideShot(id)` — the `kind: "aside"` shot (`direction-guide`). The animatic's takes no build; the video's takes one — `asideShot(id, ({ duration, label }) => …)`.
 - `<Panel>` is a keyframe; `<Image>` is a layer — only a `<Panel>` gets a part name, a movement and a contact-sheet frame.
 - `<Panel start>` is when it takes over — omitted, the panels split the shot evenly. Each holds to the next one's start and then cuts; a dissolve is an `<Animate>`.
@@ -128,7 +128,7 @@ export default defineVideo(direction, {
 });
 ```
 
-- `defineVideo(direction, { export?, timeline, thumbnail? })` — `{ size, fps }` derive from the direction. `thumbnail: { at, compose? }` — the cover is the cut at `at` seconds; `compose: ({ frame, shot }) => <Composition>…` draws over it, its `asset()`s `video:thumbnail.<name>`.
+- `defineVideo(direction, { export?, timeline, thumbnail? })` — `{ size, fps }` derive from the direction. `thumbnail: { at?, compose? }` — the cover is the cut at `at` seconds; `compose: ({ frame, shot }) => <Composition>…` draws over it, its `asset()`s `video:thumbnail.<name>`.
 - What it takes from the board — `animatic.shot("01").image("<panel>")` for a keyframe, `.stem` for the mixed-down lines, `.narrationStem` / `.offFrameStem` for the narration and the lines of a character the frame does not hold (`<Audio>` only).
 
 ## Adapter inputs

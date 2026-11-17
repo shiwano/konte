@@ -1,6 +1,6 @@
 # Long-form structure — a branch `sequence` node
 
-For a piece long enough to need acts (several minutes up). Under that, keep the root node a leaf (`sequence: { lens, shots }`).
+Under several minutes, keep the root node a leaf (`sequence: { lens, pleasure, shots }`).
 
 - Give the root node `sequences[]` instead of `shots[]` — each child is an act with its own `id`, `role`, `synopsis`, `lens`, `pleasure`, and body. An act's body is again `shots[]` (a leaf act) or, for a very long piece, `sequences[]` (a branch act). A payoff-function act (`climax-act`) states the change it lands in its `synopsis`, like a hinge shot.
 - A branch node's `lens` is a meta-lens over its children — any lens in the catalog ([lenses.md](lenses.md)); start with `three-act`.

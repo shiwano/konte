@@ -89,7 +89,7 @@ A direction comment (the stage is media-less):
 
 Audio is signed off in context, through stems (what a stem is: `arch-audio-guide`); a picture composition accept skips audio deps.
 
-- Per-shot audio (`shot.<id>#stem`) folds into the shot accept — one gesture takes the composition and the stem, and the stem accept cascades its audio sources (the shot's `<Audio>`/`<Video hasAudio>` takes), giving each a staleness baseline. In the UI an audio cue reads its shot's accept, like a visual clip.
+- Per-shot audio (`shot.<id>#stem`) folds into the shot accept — one gesture takes the composition and the stem, and the stem accept cascades its audio sources, giving each a staleness baseline. In the UI an audio cue reads its shot's accept, like a visual clip.
 - Timeline beds (`timeline#stem`) get one accept, which cascades the `soundtrack()` sources — a reference bgm bed included, so the soundtrack accept in the video review signs off the bgm at its asset level too.
 - Take selection stays in the reference review: accepting a bgm reference there picks the take; the stem accept is the in-context sign-off.
 - Characters are the one consumed dep never cascaded — accepted only in `konte preview reference`.

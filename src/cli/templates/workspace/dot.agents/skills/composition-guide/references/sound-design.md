@@ -19,15 +19,7 @@
 ## Under dialogue
 
 - Tune a duck's curve with `duck: { depth, attack, release, hold }` in place of `true`. A character's and a narrator's line duck a bed; a mob's never does.
-
-```tsx
-soundtracks: [
-  soundtrack("bed", bgm, { duck: true }),
-  soundtrack("room", ambience, { duck: false }),
-],
-```
-
-- A duck is audible only on the reel — a bed is in no shot's `#stem`, so it shows in `konte preview` and `konte probe reel-audio`, not a shot's own review.
+- A duck is audible only on the reel — a bed is in no shot's `#stem`, so it shows in `konte preview` and `konte probe reel-audio`.
 - No SE on a line's syllables — unless the action is the line's point; shift the cue to the breath before or the pause after.
 
 ## Across cuts

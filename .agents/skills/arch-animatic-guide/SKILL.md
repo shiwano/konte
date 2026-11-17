@@ -9,7 +9,6 @@ The board on the direction's clock, with the shot's lines sounding over it. Not 
 ## One shape, two stages
 
 - `defineAnimatic` and `defineVideo` are the same builder (`dsl/stage-define.ts`) over the same `StageDefinition`, which carries its own `stage` field — every consumer formats the definition's own addresses. A leaf lister, predicate or cascade that hardcodes `video` silently does nothing for the board.
-- Both walk the direction with the same chain and starter and build a `<Composition>` per shot.
 
 What may go inside differs:
 
@@ -55,7 +54,7 @@ A `<Cutin>` is a second lane:
 
 ## The stem
 
-- `animatic:shot.<id>#stem` is the shot's `<Audio>` cues mixed down and clamped to the shot's `duration` — a materialized leaf like `video:*#stem`, over the same `stemRefs` and the same structure hash (`stemDefinitionHash`; the board's folds the clamp in, so a retimed shot is a different stem). `video.tsx` takes it through `animatic.shot("01").stem`.
+- `animatic:shot.<id>#stem` is the shot's `<Audio>` cues mixed down and clamped to the shot's `duration` — a materialized leaf like `video:*#stem`, over the same `stemRefs` and the same structure hash (`stemDefinitionHash`; the board's folds the clamp in, so a retimed shot is a different stem).
 - Narration and the lines of a character no frame of the shot holds are mixed apart into `#narrationStem` / `#offFrameStem` (`splitHeardStems`), which only `<Audio>` takes (`stem-unplaced`). A graphic, coverage or song shot keeps its characters' lines in `#stem`. A shot nobody in frame speaks in keeps them there, never leaving `#stem` empty; a model it drives is `stem-unmouthed`.
 - On a song, `#songStem` is what a motion model hears (`shotSongStem`): the vocals of the lines a character in frame sings, else the instrumental (`song-parts.ts`). `asset()` fills an adapter's `stem` input with it (`SONG_STEM_OVERRIDDEN`); `.stem` is refused.
 - With `policy.song` a board `#stem` also mixes, unplayed, the shot's span of the song (`songCue`); a `<Video>` of a take built on it gets a derived `mediaStart` (`song-window.ts`).

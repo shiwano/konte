@@ -20,7 +20,7 @@ Done = every in-scope file trimmed with no fact, rule, why or judgment lost, the
 
 ## 2. Split
 
-- Groups of ~35–45 KB, `fd -t f -e md <root> | xargs wc -c | sort -n` to size them.
+- Groups of ~35–45 KB, `fd -t f -e md . <root> | xargs wc -c | sort -n` to size them.
 - Files that restate each other share a group — a SKILL with its `references/`, the convention skills (`template-skills-guide`, `konte-prose-trim`, `agents-md-guide`) with both `AGENTS.md` — so one agent picks each rule's owner.
 - Every file in exactly one group — two agents on one file overwrite each other.
 

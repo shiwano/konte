@@ -50,7 +50,7 @@ Run the path on the script's final `KONTE_BIN=<absolute path>` line with `--vers
 1. Run `konte doctor --all-videos`; work only the FAILs absent from the baseline (all of them with none).
 2. `type check` → fix the file it names against `.konte/mod.ts`, per `authoring-guide`.
 3. `findings` → fix each in the file it is listed under; one only a waiver clears → report it — the waiver is the human's.
-4. `direction waivers` → remove the waivers it lists.
+4. `direction waivers` (a WARN) → remove the waivers it lists, in the baseline or not.
 5. Rerun `konte doctor --all-videos` until no new FAIL remains.
 
 **Don't `generate`, `reroll`, `patch apply`, `export` or `accept`.**

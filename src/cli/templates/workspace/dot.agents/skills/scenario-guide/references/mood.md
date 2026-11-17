@@ -17,5 +17,5 @@
 
 ## Pitching
 
-- Pitch a map, not a chain of events — one line each: the world, the motif, how the peak lands.
+- Pitch a map — one line each: the world, the motif, how the peak lands.
 - Never slip an incident in — a pitch with an event nobody asked for is the first one cut.

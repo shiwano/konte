@@ -8,7 +8,9 @@ How konte turns `direction.ts` into two verdicts the spend gate acts on: a machi
 
 ## The arc engine and finding classes
 
-`checkArc` (`direction-check.ts`) is the one engine at every scale of the arc tree (a run of shots, of sequences, of runs), generic over the role string: it reads each item's `fn` off the matched lens role and reports `DirectionFinding`s — it never throws and never decides severity. `walkArcTree` (`direction.ts`) runs it once per node with a resolvable lens (a leaf's shots, a branch's meta-arc over children); every finding then folds against `direction.waivers`.
+- `checkArc` (`direction-check.ts`) is the one engine at every scale of the arc tree (a run of shots, of sequences, of runs), generic over the role string.
+- It reads each item's `fn` off the matched lens role and reports `DirectionFinding`s — it never throws and never decides severity.
+- `walkArcTree` (`direction.ts`) runs it once per node with a resolvable lens (a leaf's shots, a branch's meta-arc over children); every finding then folds against `direction.waivers`.
 
 `ConstrainIds` (`dsl/direction.ts`) settles five in the type, each blamed in the field written:
 
@@ -20,7 +22,7 @@ How konte turns `direction.ts` into two verdicts the spend gate acts on: a machi
 - Write the `DirectionViolation<M>` inline — behind an alias the compiler prints the alias name, not the advice. A widened value passes through to the finding.
 - Only a direction-local demand that fires on a value written belongs in the type — the startup type-check aborts every command (`arch-cli-guide`), so a demand naming another stage's file, or one an unfinished direction fails, stops `preview direction` itself.
 
-What a code clears by, holds and sets in with is the finding registry's (`findingTraits`, `finding.ts`); `directionFindings` hands the check's result to it, each finding with the file it is fixed in (`findingFixStage`) and, for one to fix, the part it sits on (`findingPart`), whose accept it holds.
+What a code clears by, holds and sets in with is the finding registry's (`findingTraits`, `finding.ts`); `directionFindings` hands the check's result to it, each finding with the file it is fixed in (`findingFixStage`) and, for one to fix, the part it sits on (`findingPart`), whose accept it holds — `konte accept direction` and the page's Accept alike.
 
 - Clears — `waive` only where following the rule can hurt a piece (the arc heuristics, `off-beat-cut`, …); a contradiction, an empty field or a declaration naming nothing (`lineup-vacuous`, `off-grid-duration`, the `unused-*`, …) is `fix`: `defineDirection` types a waiver key by the waivable codes (`WaivableCode`); a waiver of one that slips past (a widened key) is reported stale (`fixOnly`).
 - Onset — the roster wiring (`*-unreferenced`, the setups class bar `unused-setup` and `view-unanchored`) waits for the direction's acceptance (`reportableDirectionFindings`). The `unused-*` report always, bar a shotless direction.
@@ -51,14 +53,17 @@ A `GraphicShot` (`kind: "graphic"`) is an arc shot with no camera: it stays in `
 A `cutin` (`cutin: { setup, lineup, lineupTo?, join? }` on a narrative or graphic shot) makes the camera readers take frames:
 
 - `collectShotFrames` yields a shot's main frame then its cutin (`lane`); `setup-unknown`, the lineup errors, the plate counts and `listSetupAnchorGaps` read frames.
-- `joinBoundaries` pairs each frame with the previous clock shot's frame in the same lane, so the join errors, `panelSeams`, a cutin's `axisCuts`, `cutin.join`, the seam frame and the previous panel are per lane.
+- `joinBoundaries` pairs each frame with the previous clock shot's frame in the same lane, so the join errors, `axisCutPairs`, a cutin's `axisCuts`, `cutin.join`, the seam frame and the previous panel are per lane.
 - `checkLineups` keeps one accumulation per place across both lanes, empties every place when either frame of a shot jumps, and reads a seam against the previous entry of the same `frame`; every board reading carries `lane`.
 - A cutin's subject is `<shotId>.cutin`, so neither frame's waiver cancels the other's.
 - `cutin.setup` / `join` ride `projectShotShape`, its lineup `projectShot`.
 
 ## The three anchored rosters
 
-`characters` (required), `props` (optional) and `locations` (required, non-empty) are `Record<id, { name, description }>`, each id anchored to a `reference:<id>` asset. A character and a prop add a required `promptDepiction`, a character an optional `voice` (Casting voices), a location a required, non-empty `landmarks` roster (Setups). `checkAnchoredEntities` (`direction-check.ts`) sits behind `checkCharacters` / `checkProps` / `checkLocations`, two exact-match findings per roster:
+- `characters` (required), `props` (optional) and `locations` (required, non-empty) are `Record<id, { name, description }>`, each id anchored to a `reference:<id>` asset.
+- A character and a prop add a required `promptDepiction`, a character an optional `voice` (Casting voices), a location a required, non-empty `landmarks` roster (Setups).
+
+`checkAnchoredEntities` (`direction-check.ts`) sits behind `checkCharacters` / `checkProps` / `checkLocations`, two exact-match findings per roster:
 
 - `<noun>-unreferenced` — no exposed `reference:<id>` matches the `id`. A character only off screen (in no `lineup` / `lineupTo`) owes none.
 - `unused-<noun>` — the id is in no used set:
@@ -66,26 +71,56 @@ A `cutin` (`cutin: { setup, lineup, lineupTo?, join? }` on a narrative or graphi
   - prop — any frame's `props`.
   - location — the place of a setup a frame names.
 
-The cross-reference runs only when `checkDirection` supplies `referenceAssetNames`, so the roster classes are silent — and their waivers never flagged stale — when the reference stage can't be read.
+Across the rosters:
 
-The three rosters share the `reference:<id>` namespace: an id in two is `reference-id-conflict`. Landmark ids join no arm of it (nothing exposes `reference:<landmarkId>`), but the direction keeps one id space, so a landmark colliding with a roster id or another place's landmark is `landmark-id-conflict`.
-
-`promptDepiction` (required on a character, a prop and a landmark): konte only scans for it, never writes it into a prompt. Its namespace spans the characters, the props and every place's landmarks (a panel's prompt chain carries its plate's prompt too); a noun containing another is a pair neither naming scan separates — `prompt-depiction-conflict`, keyed by the contained entry.
+- The cross-reference runs only when `checkDirection` supplies `referenceAssetNames`, so the roster classes are silent — and their waivers never flagged stale — when the reference stage can't be read.
+- The three rosters share the `reference:<id>` namespace: an id in two is `reference-id-conflict`.
+- Landmark ids join no arm of it (nothing exposes `reference:<landmarkId>`), but the direction keeps one id space, so a landmark colliding with a roster id or another place's landmark is `landmark-id-conflict`.
+- `promptDepiction`: konte only scans for it, never writes it into a prompt.
+- Its namespace spans the characters, the props and every place's landmarks (a panel's prompt chain carries its plate's prompt too); a noun containing another is a pair neither naming scan separates — `prompt-depiction-conflict`, keyed by the contained entry.
 
 ## The fourth roster: setups
 
-`setups` (required, non-empty) is `Record<id, { name, description, location, framing, holds, within?, view? }>`; every shot names one in its required `setup` and carries neither `framing` nor `location`. `DirectionIndex` resolves both, so every reader (the shot contexts, `buildArcNode`'s items) sees a resolved value; an unresolvable one throws in `stageShotContext`, since a stage's builds run before the gate.
+- `setups` (required, non-empty) is `Record<id, { name, description, location, framing, holds, within?, view? }>`; every shot names one in its required `setup` and carries neither `framing` nor `location`.
+- `DirectionIndex` resolves both, so every reader (the shot contexts, `buildArcNode`'s items) sees a resolved value; an unresolvable one throws in `stageShotContext`, since a stage's builds run before the gate.
+- A landmark is `{ name, promptDepiction, description }` under a location's `landmarks`: what only that place has, anchored by its setup's plate.
+- A setup's id joins no arm of `reference-id-conflict` and no `directionReferenceCascadeTargets` / `referenceRosterEntries` loop; `checkSetups` takes `shotsPerSetup` plus the board's state.
 
-- A landmark is `{ name, promptDepiction, description }` under a location's `landmarks`: what only that place has. It anchors on no `reference:<id>` — its setup's plate is the frame's anchor.
-- `holds` — landmark ids of its own location, left to right, required and non-empty unless `framing` is `"insert"`; a shot never restates it. `ConstrainSetupHolds` reaches the ids through the setup's `location` literal, re-blames each element, and asks an empty non-insert tuple for a first element it cannot supply. `landmarks` non-emptiness has no type, so `landmarks-empty` is structural, beside `holds-empty` / `holds-unknown-id`. `holds` reaches no `ctx` — the build receives the frame as a plate, and the order is the prompt critic's.
-- `within` — the setup this frame is a window cut out of, `null` at a root. `ConstrainSetupWithin` blames the `within` position for an unknown id, another `location`, a `framing` not strictly wider (`WiderThan`, `wide` < `medium` < `close`), and any `within` on an `insert`; widened types pass to the runtime. `withinErrors` re-checks all four as `within-impossible`, adds `within-cyclic` (reachable only past the type layer), and demands `within-undeclared` wherever a strictly wider setup of the same place carries this frame's `holds` as an ordered subsequence. That subsequence is the candidate test alone — a window may hold a landmark the wider frame was too wide to declare, so a `within` outside the candidates is legal. `within` rides `projectSetups` and the setup's part hash, not `projectSetupShape`.
-- `views` — a location declares each way a camera faces in it (`VIEWS`: `front`, the master's, required; `back`, `side`, `top`), each with the landmark ids seen that way (`views.<view>.holds`, unordered). Structural: `view-front-missing`, `view-unknown` (a key outside `VIEWS`), `holds-unknown-id` keyed `<locationId>.<view>:<landmarkId>`. It rides the location's part hash, `holds` sorted.
-- `view` — the way a setup faces, one its location declares. The `Setup` union requires it where `within` is not a string and forbids it on a window, which inherits its root's (`setupView`); `view-missing` / `view-on-window` / `view-undeclared` are its structural twins, `ConstrainSetupView` the type's. A setup's `holds` names only what its view sees: `holds-outside-view`, and in the type `ConstrainHolds` against `SeenIdOf`, a window's view resolved by `SetupViewOf` up its `within` chain (at most three deep). It rides `projectSetups` and the part hash, not the shape.
-- A view other than `front` is realized by a view image, `reference:view.<locationId>.<view>` — returned from `defineReference`'s `views` (declaration site `view`) and filed by its key: `fileViews` renames the asset and rewrites every placeholder, prompt and pin naming it. The ref's `reference.view.<locationId>.<view>` is built from the location's `views` alone, so a view `views` has not returned is still reachable; `ReferenceViews<D>` keys come from the same declaration (`ViewsOf`) and stay optional (the startup type-check rule above). `walkPictureChain` reads a view image as its location, so `plate-unanchored` / `setup-unconsumed` count it; `reachedView` is the exact match `plate-unviewed` reads.
+`holds` — landmark ids of its own location, left to right, required and non-empty unless `framing` is `"insert"`; a shot never restates it:
 
-A setup's id joins no arm of `reference-id-conflict` and no `directionReferenceCascadeTargets` / `referenceRosterEntries` loop; `checkSetups` takes `shotsPerSetup` plus the board's state.
+- `ConstrainSetupHolds` reaches the ids through the setup's `location` literal, re-blames each element, and asks an empty non-insert tuple for a first element it cannot supply.
+- `landmarks` non-emptiness has no type, so `landmarks-empty` is structural, beside `holds-empty` / `holds-unknown-id`.
+- `holds` reaches no `ctx` — the build receives the frame as a plate, and the order is the prompt critic's.
 
-Plates are keyed by roster id, each returned as its image asset; `timeline` receives them unchanged. konte writes no prompt text. Returning files one under a setup; an asset declared and not returned is an intermediate and may not take a roster id. Being returned makes each a usage root, so `konte generate animatic` bakes them while every shot is still a `pendingShot`.
+`within` — the setup this frame is a window cut out of, `null` at a root:
+
+- `ConstrainSetupWithin` blames the `within` position for an unknown id, another `location`, a `framing` not strictly wider (`WiderThan`, `wide` < `medium` < `close`), and any `within` on an `insert`; widened types pass to the runtime.
+- `withinErrors` re-checks all four as `within-impossible`, adds `within-cyclic` (reachable only past the type layer), and demands `within-undeclared` wherever a strictly wider setup of the same place carries this frame's `holds` as an ordered subsequence.
+- That subsequence is the candidate test alone — a window may hold a landmark the wider frame was too wide to declare, so a `within` outside the candidates is legal.
+- It rides `projectSetups` and the setup's part hash, not `projectSetupShape`.
+
+`views` — a location declares each way a camera faces in it (`VIEWS`: `front`, the master's, required; `back`, `side`, `top`), each with the landmark ids seen that way (`views.<view>.holds`, unordered):
+
+- Structural: `view-front-missing`, `view-unknown` (a key outside `VIEWS`), `holds-unknown-id` keyed `<locationId>.<view>:<landmarkId>`.
+- It rides the location's part hash, `holds` sorted.
+
+`view` — the way a setup faces, one its location declares:
+
+- The `Setup` union requires it where `within` is not a string and forbids it on a window, which inherits its root's (`setupView`); `view-missing` / `view-on-window` / `view-undeclared` are its structural twins, `ConstrainSetupView` the type's.
+- A setup's `holds` names only what its view sees: `holds-outside-view`, and in the type `ConstrainHolds` against `SeenIdOf`, a window's view resolved by `SetupViewOf` up its `within` chain (at most three deep).
+- It rides `projectSetups` and the part hash, not the shape.
+
+A view other than `front` is realized by a view image, `reference:view.<locationId>.<view>`:
+
+- Returned from `defineReference`'s `views` (declaration site `view`) and filed by its key: `fileViews` renames the asset and rewrites every placeholder, prompt and pin naming it.
+- The ref's `reference.view.<locationId>.<view>` is built from the location's `views` alone, so a view `views` has not returned is still reachable; `ReferenceViews<D>` keys come from the same declaration (`ViewsOf`) and stay optional (the startup type-check rule above).
+- `walkPictureChain` reads a view image as its location, so `plate-unanchored` / `setup-unconsumed` count it; `reachedView` is the exact match `plate-unviewed` reads.
+
+Plates:
+
+- Keyed by roster id, each returned as its image asset; `timeline` receives them unchanged. konte writes no prompt text.
+- Returning files one under a setup; an asset declared and not returned is an intermediate and may not take a roster id.
+- Being returned makes each a usage root, so `konte generate animatic` bakes them while every shot is still a `pendingShot`.
 
 `checkSetups` per setup, each checked only where the one before is satisfied — so waiving a setup out of owing a plate waives its shots out of consuming one: `unused-setup` (no shot names it), then for a setup two or more shots name `setup-unrealized` (no plate), then `plate-unnested` and `setup-unconsumed` (a plate no developed shot on it builds from).
 
@@ -99,9 +134,12 @@ One rule — a developed shot reaches its setup's anchor, and the anchor reaches
 - The plate loop, board- and reference-gated: `plate-unviewed` (a plate — or, plate-less, a shot's keyframe chain — reaching the place through another view only; silent until its own view's image exists), `view-unanchored` (`listViewAnchorGaps`: a view image built from no master — another view of its location is none — a `file` exempt — reported off the reference pool alone, before the board and the acceptance). `placeRefOf` makes `setup-unconsumed` / `plate-unanchored` / `plate-recropped` name `reference.view.<locationId>.<view>` for a setup not facing `front`.
 - `setup-atomized` reads the roster whole, on a direction-only pass, per location: `ATOMIZED_LOCATION_SHOTS` (8) shots, fewer than half on a shared frame.
 
-The board state is `checkDirection`'s `animaticSetups` (`AnimaticSetupState`: `plateIds` + `unconsumedBy` + the two gap lists), undefined meaning "no board yet"; every reader must pass it (`loadDirectionStageInputs`) or the demand is dead. Stale-waiver detection is per class, so the class enters `evaluatedClasses` only with it — otherwise a live `setup-unrealized` waiver reads stale.
+The board state is `checkDirection`'s `animaticSetups` (`AnimaticSetupState`: `plateIds` + `unconsumedBy` + the two gap lists), undefined meaning "no board yet":
 
-`unconsumedBy` is `listSetupAnchorGaps(...).unanchoredShots` (board-analysis.ts), a walk over the animatic's own refs rooted at each developed shot's panels only — rooted at the declared pool, an unrendered asset taking the plate would clear it for a keyframe built from nothing; at `compositionRefs`, an overlay or sound taking the plate would. A plate reaching a keyframe through a shot asset, a timeline asset or a `shot(…)` chain is found from the panel.
+- Every reader must pass it (`loadDirectionStageInputs`) or the demand is dead.
+- Stale-waiver detection is per class, so the class enters `evaluatedClasses` only with it — otherwise a live `setup-unrealized` waiver reads stale.
+- `unconsumedBy` is `listSetupAnchorGaps(...).unanchoredShots` (board-analysis.ts), a walk over the animatic's own refs rooted at each developed shot's panels only — rooted at the declared pool, an unrendered asset taking the plate would clear it for a keyframe built from nothing; at `compositionRefs`, an overlay or sound taking the plate would.
+- A plate reaching a keyframe through a shot asset, a timeline asset or a `shot(…)` chain is found from the panel.
 
 The plate is neither acceptance-gated (`unacceptedUpstreamDeps` walks self-stage nodes through) nor review work: it is judged inside its panels.
 
@@ -123,7 +161,7 @@ The plate is neither acceptance-gated (`unacceptedUpstreamDeps` walks self-stage
 - `skippedBetween` reads the outermost pair, not each neighbouring one — someone whose place beside the middle was never declared is inside the span anyway. Dropping on `lineupTo` means no presence guard is needed: a subject with no pairs is never between anything. `findCycle` after each write is `lineup-inconsistent`; on a ring the place restarts from that shot's exit order, or every later shot repeats it.
 - `checkRoutes` walks the same frames per character: one held in a place they left, with no jump since, is `location-backtrack`, keyed `<frame>.<characterId>`. A frame not holding them moves nothing, so a cutaway is no detour.
 
-`checkStaging` (`direction.ts`) projects the direction into `LineupShot[]` — each location resolved through its setup (undefined files it under no place), carrying `join`, which `join-lineup-mismatch` reads against the previous shot's `lineupTo ?? lineup` and `checkJoinPins` against `videoPins`. The board half is `stagingStage` (`loadDirectionStageInputs`) on `animaticSetups`' contract (undefined = no board; the class enters `evaluatedClasses` only with it), three readings of the same panels in panel order:
+`checkStaging` (`direction.ts`) projects the direction into `LineupShot[]` — each location resolved through its setup (undefined files it under no place), carrying `join` for `join-lineup-mismatch` and `checkJoinPins` (Join). The board half is `stagingStage` (`loadDirectionStageInputs`) on `animaticSetups`' contract, three readings of the same panels in panel order:
 
 - `listPanelReferenceSlots` — each panel's own inputs, read by `checkSlotOrder` (`slot-order-mismatch`: inputs in an order the shot does not declare).
 - `listPanelReferenceReach` — the chain behind it, read by `checkCharacterAnchors`: one `character-unconsumed` per subject, keyed `<shotId>.<characterId>`, held back for a character with no `reference:<id>` and a panel that generates nothing.
@@ -144,13 +182,18 @@ On a narrative shot, an omitted `join` is an ordinary cut with story time runnin
 - A long take is possible only where the shot before on the clock (asides included) is a narrative shot on the same setup — a hold that moves is two panels in one shot. Elsewhere `"continuous"` is `join-impossible` (a literal is refused by the type first); where possible, omission is `join-undeclared`. Both structural. Validated over `collectShots`, not `collectArcShots` — the boundary an aside sits at is a cut, invisible to the narrative-only walk. `join` rides `projectShotShape`, so an edit ages out the shot's part and the root `sequence` part.
 - The seam is one frame: the opening keyframe of the shot owning the boundary. The shot before authors no closing keyframe — its last panel moves into that keyframe (`DirectionIndex.continuedById`, a clock walk over `runOn`, stored as `ShotDefinition.continuedBy` per lane, is what `defineAnimatic` reads to lift the landing-frame rule — `assertPanelMoves`, `collectPanelMovement`). Its `lineupTo` is read against no panel of its own: `LineupShot.continuedBy` makes `character-unconsumed` / `slot-order-mismatch` / `subject-unnamed` skip the last-panel reading, and `join-lineup-mismatch` (the previous shot's `lineupTo ?? lineup` is this shot's `lineup`) reads it at the next shot's first panel.
 - `join-unpinned` — the take before the seam does not pin its `end` to that frame (`checkJoinPins`, over `videoPins` and `shotPanels.firstPanel`), judged where that take is developed and the board holds the frame, before the take after exists; nothing is demanded of the take after. `VideoShotPins.pins` carries what each pin reaches (the source and its chain through the video's own declarations, so a resize still pins) beside `slots`, what its model could take (`recordPinInputs` records an empty slot too): a model with no `end` slot is silent, as for `panel-unlinked`. `loadDirectionStageInputs` reads video.tsx whenever the board loads; its `videoPins` feed this and `checkKeyPins`.
-- Axis cut — an omitted join across two setups sharing a `within` root, siblings included, does not restart the frame: the previous shot's last panel is the new frame's light, size and place. The opening keyframe takes it in any image input of a `readsPrevPanel` adapter, found by value (another shot's panel, passed unwrapped). `panel-unlinked` (waivable) fires where it took another frame, unless both lineups hold subjects and share none, judged only where both shots are on the board (`panelSeams` / `isAxisCut`); `promptReferenceTags({ prevPanel })` refuses at load a second one, or one the prompt does not name as the source. An aside between the shots breaks the pair.
+- Axis cut — an omitted join across two setups sharing a `within` root, siblings included, does not restart the frame: the previous shot's last panel is the new frame's light, size and place. The opening keyframe takes it in any image input of a `readsPrevPanel` adapter, found by value (another shot's panel, passed unwrapped). `panel-unlinked` (waivable) fires where it took another frame, unless both lineups hold subjects and share none, judged only where both shots are on the board (`boardSeams` / `isAxisCut`); `promptReferenceTags({ prevPanel })` refuses at load a second one, or one the prompt does not name as the source. An aside between the shots breaks the pair.
 - Return — a frame cut back to a setup across a cutaway returns to the latest frame of its lane on that setup, when that is not the frame just before (`frameReturns`); a graphic shot between is crossed. None across a jump in any lane or an aside, a cutaway of its lane in another place, a frame of any lane showing one of the frame's subjects (`lineup`, `lineupTo`, `passing`; a frame declaring no one shows no one), into a frame an axis cut carries (one prevPanel per keyframe), from a coverage shot, or between frames sharing no subject. `return-unlinked` (waivable, `<from>-<id>`, bound only against returns) asks the opening keyframe for that frame's last panel, judged as `panel-unlinked` is (`boardSeams`). `probe motion` and `inspect --prompts` print the return; the video stage is asked nothing.
 - `axis-unrealized` — a `wide`↔`medium` pair of one axis owes a plate at each end and up to the frame they share, so `plate-unnested` holds them to one master.
 
 ## Coverage shots
 
-A narrative shot with `coverage: true` is one take the model cuts inside: `setup` and `lineup` are its opening frame, later camera positions the model's. It declares no `lineupTo` or `cutin`, and no take runs on from it — `ConstrainCoverage` / `ConstrainJoin` refuse a literal, `coverage-overdeclared` / `join-impossible` a computed one. Readers branch on `ShotFrame.coverage`: `joinBoundaries` gives the frame after it no `runOn` (no `join-undeclared`), `panelSeams` skips it as the frame before, `checkLineups` empties its place after its opening frame (`LineupShot.coverage`), `checkFusedShots` reads no `multi-sentence-action` off its `action`. Everything read off the opening frame (`slot-order-mismatch`, `character-unconsumed`, `subject-unnamed`, the setup counts) stands. `coverage` rides `projectShotShape`; the board holds it to one `<Panel>` (`DirectionIndex.coverageIds`).
+A narrative shot with `coverage: true` is one take the model cuts inside: `setup` and `lineup` are its opening frame, later camera positions the model's.
+
+- It declares no `lineupTo` or `cutin`, and no take runs on from it — `ConstrainCoverage` / `ConstrainJoin` refuse a literal, `coverage-overdeclared` / `join-impossible` a computed one.
+- Readers branch on `ShotFrame.coverage`: `joinBoundaries` gives the frame after it no `runOn` (no `join-undeclared`), `axisCutPairs` skips it as the frame before, `checkLineups` empties its place after its opening frame (`LineupShot.coverage`), `checkFusedShots` reads no `multi-sentence-action` off its `action`.
+- Everything read off the opening frame (`slot-order-mismatch`, `character-unconsumed`, `subject-unnamed`, the setup counts) stands.
+- `coverage` rides `projectShotShape`; the board holds it to one `<Panel>` (`DirectionIndex.coverageIds`).
 
 `docs/SEAMS.md` is every rule above run over fixtures (`seam-doc.ts`, regenerated or the test fails).
 
@@ -162,11 +205,21 @@ A narrative shot with `coverage: true` is one take the model cuts inside: `setup
 
 ## The song
 
-`policy.song` (a `reference:<id>` id) cuts the piece to a song: every span is `beats`, never `duration` (`ConstrainSpan`, `shot-span-mismatch` past it); `off-grid-duration` asks for a positive number of beats, and `off-beat-cut` (waivable) for a whole one. A beat falls where the injected take plays it (`songBeatSec`); the first shot holds the take's lead before beat 0, each cut lands on its beat's frame. Unread, a shot holds only beats and a build needing seconds stops on `SONG_UNREAD`. `DirectionIndex.timeline` carries it to every stage; `ctx.beat(n)` is beat `n` of the shot's span, in seconds. The song is the part `direction:policy.song`; a span rides `projectSpan`.
+`policy.song` (a `reference:<id>` id) cuts the piece to a song:
 
-`lyrics` (`[{ label, singer, lines }]`): `singer` is a character id or list; a line is text or `{ text, singer }`. Structural: `lyrics-without-song`, `lyrics-singer-unknown`, `lyrics-singer-empty`, `lyrics-empty-line`. `direction:lyrics` is one piece-wide part with its own section: a lyric edit holds the song take's spend, and no other after `whole`.
+- Every span is `beats`, never `duration` (`ConstrainSpan`, `shot-span-mismatch` past it); `off-grid-duration` asks for a positive number of beats, and `off-beat-cut` (waivable) for a whole one.
+- A beat falls where the injected take plays it (`songBeatSec`); the first shot holds the take's lead before beat 0, each cut lands on its beat's frame.
+- Unread, a shot holds only beats and a build needing seconds stops on `SONG_UNREAD`.
+- `DirectionIndex.timeline` carries it to every stage; `ctx.beat(n)` is beat `n` of the shot's span, in seconds.
+- The song is the part `direction:policy.song`; a span rides `projectSpan`.
 
-`placeDirectionLyrics` puts each line on the take's clock — where a person placed it (`SongAnalysis.lines`), else `placeLyricLines` (`song-lyrics.ts`), matching against the words heard and leaving a line unplaced where its opening is not heard. `lyricsInSpan` hands a shot or overlay the lines under its span as `ctx.lyrics`, frame-rounded so an unmoved placement hashes the same. The definition loader injects each video's song take (`withSongVariants`, under the definition import's lock); `definition-source.ts` folds its reading into the source fingerprint.
+`lyrics` (`[{ label, singer, lines }]`): `singer` is a character id or list; a line is text or `{ text, singer }`.
+
+- Structural: `lyrics-without-song`, `lyrics-singer-unknown`, `lyrics-singer-empty`, `lyrics-empty-line`.
+- `direction:lyrics` is one piece-wide part with its own section: a lyric edit holds the song take's spend, and no other after `whole`.
+- `placeDirectionLyrics` puts each line on the take's clock — where a person placed it (`SongAnalysis.lines`), else `placeLyricLines` (`song-lyrics.ts`), matching against the words heard and leaving a line unplaced where its opening is not heard.
+- `lyricsInSpan` hands a shot or overlay the lines under its span as `ctx.lyrics`, frame-rounded so an unmoved placement hashes the same.
+- The definition loader injects each video's song take (`withSongVariants`, under the definition import's lock); `definition-source.ts` folds its reading into the source fingerprint.
 
 The `song` class reads the take the piece is cut against (`resolveSongVariant`: the accepted take, else the newest analyzed one not dismissed; staleness not asked), as `SongVariantState` (`loadDirectionStageInputs`) on `animaticSetups`' contract, never deferred:
 
@@ -174,20 +227,26 @@ The `song` class reads the take the piece is cut against (`resolveSongVariant`: 
 - `lyric-unplaced` — a line nobody places, keyed `<section>.<line>`; its take refuses accept (`SONG_LINES_UNPLACED`).
 - `song-overrun` (`stage`) — the timeline outlasts the take.
 
-A `song-analysis` job reads a take into `song.json` beside it, hashed in the variant's `song`, once per bytes and `policy.lang`: beats and bar heads by Beat This! (`beat-this.ts`), the meter and beat 0 from them, sung stretches and words off the vocal track sherpa-onnx separates. A generated take is queued as it lands; `konte song analyze` reads the current take and every unread one in place. `song set --first-beat` picks which read beat is beat 0 (`firstBeatSet`), kept over a re-read.
+A `song-analysis` job reads a take into `song.json` beside it, hashed in the variant's `song`, once per bytes and `policy.lang`:
+
+- Beats and bar heads by Beat This! (`beat-this.ts`), the meter and beat 0 from them, sung stretches and words off the vocal track sherpa-onnx separates.
+- A generated take is queued as it lands; `konte song analyze` reads the current take and every unread one in place.
+- `song set --first-beat` picks which read beat is beat 0 (`firstBeatSet`), kept over a re-read.
 
 ## Casting voices
 
-A `Voice` is `{ id, description }`: `id` is its own exposed `reference:<id>` sample, never the look anchor; `description` is how the member sounds. A `Character` carries an optional one; `direction.narrator` is a bare `Voice`, singular because a `{ narration }` line names no speaker — two voices over picture means `{ speaker }` lines, which anchor to nothing and are unchecked.
-
+- A `Voice` is `{ id, description }`: `id` is its own exposed `reference:<id>` sample, never the look anchor; `description` is how the member sounds.
+- A `Character` carries an optional one; `direction.narrator` is a bare `Voice`, singular because a `{ narration }` line names no speaker — two voices over picture means `{ speaker }` lines, which anchor to nothing and are unchecked.
 - `checkCharacterVoices` / `checkNarrator` (`direction-check.ts`): `character-voice-missing` / `narrator-missing` on a speaking part with no voice, `*-unreferenced` on a sample not exposed, `unused-character-voice` / `unused-narrator` on a voice nobody speaks with. A piece of subtitles, or a TTS taking a preset voice name, waives the first four; the two `unused-*` are fixed. `character-voice-empty-description` is structural.
 - `reference-id-conflict` covers a voice id colliding with a roster id only: two cast members may share a voice id, so a reference id resolves to a list of parts — `directionReferenceCascadeTargets` and `referenceRosterEntries` are many-valued, and the card prints them all.
 - An unaccepted cast voice holds both composition stages' spend, like a look. The sample is in the cast exclusion set beside the looks — a stem-rooted accept walk (which allows audio) would otherwise reach the sample a line was cloned from.
 
 ## Per-part hashing
 
-`directionPartHashes` (`direction-hash.ts`) is the set of reviewable parts: what it emits is what the review page shows and takes notes on, and — bar the brief's (`isSignedDirectionPart`) — what its Accept signs and the gate demands. Key: the part's `direction:<field-path>`; value: everything a reviewer sees on it. One part per: the root arc (`sequence`), each filled brief field, each policy field (`policy.format`/`policy.lang`/`policy.fonts`, always), each shot, each non-root node, each waiver, each roster entry (`setups` included), each cast character voice (`characters.<id>.voice`, only while cast) and `narrator`.
+`directionPartHashes` (`direction-hash.ts`) is the set of reviewable parts: what it emits is what the review page shows and takes notes on, and — bar the brief's (`isSignedDirectionPart`) — what its Accept signs and the gate demands.
 
+- Key: the part's `direction:<field-path>`; value: everything a reviewer sees on it.
+- One part per: the root arc (`sequence`), each filled brief field, each policy field (`policy.format`/`policy.lang`/`policy.fonts`, always), each shot, each non-root node, each waiver, each roster entry (`setups` included), each cast character voice (`characters.<id>.voice`, only while cast) and `narrator`.
 - A character's hash excludes `voice` — look and voice are two assets accepted separately, each aging out on its own edit.
 - A shot's hash excludes its setup's framing/location and hashes the `setup` id — re-pointing a shot ages it out, re-describing a frame ages out only that setup's part.
 - The root `sequence` hashes `projectShape` (shots, order, lengths, the roster ids), not prose, so an arc note survives a brief reword. `setups` enters as `projectSetupShape` — ids plus `location`/`framing`, the piece's size and space cadence. Every other part hashes its prose too.
@@ -204,7 +263,12 @@ A `Voice` is `{ id, description }`: `id` is its own exposed `reference:<id>` sam
 - A waiver on a shot, a boundary or a setup (`directionShotWaivers`) rides the review of the shots it plays in — a setup's, every shot with a frame on it.
 - A stale waiver is no part to sign (`WaiverCoverage.stale`, `signableParts`): an earlier sign-off of it is swept like a deleted waiver's, and it is `unaccepted` once it cancels a finding again.
 
-The page has one Accept: the submit carries `accept`, and `directionAcceptSections` expands it to every section that can be signed and holds something to sign. A section is what a sign-off is reported, held and recorded by. `DIRECTION_SECTIONS` (`address.ts`): `policy`, `lyrics`, `characters`, `props`, `locations`, `shots`, `waivers`; `directionSectionOf` routes every signed part to exactly one, and the brief's to `null`. `characters` also takes a character's voice part and `narrator`; `locations` takes `setups.<id>` (the Locations & Setups box). A section's status is its weakest part's. The whole arc tree (root arc, child acts, every shot) is one Flow & Shots box (`shots`) — splitting a shot re-shapes the arc.
+The page has one Accept: the submit carries `accept`, and `directionAcceptSections` expands it to every section that can be signed and holds something to sign.
+
+- A section is what a sign-off is reported, held and recorded by; its status is its weakest part's.
+- `DIRECTION_SECTIONS` (`address.ts`): `policy`, `lyrics`, `characters`, `props`, `locations`, `shots`, `waivers`; `directionSectionOf` routes every signed part to exactly one, and the brief's to `null`.
+- `characters` also takes a character's voice part and `narrator`; `locations` takes `setups.<id>` (the Locations & Setups box).
+- The whole arc tree (root arc, child acts, every shot) is one Flow & Shots box (`shots`) — splitting a shot re-shapes the arc.
 
 Orphans — a part accepted and since deleted (the comparison is over the key set):
 
@@ -214,17 +278,22 @@ Orphans — a part accepted and since deleted (the comparison is over the key se
 - A deleted waiver is no orphan (`orphanOwesReview`): it never blocks and any write sweeps it, before `whole` too. Waivers sit in `projectNode`, not `projectNodeShape`, so `sequence` does not move either.
 - `isDirectionSpendGateSatisfied` short-circuits on `whole.hash === directionHash` only while `parts` is non-empty.
 
-Three writers, all ending on `finalizeAcceptance` (sweep, then re-derive `whole`, never on a shotless direction); emptying `parts` (`konte accept direction --off`) is the one way back to never-accepted. No writer stamps a `shots` part on a shotless direction (`directionSectionAcceptable`): the page disables that box's Accept, and `konte accept direction` holds the root arc back, refusing a scope naming only it (`DIRECTION_SHOTS_UNWRITTEN`).
+Three writers, all ending on `finalizeAcceptance` (sweep, then re-derive `whole`, never on a shotless direction):
 
 - `applyDirectionSectionDecisions` (the direction review) stamps each decided part at its live hash, carries undecided parts forward, drops rejected ones. Accept is a toggle (un-toggling revokes).
 - `applyDirectionPartDecisions` (`konte accept direction[:<scope>]...`) expands each scope to its parts, keyed by part address, orphans included — one decided `false` is dropped, which is how `--off` clears it. A waivable finding holds no accept.
 - The media → direction cascade: an animatic/video shot accept signs off the direction shot and what it hangs on; a `reference:<id>` accept the part(s) it anchors. Touching either: read `references/cascades.md`.
+- Emptying `parts` (`konte accept direction --off`) is the one way back to never-accepted.
+- No writer stamps a `shots` part on a shotless direction (`directionSectionAcceptable`): the page disables that box's Accept, and `konte accept direction` holds the root arc back, refusing a scope naming only it (`DIRECTION_SHOTS_UNWRITTEN`).
 
-The spend gate (`judgeSpend`, `core/spend-gate.ts`) names every reason at once, the unaccepted ones only at the upstream-most rank: the direction's blocking parts, then the cast (the characters a `lineup` / `lineupTo` holds, every voice), then the consumed upstream. The reference stage is exempt from acceptance, bar the song: a run submitting the `policy.song` take needs `policy` and `lyrics` accepted. A part a fix finding sits on is held from `konte accept direction` and the page's Accept alike.
+The spend gate (`judgeSpend`, `core/spend-gate.ts`) names every reason at once, the unaccepted ones only at the upstream-most rank:
+
+- The direction's blocking parts, then the cast (the characters a `lineup` / `lineupTo` holds, every voice), then the consumed upstream.
+- The reference stage is exempt from acceptance, bar the song: a run submitting the `policy.song` take needs `policy` and `lyrics` accepted.
 
 ## Policy fields
 
-`format` and `fonts` are machine-checked, each in the acceptance hash and its own feedback part (`direction:policy.<field>`), each enforcing only what konte can check:
+`format` and `fonts` are machine-checked, each enforcing only what konte can check:
 
 - `policy.format` (`{ fps, size: { megapixels, delivery } }`) — the canvas is derived:
   - `deriveCanvasBase` (`core/canvas.ts`) resolves the budget against the delivery's aspect to the nearest 32-grid size, ranking aspect error above area error.
@@ -242,8 +311,11 @@ The spend gate (`judgeSpend`, `core/spend-gate.ts`) names every reason at once, 
 
 ## Source
 
-`brief.source` (`{ span, keep?, drop? }`) names the original a piece is adapted from: the video's `source/`, one original `konte source import` copies in, whose `digest/<chunk>.ts` (`defineSourceChunk`) readers write and konte reads whole (`readDigest`). `source-locator.ts` holds the locator grammar; `source-chunker*.ts` the chunks each kind writes under `source/chunks/` (`index.json` the one file a check reads).
+`brief.source` (`{ span, keep?, drop? }`) names the original a piece is adapted from: the video's `source/`, one original `konte source import` copies in, whose `digest/<chunk>.ts` (`defineSourceChunk`) readers write and konte reads whole (`readDigest`).
 
+- `source-locator.ts` holds the locator grammar; `source-chunker*.ts` the chunks each kind writes under `source/chunks/` (`index.json` the one file a check reads).
 - The direction carries no link from a shot or a roster entry back to it, and the review shows no passage: the source is the brief's row alone, its span by the chapter headings.
-- An agent reads the source with `konte source show` (`source-direction.ts`) and the chunk files it names, never the digest's code. While the direction is unaccepted, `konte status` names the span's chunks no reader has read (`unreadChunks`). A reader ends on `konte source check`: the digest's type errors and `digestProblems`, which the locator check reports too.
+- An agent reads the source with `konte source show` (`source-direction.ts`) and the chunk files it names, never the digest's code.
+- While the direction is unaccepted, `konte status` names the span's chunks no reader has read (`unreadChunks`).
+- A reader ends on `konte source check`: the digest's type errors and `digestProblems`, which the locator check reports too.
 - A digest's locator format and a scene id's chunk are load errors; the span's format too. Whether the chunks hold them is `source-locator-out-of-range` (`checkSourceLocators`): it recounts `index.json` where the original's fingerprint moved and drops the chunks of the old count.

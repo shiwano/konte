@@ -56,7 +56,7 @@ FAL:
 
 ## Auditing an existing guide
 
-Run `konte adapter show <adapter>` (the guide's path and the input schema with descriptions), read that guide and the adapter source beside it, and flag:
+Run `konte adapter show <adapter>`, read that guide and the adapter source beside it, and flag:
 
 - a non-obvious input with no `description` and uncovered by the guide — the recurring miss is `negativePrompt`, `generateAudio`, a `mode`/tier field;
 - a `description` with the wrong key or stale values/scope (schema wins);

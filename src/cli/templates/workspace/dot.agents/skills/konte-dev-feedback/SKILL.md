@@ -9,7 +9,7 @@ Done = every konte friction from this session reported in the chat, specific eno
 
 ## 1. Gather the friction
 
-Walk back through this session and collect every point where konte got in the way:
+Collect every point in this session where konte got in the way:
 
 - Missing command/flag — one you expected but didn't exist.
 - Misleading output — CLI output, a "Next steps" block, or terminology that misled you or needed a second read.
@@ -20,7 +20,7 @@ Walk back through this session and collect every point where konte got in the wa
 - Extra steps — a repeated workaround for what should be one action.
 - Surprising behavior — staleness, acceptance, dependency cascade, review submission, or variant lifecycle.
 - Review result gaps — missing variant IDs, partial decisions, feedback not attached to variants, or unclear accepted/unaccepted state.
-- Pull from what actually happened — real commands and output; don't invent issues to pad the list.
+- Only what actually happened — real commands and output; never pad the list.
 
 ## 2. Score severity
 

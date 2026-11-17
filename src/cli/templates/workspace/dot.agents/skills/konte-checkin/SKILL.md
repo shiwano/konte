@@ -4,7 +4,7 @@ description: Session opener — recap where the current video stands, propose th
 user-invocable: true
 ---
 
-Read the state of one video and check in, in plain language, on where it stands and what you'd suggest next — then let the human decide. The check-in is read-only — it explains and asks, never generating or changing review status.
+Read the state of one video and check in, in plain language, on where it stands and what you'd suggest next — then let the human decide. The check-in is read-only — never generating or changing review status.
 
 ## 1. Open with `konte video current` — it settles which piece this session is about
 
@@ -18,9 +18,8 @@ Read the state of one video and check in, in plain language, on where it stands 
 
 ## 2. Read the piece — only once it's settled they mean this one
 
-- `konte status` — review status (accepted / none), staleness, jobs in flight, and its Next steps.
-- Run the reads its Next steps name — `konte review feedback list` for the comments that still stand, a review's overall comment among them; `konte job show <id>` for a job that is not progressing. Running, failed or stuck jobs outrank everything else you'd raise.
-- Translate, don't re-derive — render what these commands report into human language; never reason your way to a different conclusion about what is stale, accepted, or needed.
+- `konte status` — review status, staleness, jobs in flight — then the reads its Next steps name: `konte review feedback list` for the comments that still stand, a review's overall comment among them; `konte job show <id>` for a job that is not progressing. Running, failed or stuck jobs outrank everything else you'd raise.
+- Translate, don't re-derive — never reason your way to a different conclusion about what is stale, accepted, or needed.
 
 ## 3. Decide what to raise (priority order)
 
@@ -34,7 +33,7 @@ Read the state of one video and check in, in plain language, on where it stands 
 
 ## 4. Write the check-in (human-facing, in the project's language)
 
-- Short and scannable — a few lines; skip any point with nothing real to say.
+- A few lines; skip any point with nothing real to say.
 - Cover as needed — where things stand; what you'd suggest (a proposal, not a decision made); what it leaves untouched (only when there's accepted work to protect); what to decide (section 5).
 - Don't re-narrate the design — the human authored it; reference the piece in a phrase ("the 3-shot intro"), not a shot-by-shot synopsis.
 - Approval is only for what you propose that is destructive or touches accepted work — never re-confirm what the human already asked for.
@@ -47,4 +46,10 @@ Read the state of one video and check in, in plain language, on where it stands 
 
 ## 6. After approval
 
-- Done = the check-in delivered and the human's decision in hand — then carry out the work yourself, reading the right skill before acting: `drafting-guide` (no video yet, or shaping/revising the concept and direction), `layout-guide` (shots not yet defined, developing pending shots, or restructuring), `generation-loop-guide` (generate and review a stage), `revision-guide` (improving or fixing an accepted or exported piece), `export-guide` (final render once shots are accepted).
+Done = the check-in delivered and the human's decision in hand — then carry out the work yourself, reading the right skill before acting:
+
+- no video yet, or shaping/revising the concept and direction → `drafting-guide`
+- shots not yet defined, developing pending shots, or restructuring → `layout-guide`
+- generate and review a stage → `generation-loop-guide`
+- improving or fixing an accepted or exported piece → `revision-guide`
+- final render once shots are accepted → `export-guide`

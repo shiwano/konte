@@ -10,7 +10,7 @@ A shipped adapter is a typed wrapper around one hosted model, seeded into every 
 
 - Adapter: `src/cli/templates/workspace/adapters/fal/<model>.ts` — one file may export several modes (e.g. `falSeedance25T2v` / `falSeedance25I2v`). A bundled adapter — the workspace sync overwrites it while present (arch-template-system-guide).
 - Builder: `defineFalAsset` (`src/core/dsl/fal-asset.ts`) — read it once; it is the source of truth for input semantics.
-- Export barrel and discovery: none to update — a named `export` suffices; `konte adapter list` tables every `adapters/**/*.ts` adapter's `meta`, and `adapter show <adapter>` adds the input schema and the craft guide's path, never its body. The `description` and input `description`s are the docs.
+- Export barrel and discovery: none to update — a named `export` suffices; `konte adapter list` tables every `adapters/**/*.ts` adapter's `meta`, and `adapter show <adapter>` adds the input schema and the craft guide's path, never its body.
 
 ## Verify the schema first — never from memory
 
@@ -36,6 +36,7 @@ export const falMyModel = defineFalAsset({
   endpointId: "fal-ai/my-model/v2",
   description: "One line for `konte adapter list` — what it makes and what it is good at.",
   mediaType: "audio", // output kind: "image" | "video" | "audio" — drives download/normalization
+  allowedIn: ["shot"],
   inputs: {
     // konteKey (camelCase, what the user writes) → provider field (snake_case, what's sent)
     prompt: { field: "prompt", type: "prompt", required: true },
@@ -58,7 +59,7 @@ export const falMyModel = defineFalAsset({
   - everything else → falls back to `default` when unset, and is emitted only when the resolved value is not `undefined`.
 - `structure` (`"prompt"` only) — for a prompt that is a fixed grammar of named sections: the caller passes an object, each field's `render` writes its section (`fields` order, joined by `join`) before anything reads the prompt. The `render` parameter type is the caller's type; `render: () => "…"` is a constant section. Structure what the grammar fixes (headers, order, brackets, numbering). Example: the H3 adapters.
 - `required: true` makes the call arg mandatory at the type level and is enforced at runtime — a missing value throws `MISSING_REQUIRED_INPUT`.
-- `values` narrows the TS type for `type: "string"` / `"seconds"`; nothing validates it at runtime. List string enums for autocomplete; leave large open sets as bare `string`.
+- `values` narrows the TS type for `type: "string"` / `"seconds"`; nothing validates it at runtime. List string enums for autocomplete.
 - `pin: "start" | "end"` — an `"image"` input the model reproduces pixel for pixel as the clip's first or last frame. One input per end, never with `array`.
 - `stem: true` — the one `"audio"` input a model times its take to (lips, a beat). On a video shot of a piece cut to its song konte fills it with the board's `#songStem` and refuses anything written there. Not for a reference audio the prompt addresses by tag.
 - `array: true` — media inputs only. The user passes an array of media assets and each `.src` is sent as a list element. Use it for a model whose media field takes a list (`image_urls`, `input_images`).
@@ -97,6 +98,6 @@ Fix in the adapter; leave a genuinely useless field off.
 
 ## Verify
 
-- `bun run check` — must pass; it also verifies each `guide` path resolves on disk.
+- `bun run check`.
 - `konte adapter show <adapter>` in a workspace renders the final schema as an agent will read it.
 - No live-API smoke test; schema-correctness against the docs is the gate.

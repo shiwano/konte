@@ -43,7 +43,7 @@ argument-hint: <args> # optional, user-invocable skills that take an argument on
 ---
 ```
 
-- `description` is the whole routing signal — all the agent sees when choosing whether to open the skill, and it loads every turn. State the coverage and the trigger once; a topic list followed by a "Read when…" list repeating it is the usual waste. Shape it _what it covers — when to reach for it_:
+- `description` is all the agent sees when choosing whether to open the skill, and it loads every turn — state the coverage and the trigger once; a topic list followed by a "Read when…" list repeating it is the usual waste:
   - agent-only: `Read when adding, editing, or wiring shots and assets in a definition file.`
   - user-invocable: `Use when the user wants to "complete the animatic", generate or refine panels, or run the animatic stage.`
 - It is an unquoted YAML scalar — ` #` starts a comment and silently truncates the rest; `: ` breaks the parse. Use an em dash, and never a space before a `#`.

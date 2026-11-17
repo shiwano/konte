@@ -2,12 +2,12 @@
 
 - A plate holds one frame across the generated shots that stand on it — a setup two or more of them share owes one (`setup-unrealized`), and so does each setup nesting two `wide`/`medium` setups the piece cuts between along one `within` axis, both included (`axis-unrealized`). Any other setup gets none (`plate-unowed`): its keyframes stand on `reference:<location>`. An accepted plate left under one generated shot stays. Declare a plate under `plates` in animatic.tsx, keyed by the roster id (`animatic:plate.<setupId>`).
 - Generate every plate from its view's image — `reference.view.<location>.<view>`, `front` being the `location` master itself (`plate-unviewed`, `plate-unanchored`).
-- A view image is the room at full distance — cut a closer frame out of it (`imageCrop`) or in from a plate on it; cut an insert or a night frame in from a plate of the same view.
+- Cut a closer frame out of a view image (`imageCrop`) or in from a plate on it; cut an insert or a night frame in from a plate of the same view.
 - A root setup (`within: null`) declares its framing new — carry the master's setting and light onto each camera axis.
 - Where a setup and its `within` setup both have a plate, generate the child's from the parent's (`plate-unnested`) — pass the parent plate as is to a generative model and write the step in from that frame, or crop a window out of it. Match its framing, camera height and perspective — the parent alone is enlarged to a blur.
 - A plate fixes how much of the set is in frame, and is passed at canvas size — a plate larger than the canvas reads as a picture inside the frame, its edges drawn as a window.
 - Include the setup's `holds`, each asked for by its `promptDepiction` in the prompt the plate is generated with (`plate-unnamed`).
-- Where the shot needs a frame its plate does not hold, regenerate the plate to its setup or move the shot to a setup that holds that frame (`direction-guide`); never crop the plate inside the keyframe (`plate-recropped`).
+- Where the shot needs a frame its plate does not hold, regenerate the plate to its setup or move the shot to a setup that holds that frame; never crop the plate inside the keyframe (`plate-recropped`).
 - Feed `plates.<id>` as the keyframe's first image input.
 - An asset declared here and not returned is an intermediate — never review work, and its name may not be a setup id.
 - Every shot stands on the place — its setup's plate, else `reference:<location>` (`setup-unconsumed`, satisfied by any one of its keyframes); a place held by prose alone changes every take. Where there is no plate, the keyframe prompt asks for each `holds` landmark by its `promptDepiction` (`landmark-unnamed`). Exempt: a shot with no generative step, and a plate handed over whole as a file.

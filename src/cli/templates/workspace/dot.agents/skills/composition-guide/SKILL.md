@@ -37,10 +37,10 @@ import {
 } from "konte";
 ```
 
-- `<Composition>` — root, one per shot. Injects HTML scaffold, GSAP 3.15 with SplitText and DrawSVG, Tailwind v4, `#stage`.
+- `<Composition>` — root, one per shot. Injects GSAP 3.15 with SplitText and DrawSVG, Tailwind v4, `#stage`.
 - `<Video src={asset} />` — a video clip on the timeline, a full-stage cover-fit layer; Tailwind classes in `className` override that (`left-0 top-0 w-1/3 h-1/3` for an inset). Defaults to `muted` + `playsInline`. Props: `src` (MediaAsset), `start`, `duration`, `mediaStart`, `playbackRate` (source s per timeline s; a `hasAudio` track follows it, pitch kept), `hasAudio`, `volume`, + any `<video>` attr (`id`, `className`, `style`)
-- `<Audio src={asset} />` — a one-shot sound in a shot (SE, sting, dialogue, narration). Plays once at full length; may extend past the shot. Props: `src`, `id` (cue handle), `start`, `duration`, `mediaStart`, `volume`, `fadeIn`, `fadeOut`, + any `<audio>` attr. With `mediaStart` omitted, an SE take's leading silence is skipped, so `start` is where the sound lands; a line plays from the take's head
-- `<Image src={asset} />` — a still image on the timeline (logo, character, product, plate, overlay). Whole shot unless windowed; at its pixel size unless `fill` makes it a full-stage cover-fit layer. Props: `src` (MediaAsset), `start`, `duration`, `fill`, + any `<img>` attr (`alt`, `className`, `style`). A real logo or icon is its file, never drawn in JSX
+- `<Audio src={asset} />` — a one-shot sound in a shot (SE, sting, dialogue, narration). May extend past the shot. Props: `src`, `id` (cue handle), `start`, `duration`, `mediaStart`, `volume`, `fadeIn`, `fadeOut`, + any `<audio>` attr. With `mediaStart` omitted, an SE take's leading silence is skipped, so `start` is where the sound lands; a line plays from the take's head
+- `<Image src={asset} />` — a still image on the timeline (logo, character, product, plate, overlay). At its pixel size unless `fill` makes it a full-stage cover-fit layer. Props: `src` (MediaAsset), `start`, `duration`, `fill`, + any `<img>` attr (`alt`, `className`, `style`). A real logo or icon is its file, never drawn in JSX
 - `<Subtitle entries={[...]} />` — timed text. Defaults to bottom-center 5% up, white, `text-[1.875vmax] font-semibold drop-shadow-lg`; a portrait canvas sits it a sixth up at `text-[3.25vmax]`, rendered above clips. Props: `entries` — each `{ start, end, text }` (seconds) or a script line timed by konte ([subtitles.md](references/subtitles.md)), `lineClassName` / `lineStyle` (the text's `<span>`), + any `<div>` attr
 - `<Cutin at size inset>` — the shot's declared `cutin`, over the whole shot: `at` a corner (default `bottom-right`), `size` a fraction of canvas width, `inset` the edge gap. Holds that frame's `<Panel>`s on the animatic, its `<Video>` on the video.
 - `<Screen corners>` — a surface seen at an angle: its children warped onto four `corners` (canvas fractions, TL TR BR BL).
@@ -52,7 +52,7 @@ Gotchas:
 
 - A component prop that takes any asset is `MediaAsset<"image">` / `<"video">` / `<"audio">`
 - A px font size is a different fraction of each canvas size — use `text-[Nvmax]` (1% of the longer edge) to keep text a constant fraction.
-- A clip's own audio needs `hasAudio` — without it the track is dropped: `<Video src={motion} hasAudio volume={0.8} />`.
+- A clip's own audio needs `hasAudio` — without it the track is dropped.
 - `volume` is relative gain, 0–3.98 (+12 dB), 1 = unity — same on `<Audio>`, `<Video>`, `soundtrack()`.
 - `<Animate>` assigns no ids — give the element an `id`/`className` and target it by CSS selector (`"#title"`, `".badge"`). A selector never reaches another shot's element. Sibling `<Animate>`s each start at 0 of the shot's clock, so a component can carry its own.
 - A `fromTo` / `from` timed after 0 renders its start values from the shot's head — pass `immediateRender: false` and put the pre-cue state in the element's CSS (`opacity-0`), or `set` the start values at the cue and `to` from there.

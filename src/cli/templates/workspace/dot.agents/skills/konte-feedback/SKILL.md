@@ -98,7 +98,7 @@ reproduces: yes | seen once; exit=<code if CLI>
 ## 6. Hand it over
 
 - Show the whole post with a summary in the human's language when that is not English, and name the tags.
-- The human posts — after their yes, hand over the title, tags and body as shown, with the GitHub issue form `https://github.com/shiwano/konte/issues/new?template=support.yml` (the kind and area tags are the form's Kind and Area fields, the body its Details).
+- After their yes, hand over the title, tags and body as shown, with the GitHub issue form `https://github.com/shiwano/konte/issues/new?template=support.yml` (the kind and area tags are the form's Kind and Area fields, the body its Details).
 
 ## Don't
 

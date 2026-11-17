@@ -37,7 +37,7 @@ After `konte generate` or `konte reroll`:
 
 ## 4. Self-review before involving the human
 
-Look at every generated asset before the human does, sampled by media kind — skip `file` assets and `pendingShot` shots.
+Look at every generated asset, sampled by media kind — skip `file` assets and `pendingShot` shots.
 
 Your eyes settle what can be counted, never whether it is good — the wrong subject, a figure too many or too few, an empty frame, a missing element, a take that never moved, a line not carried. A doubt you cannot name in those terms is a note in the handoff, not a reroll.
 

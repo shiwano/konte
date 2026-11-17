@@ -17,7 +17,7 @@ For concept or shot work, open the reference of the form `drafting-guide` step 3
 - Mood → [mood.md](references/mood.md).
 - Cut to a song → also [song.md](references/song.md).
 - Adapted from a source → also [adaptation.md](references/adaptation.md).
-- The lens's roles → `direction-guide`'s lenses.md — craft obligations to fulfill, never slots to fill.
+- The lens's roles → `direction-guide`'s lenses.md — craft obligations to fulfill.
 
 ## Pitch wide, cull hard
 

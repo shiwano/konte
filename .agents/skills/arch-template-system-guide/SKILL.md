@@ -37,8 +37,10 @@ src/cli/templates/workspace/       ← konte workspace new
 
 ## Managed files and agent settings
 
-- Only `workspace new` / `workspace setup` sync; `workspace setup` refuses with `KONTE_OUTDATED` when `konte.version` names a newer konte, so going back to an older konte is lowering `konte.version`. Every other command writes nothing; a compiled konte refuses with `KONTE_OUTDATED`, else with `WORKSPACE_SETUP_REQUIRED` when the lock's template hash (managed files, bundled adapters, agent settings, `.gitignore`) or its `root` differs, a managed file or agent setting is missing, or the compiled konte's `.konte/bin` link does not resolve.
-- `.claude/settings.json` is overwritten — user customizations belong in `.claude/settings.local.json`, left untouched; other agent settings also fill missing defaults. The sync removes the `konte` MCP server an earlier konte rendered (`.mcp.json`, `.codex/config.toml`). These settings are gitignored.
+- `workspace setup` refuses with `KONTE_OUTDATED` when `konte.version` names a newer konte, so going back to an older konte is lowering `konte.version`.
+- Every other command writes nothing; a compiled konte refuses with `KONTE_OUTDATED`, else with `WORKSPACE_SETUP_REQUIRED` when the lock's template hash (managed files, bundled adapters, agent settings, `.gitignore`) or its `root` differs, a managed file or agent setting is missing, or the compiled konte's `.konte/bin` link does not resolve.
+- `.claude/settings.json` is overwritten — user customizations belong in `.claude/settings.local.json`, left untouched; other agent settings also fill missing defaults.
+- The sync removes the `konte` MCP server an earlier konte rendered (`.mcp.json`, `.codex/config.toml`). These settings are gitignored.
 - The `.konte/bin` PATH lead is regenerated — Codex through `shell_environment_policy.set.PATH`, rebuilt from the shell's PATH less entries missing from the machine (`konte doctor` under Codex warns on one that vanished since), Claude Code through a `SessionStart` hook appending an `export PATH` line to `$CLAUDE_ENV_FILE`, since its `env.PATH` never reaches the Bash tool.
 - A compiled konte running from elsewhere (brew, a copied build) links itself to `.konte/bin/konte` — to the `PATH` entry resolving to it, if any — except on Windows, and never over a real file `setup.sh` placed.
 - `konte.version` is not a template: `template-sync.ts` writes it at the workspace root once every file is written. It is committed; the lock's copy of the version is not.

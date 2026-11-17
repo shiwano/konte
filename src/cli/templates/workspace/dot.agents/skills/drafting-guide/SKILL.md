@@ -18,12 +18,12 @@ Ask which of four inputs they have:
 
 - Concept — a script/shot list (honor it; map onto konte's shape with minimal restructuring) or a vague idea (then you propose).
 - Material — their own media to put _in_ the video (footage, character/product/logo image, BGM/SE). Separate "already have" from "to generate".
-- Source — the story itself comes from an existing work (a novel, a comic, a play or film script, a film to remake); it stands in for the concept. A script written for this video is a concept, a clip shown as "make it like this" a reference. → `konte video new <name> --template blank`, then `scenario-guide`'s adaptation.md.
+- Source — the story itself comes from an existing work (a novel, a comic, a play or film script, a film to remake); it stands in for the concept. A script written for this video is a concept. → `konte video new <name> --template blank`, then `scenario-guide`'s adaptation.md.
 - Reference — a link/video/image shown as "make it like this" → direction, not material to include. Pin down _what_ to emulate (form, tone, pacing, palette, framing, motion, subtitles); read what you can (a video or a link: `konte study clip <file|url>`), ask the rest.
 
 ## 3. Hear what they picture — before any pitch
 
-- A source → fill every line it settles off the digest and write it back; ask only the adaptation's choices — the range first (the reader finds it), runtime (its options off the span's length in `konte source show`, adaptation.md), fidelity, narration or not, the translation policy across languages, what its medium leaves open.
+- A source → fill every line it settles off the digest and write it back; ask only the adaptation's choices — the range first (the reader finds it), runtime (its options off the span's length in `konte source show`), fidelity, narration or not, the translation policy across languages, what its medium leaves open.
 - Otherwise → ask in rounds of two or three questions, each shaped by the last answer; stop when every line below is filled — a pitch made before that answers a brief you invented.
 - "Just make something" → fill the rest yourself and say what you assumed.
 
@@ -57,7 +57,7 @@ Your picks go into the treatment (step 6). Ask nothing here.
 Nothing is written to disk until the human has said yes to the treatment, in so many words — bar a source's video and its import (step 2). "Make a video about X" authorized the conversation, not the file.
 
 - Develop the pick, or the brought script, into a treatment — tone, look, rough runtime (propose defaults, marked as yours; a source's is the human's pick), the recurring characters, props and places, and the frames the shots will share. Ask only for forks you can't guess past — live-action vs anime, aspect ratio, length. Never pitch a shot-by-shot cut in chat — it is authored in `direction.ts` and reviewed in the direction preview.
-- A source adds the adaptation map — scenes kept, cut, merged; how each interior shows; lines changed beyond translation; looks and style filled in — the translation policy, and "how I read it" (adaptation.md).
+- A source adds the adaptation map — scenes kept, cut, merged; how each interior shows; lines changed beyond translation; looks and style filled in — the translation policy, and "how I read it".
 - Send the treatment as one message, then the question alone — what it is for and where it plays, logline, hook, the feeling and the viewer's line, the direction it refuses, tone, look, runtime, delivery resolution, backend and model, who and where, the frames; then "shall I write this up as the direction?" With a native choice UI, that is the only question on it.
 - What is not a yes — the pick in step 5; "sounds good" on one part; silence; a question back; a "yes, but…" (fold the "but" in, re-send the treatment, ask again). A treatment changed after the yes needs a new one.
 
@@ -66,7 +66,7 @@ Nothing is written to disk until the human has said yes to the treatment, in so 
 - Read `direction-guide` first — and `scenario-guide`, entering here on a revision.
 - New piece → `konte video new <name> --template blank` (a source's exists since step 2), then copy the material already in hand to its `assets/files/`, a studied clip to `studies/` (`brief.references`).
 - A piece derived from an existing one → `konte video copy <src> <dest> --through <stage>` — `--through direction` to revise the direction.
-- Cut to a song → [song-first.md](references/song-first.md) before writing any shot — the song is made and accepted first.
+- Cut to a song → [song-first.md](references/song-first.md) before writing any shot.
 - Write `direction.ts` — the `brief` is step 6's treatment (its hook is `hook`, step 3's refused direction is `outOfScope`); add rosters, `policy` and `sequence: { lens, pleasure, shots }`; clear `konte status`'s direction findings (fix or waive).
 - Then three passes the direction check can't make:
   - split — every `action` against the one-action rule; a first-draft split that changes nothing is suspect — in a story, find the fused trigger-reaction pair.

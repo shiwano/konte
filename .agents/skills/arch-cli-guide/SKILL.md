@@ -17,7 +17,7 @@ Write every CLI output for an agent to act on.
 
 ## Scope and startup
 
-- Commands declare their scope: `none` (`workspace new`, `workspace setup`, `licenses`), `workspace` (`video *`, `adapter *`, `settings`, `job worker`), or `video` — the default, so a new command opts out explicitly.
+- Commands declare their scope: `none` (`workspace new`, `workspace setup`, `licenses`), `workspace` (`video *`, `adapter *`, `settings`, `doctor`, `study`, `job worker`), or `video` — the default, so a new command opts out explicitly.
 - The entry re-execs once to move Bun's transpiler cache into the workspace. The child resolves the roots, loads the workspace credentials into the environment, sets the tool-cache root, then runs the managed-file check (`arch-template-system-guide`; never `job worker`) and type-check.
 - The type-check covers the whole workspace, but only the current video's, the adapters' and the workspace's own diagnostics are fatal — a broken sibling video is reported and stepped over.
 - `generate` / `preview` / `export` are top-level commands — no per-stage command group. `status` is always whole-project; a filter command like `clean` takes an `[address-scope]` to narrow to one stage.
@@ -32,7 +32,7 @@ Write every CLI output for an agent to act on.
 
 ## Media inspection (`konte probe`)
 
-- `audio` / `contact-sheet` / `image` / `motion` / `thumbnails` — on one or more, in any mix, of a `<variantId>`, an address, or an `<address-scope>` sweeping every matching variant it can read. `motion` also takes a `<stage>:shot.<id>#composition`, drawn live from the definition and never swept.
+- `audio` / `contact-sheet` / `image` / `motion` / `thumbnails` — on one or more, in any mix, of a `<variantId>`, an address, or an `<address-scope>` sweeping every matching variant it can read. `motion` also takes a `<stage>:shot.<id>#composition`, drawn live from the definition and never swept. `contact-sheet` / `motion` take `--needs-review` in their place, with at most one `<address-scope>` to narrow it.
 - `crop` — one still, rendering `--rect` windows as `imageCrop` would (an `imageCrop` asset's own window and master derived).
 - `reel-audio` / `reel-lines` — an `<animatic|video[:shot.<id>]>` scope.
 - `reel-thumbnails` — one `<stage>:shot.<id>`; a whole stage is `contact-sheet`'s.

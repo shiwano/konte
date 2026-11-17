@@ -4,6 +4,8 @@ description: Read when touching the job pipeline — standalone job kinds (comfy
 user-invocable: false
 ---
 
+How a job is registered, leased, run by the one worker, judged and finalized.
+
 ## Job kinds
 
 A job records its backend kind and the addresses it depends on.
@@ -35,7 +37,7 @@ Activation:
 - `submissionStartedAt` is persisted under the submit lease before calling a backend. A reclaimed external job with that stamp and no backend id fails with `SUBMISSION_UNCONFIRMED` — check the backend before rerolling. A claim that never began submission, and a local operation, may retry.
 - A vendor submit asks `shouldCancel` right before each send (`SUBMIT_CANCELLED`). A submit whose commit is refused — a `job cancel` or a lost lease — cancels its backend job, unless a reclaimer on a resubmit-safe backend adopts it.
 - A committed submit keeps the submit lease, and the worker submits and waits under one `workerId`, so its waiter takes that lease over and the job is never unwatched between submit and wait.
-- A spend command submits the ready jobs it registered before returning (`submitRegisteredJobs`), scoped to those ids and committed with no lease — `job list` shows `submitted`, and `⚠ unwatched` only an expired lease. A `local` job is the run's. The command reports a failed submit and exits non-zero.
+- A spend command submits the ready jobs it registered before returning (`submitRegisteredJobs`), scoped to those ids and committed with no lease — `job list` shows `submitted`, and `⚠ unwatched` only an expired lease. The command reports a failed submit and exits non-zero.
 - Transient result-fetch and download-stream failures retry against the existing backend id. A `job run` timeout or a stopping worker (`releaseClaimedLeases`) releases the run lease; the next waiter resumes retrieval.
 
 ## One worker, every video
@@ -53,7 +55,6 @@ Activation:
 - A job records a source fingerprint at creation (`definition-source.ts`). On a hash mismatch:
   - fingerprint moved → the definition changed; the job fails.
   - fingerprint unchanged → the judge is stale: it releases the job (`releaseIfOwner`) and the worker exits (`WORKER_RESTART_EXIT_CODE`) and its host starts a fresh one; a second stale judge fails it.
-
 - Exports do the same via `planDigest` / `decideExportRender`.
 
 ## Finalizing a take

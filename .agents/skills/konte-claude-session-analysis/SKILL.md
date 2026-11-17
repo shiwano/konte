@@ -65,16 +65,18 @@ awk -F'\t' '$2=="Read"{print $3}' /tmp/uses.tsv | sort | uniq -c | sort -rn | aw
 
 ## 7. Validate the skill JOURNEY against what actually loaded
 
-A `konte-checkin`→export session is the `video` journey in `scripts/check-journeys.ts`.
+A `konte-checkin`→export session is the journey in `scripts/check-journeys.ts` matching the piece's form — `video`, `adaptation`, `persuasion` or `music-video`.
 
 ```sh
 jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use" and .name=="Skill") | .input.skill' "$T" | sort -u
 jq -r 'select(.type=="user") | (.message.content|tostring)' "$T" | grep -oE '<command-name>/[a-z-]+' | sort -u   # slash-invoked; no Skill tool_use
 jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use") | ((.input.file_path // .input.command // "")|tostring)' "$T" \
-  | grep -oE '(\.claude|dot\.agents)/skills/[A-Za-z0-9./_-]+' | sed 's|.*/skills/||' | sort -u   # references, incl. nested per-model docs
+  | grep -oE '(\.claude|dot\.agents)/skills/[A-Za-z0-9./_-]+' | sed 's|.*/skills/||' | sort -u   # references
+jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use") | ((.input.file_path // .input.command // "")|tostring)' "$T" \
+  | grep -oE '\.konte/guides/[a-z0-9-]+\.md|konte adapter show [A-Za-z0-9_-]+' | sort -u   # adapter guides
 ```
 
-- Grep nested paths — `references/video/wan-2-2.md` won't match `references/[a-z-]+\.md`; a too-narrow pattern invents "never loaded" findings.
+- An adapter's craft guide loads through `konte adapter show <adapter>` or a read of `.konte/guides/<name>.md`, never a `skills/` path; a `skills/`-only pattern invents "never loaded" findings.
 - Grep bare filenames after a `cd` — `cd .../direction-guide/references && cat skeleton.md rosters.md` names no `skills/` path; run `grep -oE '[a-z-]+\.md'` over Bash commands that `cd` into a `references` dir.
 - Loaded but not in JOURNEY = a budget hole its tokens escape — unless another journey in that file budgets it, or it is post-production work. Add it and expect the raise, logged as an accounting fix.
 - In JOURNEY but never loaded = a routing miss, once the branch's trigger applied and no containing result was truncated. Never trim the list to match observation — that blesses the miss and drops a guide from the chain.

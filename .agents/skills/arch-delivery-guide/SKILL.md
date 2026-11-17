@@ -38,7 +38,7 @@ How a video's optional `export.delivery` turns the working graph into a higher-r
 Each render writes `manifest.json` beside its `video.mp4` (`ExportManifestSchema`, `buildManifest` in `render-video.ts`): the variant every address resolved to — state forgets it once one is re-accepted or pruned.
 
 - `variants` maps address → `{ variantId, accepted }`. What a variant was made from is read from the project's TypeScript and its `definition.json` sidecar; nothing recoverable from either is copied in, and no paths. The exception is `derivedFrom` on a patch variant, naming `patches/<derivedFrom>.ts` — that lineage lives only in state.
-- It covers every address the three definitions declare plus the `#delivery` derivatives the graph does not list — a resolution snapshot, not a claim about which bytes reached the MP4.
+- It covers every address the three definitions declare plus the `#delivery` derivatives the graph does not list — a resolution snapshot.
 - `size` is the delivered frame and `canvas` the working canvas it was covered and cropped from; `probe export` prints the scale and crop between them. `deliveryUpscale` names only the upscale model path.
 - `exportSignature` is the job's, stamped here too so a deliverable outliving its job can still be called out of date. `probe export` `safeParse`s the file, reporting one it cannot read as absent.
 - The manifest's `id` (`mf-…`, fresh per render — a reclaimed job renders into its own directory) is burned into the MP4's container with `konte_version` and the signature by a final stream-copy pass (`tagDeliverable`).

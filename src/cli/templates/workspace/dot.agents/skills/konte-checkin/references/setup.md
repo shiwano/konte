@@ -1,6 +1,6 @@
 # konte not found
 
-The binary is not installed in this workspace. Stop and hand the human these steps, only for the runtime you are running in:
+Hand the human these steps, only for the runtime you are running in:
 
 1. Install the konte plugin, if not installed:
    - Claude Code CLI: `/plugin marketplace add shiwano/konte@plugin`, then `/plugin install konte@konte`.
