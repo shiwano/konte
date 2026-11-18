@@ -359,9 +359,7 @@ function EntryRow({
       >
         {lead}
         <span className="dir-rail-name">{name}</span>
-        {parts.map((p) => (
-          <PartMarkTag key={p.address} address={p.address} />
-        ))}
+        <PartMarkTag address={part.address} inner={(noted ?? []).map((p) => p.address)} />
         {parts.some(ctx.hasNotes) && <NoteDot />}
         {trailing !== undefined && <span className="dir-rail-meta">{trailing}</span>}
         <Hint kind="peek" />

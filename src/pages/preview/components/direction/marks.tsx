@@ -19,7 +19,22 @@ export function partMarks(parts: readonly DirectionPartInfo[]): Map<string, Part
   return out;
 }
 
-export function PartMarkTag({ address }: { address: string }): React.ReactElement | null {
-  const mark = useContext(PartMarksContext).get(address);
+// One mark for a row that also answers for parts read inside it: its own, else "changed" when one of those is marked.
+export function rowMark(
+  marks: ReadonlyMap<string, PartMark>,
+  address: string,
+  inner: readonly string[],
+): PartMark | undefined {
+  return marks.get(address) ?? (inner.some((a) => marks.has(a)) ? "changed" : undefined);
+}
+
+export function PartMarkTag({
+  address,
+  inner = [],
+}: {
+  address: string;
+  inner?: readonly string[];
+}): React.ReactElement | null {
+  const mark = rowMark(useContext(PartMarksContext), address, inner);
   return mark ? <span className={`dir-mark dir-mark--${mark}`}>{mark}</span> : null;
 }
