@@ -36,6 +36,16 @@ describe("lineMishearing at the ends", () => {
     ).toBe('line 1: drops the closing "カードにおこづかいを送金します。"');
   });
 
+  it("passes one kana a Japanese take drops at the close where nothing reads its pronunciation", () => {
+    expect(misheard("今までどおり現金で。", "今までどおり現金", "ja")).toBeNull();
+  });
+
+  it("names a short word a Japanese take drops at the opening", () => {
+    expect(misheard("いいえ。私は金持ちではありません。", "私は金持ちではありません", "ja")).toBe(
+      'line 1: drops the opening "いいえ。"',
+    );
+  });
+
   it("quotes the whole lost stretch past a kana the alignment pairs by chance", () => {
     expect(misheard("お子さまのアプリですぐに確認できます。", "お子様のアプリで", "ja")).toBe(
       'line 1: drops the closing "ですぐに確認できます。"',
@@ -92,6 +102,13 @@ describe("lineMishearing at the ends", () => {
 
 // A reader knowing only the words the cases below say, longest first; anything else reads as itself.
 const PRONUNCIATIONS: Record<string, string> = {
+  現金: "ゲンキン",
+  ワトスン: "ワトスン",
+  心: "ココロ",
+  取り扱い: "トリアツカイ",
+  取扱: "トリアツカイ",
+  申し込み: "モーシコミ",
+  申込: "モーシコミ",
   靴下: "クツシタ",
   仕立て: "シタテ",
   下れ: "クダレ",
@@ -135,6 +152,31 @@ const tokens = (heard: string, lang: string) =>
   }));
 
 const said = (...lines: string[]) => lines.map((text, i) => ({ text, number: i + 1 }));
+
+describe("lineMishearing at the close, by its pronunciation", () => {
+  const closing = (line: string, heard: string) =>
+    lineMishearing(said(line), tokens(heard, "ja"), ja);
+
+  it("names one kana a Japanese take drops at the close", () => {
+    expect(closing("今までどおり現金で。", "今までどおり現金")).toBe(
+      'line 1: drops the closing "で。"',
+    );
+    expect(closing("誰にも教えないでね。", "誰にも教えないで")).toBe(
+      'line 1: drops the closing "ね。"',
+    );
+    expect(closing("注目に値するよ、ワトスン。", "注目に値するよワトス")).toBe(
+      'line 1: drops the closing "ン。"',
+    );
+  });
+
+  it("passes the close heard in another spelling of its pronunciation", () => {
+    expect(closing("大切なのはこころ。", "大切なのは心")).toBeNull();
+    expect(closing("週に1回のレター。", "週に1回のれた")).toBeNull();
+    expect(closing("ありがとう。", "ありがとー")).toBeNull();
+    expect(closing("取り扱い。", "取扱")).toBeNull();
+    expect(closing("お申し込み。", "お申込")).toBeNull();
+  });
+});
 
 describe("lineMishearing inside the lines", () => {
   it("names a Japanese word heard as another, by its pronunciation", () => {

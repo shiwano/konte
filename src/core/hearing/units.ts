@@ -51,6 +51,12 @@ export interface HearingProfile {
   letters: (text: string) => Letter[];
   // How many of a line's letters a heard one stands in for at an end (a kanji for kana).
   standIn: (ch: string) => number;
+  // The fewest letters lost at a line's close that count as dropped where its pronunciation loses
+  // the close too (`で` of `現金で`); the opening's floor where unset.
+  closingDrop?: number;
+  // Whether a letter of a line only lengthens the vowel before it (`レター` heard as `れた`); such a
+  // letter lost at the close is not dropped.
+  lengthens?: (letters: readonly Letter[], i: number) => boolean;
   // Whether a gap inside the lines makes the take misheard.
   misheard: (gap: HeardGap) => boolean;
   // Whether the review marks a gap.

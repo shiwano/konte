@@ -85,14 +85,17 @@ const VOWEL_OF = new Map(VOWEL_ROWS.flatMap(([v, kana]) => [...kana].map((k) => 
 
 // A vowel that lengthens the one before it as `ー`: IPADIC writes `とう` and `ええ` as `トー` and `エー`
 // where it knows the word, and as they are spelled where it does not.
+function lengthensVowel(letters: readonly Letter[], i: number): boolean {
+  const l = letters[i]!;
+  const before = VOWEL_OF.get(letters[i - 1]?.ch ?? "");
+  if (!before || !"あいうえお".includes(l.ch)) return false;
+  return (
+    l.ch === before || (l.ch === "う" && before === "お") || (l.ch === "い" && before === "え")
+  );
+}
+
 function foldLongVowels(letters: Letter[]): Letter[] {
-  return letters.map((l, i) => {
-    const before = VOWEL_OF.get(letters[i - 1]?.ch ?? "");
-    if (!before || !"あいうえお".includes(l.ch)) return l;
-    const lengthens =
-      l.ch === before || (l.ch === "う" && before === "お") || (l.ch === "い" && before === "え");
-    return lengthens ? { ...l, ch: "ー" } : l;
-  });
+  return letters.map((l, i) => (lengthensVowel(letters, i) ? { ...l, ch: "ー" } : l));
 }
 
 // `text` with each run of numerals holding a digit written in kanji, and the [at, end) of `text`
@@ -153,7 +156,9 @@ export function japaneseHearing(read?: JapaneseReader): HearingProfile {
         : []),
     ],
     letters: writtenLetters,
+    lengthens: (letters, i) => letters[i]!.ch === "ー" || lengthensVowel(letters, i),
     standIn: (ch) => (HAN.test(ch) ? KANA_PER_KANJI : 1),
+    closingDrop: 1,
     misheard: (gap) => gap.by === "sound" && gap.size >= MISHEARD_KANA,
     marked: (gap) => gap.size >= MARKED_UNITS,
   };

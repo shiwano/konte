@@ -360,14 +360,17 @@ export function lineMishearing(
     .map((t) => t.text)
     .join("")
     .trim();
-  const end = endMishearing(texts.join(" "), words, hearing);
+  const take = alignTake(texts, heard, hearing, undefined);
+  const soundDropsClose = take.gaps.some(
+    (g) => g.end === "closing" && g.by === "sound" && g.kind !== "insert",
+  );
+  const end = endMishearing(texts.join(" "), words, hearing, soundDropsClose);
   if (end?.at === "whole") return end.clause;
   const clauses: string[] = [];
   if (end)
     clauses.push(
       `line ${lines[end.at === "opening" ? 0 : lines.length - 1]!.number}: ${end.clause}`,
     );
-  const take = alignTake(texts, heard, hearing, undefined);
   gapsByLine(take, texts).forEach((gaps, k) => {
     for (const gap of gaps) {
       // At an end, only a word heard as another: a drop there is read letter by letter above, and
@@ -384,6 +387,7 @@ function endMishearing(
   line: string,
   heard: string,
   hearing: HearingProfile,
+  soundDropsClose: boolean,
 ): { clause: string; at: "opening" | "closing" | "whole" } | null {
   const said = hearing.letters(line);
   if (said.length === 0) return null;
@@ -424,11 +428,11 @@ function endMishearing(
     heardLetters.slice(from, to).reduce((n, l) => n + hearing.standIn(l.ch), 0);
   // Whether the letters at `i` and `i + 1` belong to two words of the line.
   const wordBreak = (i: number) => /\s/u.test(line.slice(said[i]!.end, said[i + 1]!.at));
-  const dropped = (run: number, standingIn: number, breakAt: number) =>
-    run - standingIn >= MIN_DROPPED_LETTERS ||
+  const dropped = (run: number, standingIn: number, breakAt: number, floor: number) =>
+    run - standingIn >= floor ||
     (standingIn === 0 && run >= MIN_DROPPED_WORD_LETTERS && wordBreak(breakAt));
   const opening = unheardRun(0, 1, heardAt);
-  if (dropped(opening, standIns(0, matched[opening]!), opening - 1)) {
+  if (dropped(opening, standIns(0, matched[opening]!), opening - 1, MIN_DROPPED_LETTERS)) {
     const head = unheardRun(0, 1, anchored);
     return {
       clause: `drops the opening "${extendToWordEnd(line, said[head - 1]!.end)}"`,
@@ -437,9 +441,14 @@ function endMishearing(
   }
   const last = said.length - 1;
   const closing = unheardRun(last, -1, heardAt);
-  if (
-    dropped(closing, standIns(matched[last - closing]! + 1, heardLetters.length), last - closing)
-  ) {
+  const closingStandIns = standIns(matched[last - closing]! + 1, heardLetters.length);
+  const closingFloor = soundDropsClose
+    ? (hearing.closingDrop ?? MIN_DROPPED_LETTERS)
+    : MIN_DROPPED_LETTERS;
+  const closingLost = said
+    .slice(said.length - closing)
+    .filter((_, k) => !hearing.lengthens?.(said, said.length - closing + k)).length;
+  if (dropped(closingLost, closingStandIns, last - closing, closingFloor)) {
     const tail = unheardRun(last, -1, anchored);
     return {
       clause: `drops the closing "${line.slice(said[said.length - tail]!.at).trim()}"`,
