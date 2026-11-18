@@ -47,6 +47,8 @@ import { adapterGuides, GUIDE_SPECIFIER_PREFIX } from "../src/core/dsl/adapter.j
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - adaptation 36,350 → 36,400 (agreed by a human): a real product, logo, currency, landmark or
+//   person found as a file before it is ever generated.
 // - dev-render 10,850 → 10,900 (agreed by a human): code marked SUNSET with the version it is
 //   removed in.
 // - adaptation 36,300 → 36,350 (agreed by a human): a prompt revised by a whole rewrite, never naming
@@ -222,7 +224,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "adaptation",
-    budget: 36_350,
+    budget: 36_400,
     files: [...VIDEO_FILES, `${SKILLS}/scenario-guide/references/adaptation.md`],
   },
   {

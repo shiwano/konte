@@ -78,8 +78,7 @@ Developing a shot = swapping its pending form for the real one — `pendingShot(
 
 ## Confirm before
 
-- a sequence or restructuring touches already-accepted panels or takes — never break one silently; say what it invalidates;
-- accuracy-critical real people or products are involved — a missing source file is the human's to provide, never fabricated.
+- a sequence or restructuring touches already-accepted panels or takes — never break one silently; say what it invalidates.
 
 ## Don't
 
