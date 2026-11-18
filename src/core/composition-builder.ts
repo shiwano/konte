@@ -32,7 +32,6 @@ import {
   type Span,
 } from "./audio-duck.js";
 import type { AudioLoudness } from "./audio-loudness.js";
-import { buildFallbackComposition } from "./composition-fallback.js";
 import { jsx } from "react/jsx-runtime";
 import { Composition, CompositionHead } from "./dsl/composition/composition.js";
 import type { LineTimer, LineTiming } from "./subtitle-timing.js";
@@ -880,7 +879,7 @@ export function harvestShotPictureCues(
 type RenderShotInput = { id: string; fn: () => React.ReactElement };
 
 // The shot's composition closure. A timelineFn re-run gives a fresh closure, so it wins over the
-// plan's captured one. Null means the shot is not renderable (a pending shot, or a fallback shot).
+// plan's captured one. Null for a pending shot or an aside the stage does not board.
 function pickShotRenderFn(
   shotPlan: ShotRenderPlan,
   renderShotInputs: RenderShotInput[] | null,
@@ -926,15 +925,7 @@ function renderShotHtml(
 
   const renderFn = pickShotRenderFn(shotPlan, renderShotInputs);
   if (!renderFn) {
-    return renderFallbackShotHtml(
-      plan,
-      shotPlan,
-      resolvedFiles,
-      resolvedVariants,
-      assetBaseUrl,
-      nested,
-      visitor,
-    );
+    return renderAsideSlugHtml(plan, shotPlan, nested);
   }
 
   const httpFiles = buildHttpResolvedFiles(
@@ -984,57 +975,22 @@ function renderShotHtml(
   );
 }
 
-// A shot without a shotFn has no composition; render its single resolved asset full-frame, matching
-// what the ffmpeg renderer commits to the final video — or, for an aside the stage does not board,
-// konte's own labelled slug, so preview and the reel show the same span the MP4 renderer commits.
-// Returns null only when nothing resolved (genuinely nothing to show).
-function renderFallbackShotHtml(
+// An aside the stage does not board is filled with konte's own labelled slug; any other shot without
+// a shotFn draws nothing.
+function renderAsideSlugHtml(
   plan: RenderPlan,
   shotPlan: ShotRenderPlan,
-  resolvedFiles: Record<string, string>,
-  resolvedVariants: Record<string, string>,
-  assetBaseUrl: string,
   nested: boolean,
-  visitor?: HostVisitor,
 ): string | null {
-  if (shotPlan.aside && !shotPlan.fallbackFile) {
-    return asideSlugHtml({
-      shotId: shotPlan.shotId,
-      label: shotPlan.action,
-      duration: shotPlan.duration,
-      size: plan.size,
-      typography: plan.typography,
-      nested,
-    });
-  }
-  if (!shotPlan.fallbackFile) return null;
-
-  const entry = Object.entries(resolvedVariants)[0];
-  if (!entry) return null;
-  const [assetName, variantId] = entry;
-
-  const file = resolvedFiles[assetName] ?? shotPlan.fallbackFile;
-  const address = formatAddress(plan.stage, shotPlan.shotId, assetName);
-  const url = buildAssetUrl(assetBaseUrl, address, variantId, file);
-
-  const element = buildFallbackComposition(
-    url,
-    shotPlan.fallbackType ?? "video",
-    shotPlan.duration,
-  );
-
-  return renderToHtml(
-    element,
-    {
-      shotId: shotPlan.shotId,
-      width: plan.size.width,
-      height: plan.size.height,
-      duration: shotPlan.duration,
-      nested,
-      typography: plan.typography,
-    },
-    visitor,
-  );
+  if (!shotPlan.aside) return null;
+  return asideSlugHtml({
+    shotId: shotPlan.shotId,
+    label: shotPlan.action,
+    duration: shotPlan.duration,
+    size: plan.size,
+    typography: plan.typography,
+    nested,
+  });
 }
 
 // Levelled and trimmed against the takes actually shown. A ref outside the shot resolves exactly as

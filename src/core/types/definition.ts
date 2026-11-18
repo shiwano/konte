@@ -199,7 +199,7 @@ export const ShotDefinitionSchema = z.object({
   shotFn: z.custom<ShotFunction>().optional(),
   // Addresses the shot's composition (shotFn output) references, including
   // timeline assets pulled in via closure. Source of truth for composition deps.
-  // Optional so raw ShotDefinition literals (tests, fallback shots) stay valid;
+  // Optional so raw ShotDefinition literals (tests) stay valid;
   // defineVideo always populates it. Consumers treat absent as [].
   compositionRefs: z.array(z.string()).optional(),
   // `compositionRefs` partitioned by media at discovery: `pictureRefs` feed the picture

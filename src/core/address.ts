@@ -1022,26 +1022,6 @@ export function listCompositionAddresses(video: {
   return addresses;
 }
 
-// Composition addresses usable as frame-delivery sources: every renderable shot — a shotFn
-// composition, or a fallback shot (no shotFn) that can render a fallback (≥1 comfy/file asset).
-// Superset of listCompositionAddresses; used to keep a fallback shot's `composition#delivery`
-// target from being pruned as an orphan.
-export function listFrameDeliverySources(video: {
-  shots: readonly CompositionShotLike[];
-}): string[] {
-  const addresses: string[] = [];
-  for (const s of video.shots) {
-    if (s.shotFn || shotHasFallbackCandidate(s)) {
-      addresses.push(formatCompositionAddress("video", s.id));
-    }
-  }
-  return addresses;
-}
-
-function shotHasFallbackCandidate(shot: CompositionShotLike): boolean {
-  return Object.values(shot.assets ?? {}).some((e) => e.kind === "comfy" || e.kind === "file");
-}
-
 // The existence half of `getAssetEntry`; delegate so the lookup logic lives in exactly one place.
 export function validateAddress(address: string, definition: DefinitionLike): void {
   void getAssetEntry(definition, address);

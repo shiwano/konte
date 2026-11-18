@@ -23,7 +23,6 @@ import type { AudioLoudness } from "./audio-loudness.js";
 import { parsePlaceholder, runTimelineInRenderMode } from "./dsl/shot-context.js";
 import { KonteError } from "./errors.js";
 import { runFfmpeg } from "./ffmpeg-exec.js";
-import { inferMediaType } from "./media-type.js";
 import { computeBedLevels } from "./render-plan.js";
 import type { StateManager } from "./state/index.js";
 import {
@@ -781,6 +780,7 @@ export async function inspectTimelineAudio(opts: {
   // Collect every shot's standalone placements.
   const placements: RawPlacement[] = [];
   for (const shot of video.shots) {
+    if (!shot.shotFn) continue;
     const resolvedFiles: Record<string, string> = {};
     const resolvedVariants: Record<string, string> = {};
     for (const assetName of Object.keys(shot.assets)) {
@@ -791,58 +791,38 @@ export async function inspectTimelineAudio(opts: {
       if (variantId) resolvedVariants[assetName] = variantId;
     }
 
-    if (shot.shotFn) {
-      const renderFn = renderShotInputs?.find((s) => s.id === shot.id)?.fn ?? shot.shotFn;
-      placements.push(
-        ...collectShotAudioCues({
+    const renderFn = renderShotInputs?.find((s) => s.id === shot.id)?.fn ?? shot.shotFn;
+    placements.push(
+      ...collectShotAudioCues({
+        stage: video.stage,
+        shotId: shot.id,
+        duration: shot.duration,
+        renderFn,
+        size,
+        resolvedFiles,
+        timelineFiles: timelineResolvedFiles,
+        cueLevels: shotCueLevels({
           stage: video.stage,
           shotId: shot.id,
-          duration: shot.duration,
-          renderFn,
-          size,
+          cueKinds: shot.cueKinds,
+          pictureRefs: shot.pictureRefs,
+          state: manager.getState(),
+          resolvedVariants,
+          timelineResolvedVariants,
+          resolve: (address) => manager.resolveReference(address)?.variantId,
+        }),
+        cueKinds: cueKindsBySrc({
+          stage: video.stage,
+          shotId: shot.id,
+          cueKinds: shot.cueKinds,
           resolvedFiles,
           timelineFiles: timelineResolvedFiles,
-          cueLevels: shotCueLevels({
-            stage: video.stage,
-            shotId: shot.id,
-            cueKinds: shot.cueKinds,
-            pictureRefs: shot.pictureRefs,
-            state: manager.getState(),
-            resolvedVariants,
-            timelineResolvedVariants,
-            resolve: (address) => manager.resolveReference(address)?.variantId,
-          }),
-          cueKinds: cueKindsBySrc({
-            stage: video.stage,
-            shotId: shot.id,
-            cueKinds: shot.cueKinds,
-            resolvedFiles,
-            timelineFiles: timelineResolvedFiles,
-          }),
-          // A read surface: a shot that fails to render contributes nothing rather than blanking
-          // the timeline.
-          onRenderError: "skip",
-        }).map((cue) => ({ ...cue, shotId: shot.id })),
-      );
-    } else {
-      // Fallback shot: its full-frame video may carry audio the mux keeps as an embedded track.
-      const fallback = Object.values(resolvedFiles)[0];
-      if (fallback && inferMediaType(fallback) === "video") {
-        placements.push({
-          role: "embedded",
-          // No composition, so no cue to classify: this track is in the mix but ducks nothing.
-          kind: undefined,
-          shotId: shot.id,
-          file: fallback,
-          localStart: 0,
-          localEnd: null,
-          mediaStart: 0,
-          rate: 1,
-          volume: 1,
-          cueId: null,
-        });
-      }
-    }
+        }),
+        // A read surface: a shot that fails to render contributes nothing rather than blanking
+        // the timeline.
+        onRenderError: "skip",
+      }).map((cue) => ({ ...cue, shotId: shot.id })),
+    );
   }
 
   const tracks: AudioTrack[] = [];

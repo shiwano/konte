@@ -14,7 +14,6 @@ import {
   parseAddress,
   tryParseAddress,
 } from "./address.js";
-import { asideSlugHtml } from "./aside-slug.js";
 import { injectBaseTimeline } from "./composition-builder.js";
 import { overlayLineTimings } from "./line-timing.js";
 import { injectOverlay, overlayShotStarts, renderOverlayBody } from "./overlay-render.js";
@@ -41,14 +40,7 @@ import { KonteError, errorMessage } from "./errors.js";
 import { STAGE_ENTRY_FILE } from "./roots.js";
 import { syncFileAssets } from "./file-sync.js";
 import { buildDependencyGraph } from "./graph.js";
-import {
-  concatenateShots,
-  ensureFfmpeg,
-  imageToVideo,
-  muxTimelineAudio,
-  tagDeliverable,
-  videoToVideo,
-} from "./ffmpeg.js";
+import { concatenateShots, ensureFfmpeg, muxTimelineAudio, tagDeliverable } from "./ffmpeg.js";
 import { loadReferenceDefinition, loadAnimaticDefinition } from "./loader.js";
 import { compositeWithHyperFrames, ensureHyperFrames } from "./hyperframes.js";
 import { escapeHtml, renderToHtml } from "./jsx-html.js";
@@ -114,18 +106,11 @@ async function loadUpstreamStages(videoRoot: string): Promise<{
   return { animatic, reference };
 }
 
-// The video-typed layers of a shot plan — composition layers (resolvedFiles) plus a
-// single video fallback. Only video layers are upscaled for delivery.
+// The video-typed composition layers of a shot plan. Only video layers are upscaled for delivery.
 function shotVideoLayers(shot: ShotRenderPlan): Array<{ assetName: string; absFile: string }> {
   const layers: Array<{ assetName: string; absFile: string }> = [];
   for (const [assetName, absFile] of Object.entries(shot.resolvedFiles)) {
     if (inferMediaType(absFile) === "video") layers.push({ assetName, absFile });
-  }
-  if (shot.fallbackFile && inferMediaType(shot.fallbackFile) === "video") {
-    const assetName = Object.keys(shot.resolvedVariants)[0];
-    if (assetName && !(assetName in shot.resolvedFiles)) {
-      layers.push({ assetName, absFile: shot.fallbackFile });
-    }
   }
   return layers;
 }
@@ -149,7 +134,6 @@ export async function collectDeliveryLayers(
       const sourceVariant = sourceVariantId
         ? state.assets[sourceAddress]?.variants?.[sourceVariantId]
         : undefined;
-      // The fallback file is the one layer with no variant behind it, so only that one still probes.
       const dims =
         mediaVisualSize(await ensureVariantMedia(sourceVariant, manager.videoRoot)) ??
         (await probeVideoDimensions(absFile)) ??
@@ -325,16 +309,9 @@ async function renderVideoFile(opts: {
   };
 
   // Snapshot each shot's resolved files BEFORE any per-layer delivery substitution so timeline
-  // audio (esp. <Video hasAudio> and a fallback clip's own audio) is read from the original
-  // sources — audio never needs upscaling.
+  // audio (esp. <Video hasAudio>) is read from the original sources — audio never needs upscaling.
   const originalShotFiles = new Map(
-    plan.shots.map(
-      (s) =>
-        [
-          s.shotId,
-          { resolvedFiles: { ...s.resolvedFiles }, fallbackFile: s.fallbackFile },
-        ] as const,
-    ),
+    plan.shots.map((s) => [s.shotId, { ...s.resolvedFiles }] as const),
   );
 
   // An out-of-shot ref with no ready variant would composite as a raw placeholder — a black layer.
@@ -392,12 +369,6 @@ async function renderVideoFile(opts: {
     const frameShotFileById = new Map<string, string>();
     const frameDeliveryVariants = new Map<string, { address: string; variantId: string }>();
     for (const shotPlan of plan.shots) {
-      if (!shotPlan.shotFn && !shotPlan.fallbackFile) {
-        frameWarnings.push(
-          `shot ${shotPlan.shotId}: no renderable asset — skipped from frame delivery`,
-        );
-        continue;
-      }
       const compAddr = formatCompositionAddress(shotPlan.stage, shotPlan.shotId);
       const deliveryAddr = deliveryAddressOf(compAddr);
       const cacheKey = compositionCacheKey(manager, video, shotPlan.shotId);
@@ -417,9 +388,6 @@ async function renderVideoFile(opts: {
         address: deliveryAddr,
         variantId: fresh.variantId,
       });
-    }
-    if (shotFiles.length === 0) {
-      throw new KonteError("NO_RENDERABLE_ASSET", "No renderable shots for frame delivery");
     }
     await ensureFfmpeg();
     const finalOutput = path.join(outputDir, "video.mp4");
@@ -669,10 +637,7 @@ async function applyTimelineAudio(opts: {
   size: { width: number; height: number };
   renderShotInputs: Array<{ id: string; fn: () => React.ReactElement }> | null;
   soundtracks: ReadonlyArray<SoundtrackEntry>;
-  originalShotFiles: Map<
-    string,
-    { resolvedFiles: Record<string, string>; fallbackFile: string | null }
-  >;
+  originalShotFiles: Map<string, Record<string, string>>;
   shotFileById: Map<string, string>;
   finalOutput: string;
   resolveAssetSrc: (src: string) => string;
@@ -710,54 +675,31 @@ async function applyTimelineAudio(opts: {
 
   const audioByShot = new Map<string, RawShotAudio[]>();
   for (const shotPlan of plan.shots) {
+    if (!shotPlan.shotFn) continue;
     const original = originalShotFiles.get(shotPlan.shotId);
-    if (shotPlan.shotFn) {
-      const renderFn =
-        renderShotInputs?.find((s) => s.id === shotPlan.shotId)?.fn ?? shotPlan.shotFn;
-      const absoluteFiles = original?.resolvedFiles ?? shotPlan.resolvedFiles;
-      // `onRenderError: "throw"`: a render failure here means the export would silently lose this
-      // shot's audio. Audio is load-bearing, so fail the export loudly rather than ship a muted video.
-      const shotAudio = collectShotAudioCues({
+    const renderFn = renderShotInputs?.find((s) => s.id === shotPlan.shotId)?.fn ?? shotPlan.shotFn;
+    const absoluteFiles = original ?? shotPlan.resolvedFiles;
+    // `onRenderError: "throw"`: a render failure here means the export would silently lose this
+    // shot's audio. Audio is load-bearing, so fail the export loudly rather than ship a muted video.
+    const shotAudio = collectShotAudioCues({
+      stage: shotPlan.stage,
+      shotId: shotPlan.shotId,
+      duration: shotPlan.duration,
+      renderFn,
+      size,
+      resolvedFiles: absoluteFiles,
+      timelineFiles: plan.timelineResolvedFiles,
+      cueLevels: shotPlan.cueLevels,
+      cueKinds: cueKindsBySrc({
         stage: shotPlan.stage,
         shotId: shotPlan.shotId,
-        duration: shotPlan.duration,
-        renderFn,
-        size,
+        cueKinds: shotPlan.cueKinds,
         resolvedFiles: absoluteFiles,
         timelineFiles: plan.timelineResolvedFiles,
-        cueLevels: shotPlan.cueLevels,
-        cueKinds: cueKindsBySrc({
-          stage: shotPlan.stage,
-          shotId: shotPlan.shotId,
-          cueKinds: shotPlan.cueKinds,
-          resolvedFiles: absoluteFiles,
-          timelineFiles: plan.timelineResolvedFiles,
-        }),
-        onRenderError: "throw",
-      }).map((a) => ({ ...a, file: resolveAssetSrc(a.file) }));
-      audioByShot.set(shotPlan.shotId, shotAudio);
-    } else {
-      // Fallback shot: no composition, but its full-frame video may carry audio that the old
-      // per-shot bake preserved. Harvest it as an embedded track so the mux keeps it (probeHasAudio
-      // in buildTimelineTracks drops it when the clip is silent).
-      const fallback = original?.fallbackFile ?? shotPlan.fallbackFile;
-      if (fallback && inferMediaType(fallback) === "video") {
-        audioByShot.set(shotPlan.shotId, [
-          {
-            role: "embedded",
-            // No composition, so no cue to classify: this track is in the mix but ducks nothing.
-            kind: undefined,
-            file: fallback,
-            localStart: 0,
-            localEnd: null,
-            mediaStart: 0,
-            rate: 1,
-            volume: 1,
-            cueId: null,
-          },
-        ]);
-      }
-    }
+      }),
+      onRenderError: "throw",
+    }).map((a) => ({ ...a, file: resolveAssetSrc(a.file) }));
+    audioByShot.set(shotPlan.shotId, shotAudio);
   }
 
   const hasShotAudio = [...audioByShot.values()].some((a) => a.length > 0);
@@ -901,9 +843,7 @@ export function pinPlanFiles(plan: RenderPlan, pinned: ReadonlyMap<string, strin
   }
 }
 
-// Swap each shot's video layers for their upscaled #delivery files before rendering.
-// A composition layer is replaced in resolvedFiles; a single fallback video has its
-// fallbackFile replaced.
+// Swap each shot's video layers in resolvedFiles for their upscaled #delivery files before rendering.
 function applyDeliverySubstitutions(
   shots: ShotRenderPlan[],
   substitutions: Map<string, Record<string, DeliverySubstitution>>,
@@ -912,11 +852,7 @@ function applyDeliverySubstitutions(
     const sub = substitutions.get(shot.shotId);
     if (!sub) continue;
     for (const [assetName, { absFile }] of Object.entries(sub)) {
-      if (assetName in shot.resolvedFiles) {
-        shot.resolvedFiles[assetName] = absFile;
-      } else if (shot.fallbackFile) {
-        shot.fallbackFile = absFile;
-      }
+      if (assetName in shot.resolvedFiles) shot.resolvedFiles[assetName] = absFile;
     }
   }
 }
@@ -1113,101 +1049,40 @@ async function renderShotPlan(
   const { outputFile, fps, size, crop, typography, videoRoot, manager, renderShotInputs, shots } =
     options;
 
-  if (shotPlan.shotFn) {
-    const { compositionHtml, assetFiles } = buildShotRenderInputs(
-      shotPlan as ShotRenderPlan & { shotFn: ShotFunction },
-      {
-        size,
-        crop,
-        typography,
-        manager,
-        renderShotInputs,
-        shots,
-        ...(options.overlay ? { overlay: options.overlay } : {}),
-        ...(options.timelineFiles ? { timelineFiles: options.timelineFiles } : {}),
-        ...(options.pinned ? { pinned: options.pinned } : {}),
-      },
-    );
-    await assertTailwindClasses(
-      [{ label: formatCompositionAddress(shotPlan.stage, shotPlan.shotId), html: compositionHtml }],
-      "SPEND_HELD",
-    );
-
-    return await compositeWithHyperFrames({
-      onLog: options.onLog,
-      compositionHtml,
-      assetFiles,
-      outputFile,
-      videoRoot,
-      fps,
-      size,
-      duration: shotPlan.duration,
-      quality: EXPORT_QUALITY,
-      ...(options.signal ? { signal: options.signal } : {}),
-    });
-  } else if (shotPlan.fallbackFile) {
-    const mediaType = inferMediaType(shotPlan.fallbackFile);
-    if (mediaType === "image") {
-      await imageToVideo({
-        imageFile: shotPlan.fallbackFile,
-        outputFile,
-        fps,
-        duration: shotPlan.duration,
-        size,
-      });
-    } else {
-      await videoToVideo({
-        videoFile: shotPlan.fallbackFile,
-        outputFile,
-        fps,
-        duration: shotPlan.duration,
-        size,
-      });
-    }
-  } else if (shotPlan.aside) {
-    // An aside on the stage that does not board it. The span is real and has to be filled, so konte
-    // renders its own labelled slug through the same capture path a shot takes, under the overlay.
-    const assetFiles: Record<string, string> = {};
-    const slug = layOverlaysAndStage(
-      asideSlugHtml({
-        shotId: shotPlan.shotId,
-        label: shotPlan.action,
-        duration: shotPlan.duration,
-        size,
-        typography,
-      }),
-      shotPlan,
-      assetFiles,
-      {
-        size,
-        typography,
-        manager,
-        shots,
-        ...(options.overlay ? { overlay: options.overlay } : {}),
-        ...(options.timelineFiles ? { timelineFiles: options.timelineFiles } : {}),
-        ...(options.pinned ? { pinned: options.pinned } : {}),
-      },
-    );
-    return await compositeWithHyperFrames({
-      onLog: options.onLog,
-      compositionHtml: injectBaseTimeline(slug, shotPlan.shotId, shotPlan.duration),
-      assetFiles,
-      outputFile,
-      videoRoot,
-      fps,
-      size,
-      duration: shotPlan.duration,
-      quality: EXPORT_QUALITY,
-      ...(options.signal ? { signal: options.signal } : {}),
-    });
-  } else {
-    throw new KonteError(
-      "NO_RENDERABLE_ASSET",
-      `Shot "${shotPlan.shotId}" has no renderable asset`,
-    );
+  if (!shotPlan.shotFn) {
+    throw new KonteError("NO_RENDERABLE_ASSET", `Shot "${shotPlan.shotId}" has no composition`);
   }
-  // The ffmpeg fallback paths are konte's own and warn through their own errors.
-  return [];
+  const { compositionHtml, assetFiles } = buildShotRenderInputs(
+    shotPlan as ShotRenderPlan & { shotFn: ShotFunction },
+    {
+      size,
+      crop,
+      typography,
+      manager,
+      renderShotInputs,
+      shots,
+      ...(options.overlay ? { overlay: options.overlay } : {}),
+      ...(options.timelineFiles ? { timelineFiles: options.timelineFiles } : {}),
+      ...(options.pinned ? { pinned: options.pinned } : {}),
+    },
+  );
+  await assertTailwindClasses(
+    [{ label: formatCompositionAddress(shotPlan.stage, shotPlan.shotId), html: compositionHtml }],
+    "SPEND_HELD",
+  );
+
+  return await compositeWithHyperFrames({
+    onLog: options.onLog,
+    compositionHtml,
+    assetFiles,
+    outputFile,
+    videoRoot,
+    fps,
+    size,
+    duration: shotPlan.duration,
+    quality: EXPORT_QUALITY,
+    ...(options.signal ? { signal: options.signal } : {}),
+  });
 }
 
 // Write the manifest and burn its identity into the deliverable beside it. A failed tag pass costs

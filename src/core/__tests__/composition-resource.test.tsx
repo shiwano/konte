@@ -63,8 +63,8 @@ const testVideo = defineVideo(
   },
 );
 
-// A shot whose definition carries no shotFn (fallback shot).
-const fallbackVideo = (() => {
+// Shot "02" carries no shotFn.
+const noCompositionVideo = (() => {
   const v = defineVideo(
     testDirection({
       fps: 30,
@@ -393,7 +393,7 @@ describe("materializeCompositionVariant", () => {
   it("returns null for a shot without a composition (no shotFn)", async () => {
     const id = await materializeCompositionVariant({
       manager,
-      video: fallbackVideo,
+      video: noCompositionVideo,
       shotId: "02",
     });
     expect(id).toBeNull();
@@ -436,9 +436,8 @@ describe("composition accept end-to-end (UC1)", () => {
 });
 
 describe("compositionCacheKey", () => {
-  it("returns null for a fallback shot with no resolvable source", () => {
-    // shot "02"'s only asset (bg) has no ready variant, so nothing renders.
-    expect(compositionCacheKey(manager, fallbackVideo, "02")).toBeNull();
+  it("returns null for a shot without a composition (no shotFn)", () => {
+    expect(compositionCacheKey(manager, noCompositionVideo, "02")).toBeNull();
   });
 
   it("is stable, and changes when an upstream input changes", () => {
@@ -489,20 +488,6 @@ describe("compositionCacheKey", () => {
       })) as VideoDefinition["timelineFn"],
     };
     expect(compositionCacheKey(manager, samePicture, "01")).toBe(base);
-  });
-
-  it("keys a fallback shot on its resolved source, stable and source-sensitive", () => {
-    setupAccepted("video:shot.02.bg", "bg.mp4", "bg-1");
-    const k1 = compositionCacheKey(manager, fallbackVideo, "02");
-    expect(k1).not.toBeNull();
-    expect(compositionCacheKey(manager, fallbackVideo, "02")).toBe(k1);
-
-    // A different shotFn-vs-fallback shot never collides on key shape.
-    expect(k1).not.toBe(compositionCacheKey(manager, testVideo, "01"));
-
-    // A change to the fallback source flips the key.
-    setupAccepted("video:shot.02.bg", "bg2.mp4", "bg-2");
-    expect(compositionCacheKey(manager, fallbackVideo, "02")).not.toBe(k1);
   });
 
   it("falls back to compositionRefs when a shotFn shot lacks pictureRefs (no recursion)", () => {

@@ -17,10 +17,6 @@ vi.mock("node:fs/promises", async (importOriginal) => {
   };
 });
 
-vi.mock("../video-probe.js", () => ({
-  probeHasAudio: vi.fn().mockResolvedValue(false),
-}));
-
 vi.mock("../ffmpeg-binary.js", () => ({
   ffmpegBin: vi.fn().mockResolvedValue("ffmpeg"),
   ffprobeBin: vi.fn().mockResolvedValue("ffprobe"),
@@ -32,16 +28,12 @@ import {
   concatenateShots,
   ensureFfmpeg,
   ensureFfprobe,
-  imageToVideo,
   tagDeliverable,
   trimVideo,
-  videoToVideo,
 } from "../ffmpeg.js";
 import { execFileAsync } from "../exec-file.js";
-import { probeHasAudio } from "../video-probe.js";
 
 const execFileMock = execFileAsync as unknown as Mock;
-const probeHasAudioMock = probeHasAudio as unknown as Mock;
 
 function getFfmpegArgs(): string[] {
   const call = execFileMock.mock.calls.find((c: unknown[]) => c[0] === "ffmpeg") as
@@ -59,16 +51,11 @@ function mockExecFileFailure(message: string): void {
   execFileMock.mockRejectedValue(new Error(message));
 }
 
-function mockProbeAudio(hasAudio: boolean): void {
-  probeHasAudioMock.mockResolvedValue(hasAudio);
-}
-
 beforeEach(() => {
   vi.resetAllMocks();
   mockExecFileSuccess();
   (ffmpegBin as unknown as Mock).mockResolvedValue("ffmpeg");
   (ffprobeBin as unknown as Mock).mockResolvedValue("ffprobe");
-  probeHasAudioMock.mockResolvedValue(false);
   (fsPromises.mkdir as Mock).mockResolvedValue(undefined);
   (fsPromises.writeFile as Mock).mockResolvedValue(undefined);
   (fsPromises.rm as Mock).mockResolvedValue(undefined);
@@ -81,106 +68,6 @@ describe("ensureFfmpeg / ensureFfprobe", () => {
     await ensureFfprobe();
     expect(ffmpegBin).toHaveBeenCalled();
     expect(ffprobeBin).toHaveBeenCalled();
-  });
-});
-
-describe("imageToVideo", () => {
-  it("builds correct args", async () => {
-    await imageToVideo({
-      imageFile: "/input/image.png",
-      outputFile: "/output/shot.mp4",
-      fps: 24,
-      duration: 3,
-      size: { width: 1280, height: 720 },
-    });
-
-    const args = getFfmpegArgs();
-
-    expect(args).toContain("-y");
-    expect(args).toContain("-loop");
-    expect(args).toContain("1");
-    expect(args).toContain("-i");
-    expect(args).toContain("/input/image.png");
-    expect(args).toContain("-t");
-    expect(args).toContain("3");
-    expect(args).toContain("-r");
-    expect(args).toContain("24");
-    expect(args).toContain("-f");
-    expect(args).toContain("lavfi");
-    expect(args).toContain("anullsrc=r=44100:cl=stereo");
-    expect(args).toContain("-c:a");
-    expect(args).toContain("aac");
-    expect(args).toContain("-pix_fmt");
-    expect(args).toContain("yuv420p");
-    expect(args).toContain("/output/shot.mp4");
-
-    const vfIdx = args.indexOf("-vf");
-    expect(args[vfIdx + 1]).toBe("scale=1280:720,setsar=1");
-  });
-});
-
-describe("videoToVideo", () => {
-  it("synthesizes a silent track when the source has no audio", async () => {
-    // ffprobe (audio detection) returns no audio stream → fall back to anullsrc.
-    mockProbeAudio(false);
-
-    await videoToVideo({
-      videoFile: "/input/video.mp4",
-      outputFile: "/output/shot.mp4",
-      fps: 30,
-      duration: 5,
-      size: { width: 1920, height: 1080 },
-    });
-
-    const args = getFfmpegArgs();
-
-    expect(args).toContain("-y");
-    expect(args).toContain("-i");
-    expect(args).toContain("/input/video.mp4");
-    expect(args).toContain("-f");
-    expect(args).toContain("lavfi");
-    expect(args).toContain("anullsrc=r=44100:cl=stereo");
-    expect(args).toContain("-map");
-    expect(args).toContain("0:v:0");
-    expect(args).toContain("1:a:0");
-    expect(args).toContain("-t");
-    expect(args).toContain("5");
-    expect(args).toContain("-c:v");
-    expect(args).toContain("libx264");
-    expect(args).toContain("-pix_fmt");
-    expect(args).toContain("yuv420p");
-    expect(args).toContain("-c:a");
-    expect(args).toContain("aac");
-    expect(args).toContain("-ar");
-    expect(args).toContain("44100");
-    expect(args).toContain("-ac");
-    expect(args).toContain("2");
-    expect(args).toContain("/output/shot.mp4");
-
-    const vfIdx = args.indexOf("-vf");
-    expect(args[vfIdx + 1]).toBe("scale=1920:1080,setsar=1");
-  });
-
-  it("preserves the source audio when present", async () => {
-    // ffprobe reports an audio stream → map the source audio, no anullsrc input.
-    mockProbeAudio(true);
-
-    await videoToVideo({
-      videoFile: "/input/video.mp4",
-      outputFile: "/output/shot.mp4",
-      fps: 30,
-      duration: 5,
-      size: { width: 1920, height: 1080 },
-    });
-
-    const args = getFfmpegArgs();
-
-    expect(args).not.toContain("anullsrc=r=44100:cl=stereo");
-    expect(args).toContain("0:v:0");
-    expect(args).toContain("0:a:0");
-    expect(args).not.toContain("1:a:0");
-    expect(args).toContain("-c:a");
-    expect(args).toContain("aac");
   });
 });
 

@@ -5,7 +5,6 @@ import { KonteError } from "./errors.js";
 import { duckVolumeExpr, type DuckStep } from "./audio-duck.js";
 import { atempoChain } from "./audio-retime.js";
 import { ffmpegBin, ffprobeBin } from "./ffmpeg-binary.js";
-import { probeHasAudio } from "./video-probe.js";
 import { runFfmpeg } from "./ffmpeg-exec.js";
 
 /** Resolves a usable ffmpeg, provisioning the managed build on first use. */
@@ -60,105 +59,6 @@ export async function trimVideo(options: {
   ];
 
   await runFfmpeg(args, "ffmpeg trimVideo failed");
-}
-
-export async function videoToVideo(options: {
-  videoFile: string;
-  outputFile: string;
-  fps: number;
-  duration: number;
-  size: { width: number; height: number };
-  extraFilters?: string;
-}): Promise<void> {
-  const { videoFile, outputFile, fps, duration, size, extraFilters } = options;
-
-  await fs.mkdir(path.dirname(outputFile), { recursive: true });
-
-  let vf = `scale=${size.width}:${size.height},setsar=1`;
-  if (extraFilters) vf = `${vf},${extraFilters}`;
-
-  // Preserve the source audio (e.g. Veo and other audio-bearing models); only synthesize a
-  // silent track when the source has none, so every stitched shot still carries audio.
-  const hasAudio = await probeHasAudio(videoFile);
-
-  const args = ["-y", "-i", videoFile];
-  if (!hasAudio) {
-    args.push("-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo");
-  }
-  args.push(
-    "-map",
-    "0:v:0",
-    "-map",
-    hasAudio ? "0:a:0" : "1:a:0",
-    "-vf",
-    vf,
-    "-r",
-    String(fps),
-    "-t",
-    String(duration),
-    "-c:v",
-    "libx264",
-    "-pix_fmt",
-    "yuv420p",
-    "-c:a",
-    "aac",
-    "-ar",
-    "44100",
-    "-ac",
-    "2",
-    "-shortest",
-    outputFile,
-  );
-
-  await runFfmpeg(args, "ffmpeg videoToVideo failed");
-}
-
-export async function imageToVideo(options: {
-  imageFile: string;
-  outputFile: string;
-  fps: number;
-  duration: number;
-  size: { width: number; height: number };
-  extraFilters?: string;
-}): Promise<void> {
-  const { imageFile, outputFile, fps, duration, size, extraFilters } = options;
-
-  await fs.mkdir(path.dirname(outputFile), { recursive: true });
-
-  let vf = `scale=${size.width}:${size.height},setsar=1`;
-  if (extraFilters) vf = `${vf},${extraFilters}`;
-
-  const args = [
-    "-y",
-    "-loop",
-    "1",
-    "-i",
-    imageFile,
-    "-f",
-    "lavfi",
-    "-i",
-    "anullsrc=r=44100:cl=stereo",
-    "-t",
-    String(duration),
-    "-r",
-    String(fps),
-    "-vf",
-    vf,
-    "-c:v",
-    "libx264",
-    "-pix_fmt",
-    "yuv420p",
-    "-c:a",
-    "aac",
-    "-ar",
-    "44100",
-    "-ac",
-    "2",
-    "-shortest",
-    outputFile,
-  ];
-
-  await runFfmpeg(args, "ffmpeg imageToVideo failed");
 }
 
 export interface MuxAudioTrack {

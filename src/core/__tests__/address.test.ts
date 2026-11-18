@@ -24,7 +24,6 @@ import {
   isStemAddress,
   listAddresses,
   listCompositionAddresses,
-  listFrameDeliverySources,
   listStemAddresses,
   listReviewableAddresses,
   matchesAddressScope,
@@ -607,57 +606,6 @@ describe("stem addresses", () => {
       "animatic:shot.01#stem",
       "animatic:timeline#stem",
     ]);
-  });
-});
-
-describe("listFrameDeliverySources", () => {
-  it("includes shotFn shots and fallback shots with a renderable asset, but not empty ones", () => {
-    const video = defineVideo(
-      testDirection({
-        fps: 30,
-        size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } },
-      }),
-      {
-        timeline: () =>
-          videoTimeline([
-            shot("01", {
-              duration: 5,
-              build: () => {
-                asset(
-                  "motion",
-                  defineComfyAsset({
-                    allowedIn: ASSET_SITES,
-                    workflow: "w.json",
-                    description: "test adapter",
-                    inputs: {},
-                    outputs: {},
-                  }),
-                  {},
-                );
-                return el();
-              },
-            }),
-          ]),
-      },
-    );
-    // A fallback shot (no shotFn) with a comfy asset is a valid frame source; one with no
-    // comfy/file asset is not renderable and is excluded.
-    (video.shots as unknown as Array<Record<string, unknown>>).push(
-      {
-        id: "02",
-        duration: 3,
-        assets: { bg: { kind: "comfy", workflow: "bg.json", inputs: {} } },
-        compositionRefs: [],
-      },
-      { id: "03", duration: 3, assets: {}, compositionRefs: [] },
-    );
-
-    expect(listFrameDeliverySources(video)).toEqual([
-      "video:shot.01#composition",
-      "video:shot.02#composition",
-    ]);
-    // The base composition list stays shotFn-only.
-    expect(listCompositionAddresses(video)).toEqual(["video:shot.01#composition"]);
   });
 });
 

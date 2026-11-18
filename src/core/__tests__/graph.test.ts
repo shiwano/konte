@@ -943,6 +943,8 @@ describe("buildDependencyGraph", () => {
               inputs: {},
             },
           },
+          shotFn: () => null,
+          compositionRefs: ["animatic:shot.01.keyframe"],
           panels: [],
         },
       ],
@@ -1091,19 +1093,6 @@ describe("listUnusedAddresses", () => {
   });
 
   const comfyDef = { kind: "comfy" as const, workflow: "x.json", inputs: {} };
-
-  it("treats a shotFn-less shot's own assets as used (fallback render source)", () => {
-    const video: VideoDefinition = {
-      stage: "video" as const,
-      format: { size: { width: 100, height: 100 }, fps: 30 },
-      typography: { lang: "en" as const },
-      shots: [{ id: "01", duration: 5, action: "test shot", assets: { clip: comfyDef } }],
-    };
-
-    const graph = buildDependencyGraph(video);
-
-    expect(listUnusedAddresses(video, null, graph)).toEqual([]);
-  });
 
   it("treats animatic panel assets as used and reports unpanelled animatic timeline", () => {
     const video: VideoDefinition = {

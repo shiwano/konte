@@ -73,7 +73,7 @@ const STEM_MANIFEST_FILE = "stem.json";
 const STEM_MIX_FILE = "stem.wav";
 
 // The refs feeding a shot's picture composition: the audio-excluded partition when present
-// (defineVideo populates it), else the full compositionRefs (raw literals / fallback shots).
+// (defineVideo populates it), else the full compositionRefs (raw literals).
 export function pictureRefsOf(shot: ShotDefinition): readonly string[] {
   return shot.pictureRefs ?? shot.compositionRefs ?? [];
 }
@@ -245,70 +245,35 @@ export function compositionInputFingerprints(
 // composite, folded into one hash. Deterministic and computable WITHOUT rendering — so a frame
 // delivery upscale can be cached against it (re-upscale only when the source actually changed).
 //
-// For a composition shot (shotFn): the composition definition hash plus the upstream input
-// fingerprints. The definition hash already renders the shot's picture with any timelineFn
-// override applied, so a timelineFn change is reflected there when (and only when) it changes the
-// picture. For a fallback shot (no shotFn): the resolved fallback source's fingerprint plus the
-// render dimensions. Returns null when the shot is not renderable (no shotFn and no resolvable
-// fallback source).
+// The composition definition hash plus the upstream input fingerprints. The definition hash already
+// renders the shot's picture with any timelineFn override applied, so a timelineFn change is
+// reflected there when (and only when) it changes the picture. Returns null when the shot has no
+// composition.
 export function compositionCacheKey(
   manager: StateManager,
   video: StageDefinition,
   shotId: string,
 ): string | null {
   const shot = shotById(video.shots, shotId);
-  if (!shot) return null;
-  const size = video.format.size;
-
-  if (shot.shotFn) {
-    const definitionHash = compositionDefinitionHash(video, shotId);
-    const inputFingerprints = compositionInputFingerprints(manager, pictureRefsOf(shot));
-    // The overlay laid over the shot is part of the frames a delivery upscales.
-    const overlay = video.overlay
-      ? {
-          shotStart: video.shots
-            .slice(0, video.shots.indexOf(shot))
-            .reduce((sum, s) => sum + s.duration, 0),
-          definitionHash: overlayDefinitionHash(video),
-          inputs: compositionInputFingerprints(manager, overlayFingerprintRefs(video)),
-        }
-      : null;
-    return stableHash({
-      kind: "composition",
-      definitionHash,
-      inputFingerprints,
-      ...(overlay ? { overlay } : {}),
-    });
-  }
-
-  // Fallback shot: the composite is the resolved fallback source rendered to video at working
-  // size (timelineFn never applies — renderShotPlan gates it on shotFn), so the key is the
-  // source's fingerprint plus the render dimensions.
-  const fallback = fallbackSourceFingerprint(manager, shot);
-  if (!fallback) return null;
+  if (!shot?.shotFn) return null;
+  const definitionHash = compositionDefinitionHash(video, shotId);
+  const inputFingerprints = compositionInputFingerprints(manager, pictureRefsOf(shot));
+  // The overlay laid over the shot is part of the frames a delivery upscales.
+  const overlay = video.overlay
+    ? {
+        shotStart: video.shots
+          .slice(0, video.shots.indexOf(shot))
+          .reduce((sum, s) => sum + s.duration, 0),
+        definitionHash: overlayDefinitionHash(video),
+        inputs: compositionInputFingerprints(manager, overlayFingerprintRefs(video)),
+      }
+    : null;
   return stableHash({
-    kind: "fallback",
-    fallback,
-    duration: shot.duration,
-    width: size.width,
-    height: size.height,
+    kind: "composition",
+    definitionHash,
+    inputFingerprints,
+    ...(overlay ? { overlay } : {}),
   });
-}
-
-// The fingerprint of a fallback shot's source: the first comfy/file asset that resolves (mirrors
-// buildRenderPlan's fallback selection), keyed by its output hash. Returns null when nothing
-// resolves — the shot is not renderable.
-function fallbackSourceFingerprint(manager: StateManager, shot: ShotDefinition): string | null {
-  const state = manager.getState();
-  for (const [assetName, entry] of Object.entries(shot.assets)) {
-    if (entry.kind !== "comfy" && entry.kind !== "file") continue;
-    const addr = formatAddress("video", shot.id, assetName);
-    const resolved = manager.resolveReference(addr);
-    if (!resolved) continue;
-    const variant = state.assets[addr]?.variants?.[resolved.variantId];
-    return `${assetName}:${variant?.outputHash ?? resolved.variantId}`;
-  }
-  return null;
 }
 
 function fingerprintsEqual(a: Record<string, string>, b: Record<string, string>): boolean {

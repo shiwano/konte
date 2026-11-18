@@ -27,7 +27,7 @@ import {
 } from "./address.js";
 import { resolveCompositionRef } from "./composition-refs.js";
 import { KonteError } from "./errors.js";
-import { inferMediaType, variantMediaKind } from "./media-type.js";
+import { variantMediaKind } from "./media-type.js";
 import { formatStaleReason, variantsNewestFirst } from "./staleness.js";
 import type { StateManager } from "./state/index.js";
 import {
@@ -69,8 +69,6 @@ export interface ShotRenderPlan {
   // Each cue's levelling gain and sfx lead-in by address (see shotCueLevels), resolved against the
   // same variants this plan picked. Every render site re-keys it to its own srcs.
   cueLevels?: ShotCueLevels;
-  fallbackFile: string | null;
-  fallbackType: "video" | "image" | null;
   warnings: string[];
   unacceptedAssets: string[];
   // Asset names that have no resolvable file yet (only populated with `allowNotReady`).
@@ -372,9 +370,6 @@ export function buildRenderPlan(
     }
   }
 
-  // What the overlay laid over every shot shows.
-  const overlayRefs = video.overlay?.compositionRefs ?? [];
-
   const shotPlans: ShotRenderPlan[] = [];
   for (const shot of targetShots) {
     const plan: ShotRenderPlan = {
@@ -392,8 +387,6 @@ export function buildRenderPlan(
       resolvedVariants: {},
       ...(shot.cueKinds ? { cueKinds: shot.cueKinds } : {}),
       ...(shot.pictureRefs ? { pictureRefs: shot.pictureRefs } : {}),
-      fallbackFile: null,
-      fallbackType: null,
       warnings: [],
       unacceptedAssets: [],
       notReadyAssets: [],
@@ -441,65 +434,6 @@ export function buildRenderPlan(
         const resolved = resolveCompositionRef(manager, ref, { includeStale: allowNotReady });
         if (!resolved) plan.unresolvedRefs.push(ref);
         else if (!resolved.isAccepted) plan.unacceptedRefs.push(resolved.address);
-      }
-    } else if (plan.aside) {
-      // konte's own slug fills the span; the overlay laid over it renders with it.
-      for (const ref of new Set(overlayRefs)) {
-        const resolved = resolveCompositionRef(manager, ref, { includeStale: allowNotReady });
-        if (!resolved) plan.unresolvedRefs.push(ref);
-        else if (!resolved.isAccepted) plan.unacceptedRefs.push(resolved.address);
-      }
-    } else {
-      plan.warnings.push(`Shot "${shot.id}" has no composition; using fallback`);
-
-      type FallbackCandidate = {
-        address: string;
-        assetName: string;
-      };
-      const candidates: FallbackCandidate[] = [];
-
-      for (const assetName of Object.keys(shot.assets)) {
-        const addr = shotAddr(shot, assetName);
-        candidates.push({ address: addr, assetName });
-      }
-
-      let resolved = false;
-      for (const candidate of candidates) {
-        if (allowUnaccepted) {
-          const result = manager.resolveReference(candidate.address, {
-            includeStale: allowNotReady,
-          });
-          if (result) {
-            plan.fallbackFile = result.file;
-            plan.fallbackType = inferMediaType(result.file) === "image" ? "image" : "video";
-            plan.resolvedVariants[candidate.assetName] = result.variantId;
-            if (!result.isAccepted) {
-              plan.unacceptedAssets.push(candidate.address);
-            }
-            resolved = true;
-            break;
-          }
-        } else {
-          const result = manager.resolveReference(candidate.address, { requireAccepted: true });
-          if (result) {
-            const mediaType = inferMediaType(result.file);
-            plan.fallbackFile = result.file;
-            plan.fallbackType = mediaType === "image" ? "image" : "video";
-            plan.resolvedVariants[candidate.assetName] = result.variantId;
-            resolved = true;
-            break;
-          }
-        }
-      }
-
-      if (!resolved && candidates.length === 0) {
-        plan.warnings.push(`Shot "${shot.id}" has no renderable asset`);
-      } else if (!resolved && allowNotReady) {
-        for (const candidate of candidates) {
-          plan.notReadyAssets.push(
-            `${candidate.assetName} — ${describeNotReady(manager.getState().assets[candidate.address], candidate.address, manager)}`,
-          );
-        }
       }
     }
 

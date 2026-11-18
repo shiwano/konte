@@ -151,7 +151,6 @@ describe("buildRenderPlan", () => {
     expect(pending.pending).toBe(true);
     expect(pending.action).toBe("the payoff, later");
     expect(pending.shotFn).toBeNull();
-    expect(pending.fallbackFile).toBeNull();
     expect(pending.warnings).toEqual([]);
   });
 
@@ -174,7 +173,6 @@ describe("buildRenderPlan", () => {
     expect(shot01.shotFn).toBeDefined();
     expect(shot01.resolvedFiles.motion).toContain("output/motion.mp4");
     expect(shot01.resolvedFiles.voice).toContain("output/voice.wav");
-    expect(shot01.fallbackFile).toBeNull();
     expect(shot01.warnings).toEqual([]);
 
     const shot02 = plan.shots[1]!;
@@ -228,29 +226,6 @@ describe("buildRenderPlan", () => {
       expect(msg).toContain("have no accepted variant");
       expect(msg).toContain("--preview");
     }
-  });
-
-  it("warns when shot has no renderable asset (no shotFn)", () => {
-    const videoNoAsset: import("../types/index.js").VideoDefinition = {
-      stage: "video" as const,
-      format: { size: { width: 1920, height: 1080 }, fps: 30 },
-      typography: { lang: "en" as const },
-      shots: [
-        {
-          id: "01",
-          duration: 5,
-          action: "test shot",
-          assets: {},
-        },
-      ],
-    };
-
-    const plan = buildRenderPlan(videoNoAsset, manager, {
-      outputDir: path.join(tmpDir, "dist"),
-    });
-
-    expect(plan.shots[0]!.warnings).toContainEqual(expect.stringContaining("no composition"));
-    expect(plan.shots[0]!.warnings).toContainEqual(expect.stringContaining("no renderable asset"));
   });
 
   it("throws RENDER_PLAN_FAILED listing only unaccepted assets", () => {
@@ -331,85 +306,12 @@ describe("buildRenderPlan", () => {
     expect(plan.timelineFn).toBeDefined();
   });
 
-  it("does not require accepted variants for shots without shotFn", () => {
-    const videoFallback: import("../types/index.js").VideoDefinition = {
-      stage: "video" as const,
-      format: { size: { width: 1920, height: 1080 }, fps: 30 },
-      typography: { lang: "en" as const },
-      shots: [
-        {
-          id: "01",
-          duration: 5,
-          action: "test shot",
-          assets: {
-            bg: {
-              kind: "comfy" as const,
-              workflow: "bg.json",
-              inputs: {},
-            },
-          },
-        },
-      ],
-    };
-
-    const plan = buildRenderPlan(videoFallback, manager, {
-      outputDir: path.join(tmpDir, "dist"),
-    });
-
-    expect(plan.shots).toHaveLength(1);
-    expect(plan.shots[0]!.warnings).toContainEqual(expect.stringContaining("no composition"));
-  });
-
   it("still requires accepted variants for shots with shotFn", () => {
     expect(() =>
       buildRenderPlan(testVideo, manager, {
         outputDir: path.join(tmpDir, "dist"),
       }),
     ).toThrow("have no accepted variant");
-  });
-
-  it("handles mixed shots: shotFn required + fallback not required", () => {
-    const videoMixed = defineVideo(
-      testDirection({
-        fps: 30,
-        size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } },
-      }),
-      {
-        timeline: () =>
-          videoTimeline([
-            shot("01", {
-              duration: 5,
-              build: () => {
-                return el(asset("motion", animateComfy, { prompt: "a cat" }));
-              },
-            }),
-          ]),
-      },
-    );
-
-    (videoMixed.shots as import("../types/index.js").ShotDefinition[]).push({
-      id: "02",
-      duration: 3,
-      action: "test shot",
-      assets: {
-        bg: {
-          kind: "comfy" as const,
-          workflow: "bg.json",
-          inputs: {},
-        },
-      },
-    });
-
-    setupAccepted(manager, "video:shot.01.motion", "output/motion.mp4");
-
-    const plan = buildRenderPlan(videoMixed, manager, {
-      outputDir: path.join(tmpDir, "dist"),
-    });
-
-    expect(plan.shots).toHaveLength(2);
-    expect(plan.shots[0]!.shotFn).toBeDefined();
-    expect(plan.shots[1]!.shotFn).toBeNull();
-    expect(plan.shots[1]!.warnings).toContainEqual(expect.stringContaining("no composition"));
   });
 
   it("resolves only the takes the composition places, leaving the still its motion consumes", () => {

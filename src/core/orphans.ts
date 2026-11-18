@@ -3,7 +3,6 @@ import {
   listAddresses,
   listCompositionAddresses,
   listOverlayAddresses,
-  listFrameDeliverySources,
   listReferenceAddresses,
   listStemAddresses,
   patchSourceVariantIdOf,
@@ -85,9 +84,7 @@ export function buildOrphanContext(
 
   // A live #delivery target is derived from an in-definition source (a layer asset for `video`
   // mode, or a shot's frame source for `frame` mode) that still declares upscale.
-  const frameDeliverySources = new Set<string>();
-  for (const addr of listFrameDeliverySources(video)) frameDeliverySources.add(addr);
-  const validDeliverySources = new Set([...validAddresses, ...frameDeliverySources]);
+  const validDeliverySources = new Set([...validAddresses, ...listCompositionAddresses(video)]);
 
   const isUndeclared = (address: string): boolean => {
     const patchSource = patchSourceVariantIdOf(address);

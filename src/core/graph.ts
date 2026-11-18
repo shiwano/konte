@@ -346,9 +346,9 @@ function validateReferencePurity(dependencies: ReadonlyMap<string, readonly stri
   }
 }
 
-// Where each stage's output is looked at: a shot's composition, a shotFn-less shot's own assets, its
-// stems, each non-pending animatic panel, the overlays, the soundtrack beds, and the pools a stage
-// publishes (exposed reference assets, exposed plates).
+// Where each stage's output is looked at: a shot's composition, its stems, each non-pending animatic
+// panel, the overlays, the soundtrack beds, and the pools a stage publishes (exposed reference
+// assets, exposed plates).
 function reviewRoots(
   video: StageDefinition | null,
   animatic: AnimaticDefinition | null,
@@ -381,13 +381,7 @@ function reviewRoots(
   for (const def of [animatic, video]) {
     if (!def) continue;
     for (const s of def.shots) {
-      if (s.shotFn) {
-        roots.push(formatAddress(def.stage, s.id, COMPOSITION_ASSET_NAME));
-      } else {
-        for (const assetName of Object.keys(s.assets)) {
-          roots.push(formatAddress(def.stage, s.id, assetName));
-        }
-      }
+      if (s.shotFn) roots.push(formatAddress(def.stage, s.id, COMPOSITION_ASSET_NAME));
       for (const stem of listShotStems(def.stage, s)) roots.push(stem.address);
     }
     if ((def.timelineSoundtracks?.length ?? 0) > 0) {

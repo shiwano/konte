@@ -28,8 +28,6 @@ function shot(overrides: Partial<ShotRenderPlan> = {}): ShotRenderPlan {
     action: "the hand opens",
     resolvedFiles: {},
     resolvedVariants: {},
-    fallbackFile: null,
-    fallbackType: null,
     warnings: [],
     unacceptedAssets: [],
     notReadyAssets: [],

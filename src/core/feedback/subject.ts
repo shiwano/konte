@@ -76,7 +76,7 @@ export function commentSubjectAddresses(
   // nowhere. `compositionRefs` is the rendered set (audio included, since `stemRefs` partitions out
   // of it); a raw literal carries none, so its declarations stand in.
   // `undefined`, not empty: a builder always sets the field, so `[]` is an authoritative "references
-  // nothing" and only a raw literal (tests, fallback shots) leaves it unset for declarations to
+  // nothing" and only a raw literal (tests) leaves it unset for declarations to
   // stand in for. Treating the two alike put an unplaced `asset()` back in the subject.
   const refs = shotDef.compositionRefs;
   // The overlay laid over the shot is part of the picture the reviewer commented on, and nothing on

@@ -93,7 +93,6 @@ export async function planDelivery(opts: {
     // composite to MP4 and submit the upscale with it as the source.
     const target = computeDeliveryTarget(video, "frame", video.format.size);
     for (const shot of shots) {
-      if (!shot.shotFn && !shot.fallbackFile) continue; // nothing renderable to upscale
       const compAddr = formatCompositionAddress("video", shot.shotId);
       const deliveryAddr = deliveryAddressOf(compAddr);
       deliveryAddresses.push(deliveryAddr);
