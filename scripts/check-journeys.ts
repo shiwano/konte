@@ -17,9 +17,10 @@ import { adapterGuides, GUIDE_SPECIFIER_PREFIX } from "../src/core/dsl/adapter.j
 //   always-loaded set; the adapter guides it reads on the way are budgeted per
 //   adapter (ADAPTER below), not listed.
 //   `story.md` stands for whichever form reference scenario-guide routes to,
-//   the largest of them.
+//   bar persuasion.md, which has its own journey.
 // - `music-video` — the `video` chain for a mood piece cut to a song.
 // - `adaptation` — the `video` chain for a piece adapted from a source, plus adaptation.md.
+// - `persuasion` — the `video` chain with persuasion.md in place of story.md.
 // - `konte-direction-critic` / `konte-prompt-critic` — a subagent contract, loaded whole
 //   on every spawn. Its "Read only this" rules bar skills and records, so
 //   contract plus `AGENTS.md` is the whole fixed load; what it reads (the
@@ -47,6 +48,8 @@ import { adapterGuides, GUIDE_SPECIFIER_PREFIX } from "../src/core/dsl/adapter.j
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - persuasion (new, 35,650): the `video` chain for a persuasion piece, persuasion.md read in
+//   place of story.md.
 // - adaptation 36,350 → 36,400 (agreed by a human): a real product, logo, currency, landmark or
 //   person found as a file before it is ever generated.
 // - dev-render 10,850 → 10,900 (agreed by a human): code marked SUNSET with the version it is
@@ -226,6 +229,13 @@ const SHIPPED_JOURNEYS = [
     name: "adaptation",
     budget: 36_400,
     files: [...VIDEO_FILES, `${SKILLS}/scenario-guide/references/adaptation.md`],
+  },
+  {
+    name: "persuasion",
+    budget: 35_650,
+    files: VIDEO_FILES.map((file) =>
+      file.endsWith("/story.md") ? `${SKILLS}/scenario-guide/references/persuasion.md` : file,
+    ),
   },
   {
     name: "music-video",
