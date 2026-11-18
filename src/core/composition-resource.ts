@@ -30,7 +30,7 @@ import {
   harvestShotAudioStructure,
   type StemAudioEntry,
 } from "./composition-builder.js";
-import { resolveCompositionRef } from "./composition-refs.js";
+import { resolveCompositionRef, substituteAssetPlaceholders } from "./composition-refs.js";
 import { overlayShotStarts, renderOverlayBody } from "./overlay-render.js";
 import { computeDefinitionHash } from "./definition-hash.js";
 import {
@@ -1196,7 +1196,7 @@ export function leafSettledAcross(
 }
 
 // A graphic shot's composition whose picture the other stage's signed-off composition holds, drawn
-// over the same takes.
+// over the same files.
 function graphicCompositionCovered(
   manager: StateManager,
   own: StageDefinition,
@@ -1204,7 +1204,7 @@ function graphicCompositionCovered(
   ownShot: ShotDefinition,
   address: string,
 ): boolean {
-  if (!pictureContains(counterpart, own, ownShot.id)) return false;
+  if (!pictureContains(manager, counterpart, own, ownShot.id)) return false;
   const drawn = signedOffFingerprints(manager, counterpart, ownShot.id);
   if (drawn === null) return false;
   return leafInputsJudged(manager, own, ownShot, address, drawn);
@@ -1226,7 +1226,7 @@ export function boardCompositionAwaitsVideo(
   const boardShot = shotById(board.shots, parsed.shotId);
   const videoShot = shotById(video.shots, parsed.shotId);
   if (!boardShot?.shotFn || !videoShot?.shotFn || videoShot.graphic !== true) return false;
-  if (!pictureContains(video, board, parsed.shotId)) return false;
+  if (!pictureContains(manager, video, board, parsed.shotId)) return false;
   const videoAddress = formatCompositionAddress(video.stage, parsed.shotId);
   if (
     !leafReadyForReview(manager, video, videoAddress) ||
@@ -1235,7 +1235,7 @@ export function boardCompositionAwaitsVideo(
     return false;
   }
   const drawn = compositionInputFingerprints(manager, compositionFingerprintRefs(video, videoShot));
-  return leafInputsJudged(manager, board, boardShot, address, drawn);
+  return leafInputsJudged(manager, board, boardShot, address, new Set(Object.values(drawn)));
 }
 
 // A board shot's composition or stem once the video develops the shot past the board: the board was
@@ -1253,7 +1253,7 @@ function boardLeafPastBoard(
 ): boolean {
   if (manager.getAcceptedVariant(address) === null) return false;
   if (!videoShotHasVariant(manager, video, videoShot)) return false;
-  if (!leafInputsJudged(manager, board, boardShot, address, {})) return false;
+  if (!leafInputsJudged(manager, board, boardShot, address, new Set())) return false;
   if (isCompositionAddress(address)) return true;
   return !findShotOverflows(board as AnimaticDefinition, manager, boardShot).some(
     (o) => o.address === address,
@@ -1261,14 +1261,14 @@ function boardLeafPastBoard(
 }
 
 // Whether every input a leaf consumes resolves to an accepted take, and every one it fingerprints
-// stands at the take the leaf's own accept recorded, or at the one `drawn` (another accept's
-// fingerprints) holds.
+// stands at the take the leaf's own accept recorded, or at a file `drawn` (another accept's
+// fingerprints, by output hash) holds.
 function leafInputsJudged(
   manager: StateManager,
   stage: StageDefinition,
   shot: ShotDefinition,
   address: string,
-  drawn: Record<string, string>,
+  drawn: ReadonlySet<string>,
 ): boolean {
   const refs = leafReadinessRefs(stage, address);
   if (refs === null) return false;
@@ -1279,9 +1279,9 @@ function leafInputsJudged(
     null,
     manager.stalenessCache(),
   );
-  const judged = (ref: string, current: string | null | undefined): boolean =>
-    current != null && drawn[ref] === current;
-  if (!accepted.changedInputs.every((i) => judged(i.address, i.current))) return false;
+  const judged = (current: string | null | undefined): boolean =>
+    current != null && drawn.has(current);
+  if (!accepted.changedInputs.every((i) => judged(i.current))) return false;
   const recorded =
     (accepted.variantId &&
       manager.tryGetAssetState(address)?.variants?.[accepted.variantId]?.inputFingerprints) ||
@@ -1290,7 +1290,7 @@ function leafInputsJudged(
     ? compositionFingerprintRefs(stage, shot)
     : (shotStemOf(stage, address)?.refs ?? []);
   return fingerprinted.every(
-    (ref) => ref in recorded || judged(ref, manager.resolveReference(ref)?.outputHash),
+    (ref) => ref in recorded || judged(manager.resolveReference(ref)?.outputHash),
   );
 }
 
@@ -1315,31 +1315,45 @@ function compositionPicture(
 
 // Whether `outer`'s picture of a shot holds `inner`'s: the same frame, every node `inner` puts on
 // screen standing in `outer` in the same order, and no node only `outer` has carrying a style or
-// script.
-function pictureContains(outer: StageDefinition, inner: StageDefinition, shotId: string): boolean {
+// script. An asset is compared by the file it resolves to, so each stage's own asset of one file
+// draws the same picture.
+function pictureContains(
+  manager: StateManager,
+  outer: StageDefinition,
+  inner: StageDefinition,
+  shotId: string,
+): boolean {
   const o = compositionPicture(outer, shotId);
   const i = compositionPicture(inner, shotId);
   if (!o || !i || o.frame !== i.frame) return false;
+  const byFile = (node: string): string =>
+    substituteAssetPlaceholders(node, (ref) => {
+      const hash = manager.resolveReference(ref)?.outputHash;
+      return hash ? `__konte-file:${hash}__` : null;
+    });
+  const innerNodes = i.nodes.map(byFile);
   let matched = 0;
-  for (const node of o.nodes) {
-    if (node === i.nodes[matched]) matched++;
+  for (const node of o.nodes.map(byFile)) {
+    if (node === innerNodes[matched]) matched++;
     else if (/<(?:style|script|link)\b/i.test(node)) return false;
   }
-  return matched === i.nodes.length;
+  return matched === innerNodes.length;
 }
 
-// The inputs a stage's shot composition was signed off over, by ref; null while it stands unsigned.
+// The files a stage's shot composition was signed off over, by output hash; null while it stands
+// unsigned.
 function signedOffFingerprints(
   manager: StateManager,
   stage: StageDefinition,
   shotId: string,
-): Record<string, string> | null {
+): ReadonlySet<string> | null {
   const address = formatCompositionAddress(stage.stage, shotId);
   if (!leafSignedOff(manager, stage, address)) return null;
   const variantId = manager.getAcceptedVariant(address);
-  return (
-    (variantId && manager.tryGetAssetState(address)?.variants?.[variantId]?.inputFingerprints) || {}
-  );
+  const recorded =
+    (variantId && manager.tryGetAssetState(address)?.variants?.[variantId]?.inputFingerprints) ||
+    {};
+  return new Set(Object.values(recorded));
 }
 
 // Whether the video has spent on a shot: a take of one of its generated assets.

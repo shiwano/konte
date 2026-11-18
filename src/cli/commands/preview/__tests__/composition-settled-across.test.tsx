@@ -77,16 +77,20 @@ const board = (size: number, opts: { line?: boolean; overlay?: boolean; logo?: b
     },
   });
 
-const cut = (size: number, opts: { caption?: boolean } = {}) =>
+const cut = (size: number, opts: { caption?: boolean; logo?: boolean } = {}) =>
   defineVideo(direction, {
-    timeline: ({ graphicShot }) => ({
-      shots: graphicShot("01", () => (
-        <Composition>
-          <Card size={size} />
-          {opts.caption ? <Caption /> : null}
-        </Composition>
-      )),
-    }),
+    timeline: ({ graphicShot }) => {
+      const logo = opts.logo ? asset("logo", still, { prompt: "a logo" }) : null;
+      return {
+        shots: graphicShot("01", () => (
+          <Composition>
+            <Card size={size} />
+            {logo ? <Image src={logo} /> : null}
+            {opts.caption ? <Caption /> : null}
+          </Composition>
+        )),
+      };
+    },
   });
 
 const pendingCut = () =>
@@ -105,11 +109,11 @@ beforeEach(async () => {
   manager = await StateManager.init(dir);
 });
 
-function acceptVariant(address: string, name: string): string {
+function acceptVariant(address: string, name: string, outputHash?: string): string {
   const id = manager.reserveVariantId(address);
   const variant = manager.getAssetState(address).variants![id]!;
   variant.file = `assets/${name}`;
-  variant.outputHash = `out-${id}`;
+  variant.outputHash = outputHash ?? `out-${id}`;
   manager.setAccepted(address, id);
   return id;
 }
@@ -244,6 +248,41 @@ describe("a graphic shot's composition drawn on both stages", () => {
     await acceptComposition(board(6, { logo: true }), BOARD);
 
     expect((await needsReview(board(6, { logo: true }), cut(6))).needsReview).toEqual([]);
+  });
+
+  it("is settled on the video by the board's accept when each stage's own asset holds the same file", async () => {
+    acceptVariant("animatic:timeline.logo", "logo.png", "logo-bytes");
+    acceptVariant("video:timeline.logo", "logo.png", "logo-bytes");
+    await acceptComposition(cut(4, { logo: true }), CUT);
+    await acceptComposition(board(6, { logo: true }), BOARD);
+
+    expect(
+      (await needsReview(board(6, { logo: true }), cut(6, { logo: true }))).needsReview,
+    ).toEqual([]);
+  });
+
+  it("routes the review to the video alone when each stage's own asset holds the same file", async () => {
+    acceptVariant("animatic:timeline.logo", "logo.png", "logo-bytes");
+    acceptVariant("video:timeline.logo", "logo.png", "logo-bytes");
+    await acceptComposition(board(4, { logo: true }), BOARD);
+    await acceptComposition(cut(4, { logo: true, caption: true }), CUT);
+
+    const status = await needsReview(
+      board(6, { logo: true }),
+      cut(6, { logo: true, caption: true }),
+    );
+    expect(status.needsReview).toEqual([CUT]);
+  });
+
+  it("is not settled across when each stage's own asset holds a different file", async () => {
+    acceptVariant("animatic:timeline.logo", "logo-a.png", "logo-a");
+    acceptVariant("video:timeline.logo", "logo-b.png", "logo-b");
+    await acceptComposition(cut(4, { logo: true }), CUT);
+    await acceptComposition(board(6, { logo: true }), BOARD);
+
+    expect(
+      (await needsReview(board(6, { logo: true }), cut(6, { logo: true }))).needsReview,
+    ).toEqual([CUT]);
   });
 
   it("is not settled by a picture whose own style restyles what the two share", async () => {
