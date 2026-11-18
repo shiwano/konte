@@ -451,7 +451,7 @@ export function reviewHold(finding: Finding, op: ReviewOp): boolean {
 }
 
 // The key a status line and a refusal name a finding by: its waiver key, else its code.
-function findingLabel(finding: Finding): string {
+export function findingLabel(finding: Finding): string {
   return finding.key ?? finding.code;
 }
 

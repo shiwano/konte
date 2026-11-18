@@ -36,6 +36,8 @@ import { loadDirectionIfPresent } from "../../core/stage-definitions.js";
 import { openVideoSession } from "../../core/video-session.js";
 import { assertNoSpendFindings, spendGate } from "../finding-gates.js";
 import { loadCheckContext } from "../../core/check-context.js";
+import { formatFindingGroups } from "../../core/finding.js";
+import { findingFixInstruction } from "../../core/spend-gate.js";
 import { errorMessage } from "../../core/errors.js";
 import {
   type AcceptedStaleAsset,
@@ -173,9 +175,14 @@ export function registerGenerateCommand(program: Command): void {
       const spending = selected.spending.filter((address) => !held.has(address));
       for (const address of held.keys()) stageAddresses.delete(address);
       const heldCount = selected.spending.length - spending.length;
-      const heldLines = [
-        ...new Set(selected.spending.flatMap((address) => held.get(address) ?? [])),
-      ];
+      const heldWhys = selected.spending.flatMap((address) => {
+        const why = held.get(address);
+        return why ? [why] : [];
+      });
+      const upstreamHeldCount = heldWhys.filter((why) => why.upstream.length > 0).length;
+      const upstreamLines = [...new Set(heldWhys.flatMap((why) => why.upstream))];
+      const findingHeldCount = heldWhys.filter((why) => why.findings.length > 0).length;
+      const heldFindings = [...new Set(heldWhys.flatMap((why) => why.findings))];
       const spend = await prepareSpend(
         roots,
         spending.map((address) => ({ label: address, def: assetEntryOf(address) })),
@@ -187,11 +194,18 @@ export function registerGenerateCommand(program: Command): void {
         );
       }
       const printHeld = () => {
-        if (heldCount === 0) return;
-        console.log(
-          `\nHeld: ${heldCount} asset(s) build on upstream work not yet accepted — accept it, then run \`konte generate ${stage}\` again:`,
-        );
-        printCapped(heldLines, (line) => line.trimStart(), { verbose: opts.verbose });
+        if (findingHeldCount > 0) {
+          console.log(
+            `\nHeld: ${findingHeldCount} asset(s) by a finding — ${findingFixInstruction(heldFindings)}, then run \`konte generate ${stage}\` again:`,
+          );
+          for (const line of formatFindingGroups(heldFindings)) console.log(line);
+        }
+        if (upstreamHeldCount > 0) {
+          console.log(
+            `\nHeld: ${upstreamHeldCount} asset(s) build on upstream work not yet accepted — accept it, then run \`konte generate ${stage}\` again:`,
+          );
+          printCapped(upstreamLines, (line) => line.trimStart(), { verbose: opts.verbose });
+        }
       };
 
       const jobManager = new JobManager(videoRoot);

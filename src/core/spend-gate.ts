@@ -15,8 +15,8 @@ import { KonteError } from "./errors.js";
 import {
   type Finding,
   type SpendCommand,
+  findingLabel,
   findingTraits,
-  formatFindingLine,
   formatFindingGroups,
   spendHold,
 } from "./finding.js";
@@ -198,14 +198,18 @@ export type SpendRequest = {
 // named.
 type Unaccepted = { rank: number; headline: string; lines: string[] };
 
+// What holds one asset out of a whole-stage spend: the findings sitting on it or upstream of it, and
+// the unaccepted upstream work it builds on.
+export type HeldWhy = { findings: Finding[]; upstream: string[] };
+
 type SpendVerdict = {
   // Findings that hold the whole spend.
   findings: Finding[];
   // Findings that hold only their `edge` assets.
   edgeFindings: Finding[];
   unaccepted: Unaccepted[];
-  // Assets left out of a whole-stage spend, each with the lines saying what holds it.
-  held: Map<string, string[]>;
+  // Assets left out of a whole-stage spend, each with what holds it.
+  held: Map<string, HeldWhy>;
 };
 
 export function judgeSpend(
@@ -233,23 +237,30 @@ export function judgeSpend(
   }
 
   const unaccepted: Unaccepted[] = [];
-  const held = new Map<string, string[]>();
-  const hold = (address: string, line: string) => {
-    const lines = held.get(address) ?? [];
-    if (!lines.includes(line)) lines.push(line);
-    held.set(address, lines);
+  const held = new Map<string, HeldWhy>();
+  const whyOf = (address: string) => {
+    const why = held.get(address) ?? { findings: [], upstream: [] };
+    held.set(address, why);
+    return why;
+  };
+  const holdBy = (address: string, f: Finding) => {
+    const { findings } = whyOf(address);
+    if (!findings.includes(f)) findings.push(f);
+  };
+  const holdUpstream = (address: string, line: string) => {
+    const { upstream } = whyOf(address);
+    if (!upstream.includes(line)) upstream.push(line);
   };
 
   for (const f of edgeFindings) {
-    const line = `  ${formatFindingLine(f)}`;
     for (const target of f.targets ?? []) {
-      hold(target, line);
+      holdBy(target, f);
       if (!ctx.graph) continue;
-      for (const dependent of collectTransitiveDependents(ctx.graph, target)) hold(dependent, line);
+      for (const dependent of collectTransitiveDependents(ctx.graph, target)) holdBy(dependent, f);
     }
     if (!req.targeted) continue;
     for (const address of f.signedOff ?? []) {
-      if (req.addresses.includes(address)) hold(address, line);
+      if (req.addresses.includes(address)) holdBy(address, f);
     }
   }
 
@@ -290,7 +301,8 @@ export function judgeSpend(
       } else {
         for (const address of req.addresses) {
           const blocking = unacceptedUpstreamDeps({ ...upstreamOpts, addresses: [address] });
-          for (const line of upstreamMostBlockers(blocking)?.lines ?? []) hold(address, line);
+          for (const line of upstreamMostBlockers(blocking)?.lines ?? [])
+            holdUpstream(address, line);
         }
       }
     }
@@ -386,6 +398,12 @@ function upstreamUnaccepted(
       };
 }
 
+// The instruction over a list of findings that hold a spend.
+export function findingFixInstruction(findings: readonly Finding[]): string {
+  const waivable = findings.some((f) => findingTraits(f.code).clears === "waive");
+  return `fix each finding in the file it is listed under${waivable ? ", or waive a waivable one by its key in direction.waivers" : ""}`;
+}
+
 // The refusal a verdict amounts to, or null when the spend may go on with what is not held.
 export function spendHeldError(req: SpendRequest, verdict: SpendVerdict): KonteError | null {
   const allHeld =
@@ -400,11 +418,10 @@ export function spendHeldError(req: SpendRequest, verdict: SpendVerdict): KonteE
     return null;
   }
   const findings = [...verdict.findings, ...(allHeld || targetedHeld ? verdict.edgeFindings : [])];
-  const waivable = findings.some((f) => findingTraits(f.code).clears === "waive");
   const lines = [
     ...(findings.length > 0
       ? [
-          `  Fix each finding in the file it is listed under${waivable ? ", or waive a waivable one by its key in direction.waivers" : ""}:`,
+          `  F${findingFixInstruction(findings).slice(1)}:`,
           ...formatFindingGroups(findings).map((l) => `  ${l}`),
         ]
       : []),
@@ -414,7 +431,10 @@ export function spendHeldError(req: SpendRequest, verdict: SpendVerdict): KonteE
           "  Held:",
           ...[...verdict.held]
             .filter(([address]) => req.addresses.includes(address))
-            .flatMap(([address, why]) => [`    ${address}`, ...why.map((l) => `    ${l}`)]),
+            .flatMap(([address, why]) => [
+              `    ${address}${why.findings.length > 0 ? ` — ${why.findings.map((f) => `[${findingLabel(f)}]`).join(", ")}` : ""}`,
+              ...why.upstream.map((l) => `    ${l}`),
+            ]),
         ]
       : []),
   ];

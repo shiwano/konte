@@ -1068,8 +1068,10 @@ describe("prompt gate", () => {
   it("holds the asset whose prompt names what to leave out, and plans the rest", async () => {
     const projectDir = await project(NEGATED_VIDEO_TSX);
     const { stdout } = await run(["generate", "video", "--plan"], projectDir);
-    expect(stdout).toMatch(/Held: 1 asset\(s\)/);
-    expect(stdout).toMatch(/\[prompt-negation\] "no outlines" — video:shot\.01\.motion/);
+    expect(stdout).toMatch(
+      /Held: 1 asset\(s\) by a finding — fix each finding in the file it is listed under, then run `konte generate video` again:\n {2}video\.tsx:\n {4}prompt-negation — .*\n {6}"no outlines" — video:shot\.01\.motion/,
+    );
+    expect(stdout).not.toContain("build on upstream work not yet accepted");
   });
 
   it("puts a reroll's refusal, its findings included, on one line", async () => {
@@ -1079,8 +1081,9 @@ describe("prompt gate", () => {
       (e) => e,
     );
     expect(err.stderr.trimEnd().split("\n").at(-1)).toMatch(
-      /^Error \[SPEND_HELD\]: Cannot reroll video — it is held: .*: video\.tsx: prompt-negation — describe what occupies the space .*; "no outlines" — video:shot\.01\.motion;/,
+      /^Error \[SPEND_HELD\]: Cannot reroll video — it is held: .*: video\.tsx: prompt-negation — describe what occupies the space .*; "no outlines" — video:shot\.01\.motion; Held: video:shot\.01\.motion — \[prompt-negation\]$/,
     );
+    expect(err.stderr.match(/"no outlines"/g)).toHaveLength(1);
   });
 
   it("reports the finding under its file in status", async () => {
@@ -1115,7 +1118,7 @@ describe("prompt gate", () => {
       await expect(run(["reroll", "video:shot.01.motion"], await accepted())).rejects.toMatchObject(
         {
           stderr: expect.stringMatching(
-            /SPEND_HELD[\s\S]*\[prompt-negation\] "no outlines" — video:shot\.01\.motion — accepted as drawn/,
+            /SPEND_HELD[\s\S]*"no outlines" — video:shot\.01\.motion — accepted as drawn[\s\S]*Held: video:shot\.01\.motion — \[prompt-negation\]/,
           ),
         },
       );
@@ -1162,8 +1165,8 @@ describe("a reference into a pendingShot", () => {
   it("holds what is built on the pending shot and plans the rest", async () => {
     const projectDir = await project();
     const { stdout } = await run(["generate", "animatic", "--plan"], projectDir);
-    expect(stdout).toMatch(/Held: 2 asset\(s\)/);
-    expect(stdout).toContain("[pending-reference] animatic:shot.02.first");
+    expect(stdout).toMatch(/Held: 2 asset\(s\) by a finding/);
+    expect(stdout).toMatch(/pending-reference — .*\n {6}animatic:shot\.02\.first — built on/);
     expect(stdout).toContain("animatic:shot.03.first");
   });
 
@@ -1179,7 +1182,7 @@ describe("a reference into a pendingShot", () => {
     const projectDir = await project();
     await expect(run(["reroll", "animatic:shot.02.first"], projectDir)).rejects.toMatchObject({
       stderr: expect.stringMatching(
-        /SPEND_HELD[\s\S]*\[pending-reference\] animatic:shot\.02\.first/,
+        /SPEND_HELD[\s\S]*Held: animatic:shot\.02\.first — \[pending-reference\]/,
       ),
     });
   });
