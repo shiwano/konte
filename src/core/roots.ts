@@ -142,17 +142,33 @@ export async function writeCurrentVideo(workspace: string, name: string): Promis
 /**
  * The workspace, and which video the command applies to.
  *
- * The video is whichever one cwd sits inside; failing that, the workspace's current video. There
- * is deliberately no "auto-select when there is only one video" rule — a selection that changes
- * shape with the number of videos is a selection nobody can predict. `konte video new` makes the
- * video it creates current, so a one-video workspace never has to choose.
+ * The video is the one `--video` names; else whichever one cwd sits inside; failing that, the
+ * workspace's current video. There is no "auto-select when there is only one video" rule — a
+ * selection that changes shape with the number of videos is a selection nobody can predict.
+ * `konte video new` makes the video it creates current, so a one-video workspace never has to
+ * choose.
  */
-export async function resolveRoots(cwd: string): Promise<KonteRoots> {
+export async function resolveRoots(cwd: string, named?: string): Promise<KonteRoots> {
   const workspace = await findWorkspaceRoot(cwd);
   if (!workspace) {
     throw new KonteError(
       "NOT_A_KONTE_WORKSPACE",
       `Not a konte workspace (${WORKSPACE_MARKER} not found in "${cwd}" or any parent). Run "konte workspace new" to create one.`,
+    );
+  }
+
+  if (named !== undefined) {
+    const root = path.join(workspace, VIDEOS_DIR, named);
+    if (
+      VIDEO_NAME_PATTERN.test(named) &&
+      (await exists(path.join(root, VIDEO_MARKER))) &&
+      (await isRealVideoDir(workspace, named))
+    ) {
+      return { workspace, video: { kind: "selected", root, name: named } };
+    }
+    throw new KonteError(
+      "VIDEO_NOT_FOUND",
+      `--video "${named}" names no video of this workspace. Run "konte video list" to see its videos.`,
     );
   }
 

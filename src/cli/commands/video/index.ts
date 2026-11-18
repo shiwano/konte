@@ -16,13 +16,13 @@ export function registerVideoCommand(program: Command): void {
   video.addHelpText(
     "after",
     `
-Commands that act on one video (generate, status, review, …) take it from the directory you are
-in, or — outside any video directory — from the workspace's current video. There is no --video
-flag: run "konte --cwd videos/<name> <command>" to target another one without switching.
+Commands that act on one video (generate, status, review, …) take the one --video <name> names,
+else the one whose directory you are in, else the workspace's current video.
 
 Examples:
   konte video list             List every video, marking the current one
   konte video use opening      Make "opening" the current video
+  konte status --video ending  Show "ending" without switching to it
 `,
   );
 }

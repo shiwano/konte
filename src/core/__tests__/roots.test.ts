@@ -114,6 +114,27 @@ describe("resolveRoots", () => {
     });
   });
 
+  it("lets a named video win over the enclosing and current ones", async () => {
+    const opening = await makeVideo("opening");
+    await makeVideo("ending");
+    await writeCurrentVideo(ws, "opening");
+
+    const roots = await resolveRoots(opening, "ending");
+    expect(roots.video).toEqual({
+      kind: "selected",
+      root: path.join(ws, "videos", "ending"),
+      name: "ending",
+    });
+  });
+
+  it("refuses a named video the workspace does not hold", async () => {
+    await makeVideo("opening");
+    await expect(resolveRoots(ws, "ending")).rejects.toMatchObject({ code: "VIDEO_NOT_FOUND" });
+    await expect(resolveRoots(ws, "../opening")).rejects.toMatchObject({
+      code: "VIDEO_NOT_FOUND",
+    });
+  });
+
   it("throws outside a workspace", async () => {
     const outside = await fs.mkdtemp(path.join(os.tmpdir(), "konte-notws-"));
     try {

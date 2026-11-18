@@ -55,7 +55,7 @@ Each video, under `videos/<name>/`:
 - `assets/` — generated asset outputs; `assets/files/` — manually placed files for `file` assets.
 - `.konte/` — jobs, logs, caches; managed by konte, do not edit anything under it.
 
-A command acts on the video you are inside, else the workspace's current video — `konte video current` shows it, `konte video use <name>` switches it, `konte video new` makes the video it creates current.
+A command acts on `--video <name>`, else the video you are in, else the current video — `konte video current` shows it, `video use <name>` switches it, `video new` sets it.
 
 ## Addresses
 

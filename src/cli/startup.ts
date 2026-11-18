@@ -21,13 +21,13 @@ export async function applyCwdOption(cwd: string | undefined): Promise<void> {
 }
 
 /** Resolves and records the roots the scope needs; null for `none`. */
-export async function enterScope(scope: Scope): Promise<KonteRoots | null> {
+export async function enterScope(scope: Scope, video?: string): Promise<KonteRoots | null> {
   if (scope === "none") {
     setRoots(null);
     setWorkspaceRoot(null);
     return null;
   }
-  const roots = await resolveRoots(process.cwd());
+  const roots = await resolveRoots(process.cwd(), video);
   setRoots(roots);
   // Before anything can provision a managed runtime (they land in <workspace>/.konte/tools/)
   // or read process.env (the workspace's konte.credentials.json holds the backend credentials).

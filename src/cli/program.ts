@@ -55,7 +55,8 @@ export function buildProgram(opts: BuildProgramOptions = {}): Command {
     .option(
       "--cwd <path>",
       "Run as if konte was started in <path> instead of the current working directory",
-    );
+    )
+    .option("--video <name>", "Act on this video instead of the enclosing or current one");
 
   registerWorkspaceCommand(program);
   registerVideoCommand(program);
@@ -96,9 +97,9 @@ export function buildProgram(opts: BuildProgramOptions = {}): Command {
     await applyCwdOption(thisCommand.opts<{ cwd?: string }>().cwd);
   });
 
-  program.hook("preAction", async (_thisCommand, actionCommand) => {
+  program.hook("preAction", async (thisCommand, actionCommand) => {
     const { scope, skipSyncCheck, skipTypeCheck } = scopeOf(actionCommand);
-    const roots = await enterScope(scope);
+    const roots = await enterScope(scope, thisCommand.opts<{ video?: string }>().video);
     if (!roots) return;
 
     if (opts.skipProjectChecks) return;

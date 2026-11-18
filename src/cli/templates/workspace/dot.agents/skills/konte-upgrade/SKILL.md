@@ -57,5 +57,5 @@ Run the path on the script's final `KONTE_BIN=<absolute path>` line with `--vers
 
 ## 5. Report and hand off
 
-1. Report the old and new versions, and per video what was fixed and what awaits the human: the findings left, and the stale takes `konte status --cwd videos/<name>` lists.
+1. Report the old and new versions, and per video what was fixed and what awaits the human: the findings left, and the stale takes `konte status --video <name>` lists.
 2. Tell the user to start a new session in the workspace directory.
