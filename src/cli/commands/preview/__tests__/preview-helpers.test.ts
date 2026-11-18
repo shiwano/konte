@@ -17,13 +17,15 @@ import {
   hasUndecidedBesideAccepted,
   patchChainVariants,
   recordFeedbackFor,
-  variantDefinitionSnapshot,
   variantPreviewUrl,
   videoVariantThumbUrl,
   withShotLocalTime,
 } from "../review-shared.js";
 import { unacceptReelShots } from "../reel-submit.js";
-import { writeDefinitionSnapshot } from "../../../../core/definition-snapshot.js";
+import {
+  variantDefinitionSnapshot,
+  writeDefinitionSnapshot,
+} from "../../../../core/definition-snapshot.js";
 import {
   AddressReviewSubmitSchema,
   DirectionSubmitSchema,

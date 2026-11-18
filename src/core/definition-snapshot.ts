@@ -2,8 +2,10 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { stableStringify } from "./stable-stringify.js";
 import { stripNonGenerative } from "./definition-hash.js";
+import type { StateManager } from "./state/index.js";
 import type { AssetDefinition } from "./types/index.js";
 import { variantDir } from "./variant-dir.js";
+import { generatedOrigin } from "./variant-lineage.js";
 
 const DEFINITION_SNAPSHOT_FILE = "definition.json";
 
@@ -35,6 +37,20 @@ export function readDefinitionSnapshot(
   } catch {
     return null;
   }
+}
+
+/**
+ * The definition a take's lineage was submitted with — its `definition.json` — or null when it is
+ * gone.
+ */
+export function variantDefinitionSnapshot(
+  manager: StateManager,
+  videoRoot: string,
+  address: string,
+  variantId: string,
+): AssetDefinition | null {
+  const origin = generatedOrigin(manager.getState(), address, variantId);
+  return readDefinitionSnapshot(videoRoot, address, origin);
 }
 
 type DefinitionChange = { path: string; old: unknown; new: unknown };

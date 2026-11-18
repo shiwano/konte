@@ -243,6 +243,7 @@ export const videoMinimaxH3R2v = defineComfyAsset({
       field: "value",
       type: "boolean",
       default: false,
+      turbo: true,
       description:
         "Samples through the 8-step turbo LoRA on its own euler/simple schedule instead of the base weights; `steps` is not read.",
     },

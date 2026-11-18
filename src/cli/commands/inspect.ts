@@ -958,7 +958,8 @@ insert) and the "script" lines the address voices,
 with each line's "acting" note. An address a shot's <Cutin> draws prints one "cutin" line in place
 of the first two — the wipe's setup, who it holds and what that setup holds — and a graphic shot,
 taken from no camera, prints neither. konte never turns any of them into prompt text, so they are what the
-prompt under them is read against.
+prompt under them is read against. An address whose adapter declares a turbo switch prints a
+"turbo" line, the side it is drawn on.
 
 On the board it opens with "Keyframes": one line per <Panel>, saying which shot and lane it stands
 in, its place there ("panel 1 of 2"), its role and the addresses behind it that carry a prompt, in

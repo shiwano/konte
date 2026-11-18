@@ -88,6 +88,8 @@ export interface AdapterMetaInput {
   pin?: "start" | "end";
   // The take's own soundtrack, which the model times its picture to — see `AdapterInputDef.stem`.
   stem?: true;
+  // The switch trading motion fidelity for speed and cost — see `AdapterInputDef.turbo`.
+  turbo?: true;
   values?: readonly string[];
   array?: boolean;
   // Optional per-input prose, surfaced by `konte adapter show`. Reserved for what
@@ -176,6 +178,7 @@ interface DeclaredInput {
   clock?: number;
   pin?: DeclaredPin;
   stem?: true;
+  turbo?: true;
   values?: readonly string[];
   required?: boolean;
   array?: boolean;
@@ -205,6 +208,7 @@ export function buildMetaInputs(
           ...(def.clock ? { clock: def.clock } : {}),
           ...(def.pin ? { pin: pinnedEnd(def.pin) } : {}),
           ...(def.stem ? { stem: true as const } : {}),
+          ...(def.turbo ? { turbo: true as const } : {}),
           ...(def.values ? { values: [...def.values] } : {}),
           ...(def.array ? { array: true } : {}),
           ...(def.description ? { description: def.description } : {}),
@@ -293,6 +297,28 @@ export function assertStemInputs(inputs: Record<string, DeclaredInput>): void {
       `Inputs ${stems.map(([key]) => `"${key}"`).join(" and ")} are all stems, and a take has one`,
     );
   }
+}
+
+// A turbo switch is one boolean a call may flip, resolving to a value whether or not the call sets
+// it. Every invalid combination is silent (a switch no definition records, two switches with no one
+// meaning), so they are rejected where the adapter is declared, as `fixed` inputs are. Returns the
+// switch's name.
+export function assertTurboInputs(inputs: Record<string, DeclaredInput>): string | undefined {
+  const turbos = Object.entries(inputs).filter(([, def]) => def.turbo);
+  for (const [key, def] of turbos) {
+    if (def.type !== "boolean" || typeof def.default !== "boolean" || def.fixed) {
+      throw new Error(
+        `Input "${key}" is a turbo switch, so it takes a boolean with a literal default, not fixed`,
+      );
+    }
+  }
+  if (turbos.length > 1) {
+    throw new Error(
+      `Inputs ${turbos.map(([key]) => `"${key}"`).join(" and ")} are all turbo switches, and an ` +
+        `adapter has one`,
+    );
+  }
+  return turbos[0]?.[0];
 }
 
 // On a video shot of a piece cut to its song, an adapter's `stem` input takes the board's

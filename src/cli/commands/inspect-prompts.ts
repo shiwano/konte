@@ -3,6 +3,7 @@ import {
   type ShotStage,
   formatPlateAddress,
   formatShotAddress,
+  getAssetEntry,
   tryParseAddress,
 } from "../../core/address.js";
 import {
@@ -107,6 +108,10 @@ export async function inspectPrompts(
     if (pending)
       console.log(`  generation: ${pending.has(address) ? "pending" : "comparison only"}`);
   };
+  const printTurbo = (address: string) => {
+    const turbo = definition ? turboOf(definition, address) : undefined;
+    if (turbo !== undefined) console.log(`  turbo: ${turbo ? "on" : "off"}`);
+  };
 
   const kindOf = (p: PromptOccurrence): string =>
     p.spoken ? "spokenText" : p.negative ? "negativePrompt" : "prompt";
@@ -161,6 +166,7 @@ export async function inspectPrompts(
     first = false;
     console.log(plate.address);
     printGeneration(plate.address);
+    printTurbo(plate.address);
     if (plate.frame) {
       console.log(`  within: ${plate.frame.within ?? "root"}`);
       console.log(`  framing: ${plate.frame.framing}`);
@@ -179,6 +185,7 @@ export async function inspectPrompts(
     first = false;
     console.log(address);
     printGeneration(address);
+    printTurbo(address);
     for (const line of promptShotLines(
       promptShots,
       respellings,
@@ -194,6 +201,17 @@ export async function inspectPrompts(
       }
     }
     printOccurrences(occurrences);
+  }
+}
+
+// The side of the adapter's turbo switch the address is declared on; undefined where its adapter
+// has none.
+function turboOf(definition: DefinitionWithDuration, address: string): boolean | undefined {
+  try {
+    const def = getAssetEntry(definition, address);
+    return "turbo" in def ? def.turbo : undefined;
+  } catch {
+    return undefined;
   }
 }
 

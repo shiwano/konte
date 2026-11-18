@@ -1,4 +1,5 @@
 import { remakeSettledLeaves } from "../../../core/board-leaves.js";
+import { variantDefinitionSnapshot } from "../../../core/definition-snapshot.js";
 import { overlayLineTimer } from "../../../core/line-timing.js";
 import { buildDependencyGraph } from "../../../core/graph.js";
 import { shotById } from "../../../core/shot-index.js";
@@ -77,7 +78,6 @@ import { type HeardTake, shotLineMarks } from "../../../core/line-marks.js";
 import {
   consumedVariantPreviewUrl,
   patchChainVariants,
-  variantDefinitionSnapshot,
   buildVariantCandidates,
   shotFactsIndex,
   displayedVariantStatus,

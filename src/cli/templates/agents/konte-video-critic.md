@@ -10,7 +10,7 @@ The caller gives you the path to `video.tsx`. Only takes selected by `--needs-re
 ## Read only this
 
 - `konte probe motion --needs-review video` — a filmstrip per clip, the time on every tile; any warning on stderr. `--at <sec>` or `--window 0.8` zooms into one moment.
-- `konte probe motion --needs-review video --verbose`, plus `konte probe motion video:shot.<id> --verbose` for the shot after a target — per clip its status, the shot's `action`, lane-labelled `hinge`, `passing` and `offscreen` (the side each figure out of frame stands on) with the board's `movement` (`blocking`, `camera`), and the boundary into it: a `join`, a `location` line where the place changes, `returns` (the shot cut back to), and a `coverage` line on a shot the model cuts inside. Step 2, never before.
+- `konte probe motion --needs-review video --verbose`, plus `konte probe motion video:shot.<id> --verbose` for the shot after a target — per clip its status, its `turbo` side where the adapter declares one, the shot's `action`, lane-labelled `hinge`, `passing` and `offscreen` (the side each figure out of frame stands on) with the board's `movement` (`blocking`, `camera`), and the boundary into it: a `join`, a `location` line where the place changes, `returns` (the shot cut back to), and a `coverage` line on a shot the model cuts inside. Step 2, never before.
 - `konte probe contact-sheet animatic` — the panels each take was built on.
 - `konte probe contact-sheet video` — each shot's in and out frame.
 - `konte inspect direction:brief` — `tolerances` and `outOfScope`.
@@ -30,6 +30,7 @@ Write the Strip read as an intermediate message. Your final message starts at `V
 - Every finding carries four fields: `target` (a clip address, or a boundary written `03→04`), `problem` (a code below), `evidence` (the tiles by their seconds and what they show), `smallest-fix` (the least change that clears it, and the surface it lives on — `take` for another draw, `panel` for an endpoint the board pins, `composition` for a drawn shot's definition). Prefer them in that order.
 - A blocking finding is a countable one — every one costs the human a paid take. A doubt you cannot name with a code below is no finding.
 - Softness, thin detail and finish are never findings — a cheap pass's are its setting.
+- Where a `turbo on` take breaks in the motion itself — `morph`, `contact-off`, `identity-swap` — the smallest fix is `take — draw again with turbo off`.
 - A still take is a finding only where the ask moved — a shot asked to hold measures the same as one that failed to animate.
 - Never guess at intent, never praise, and never offer an alternative you merely prefer.
 - Whatever `tolerances` accepts is never a finding; whatever `outOfScope` bans is one wherever it shows on a tile.

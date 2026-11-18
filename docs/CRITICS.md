@@ -86,6 +86,7 @@ Reviews one stage's pending prompts, as text, before the first spend on it.
 | `view-unmeasured`          | A view's camera height and what is in frame are not written in things the master shows.          | [`view-unnamed`](FINDINGS.md#direction-findings)                                                                            |
 | `view-relaid`              | A view lays the room out again wall by wall.                                                     | —                                                                                                                           |
 | `view-unbuilt`             | A view does not write the build of what the master does not show.                                | —                                                                                                                           |
+| `turbo-misfit`             | A take's turbo side is not the one its adapter guide gives for what it asks to move.             | —                                                                                                                           |
 | `occupied-plate`           | A `plates` entry's prompt puts a subject, a pose or an action in the frame.                      | —                                                                                                                           |
 
 ## konte-animatic-critic

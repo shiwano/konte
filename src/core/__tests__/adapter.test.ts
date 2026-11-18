@@ -1909,3 +1909,65 @@ describe("adapter-supplied inputs", () => {
     expect(def.adapterSuppliedInputs).toEqual(["duration"]);
   });
 });
+
+describe("turbo (the switch trading motion fidelity for speed and cost)", () => {
+  const turboComfy = defineComfyAsset({
+    allowedIn: ASSET_SITES,
+    workflow: "w.json",
+    description: "test adapter",
+    inputs: {
+      prompt: { nodeId: "1", field: "text", type: "prompt", required: true },
+      fast: { nodeId: "2", field: "value", type: "boolean", default: true, turbo: true },
+    },
+    outputs: { video: { nodeId: "9", type: "video" } },
+  });
+
+  it("records the side a comfy definition resolves to, default or set", () => {
+    expect((turboComfy.createDefinition({ prompt: "a cat" }) as ComfyAssetDefinition).turbo).toBe(
+      true,
+    );
+    expect(
+      (turboComfy.createDefinition({ prompt: "a cat", fast: false }) as ComfyAssetDefinition).turbo,
+    ).toBe(false);
+    expect(turboComfy.meta.inputs.fast?.turbo).toBe(true);
+  });
+
+  it("records it on a fal definition", () => {
+    const fal = defineFalAsset({
+      allowedIn: ASSET_SITES,
+      endpointId: "fal-ai/test",
+      description: "test adapter",
+      mediaType: "video",
+      inputs: { fast: { field: "fast", type: "boolean", default: false, turbo: true } },
+    });
+    expect((fal.createDefinition({ fast: true }) as FalAssetDefinition).turbo).toBe(true);
+  });
+
+  it("leaves it out of the definition hash", () => {
+    const on = turboComfy.createDefinition({ prompt: "a cat" }) as ComfyAssetDefinition;
+    expect(computeDefinitionHash({ ...on, turbo: false })).toBe(computeDefinitionHash(on));
+  });
+
+  it("refuses a switch that is no boolean with a literal default, or a second one", () => {
+    const declare = (inputs: Record<string, object>) => () =>
+      defineComfyAsset({
+        allowedIn: ASSET_SITES,
+        workflow: "w.json",
+        description: "test adapter",
+        inputs: inputs as never,
+        outputs: { video: { nodeId: "9", type: "video" } },
+      });
+    expect(declare({ fast: { nodeId: "2", field: "v", type: "number", turbo: true } })).toThrow(
+      /turbo switch/,
+    );
+    expect(declare({ fast: { nodeId: "2", field: "v", type: "boolean", turbo: true } })).toThrow(
+      /turbo switch/,
+    );
+    expect(
+      declare({
+        a: { nodeId: "2", field: "v", type: "boolean", default: true, turbo: true },
+        b: { nodeId: "3", field: "v", type: "boolean", default: true, turbo: true },
+      }),
+    ).toThrow(/all turbo switches/);
+  });
+});

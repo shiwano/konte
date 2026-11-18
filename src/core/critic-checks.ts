@@ -302,6 +302,11 @@ export const CRITICS: readonly Critic[] = [
         checks: "A view does not write the build of what the master does not show.",
       },
       {
+        code: "turbo-misfit",
+        checks:
+          "A take's turbo side is not the one its adapter guide gives for what it asks to move.",
+      },
+      {
         code: "occupied-plate",
         checks: "A `plates` entry's prompt puts a subject, a pose or an action in the frame.",
       },

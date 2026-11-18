@@ -1,4 +1,5 @@
 import { cascadeDirectionReferenceAccepts } from "../../../core/accept-cascade.js";
+import { variantDefinitionSnapshot } from "../../../core/definition-snapshot.js";
 import type { LevelKind } from "../../../core/audio-level.js";
 import { buildDependencyGraph } from "../../../core/graph.js";
 import { buildKeepGraph } from "./keep-graph.js";
@@ -46,7 +47,6 @@ import { inferMediaType, variantMediaKind } from "../../../core/media-type.js";
 import {
   consumedVariantPreviewUrl,
   patchChainVariants,
-  variantDefinitionSnapshot,
   variantFileUrl,
   variantPreviewUrl,
   variantMediaUrl,

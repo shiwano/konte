@@ -10,6 +10,7 @@ import type {
 } from "../../../core/types/index.js";
 import * as path from "node:path";
 import type { Command } from "commander";
+import { variantDefinitionSnapshot } from "../../../core/definition-snapshot.js";
 import { KonteError } from "../../../core/errors.js";
 import { ensureFfmpeg, ensureFfprobe } from "../../../core/ffmpeg.js";
 import {
@@ -170,8 +171,8 @@ The intent names the boundary into the shot where it breaks time or place: its '
 'location' line when its setup stands somewhere else than the shot before. A 'returns' line names
 the shot it cuts back to across a cutaway, and the seconds since it left that setup.
 Pass --verbose for the full advisory on stderr: the magnitude,
-mean/peak, high/low frame-diff segments, duration/fps, the intent, the reading note, and the motion-energy
-sparkline (the frame-to-frame diff waveform). Only the magnitude compares across clips; mean and peak
+mean/peak, high/low frame-diff segments, duration/fps, the turbo side a take was drawn on where its
+adapter declares one, the intent, the reading note, and the motion-energy sparkline (the frame-to-frame diff waveform). Only the magnitude compares across clips; mean and peak
 rank within one clip. Segments describe whole-frame changes between consecutive decoded frames;
 low frame-diff can include small subject movements. Judge the intended motion from the filmstrip.
 An image variant reports "not a
@@ -409,6 +410,9 @@ Examples:
             }, ${strip.timestamps.length} frames   (advisory — judge from the filmstrip)`,
           );
           console.error(`  file      ${fileAbs}`);
+          const snapshot = variantDefinitionSnapshot(manager, videoRoot, wf.address, wf.variantId);
+          const turbo = snapshot && "turbo" in snapshot ? snapshot.turbo : undefined;
+          if (turbo !== undefined) console.error(`  turbo     ${turbo ? "on" : "off"}`);
           console.error(
             `  duration  ${dur != null ? formatSeconds(dur) : "—"}  decode fps ${wf.fps}  samples ${
               wf.samples

@@ -14,6 +14,7 @@ import {
   assertAllowedIn,
   assertPinInputs,
   assertStemInputs,
+  assertTurboInputs,
   buildMetaInputs,
   type DeclaredPin,
   type AssetAdapter,
@@ -124,6 +125,9 @@ interface AdapterInputDefBase {
   // of a piece cut to its song konte fills it with the board's `#songStem` and refuses anything
   // written there. One `"audio"` input per adapter.
   stem?: true;
+  // The switch that trades motion fidelity for speed and cost — a distilled schedule, a turbo LoRA.
+  // One `"boolean"` input per adapter, with a literal default.
+  turbo?: true;
   values?: readonly string[];
   required?: boolean;
   // Additional workflow targets that receive the same value. Used when one
@@ -371,6 +375,7 @@ export function defineComfyAsset<
   assertDerivedInputs(derive, config.inputs);
   assertPinInputs(config.inputs);
   assertStemInputs(config.inputs);
+  const turboInput = assertTurboInputs(config.inputs);
   assertSpeechFill(config);
   assertValidatorInputs(config.validators, config.inputs);
   const outputKind = resolveOutputKind(config.outputs, config.primary);
@@ -653,6 +658,9 @@ export function defineComfyAsset<
         supplied.has(inputLabels[k]!),
       );
       result.adapterSuppliedInputs = adapterSuppliedInputs;
+
+      const turbo = turboInput === undefined ? undefined : resolved[turboInput];
+      if (typeof turbo === "boolean") result.turbo = turbo;
 
       const workflowHash = workflowContentHash(config.workflow);
       if (workflowHash !== undefined) result.workflowHash = workflowHash;

@@ -86,9 +86,9 @@ describe("definition fields are classified", () => {
   };
 
   const NON_GENERATIVE: Record<string, readonly string[]> = {
-    comfy: [...VERDICT_AXIS_KEYS, "inputLabels", "adapterSuppliedInputs"],
+    comfy: [...VERDICT_AXIS_KEYS, "inputLabels", "adapterSuppliedInputs", "turbo"],
     file: VERDICT_AXIS_KEYS,
-    fal: [...VERDICT_AXIS_KEYS, "inputLabels", "adapterSuppliedInputs"],
+    fal: [...VERDICT_AXIS_KEYS, "inputLabels", "adapterSuppliedInputs", "turbo"],
     local: VERDICT_AXIS_KEYS,
   };
 

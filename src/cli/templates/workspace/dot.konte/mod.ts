@@ -2598,6 +2598,7 @@ export interface AdapterMetaInput {
   clock?: number;
   pin?: "start" | "end";
   stem?: true;
+  turbo?: true;
   values?: readonly string[];
   array?: boolean;
   description?: string;
@@ -2863,6 +2864,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                     >;
                     inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
                     adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+                    turbo: z.ZodOptional<z.ZodBoolean>;
                   },
                   "strip",
                   z.ZodTypeAny,
@@ -2902,6 +2904,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                       | undefined;
                     inputLabels?: Record<string, string> | undefined;
                     adapterSuppliedInputs?: string[] | undefined;
+                    turbo?: boolean | undefined;
                     deterministic?: boolean | undefined;
                   },
                   {
@@ -2940,6 +2943,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                       | undefined;
                     inputLabels?: Record<string, string> | undefined;
                     adapterSuppliedInputs?: string[] | undefined;
+                    turbo?: boolean | undefined;
                     deterministic?: boolean | undefined;
                   }
                 >,
@@ -2974,6 +2978,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                     inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
                     inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
                     adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+                    turbo: z.ZodOptional<z.ZodBoolean>;
                   },
                   "strip",
                   z.ZodTypeAny,
@@ -2984,6 +2989,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                     mediaType: "video" | "image" | "audio";
                     inputLabels?: Record<string, string> | undefined;
                     adapterSuppliedInputs?: string[] | undefined;
+                    turbo?: boolean | undefined;
                     deterministic?: boolean | undefined;
                   },
                   {
@@ -2993,6 +2999,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                     mediaType: "video" | "image" | "audio";
                     inputLabels?: Record<string, string> | undefined;
                     adapterSuppliedInputs?: string[] | undefined;
+                    turbo?: boolean | undefined;
                     deterministic?: boolean | undefined;
                   }
                 >,
@@ -3318,6 +3325,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                   | undefined;
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
                 deterministic?: boolean | undefined;
               }
             | {
@@ -3333,6 +3341,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 mediaType: "video" | "image" | "audio";
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
                 deterministic?: boolean | undefined;
               }
             | {
@@ -3458,6 +3467,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                   | undefined;
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
                 deterministic?: boolean | undefined;
               }
             | {
@@ -3473,6 +3483,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 mediaType: "video" | "image" | "audio";
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
                 deterministic?: boolean | undefined;
               }
             | {
@@ -3664,6 +3675,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 >;
                 inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
                 adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+                turbo: z.ZodOptional<z.ZodBoolean>;
               },
               "strip",
               z.ZodTypeAny,
@@ -3703,6 +3715,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                   | undefined;
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
                 deterministic?: boolean | undefined;
               },
               {
@@ -3741,6 +3754,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                   | undefined;
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
                 deterministic?: boolean | undefined;
               }
             >,
@@ -3775,6 +3789,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
                 inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
                 adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+                turbo: z.ZodOptional<z.ZodBoolean>;
               },
               "strip",
               z.ZodTypeAny,
@@ -3785,6 +3800,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 mediaType: "video" | "image" | "audio";
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
                 deterministic?: boolean | undefined;
               },
               {
@@ -3794,6 +3810,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 mediaType: "video" | "image" | "audio";
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
                 deterministic?: boolean | undefined;
               }
             >,
@@ -4016,6 +4033,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 >;
                 inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
                 adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+                turbo: z.ZodOptional<z.ZodBoolean>;
               },
               "strip",
               z.ZodTypeAny,
@@ -4055,6 +4073,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                   | undefined;
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
                 deterministic?: boolean | undefined;
               },
               {
@@ -4093,6 +4112,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                   | undefined;
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
                 deterministic?: boolean | undefined;
               }
             >,
@@ -4127,6 +4147,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
                 inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
                 adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+                turbo: z.ZodOptional<z.ZodBoolean>;
               },
               "strip",
               z.ZodTypeAny,
@@ -4137,6 +4158,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 mediaType: "video" | "image" | "audio";
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
                 deterministic?: boolean | undefined;
               },
               {
@@ -4146,6 +4168,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 mediaType: "video" | "image" | "audio";
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
                 deterministic?: boolean | undefined;
               }
             >,
@@ -4258,6 +4281,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               | undefined;
             inputLabels?: Record<string, string> | undefined;
             adapterSuppliedInputs?: string[] | undefined;
+            turbo?: boolean | undefined;
             deterministic?: boolean | undefined;
           }
         | {
@@ -4273,6 +4297,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             mediaType: "video" | "image" | "audio";
             inputLabels?: Record<string, string> | undefined;
             adapterSuppliedInputs?: string[] | undefined;
+            turbo?: boolean | undefined;
             deterministic?: boolean | undefined;
           }
         | {
@@ -4407,6 +4432,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 | undefined;
               inputLabels?: Record<string, string> | undefined;
               adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
               deterministic?: boolean | undefined;
             }
           | {
@@ -4422,6 +4448,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               mediaType: "video" | "image" | "audio";
               inputLabels?: Record<string, string> | undefined;
               adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
               deterministic?: boolean | undefined;
             }
           | {
@@ -4499,6 +4526,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 | undefined;
               inputLabels?: Record<string, string> | undefined;
               adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
               deterministic?: boolean | undefined;
             }
           | {
@@ -4514,6 +4542,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               mediaType: "video" | "image" | "audio";
               inputLabels?: Record<string, string> | undefined;
               adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
               deterministic?: boolean | undefined;
             }
           | {
@@ -4580,6 +4609,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               | undefined;
             inputLabels?: Record<string, string> | undefined;
             adapterSuppliedInputs?: string[] | undefined;
+            turbo?: boolean | undefined;
             deterministic?: boolean | undefined;
           }
         | {
@@ -4595,6 +4625,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             mediaType: "video" | "image" | "audio";
             inputLabels?: Record<string, string> | undefined;
             adapterSuppliedInputs?: string[] | undefined;
+            turbo?: boolean | undefined;
             deterministic?: boolean | undefined;
           }
         | {
@@ -4729,6 +4760,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 | undefined;
               inputLabels?: Record<string, string> | undefined;
               adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
               deterministic?: boolean | undefined;
             }
           | {
@@ -4744,6 +4776,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               mediaType: "video" | "image" | "audio";
               inputLabels?: Record<string, string> | undefined;
               adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
               deterministic?: boolean | undefined;
             }
           | {
@@ -4821,6 +4854,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 | undefined;
               inputLabels?: Record<string, string> | undefined;
               adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
               deterministic?: boolean | undefined;
             }
           | {
@@ -4836,6 +4870,7 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               mediaType: "video" | "image" | "audio";
               inputLabels?: Record<string, string> | undefined;
               adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
               deterministic?: boolean | undefined;
             }
           | {
@@ -5141,6 +5176,7 @@ declare const ComfyAssetDefinitionSchema: z.ZodObject<
     >;
     inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
     adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+    turbo: z.ZodOptional<z.ZodBoolean>;
   },
   "strip",
   z.ZodTypeAny,
@@ -5180,6 +5216,7 @@ declare const ComfyAssetDefinitionSchema: z.ZodObject<
       | undefined;
     inputLabels?: Record<string, string> | undefined;
     adapterSuppliedInputs?: string[] | undefined;
+    turbo?: boolean | undefined;
     deterministic?: boolean | undefined;
   },
   {
@@ -5218,6 +5255,7 @@ declare const ComfyAssetDefinitionSchema: z.ZodObject<
       | undefined;
     inputLabels?: Record<string, string> | undefined;
     adapterSuppliedInputs?: string[] | undefined;
+    turbo?: boolean | undefined;
     deterministic?: boolean | undefined;
   }
 >;
@@ -5254,6 +5292,7 @@ declare const FalAssetDefinitionSchema: z.ZodObject<
     inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
     inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
     adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+    turbo: z.ZodOptional<z.ZodBoolean>;
   },
   "strip",
   z.ZodTypeAny,
@@ -5264,6 +5303,7 @@ declare const FalAssetDefinitionSchema: z.ZodObject<
     mediaType: "video" | "image" | "audio";
     inputLabels?: Record<string, string> | undefined;
     adapterSuppliedInputs?: string[] | undefined;
+    turbo?: boolean | undefined;
     deterministic?: boolean | undefined;
   },
   {
@@ -5273,6 +5313,7 @@ declare const FalAssetDefinitionSchema: z.ZodObject<
     mediaType: "video" | "image" | "audio";
     inputLabels?: Record<string, string> | undefined;
     adapterSuppliedInputs?: string[] | undefined;
+    turbo?: boolean | undefined;
     deterministic?: boolean | undefined;
   }
 >;
@@ -5438,6 +5479,7 @@ declare const AssetDefinitionSchema: z.ZodDiscriminatedUnion<
         >;
         inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
         adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        turbo: z.ZodOptional<z.ZodBoolean>;
       },
       "strip",
       z.ZodTypeAny,
@@ -5477,6 +5519,7 @@ declare const AssetDefinitionSchema: z.ZodDiscriminatedUnion<
           | undefined;
         inputLabels?: Record<string, string> | undefined;
         adapterSuppliedInputs?: string[] | undefined;
+        turbo?: boolean | undefined;
         deterministic?: boolean | undefined;
       },
       {
@@ -5515,6 +5558,7 @@ declare const AssetDefinitionSchema: z.ZodDiscriminatedUnion<
           | undefined;
         inputLabels?: Record<string, string> | undefined;
         adapterSuppliedInputs?: string[] | undefined;
+        turbo?: boolean | undefined;
         deterministic?: boolean | undefined;
       }
     >,
@@ -5549,6 +5593,7 @@ declare const AssetDefinitionSchema: z.ZodDiscriminatedUnion<
         inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
         inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
         adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        turbo: z.ZodOptional<z.ZodBoolean>;
       },
       "strip",
       z.ZodTypeAny,
@@ -5559,6 +5604,7 @@ declare const AssetDefinitionSchema: z.ZodDiscriminatedUnion<
         mediaType: "video" | "image" | "audio";
         inputLabels?: Record<string, string> | undefined;
         adapterSuppliedInputs?: string[] | undefined;
+        turbo?: boolean | undefined;
         deterministic?: boolean | undefined;
       },
       {
@@ -5568,6 +5614,7 @@ declare const AssetDefinitionSchema: z.ZodDiscriminatedUnion<
         mediaType: "video" | "image" | "audio";
         inputLabels?: Record<string, string> | undefined;
         adapterSuppliedInputs?: string[] | undefined;
+        turbo?: boolean | undefined;
         deterministic?: boolean | undefined;
       }
     >,
@@ -5771,6 +5818,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
               >;
               inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
               adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+              turbo: z.ZodOptional<z.ZodBoolean>;
             },
             "strip",
             z.ZodTypeAny,
@@ -5810,6 +5858,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
                 | undefined;
               inputLabels?: Record<string, string> | undefined;
               adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
               deterministic?: boolean | undefined;
             },
             {
@@ -5848,6 +5897,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
                 | undefined;
               inputLabels?: Record<string, string> | undefined;
               adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
               deterministic?: boolean | undefined;
             }
           >,
@@ -5882,6 +5932,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
               inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
               inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
               adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+              turbo: z.ZodOptional<z.ZodBoolean>;
             },
             "strip",
             z.ZodTypeAny,
@@ -5892,6 +5943,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
               mediaType: "video" | "image" | "audio";
               inputLabels?: Record<string, string> | undefined;
               adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
               deterministic?: boolean | undefined;
             },
             {
@@ -5901,6 +5953,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
               mediaType: "video" | "image" | "audio";
               inputLabels?: Record<string, string> | undefined;
               adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
               deterministic?: boolean | undefined;
             }
           >,
@@ -6226,6 +6279,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
             | undefined;
           inputLabels?: Record<string, string> | undefined;
           adapterSuppliedInputs?: string[] | undefined;
+          turbo?: boolean | undefined;
           deterministic?: boolean | undefined;
         }
       | {
@@ -6241,6 +6295,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
           mediaType: "video" | "image" | "audio";
           inputLabels?: Record<string, string> | undefined;
           adapterSuppliedInputs?: string[] | undefined;
+          turbo?: boolean | undefined;
           deterministic?: boolean | undefined;
         }
       | {
@@ -6366,6 +6421,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
             | undefined;
           inputLabels?: Record<string, string> | undefined;
           adapterSuppliedInputs?: string[] | undefined;
+          turbo?: boolean | undefined;
           deterministic?: boolean | undefined;
         }
       | {
@@ -6381,6 +6437,7 @@ declare const ShotDefinitionSchema: z.ZodObject<
           mediaType: "video" | "image" | "audio";
           inputLabels?: Record<string, string> | undefined;
           adapterSuppliedInputs?: string[] | undefined;
+          turbo?: boolean | undefined;
           deterministic?: boolean | undefined;
         }
       | {
@@ -6937,6 +6994,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                     >;
                     inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
                     adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+                    turbo: z.ZodOptional<z.ZodBoolean>;
                   },
                   "strip",
                   z.ZodTypeAny,
@@ -6976,6 +7034,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                       | undefined;
                     inputLabels?: Record<string, string> | undefined;
                     adapterSuppliedInputs?: string[] | undefined;
+                    turbo?: boolean | undefined;
                     deterministic?: boolean | undefined;
                   },
                   {
@@ -7014,6 +7073,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                       | undefined;
                     inputLabels?: Record<string, string> | undefined;
                     adapterSuppliedInputs?: string[] | undefined;
+                    turbo?: boolean | undefined;
                     deterministic?: boolean | undefined;
                   }
                 >,
@@ -7048,6 +7108,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                     inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
                     inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
                     adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+                    turbo: z.ZodOptional<z.ZodBoolean>;
                   },
                   "strip",
                   z.ZodTypeAny,
@@ -7058,6 +7119,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                     mediaType: "video" | "image" | "audio";
                     inputLabels?: Record<string, string> | undefined;
                     adapterSuppliedInputs?: string[] | undefined;
+                    turbo?: boolean | undefined;
                     deterministic?: boolean | undefined;
                   },
                   {
@@ -7067,6 +7129,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                     mediaType: "video" | "image" | "audio";
                     inputLabels?: Record<string, string> | undefined;
                     adapterSuppliedInputs?: string[] | undefined;
+                    turbo?: boolean | undefined;
                     deterministic?: boolean | undefined;
                   }
                 >,
@@ -7392,6 +7455,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                   | undefined;
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
                 deterministic?: boolean | undefined;
               }
             | {
@@ -7407,6 +7471,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 mediaType: "video" | "image" | "audio";
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
                 deterministic?: boolean | undefined;
               }
             | {
@@ -7532,6 +7597,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                   | undefined;
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
                 deterministic?: boolean | undefined;
               }
             | {
@@ -7547,6 +7613,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 mediaType: "video" | "image" | "audio";
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
                 deterministic?: boolean | undefined;
               }
             | {
@@ -7738,6 +7805,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 >;
                 inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
                 adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+                turbo: z.ZodOptional<z.ZodBoolean>;
               },
               "strip",
               z.ZodTypeAny,
@@ -7777,6 +7845,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                   | undefined;
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
                 deterministic?: boolean | undefined;
               },
               {
@@ -7815,6 +7884,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                   | undefined;
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
                 deterministic?: boolean | undefined;
               }
             >,
@@ -7849,6 +7919,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
                 inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
                 adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+                turbo: z.ZodOptional<z.ZodBoolean>;
               },
               "strip",
               z.ZodTypeAny,
@@ -7859,6 +7930,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 mediaType: "video" | "image" | "audio";
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
                 deterministic?: boolean | undefined;
               },
               {
@@ -7868,6 +7940,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 mediaType: "video" | "image" | "audio";
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
                 deterministic?: boolean | undefined;
               }
             >,
@@ -8152,6 +8225,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
               | undefined;
             inputLabels?: Record<string, string> | undefined;
             adapterSuppliedInputs?: string[] | undefined;
+            turbo?: boolean | undefined;
             deterministic?: boolean | undefined;
           }
         | {
@@ -8167,6 +8241,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
             mediaType: "video" | "image" | "audio";
             inputLabels?: Record<string, string> | undefined;
             adapterSuppliedInputs?: string[] | undefined;
+            turbo?: boolean | undefined;
             deterministic?: boolean | undefined;
           }
         | {
@@ -8301,6 +8376,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 | undefined;
               inputLabels?: Record<string, string> | undefined;
               adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
               deterministic?: boolean | undefined;
             }
           | {
@@ -8316,6 +8392,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
               mediaType: "video" | "image" | "audio";
               inputLabels?: Record<string, string> | undefined;
               adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
               deterministic?: boolean | undefined;
             }
           | {
@@ -8419,6 +8496,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
               | undefined;
             inputLabels?: Record<string, string> | undefined;
             adapterSuppliedInputs?: string[] | undefined;
+            turbo?: boolean | undefined;
             deterministic?: boolean | undefined;
           }
         | {
@@ -8434,6 +8512,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
             mediaType: "video" | "image" | "audio";
             inputLabels?: Record<string, string> | undefined;
             adapterSuppliedInputs?: string[] | undefined;
+            turbo?: boolean | undefined;
             deterministic?: boolean | undefined;
           }
         | {
@@ -8568,6 +8647,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
                 | undefined;
               inputLabels?: Record<string, string> | undefined;
               adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
               deterministic?: boolean | undefined;
             }
           | {
@@ -8583,6 +8663,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
               mediaType: "video" | "image" | "audio";
               inputLabels?: Record<string, string> | undefined;
               adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
               deterministic?: boolean | undefined;
             }
           | {
@@ -9093,6 +9174,7 @@ export interface AdapterInputDefBase {
   fill?: "speech";
   pin?: DeclaredPin;
   stem?: true;
+  turbo?: true;
   values?: readonly string[];
   required?: boolean;
   also?: readonly {
@@ -9271,6 +9353,7 @@ export interface FalInputDefBase {
   default?: string | number | boolean;
   pin?: "start" | "end";
   stem?: true;
+  turbo?: true;
   values?: readonly string[];
   min?: number;
   max?: number;

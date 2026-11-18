@@ -48,6 +48,8 @@ import { adapterGuides, GUIDE_SPECIFIER_PREFIX } from "../src/core/dsl/adapter.j
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - konte-prompt-critic 4,050 → 4,150: `turbo-misfit` — the take's turbo side against the conditions
+//   its adapter guide sets.
 // - adaptation 36,400 → 36,450, persuasion 35,650 → 35,700 (agreed by a human): an element on both
 //   sides of a graphic shot's boundary kept in place, a shot picking up the last one's final frame.
 // - persuasion (new, 35,650): the `video` chain for a persuasion piece, persuasion.md read in
@@ -199,7 +201,7 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "konte-prompt-critic",
-    budget: 4_050,
+    budget: 4_150,
     files: [...ALWAYS, `${AGENTS}/konte-prompt-critic.md`],
   },
   {

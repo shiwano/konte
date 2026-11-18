@@ -49,13 +49,7 @@ import { JobManager } from "../../../core/job-manager.js";
 import type { FindingReport } from "../../../core/checks.js";
 import { reviewHeldError, reviewHeldFindings } from "../../finding-gates.js";
 import { clampUnit } from "../../../core/types/index.js";
-import type {
-  AssetDefinition,
-  FeedbackAnnotation,
-  KonteState,
-  VariantState,
-} from "../../../core/types/index.js";
-import { readDefinitionSnapshot } from "../../../core/definition-snapshot.js";
+import type { FeedbackAnnotation, KonteState, VariantState } from "../../../core/types/index.js";
 import type { PatchChainVariants } from "./asset-info.js";
 import { readVariantThumbnails } from "../../../core/variant-thumbnails.js";
 import { inferMediaType } from "../../../core/media-type.js";
@@ -468,20 +462,6 @@ export function variantPreviewUrl(
   if (kind === "image") return variantFileUrl(address, variantId, variant.file, assetBaseUrl);
   if (kind === "video") return videoVariantThumbUrl(videoRoot, address, variantId, variant);
   return null;
-}
-
-/**
- * The definition a take's lineage was submitted with — its `definition.json` — or null when it is
- * gone.
- */
-export function variantDefinitionSnapshot(
-  manager: StateManager,
-  videoRoot: string,
-  address: string,
-  variantId: string,
-): AssetDefinition | null {
-  const origin = generatedOrigin(manager.getState(), address, variantId);
-  return readDefinitionSnapshot(videoRoot, address, origin);
 }
 
 /**

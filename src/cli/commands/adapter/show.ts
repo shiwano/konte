@@ -64,7 +64,8 @@ function defaultCell(input: AdapterMetaInput): string {
 // the next point. `≥4MP` on a width and height marks the size konte raises the pair to, aspect
 // kept. `@24` is the fps a frame count is measured on. `pin:start` / `pin:end` marks an image the
 // model reproduces as that frame; the pin check refuses a sheet or a plate there. `stem` marks the
-// take's own soundtrack, which konte fills on a piece cut to its song.
+// take's own soundtrack, which konte fills on a piece cut to its song. `turbo` marks the switch
+// trading motion fidelity for speed and cost.
 function typeCell(input: AdapterMetaInput, minPixels: number | undefined): string {
   const base = input.array ? `${input.type}[]` : input.type;
   const clock = input.clock ? `@${input.clock}` : "";
@@ -79,7 +80,8 @@ function typeCell(input: AdapterMetaInput, minPixels: number | undefined): strin
   const max = input.max !== undefined ? ` ≤${input.max}` : "";
   const pin = input.pin ? ` pin:${input.pin}` : "";
   const stem = input.stem ? " stem" : "";
-  return `${base}${clock}${grid}${pixels}${min}${max}${pin}${stem}`;
+  const turbo = input.turbo ? " turbo" : "";
+  return `${base}${clock}${grid}${pixels}${min}${max}${pin}${stem}${turbo}`;
 }
 
 function renderInputs(

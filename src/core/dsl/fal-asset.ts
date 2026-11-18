@@ -9,6 +9,7 @@ import {
   assertFixedInputs,
   assertPinInputs,
   assertStemInputs,
+  assertTurboInputs,
   buildMetaInputs,
   type AssetAdapter,
   type AllowedSites,
@@ -59,6 +60,8 @@ interface FalInputDefBase {
   pin?: "start" | "end";
   // See `AdapterInputDef.stem`.
   stem?: true;
+  // See `AdapterInputDef.turbo`.
+  turbo?: true;
   values?: readonly string[];
   // The shortest and longest `"seconds"` the model takes. A derived length is raised to `min`; one
   // past `max` is refused at load.
@@ -189,6 +192,7 @@ export function defineFalAsset<
   assertFixedInputs(config.inputs);
   assertPinInputs(config.inputs);
   assertStemInputs(config.inputs);
+  const turboInput = assertTurboInputs(config.inputs);
   assertValidatorInputs(config.validators, config.inputs);
   const promptInput = promptInputName(config.inputs);
 
@@ -275,6 +279,7 @@ export function defineFalAsset<
       const adapterSuppliedInputs = Object.keys(inputLabels).filter((k) =>
         supplied.has(inputLabels[k]!),
       );
+      const turbo = turboInput === undefined ? undefined : resolved[turboInput];
       return {
         kind: "fal",
         endpointId: config.endpointId,
@@ -282,6 +287,7 @@ export function defineFalAsset<
         inputs,
         inputLabels,
         adapterSuppliedInputs,
+        ...(typeof turbo === "boolean" ? { turbo } : {}),
         ...(config.deterministic ? { deterministic: true } : {}),
       };
     },

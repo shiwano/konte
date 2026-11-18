@@ -3,6 +3,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it, vi } from "vitest";
+import { writeDefinitionSnapshot } from "../../core/definition-snapshot.js";
 import { ensureFfmpeg } from "../../core/ffmpeg.js";
 import {
   ffmpegBin,
@@ -135,6 +136,29 @@ export default defineVideo(direction, {
     );
     expect(magnitudeOf(frozen)).toBeLessThanOrEqual(0.01); // the floor the warning fires on
     expect(frozen).toContain("nothing in frame moves that far");
+  }, 30000);
+
+  it("prints the turbo side the take's definition snapshot was drawn on", async () => {
+    const projectDir = await initMotionProject();
+    const state = JSON.parse(
+      await fs.readFile(path.join(projectDir, "konte.state.json"), "utf-8"),
+    ) as { assets: Record<string, { variants: Record<string, unknown> }> };
+    const address = "video:shot.01.motion";
+    const [variantId] = Object.keys(state.assets[address]!.variants);
+    writeDefinitionSnapshot(projectDir, address, variantId!, {
+      kind: "comfy",
+      workflow: "w.json",
+      inputs: {},
+      turbo: true,
+    });
+
+    const { stderr: turbo } = await run(["probe", "motion", address, "--verbose"], projectDir);
+    expect(turbo).toContain("  turbo     on");
+    const { stderr: none } = await run(
+      ["probe", "motion", "video:shot.02.motion", "--verbose"],
+      projectDir,
+    );
+    expect(none).not.toContain("turbo");
   }, 30000);
 
   it("prints the shot's intent under the warning, so the number can be judged", async () => {

@@ -97,6 +97,20 @@ describe("inspect --prompts", () => {
     expect(ordinary.stdout).not.toContain("generation:");
   });
 
+  it("prints the side of an adapter's turbo switch above its address", async () => {
+    await fs.writeFile(
+      path.join(projectDir, "video.tsx"),
+      TYPED_TEXT_VIDEO_TSX.replace(
+        `negative: { nodeId: "4", field: "text", type: "negativePrompt" },`,
+        `negative: { nodeId: "4", field: "text", type: "negativePrompt" },
+    fast: { nodeId: "5", field: "value", type: "boolean", default: true, turbo: true },`,
+      ),
+    );
+    const { stdout } = await run(["inspect", "video", "--prompts"], projectDir);
+    expect(stdout).toContain("video:shot.01.motion\n  turbo: on");
+    expect(stdout).not.toMatch(/video:shot\.01\.voice\n {2}turbo:/);
+  });
+
   it("marks the panel whose source is pending generation", async () => {
     await fs.writeFile(
       path.join(projectDir, "animatic.tsx"),

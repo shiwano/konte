@@ -72,11 +72,17 @@ const InputLabelsSchema = z.record(z.string(), z.string()).optional();
 // adapter, not under the stage file that calls it.
 const AdapterSuppliedInputsSchema = z.array(z.string()).optional();
 
+// What the adapter's `turbo` input resolved to (see `AdapterInputDef.turbo`) — read off the
+// definition by `inspect --prompts` and off a take's `definition.json` by `probe motion`. The value
+// itself already lives in `inputs`.
+const TurboSchema = z.boolean().optional();
+
 // Every definition field no backend reads, stripped before hashing (see `computeDefinitionHash`).
 export const NON_GENERATIVE_KEYS: ReadonlyArray<string> = [
   ...VERDICT_AXIS_KEYS,
   "inputLabels",
   "adapterSuppliedInputs",
+  "turbo",
 ];
 
 export const ComfyAssetDefinitionSchema = z.object({
@@ -95,6 +101,7 @@ export const ComfyAssetDefinitionSchema = z.object({
   nodes: z.array(ComfyNodeDeclarationSchema).optional(),
   inputLabels: InputLabelsSchema,
   adapterSuppliedInputs: AdapterSuppliedInputsSchema,
+  turbo: TurboSchema,
   ...VerdictAxes,
 });
 
@@ -115,6 +122,7 @@ export const FalAssetDefinitionSchema = z.object({
   inputs: z.record(z.string(), z.unknown()),
   inputLabels: InputLabelsSchema,
   adapterSuppliedInputs: AdapterSuppliedInputsSchema,
+  turbo: TurboSchema,
   ...VerdictAxes,
 });
 
