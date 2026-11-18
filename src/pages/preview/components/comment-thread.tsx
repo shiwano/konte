@@ -15,8 +15,16 @@ import {
   XIcon,
 } from "./icons.js";
 import { type LiveFeedbackFilter, liveFeedback } from "../review/live-feedback.js";
-import { type MarkRange, type QuoteKind, isQuoteLine, parseQuoteLine } from "../review/quote.js";
-import { Marked } from "../review/quote-composer.js";
+import {
+  type MarkRange,
+  type QuoteKind,
+  isQuoteLine,
+  markFragments,
+  parseQuoteLine,
+  quotedFragments,
+  quoteLines,
+} from "../review/quote.js";
+import { Marked, QuoteTip } from "../review/quote-composer.js";
 import type { CommentThreadBinding } from "../review/use-review-session.js";
 import { NoteInput } from "./note-input.js";
 
@@ -186,16 +194,22 @@ const ROSTER_LABEL: Record<DirectionRosterKind, string> = {
 // character/prop/location, or for the voice this sample casts. Read-only, pinned above the comments:
 // accepting the media re-accepts this prose (see the roster cascade), so it has to be on the page the
 // reviewer is looking at.
-export function RosterCard({
-  kind,
-  name,
-  description,
-  needsReview,
-}: {
+export interface RosterEntryView {
   kind: DirectionRosterKind;
   name: string;
   description: string;
   needsReview?: boolean;
+}
+
+// A roster entry the asset anchors: its prose quotes as `roster` at index `field`.
+function RosterCard({
+  entry: { kind, name, description, needsReview },
+  field,
+  marks,
+}: {
+  entry: RosterEntryView;
+  field: number;
+  marks: QuoteMarks;
 }): React.ReactElement {
   return (
     <div className="comment-card comment-card--move">
@@ -209,7 +223,9 @@ export function RosterCard({
           {needsReview && <span className="comment-roster-flag">needs review</span>}
         </span>
         <span className="comment-move-row">
-          <span className="comment-move-text">{description}</span>
+          <span className="comment-move-text" data-quote-kind="roster" data-quote-field={field}>
+            <Marked text={description} ranges={marksAt(marks, "roster", field)} />
+          </span>
         </span>
       </span>
     </div>
@@ -281,28 +297,23 @@ export function FrameCard({
   );
 }
 
-// The agent's handoff note (AI -> reviewer): why this asset was revised. Under a quote scope, it
-// quotes as `handoff` at index `field`.
+// The agent's handoff note (AI -> reviewer): why this asset was revised. It quotes as `handoff` at
+// index `field`.
 export function HandoffCard({
   text,
   field,
   marks,
 }: {
   text: string;
-  field?: number;
-  marks?: QuoteMarks;
+  field: number;
+  marks: QuoteMarks;
 }): React.ReactElement {
   return (
     <div className="comment-card comment-card--agent">
       <span className="comment-card-icon">
         <SparkleIcon size={12} />
       </span>
-      <span
-        className="comment-card-body"
-        {...(field !== undefined
-          ? { "data-quote-kind": "handoff", "data-quote-field": field }
-          : {})}
-      >
+      <span className="comment-card-body" data-quote-kind="handoff" data-quote-field={field}>
         <Marked text={text} ranges={marksAt(marks, "handoff", field)} />
       </span>
     </div>
@@ -420,15 +431,20 @@ function CommentText({ text, tagged }: { text: string; tagged: boolean }): React
 }
 
 /**
- * A target's comment thread: the agent handoff (read-only context) above the reviewer's saved and
- * draft comments, with an inline composer at the bottom. Pinned
+ * A target's comment thread: the roster prose it anchors and the agent handoff (read-only context)
+ * above the reviewer's saved and draft comments, with an inline composer at the bottom. Selecting
+ * words in the roster prose or the handoff quotes them into the composer, and the words the
+ * comments quote are marked there. Pinned
  * comments carry the same number as their on-frame marker (`pinIndexById`), so the
  * list and the frame read as one.
  */
 export function CommentThread({
+  address,
   feedback,
   thread,
   pendingPin,
+  roster,
+  context,
   handoffNotes,
   emptyHint,
   pinIndexById,
@@ -437,9 +453,14 @@ export function CommentThread({
   onCancelPin,
   onJumpToTime,
 }: {
+  // The target's feedback address.
+  address: string;
   feedback: FeedbackInfo[];
   thread: CommentThreadBinding;
   pendingPin: { x: number; y: number } | null;
+  roster?: readonly RosterEntryView[];
+  // Unquotable context shown between the roster and the handoff.
+  context?: React.ReactNode;
   handoffNotes?: string[];
   // Shown in place of the comment list while the thread holds no reviewer comment, so an empty
   // thread reads as "nothing said yet" rather than as context with a stray button under it.
@@ -452,15 +473,39 @@ export function CommentThread({
 }): React.ReactElement {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [insert, setInsert] = useState<{ text: string; nonce: number } | undefined>();
+  const [draftText, setDraftText] = useState("");
+  const contextRef = useRef<HTMLDivElement>(null);
   const { pendingFeedback } = thread;
+
+  const closeComposer = useCallback(() => {
+    setIsAdding(false);
+    setInsert(undefined);
+    setDraftText("");
+  }, []);
 
   const handleAdd = useCallback(
     (text: string) => {
       thread.addPending(text);
-      setIsAdding(false);
+      closeComposer();
+    },
+    [thread, closeComposer],
+  );
+
+  const handlePinSave = useCallback(
+    (text: string) => {
+      thread.addPending(text);
+      setInsert(undefined);
+      setDraftText("");
     },
     [thread],
   );
+
+  const handlePinCancel = useCallback(() => {
+    setInsert(undefined);
+    setDraftText("");
+    onCancelPin();
+  }, [onCancelPin]);
 
   const handleEditSave = useCallback(
     (text: string) => {
@@ -500,11 +545,41 @@ export function CommentThread({
     })),
   ];
 
+  const composing = isAdding || pendingPin !== null;
+  const marks = markFragments(
+    new Map<QuoteKind, readonly string[]>([
+      ["roster", (roster ?? []).map((r) => r.description)],
+      ["handoff", handoffNotes ?? []],
+    ]),
+    quotedFragments([...comments.map((c) => c.text), ...(composing ? [draftText] : [])], true),
+  );
+
   return (
     <div className="comment-thread">
-      {handoffNotes?.map((text, i) => (
-        <HandoffCard key={`agent-${i}`} text={text} />
-      ))}
+      {((roster && roster.length > 0) || context || (handoffNotes && handoffNotes.length > 0)) && (
+        <div
+          ref={contextRef}
+          className="comment-thread-context"
+          data-quote-root
+          data-quote-address={address}
+        >
+          {roster?.map((entry, i) => (
+            <RosterCard key={`${entry.kind}:${entry.name}`} entry={entry} field={i} marks={marks} />
+          ))}
+          {context}
+          {handoffNotes?.map((text, i) => (
+            <HandoffCard key={`agent-${i}`} text={text} field={i} marks={marks} />
+          ))}
+          <QuoteTip
+            root={contextRef}
+            accepts={(a) => a === address}
+            onQuote={(_, quotes) => {
+              setInsert({ text: quoteLines(quotes), nonce: Date.now() });
+              if (!pendingPin) setIsAdding(true);
+            }}
+          />
+        </div>
+      )}
 
       {emptyHint && visibleFeedback.length === 0 && pendingFeedback.length === 0 && !pendingPin && (
         <p className="comment-thread-empty">{emptyHint}</p>
@@ -527,6 +602,7 @@ export function CommentThread({
             stale={c.stale}
             pending={c.pending}
             highlighted={highlightedId === c.id}
+            quoteKinds
             onJump={() => {
               if (c.time !== undefined) onJumpToTime?.(c.time);
               if (c.annotation) onHighlightPin?.(c.id);
@@ -539,12 +615,19 @@ export function CommentThread({
 
       {pendingPin ? (
         <NoteInput
+          insert={insert}
+          onTextChange={setDraftText}
           placeholder="Describe what you see at this pin…"
-          onSave={thread.addPending}
-          onCancel={onCancelPin}
+          onSave={handlePinSave}
+          onCancel={handlePinCancel}
         />
       ) : isAdding ? (
-        <NoteInput onSave={handleAdd} onCancel={() => setIsAdding(false)} />
+        <NoteInput
+          insert={insert}
+          onTextChange={setDraftText}
+          onSave={handleAdd}
+          onCancel={closeComposer}
+        />
       ) : (
         <button type="button" className="comment-add-btn" onClick={() => setIsAdding(true)}>
           <PlusIcon size={13} /> Add note

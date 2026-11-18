@@ -115,7 +115,7 @@ export function ShotScript({
 
   return (
     <SongMeterContext.Provider value={song}>
-      <div className="dir-sc" ref={containerRef}>
+      <div className="dir-sc" ref={containerRef} data-quote-root>
         {kind === "sequenced"
           ? (sequences ?? []).map((seq) => (
               <ScriptSequence
@@ -127,7 +127,7 @@ export function ShotScript({
               />
             ))
           : (shots ?? []).map((shot) => <ScriptShot key={shot.id} shot={shot} ctx={ctx} />)}
-        <QuoteTip accepts={composer.accepts} onQuote={composer.quote} />
+        <QuoteTip root={containerRef} accepts={composer.accepts} onQuote={composer.quote} />
         {composer.panel}
       </div>
     </SongMeterContext.Provider>

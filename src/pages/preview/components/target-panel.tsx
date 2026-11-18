@@ -1,5 +1,5 @@
 import type React from "react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { formatTimecode } from "../format-time.js";
 import { type QuoteKind, markFragments, quoteLines, quotedFragments } from "../review/quote.js";
 import { QuoteTip } from "../review/quote-composer.js";
@@ -121,6 +121,7 @@ export function TargetPanel({
   const waiverCards = waivers ?? [];
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftText, setDraftText] = useState("");
+  const contextRef = useRef<HTMLDivElement>(null);
 
   const quotable = address !== undefined && onQuote !== undefined;
   const marks = markFragments(
@@ -162,7 +163,12 @@ export function TargetPanel({
         moveCards.length > 0 ||
         waiverCards.length > 0 ||
         (handoffNotes && handoffNotes.length > 0)) && (
-        <div className="target-panel-context" data-quote-address={quotable ? address : undefined}>
+        <div
+          ref={contextRef}
+          className="target-panel-context"
+          data-quote-root
+          data-quote-address={quotable ? address : undefined}
+        >
           {scriptLines.length > 0 && (
             <ScriptCard
               script={scriptLines}
@@ -200,6 +206,7 @@ export function TargetPanel({
           ))}
           {quotable && (
             <QuoteTip
+              root={contextRef}
               accepts={(a) => a === address}
               onQuote={(_, quotes) => {
                 const said = quotes.find((q) => q.kind === "script");

@@ -3674,7 +3674,8 @@ body.fill-mode .fab-submit-wrap {
 
 /* Comment cards — one shared card for every voice in a review: the reviewer's saved
    comments and drafts, the agent's handoff, and the read-only shot it is reviewed against. */
-.comment-thread {
+.comment-thread,
+.comment-thread-context {
   display: flex;
   flex-direction: column;
   gap: 4px;

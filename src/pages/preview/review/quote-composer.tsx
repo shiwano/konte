@@ -15,7 +15,8 @@ import {
 } from "./quote.js";
 
 // Quotable text is a `data-quote-field` (its index within its kind) under a `data-quote-address`
-// scope, tagged `data-quote-kind` unless its quotes go untagged.
+// scope, tagged `data-quote-kind` unless its quotes go untagged. A scope belongs to the `QuoteTip`
+// of its nearest `data-quote-root`.
 
 const QUOTE_PANEL_WIDTH = 360;
 
@@ -168,9 +169,11 @@ function selectedQuotes(scope: HTMLElement, range: Range): QuoteSpan[] {
 // The "Comment" button floated at a selection inside one scope's quotable text. Its own component,
 // so a selection moving re-renders the button alone rather than the whole container.
 export function QuoteTip({
+  root,
   accepts,
   onQuote,
 }: {
+  root: React.RefObject<HTMLElement | null>;
   accepts: (address: string) => boolean;
   onQuote: (address: string, quotes: QuoteSpan[], anchor: { x: number; y: number }) => void;
 }): React.ReactElement | null {
@@ -191,7 +194,8 @@ export function QuoteTip({
       const range = sel && !sel.isCollapsed && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
       const node = range?.commonAncestorContainer;
       const el = node instanceof Element ? node : node?.parentElement;
-      const scope = el?.closest<HTMLElement>("[data-quote-address]");
+      const found = el?.closest<HTMLElement>("[data-quote-address]");
+      const scope = found?.closest("[data-quote-root]") === root.current ? found : undefined;
       const address = scope?.dataset.quoteAddress;
       const quotes = range && scope ? selectedQuotes(scope, range) : [];
       if (!range || !address || quotes.length === 0 || !acceptsRef.current(address)) {
@@ -238,7 +242,7 @@ export function QuoteTip({
       document.removeEventListener("selectionchange", onSelectionChange);
       window.removeEventListener("scroll", hide, true);
     };
-  }, []);
+  }, [root]);
 
   if (!tip) return null;
   return (

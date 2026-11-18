@@ -58,7 +58,7 @@ import { AcceptButton } from "./accept-button.js";
 import { CheckIcon, CommentIcon, FilmIcon, GridIcon, MenuIcon, VolumeIcon } from "./icons.js";
 import { AuditionAudio } from "./audition-audio.js";
 import { SongLineEditsContext, SongSummary, SongTrack, unplacedLineCount } from "./song-track.js";
-import { buildPinIndex, CommentThread, RosterCard } from "./comment-thread.js";
+import { buildPinIndex, CommentThread } from "./comment-thread.js";
 import { FrameOverlay } from "./frame-overlay.js";
 import { Modal } from "./modal.js";
 import { PinLayer } from "./pin-layer.js";
@@ -1142,20 +1142,17 @@ function ReferenceRow({
       </div>
 
       <div className="ref-row-notes review-col-feedback">
-        {asset.directionRoster?.map((part) => (
-          <RosterCard
-            key={`${part.kind}:${part.name}`}
-            kind={part.kind}
-            name={part.name}
-            description={part.description}
-            needsReview={part.needsReview}
-          />
-        ))}
-        {member.lines && member.lines.length > 0 && <VoiceLinesCard lines={member.lines} />}
         <CommentThread
+          address={asset.address}
           feedback={asset.feedback}
           thread={thread}
           pendingPin={pendingPin}
+          {...(asset.directionRoster ? { roster: asset.directionRoster } : {})}
+          context={
+            member.lines && member.lines.length > 0 ? (
+              <VoiceLinesCard lines={member.lines} />
+            ) : undefined
+          }
           handoffNotes={asset.handoffNote ? [asset.handoffNote] : undefined}
           emptyHint={
             isImage
@@ -1320,18 +1317,20 @@ function ReferenceDetailModal({
           )}
         </div>
         <aside className="reference-detail-notes">
-          {asset.directionRoster?.map((part) => (
-            <RosterCard
-              key={`${part.kind}:${part.name}`}
-              kind={part.kind}
-              name={part.name}
-              description={part.description}
-            />
-          ))}
           <CommentThread
+            address={asset.address}
             feedback={asset.feedback}
             thread={thread}
             pendingPin={pendingPin}
+            {...(asset.directionRoster
+              ? {
+                  roster: asset.directionRoster.map(({ kind, name, description }) => ({
+                    kind,
+                    name,
+                    description,
+                  })),
+                }
+              : {})}
             handoffNotes={asset.handoffNote ? [asset.handoffNote] : undefined}
             pinIndexById={pinIndexById}
             highlightedId={highlightedFeedbackId}

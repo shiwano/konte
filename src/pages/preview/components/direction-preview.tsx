@@ -364,6 +364,7 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
   const renderNotes = useCallback(
     (part: DirectionPartInfo) => (
       <CommentThread
+        address={part.address}
         feedback={part.feedback}
         thread={session.threadFor(part.address)}
         pendingPin={null}

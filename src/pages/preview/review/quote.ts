@@ -11,6 +11,7 @@ export const QUOTE_KINDS = [
   "camera",
   "waiver",
   "handoff",
+  "roster",
   "frame",
 ] as const;
 export type QuoteKind = (typeof QUOTE_KINDS)[number];
