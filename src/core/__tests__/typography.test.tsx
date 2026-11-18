@@ -39,20 +39,44 @@ describe("googleFontsHref", () => {
     expect(href).toContain("1,700");
   });
 
-  it("is null when the piece declares no fonts", () => {
-    expect(googleFontsHref(undefined)).toBeNull();
-    expect(googleFontsHref([])).toBeNull();
+  it("requests the emoji face after the declared families", () => {
+    expect(googleFontsHref(["Inter"])).toMatch(/family=Inter:[^&]*&family=Noto\+Color\+Emoji:/);
+  });
+
+  it("requests the emoji face alone when the piece declares no fonts", () => {
+    expect(googleFontsHref(undefined)).toContain("?family=Noto+Color+Emoji:");
+    expect(googleFontsHref([])).toContain("?family=Noto+Color+Emoji:");
+  });
+
+  it("requests a declared emoji face once", () => {
+    expect(googleFontsHref(["Noto Color Emoji"]).match(/Noto\+Color\+Emoji/g)).toHaveLength(1);
   });
 });
 
 describe("fontFamilyStack", () => {
-  it("quotes each family in declaration order and closes with a generic", () => {
-    expect(fontFamilyStack(["Inter", "Noto Sans JP"])).toBe('"Inter", "Noto Sans JP", sans-serif');
+  it("quotes each family in declaration order, then a generic, then the emoji face", () => {
+    expect(fontFamilyStack(["Inter", "Noto Sans JP"])).toBe(
+      '"Inter", "Noto Sans JP", sans-serif, "Noto Color Emoji"',
+    );
   });
 
-  it("is null when the piece declares no fonts", () => {
-    expect(fontFamilyStack(undefined)).toBeNull();
-    expect(fontFamilyStack([])).toBeNull();
+  it("closes Tailwind's default sans stack with the emoji face when the piece declares no fonts", () => {
+    expect(fontFamilyStack(undefined)).toBe(
+      'ui-sans-serif, system-ui, sans-serif, "Noto Color Emoji"',
+    );
+    expect(fontFamilyStack([])).toBe('ui-sans-serif, system-ui, sans-serif, "Noto Color Emoji"');
+  });
+
+  it("keeps a declared emoji face where it was declared", () => {
+    expect(fontFamilyStack(["Noto Sans JP", "Noto Color Emoji"])).toBe(
+      '"Noto Sans JP", "Noto Color Emoji", sans-serif',
+    );
+  });
+
+  it("leaves a different declared emoji face ahead of the implicit one", () => {
+    expect(fontFamilyStack(["Inter", "Noto Emoji"])).toBe(
+      '"Inter", "Noto Emoji", sans-serif, "Noto Color Emoji"',
+    );
   });
 });
 
@@ -106,13 +130,17 @@ describe("Composition head", () => {
     const html = head({ lang: "ja", fonts: ["Inter", "Noto Sans JP"] });
 
     expect(html).toContain('<link rel="stylesheet" href="https://fonts.googleapis.com/css2?');
-    expect(html).toContain('font-family: "Inter", "Noto Sans JP", sans-serif;');
+    expect(html).toContain('font-family: "Inter", "Noto Sans JP", sans-serif, "Noto Color Emoji";');
   });
 
-  it("emits neither when the piece declares no fonts", () => {
+  it("links and lays the emoji face when the piece declares no fonts", () => {
     const html = head({ lang: "en" });
 
-    expect(html).not.toContain("fonts.googleapis.com");
-    expect(html).not.toContain("font-family");
+    expect(html).toContain(
+      '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji:',
+    );
+    expect(html).toContain(
+      'font-family: ui-sans-serif, system-ui, sans-serif, "Noto Color Emoji";',
+    );
   });
 });

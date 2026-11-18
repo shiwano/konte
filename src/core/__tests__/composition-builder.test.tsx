@@ -573,7 +573,9 @@ describe("buildFullCompositionHtml", () => {
     }
     expect(externalResources(reel.html)).toEqual(externalResources(single.html));
     expect(styleBlock(reel.html)).toBe(styleBlock(single.html));
-    expect(styleBlock(single.html)).toContain('font-family: "Inter", "Noto Sans JP", sans-serif;');
+    expect(styleBlock(single.html)).toContain(
+      'font-family: "Inter", "Noto Sans JP", sans-serif, "Noto Color Emoji";',
+    );
   });
 
   it("generates merged composition with all shots", async () => {

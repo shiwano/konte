@@ -171,6 +171,29 @@ describe("captureHtmlToImage", () => {
     );
   });
 
+  it("skips the emoji face on a page with no emoji", async () => {
+    await capture();
+
+    expect(injectFontsMock).toHaveBeenCalledWith(
+      html,
+      expect.objectContaining({ projectFontFamilies: ["Noto Color Emoji"] }),
+    );
+  });
+
+  it.each([["🏬"], ["🇯🇵"], ["1️⃣"]])(
+    "fetches the emoji face on a page carrying %s",
+    async (emoji) => {
+      const page = `<!doctype html><html><body>${emoji} card</body></html>`;
+
+      await capture({ html: page });
+
+      expect(injectFontsMock).toHaveBeenCalledWith(
+        page,
+        expect.not.objectContaining({ projectFontFamilies: expect.anything() }),
+      );
+    },
+  );
+
   it("drops the Google Fonts link once its faces are embedded", async () => {
     injectFontsMock.mockResolvedValue(
       '<html><head><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito&amp;display=block"/><style>@font-face{}</style></head></html>',

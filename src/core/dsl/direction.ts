@@ -307,7 +307,8 @@ export type DirectionPolicy = {
   // The web fonts every stage typesets with, by their Google Fonts family names — a fallback stack in
   // declaration order, resolved per codepoint. Declaring none leaves text on whatever faces the
   // rendering machine has installed, which the definition hash does not cover. A `lang` whose script
-  // no system face is guaranteed to cover raises `fonts-undeclared`.
+  // no system face is guaranteed to cover raises `fonts-undeclared`. Emoji fall back to Noto Color
+  // Emoji, declared or not.
   fonts?: readonly string[];
   // The song the piece is cut to: the id of the `reference:<id>` asset that plays it. With a song
   // every shot's span is `beats`, counted on the beats a take of it is read to play, and the

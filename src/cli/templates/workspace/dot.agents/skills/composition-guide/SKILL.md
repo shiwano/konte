@@ -66,7 +66,7 @@ Gotchas:
 
 ## Fonts
 
-- The piece's web fonts are declared on `direction.policy.fonts` — every shipped weight requested, laid on the composition body.
+- The piece's web fonts are declared on `direction.policy.fonts` — every shipped weight requested, laid on the composition body. Emoji need no entry.
 - Never a Tailwind arbitrary-value class (`font-[Inter]`) — the export embeds faces by reading the HTML, and a class's CSS does not exist until the browser has run.
 
 ## Timing model

@@ -145,10 +145,21 @@ export function assertFontFamilies(fonts: readonly string[]): void {
   }
 }
 
-// The stylesheet URL covering every declared family, or null when the piece declares none.
-export function googleFontsHref(fonts: readonly string[] | undefined): string | null {
-  if (!fonts || fonts.length === 0) return null;
-  const families = fonts.map(
+export const EMOJI_FAMILY = "Noto Color Emoji";
+
+const EMOJI = /[\p{Extended_Pictographic}\p{Regional_Indicator}\u20E3]/u;
+
+export function containsEmoji(text: string): boolean {
+  return EMOJI.test(text);
+}
+
+function withEmoji(fonts: readonly string[] | undefined): readonly string[] {
+  const declared = fonts ?? [];
+  return declared.includes(EMOJI_FAMILY) ? declared : [...declared, EMOJI_FAMILY];
+}
+
+export function googleFontsHref(fonts: readonly string[] | undefined): string {
+  const families = withEmoji(fonts).map(
     (family) => `family=${encodeURIComponent(family).replace(/%20/g, "+")}:${WEIGHT_AXIS}`,
   );
   // `display=block` matches the `font-display: block` HyperFrames injects: a frame captured before
@@ -156,9 +167,11 @@ export function googleFontsHref(fonts: readonly string[] | undefined): string | 
   return `https://fonts.googleapis.com/css2?${families.join("&")}&display=block`;
 }
 
-// The declared families as a CSS `font-family` value, in declaration order, closed with a generic so
-// a codepoint no declared family covers still lands somewhere. Null when the piece declares none.
-export function fontFamilyStack(fonts: readonly string[] | undefined): string | null {
-  if (!fonts || fonts.length === 0) return null;
-  return [...fonts.map((family) => `"${family}"`), "sans-serif"].join(", ");
+// With none declared, the generics are Tailwind's default sans stack.
+export function fontFamilyStack(fonts: readonly string[] | undefined): string {
+  const declared = fonts ?? [];
+  const generics =
+    declared.length > 0 ? ["sans-serif"] : ["ui-sans-serif", "system-ui", "sans-serif"];
+  const emoji = declared.includes(EMOJI_FAMILY) ? [] : [`"${EMOJI_FAMILY}"`];
+  return [...declared.map((family) => `"${family}"`), ...generics, ...emoji].join(", ");
 }

@@ -8,6 +8,7 @@ import { KonteError, errorMessage } from "./errors.js";
 import { leadPathWithFfmpeg } from "./ffmpeg-binary.js";
 import { ensureHyperFramesEnv } from "./hyperframes-env.js";
 import { redactUrls } from "./redact.js";
+import { EMOJI_FAMILY, containsEmoji } from "./typography.js";
 
 export async function ensureHyperFrames(): Promise<void> {
   ensureHyperFramesEnv();
@@ -124,7 +125,8 @@ const GOOGLE_FONTS_LINK = /<link\b[^>]*\bhref="https:\/\/fonts\.googleapis\.com\
 /**
  * Embed every face the page names as a woff2 data URI and drop its Google Fonts `<link>`, so the
  * capture's browser fetches no font. A named family that cannot be fetched refuses the capture: the
- * producer's own compile and a bare capture session each draw a fallback face and carry on.
+ * producer's own compile and a bare capture session each draw a fallback face and carry on. A page
+ * with no emoji skips the emoji face its stack closes on.
  */
 export async function embedFontFaces(
   html: string,
@@ -135,6 +137,7 @@ export async function embedFontFaces(
   try {
     embedded = await injectDeterministicFontFaces(html, {
       failClosedFontFetch: true,
+      ...(containsEmoji(html) ? {} : { projectFontFamilies: [EMOJI_FAMILY] }),
       logger: {
         warn: (message) => onLog?.(`warn: ${message}`),
         info: (message) => onLog?.(`info: ${message}`),
