@@ -1153,8 +1153,9 @@ export function leafSettledAcross(
   const counterpartShot = shotById(counterpart.shots, parsed.shotId);
   if (!ownShot?.shotFn || !counterpartShot?.shotFn) return false;
   const videoShot = own.stage === "video" ? ownShot : counterpartShot;
-  if (composition && videoShot.graphic === true) {
-    return graphicCompositionCovered(manager, own, counterpart, ownShot, address);
+  const video = own.stage === "video" ? own : counterpart;
+  if (composition && pictureDrawnOnBoth(manager, video, videoShot)) {
+    return compositionCovered(manager, own, counterpart, ownShot, address);
   }
   if (!composition && own.stage === "video") {
     return videoStemPlaysBoardStems(manager, own, counterpart, address);
@@ -1194,9 +1195,17 @@ function videoStemPlaysBoardStems(
   );
 }
 
-// A graphic shot's composition whose picture the other stage's signed-off composition holds, drawn
-// over the same files.
-function graphicCompositionCovered(
+function pictureDrawnOnBoth(
+  manager: StateManager,
+  video: StageDefinition,
+  videoShot: ShotDefinition,
+): boolean {
+  return videoShot.graphic === true || !videoShotHasVariant(manager, video, videoShot);
+}
+
+// A composition whose picture the other stage's signed-off composition holds, drawn over the same
+// files.
+function compositionCovered(
   manager: StateManager,
   own: StageDefinition,
   counterpart: StageDefinition,
@@ -1209,9 +1218,9 @@ function graphicCompositionCovered(
   return leafInputsJudged(manager, own, ownShot, address, drawn);
 }
 
-// A graphic shot's board composition the video's own pending verdict will settle: the video's
-// picture holds it over the takes it draws now, and the video's composition awaits review. Its
-// review is the video's to route to.
+// A board composition the video's own pending verdict will settle: the video's picture holds it
+// over the takes it draws now, and the video's composition awaits review. Its review is the
+// video's to route to.
 export function boardCompositionAwaitsVideo(
   manager: StateManager,
   board: StageDefinition | null,
@@ -1224,7 +1233,8 @@ export function boardCompositionAwaitsVideo(
   if (parsed.stage !== "animatic" || parsed.kind !== "shot") return false;
   const boardShot = shotById(board.shots, parsed.shotId);
   const videoShot = shotById(video.shots, parsed.shotId);
-  if (!boardShot?.shotFn || !videoShot?.shotFn || videoShot.graphic !== true) return false;
+  if (!boardShot?.shotFn || !videoShot?.shotFn) return false;
+  if (!pictureDrawnOnBoth(manager, video, videoShot)) return false;
   if (!pictureContains(manager, video, board, parsed.shotId)) return false;
   const videoAddress = formatCompositionAddress(video.stage, parsed.shotId);
   if (
@@ -1315,7 +1325,8 @@ function compositionPicture(
 // Whether `outer`'s picture of a shot holds `inner`'s: the same frame, every node `inner` puts on
 // screen standing in `outer` in the same order, and no node only `outer` has carrying a style or
 // script. An asset is compared by the file it resolves to, so each stage's own asset of one file
-// draws the same picture.
+// draws the same picture, and a `<Panel>` draws what an `<Image>` of its file does — unless
+// something else in either picture reads the panel's mark.
 function pictureContains(
   manager: StateManager,
   outer: StageDefinition,
@@ -1325,11 +1336,18 @@ function pictureContains(
   const o = compositionPicture(outer, shotId);
   const i = compositionPicture(inner, shotId);
   if (!o || !i || o.frame !== i.frame) return false;
+  const bareImage = (node: string): boolean => /^<img\b[^<>]*\/>$/.test(node);
+  const unmarked = ![...o.nodes, ...i.nodes].some(
+    (node) => !bareImage(node) && /konte-?panel/i.test(node),
+  );
   const byFile = (node: string): string =>
-    substituteAssetPlaceholders(node, (ref) => {
-      const hash = manager.resolveReference(ref)?.outputHash;
-      return hash ? `__konte-file:${hash}__` : null;
-    });
+    substituteAssetPlaceholders(
+      unmarked && bareImage(node) ? node.replace(/ data-konte-panel="[^"]*"/, "") : node,
+      (ref) => {
+        const hash = manager.resolveReference(ref)?.outputHash;
+        return hash ? `__konte-file:${hash}__` : null;
+      },
+    );
   const innerNodes = i.nodes.map(byFile);
   let matched = 0;
   for (const node of o.nodes.map(byFile)) {

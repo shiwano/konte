@@ -11,9 +11,15 @@ import {
   materializeCompositionVariant,
   prepareShotStem,
 } from "../../../../core/composition-resource.js";
-import { Audio, Composition, Image } from "../../../../core/dsl/composition/index.js";
+import { Audio, Composition, Image, Panel } from "../../../../core/dsl/composition/index.js";
 import { defineComfyAsset } from "../../../../core/dsl/comfy-asset.js";
-import { asset, defineAnimatic, defineDirection, defineVideo } from "../../../../core/dsl/index.js";
+import {
+  adapters,
+  asset,
+  defineAnimatic,
+  defineDirection,
+  defineVideo,
+} from "../../../../core/dsl/index.js";
 import { StateManager } from "../../../../core/state/index.js";
 import type { StageDefinition } from "../../../../core/types/index.js";
 import { directionDefaults } from "../../../../core/__tests__/helpers/direction.js";
@@ -453,6 +459,152 @@ describe("a graphic shot's composition over a take both stages draw", () => {
     expect(status.needsReview).toContain(CUT);
     expect(status.needsReview).not.toContain(BOARD);
     expect((await boardShot(screenBoard(6), screenCut(6))).needsVerdict).toBe(true);
+  });
+});
+
+describe("a narrative shot both stages build from files alone", () => {
+  const STILL = "animatic:shot.01.still";
+  const narrative = defineDirection({
+    ...directionDefaults,
+    sequence: {
+      lens: "mini-drama",
+      pleasure: "cute",
+      shots: [
+        {
+          id: "01",
+          role: "hero",
+          action: "the screen lights up",
+          setup: "front",
+          lineup: [],
+          duration: 2,
+        },
+      ],
+    },
+  });
+  const fileBoard = (size: number, lineVolume?: number, extra?: React.ReactNode) =>
+    defineAnimatic(narrative, {
+      timeline: ({ shot }) => ({
+        shots: shot("01", () => (
+          <Composition>
+            <Panel
+              src={asset("still", adapters.imageFile, { path: "assets/files/still.png" })}
+              blocking="the screen lights up"
+              camera="fixed"
+            />
+            <Card size={size} />
+            {extra}
+            {lineVolume === undefined ? null : (
+              <Audio src={asset("line", voice, { text: "hello" })} volume={lineVolume} />
+            )}
+          </Composition>
+        )),
+      }),
+    });
+  const fileCut = (size: number, lineVolume?: number, extra?: React.ReactNode) => {
+    const animatic = fileBoard(size, lineVolume);
+    return defineVideo(narrative, {
+      timeline: ({ shot }) => ({
+        shots: shot("01", () => (
+          <Composition>
+            <Image src={animatic.shot("01").image("still")} fill />
+            <Card size={size} />
+            {extra}
+            {lineVolume === undefined ? null : <Audio src={animatic.shot("01").stem} />}
+          </Composition>
+        )),
+      }),
+    });
+  };
+
+  beforeEach(() => {
+    acceptVariant(STILL, "files/still.png");
+  });
+
+  it("is settled on the board by the video's accept of its composition", async () => {
+    await acceptComposition(fileBoard(4), BOARD);
+    await acceptComposition(fileCut(6), CUT);
+
+    expect((await needsReview(fileBoard(6), fileCut(6))).needsReview).toEqual([]);
+    expect(await boardShot(fileBoard(6), fileCut(6))).toMatchObject({
+      needsVerdict: false,
+      compositionNeedsReview: false,
+    });
+  });
+
+  it.each([
+    { reader: "a style", mark: <style>{"[data-konte-panel] { opacity: 0 }"}</style> },
+    { reader: "an upper-case style", mark: <style>{"[DATA-KONTE-PANEL] { opacity: 0 }"}</style> },
+    {
+      reader: "a script through the dataset",
+      mark: <script dangerouslySetInnerHTML={{ __html: "img.dataset.kontePanel && hide(img);" }} />,
+    },
+  ])("is not settled across when $reader reads the panel's mark", async ({ mark }) => {
+    await acceptComposition(fileBoard(6, undefined, mark), BOARD);
+
+    expect(
+      leafSettledAcross(manager, fileCut(6, undefined, mark), fileBoard(6, undefined, mark), CUT),
+    ).toBe(false);
+  });
+
+  it("is not settled across by a script that differs only in the panel's mark", async () => {
+    const label = (color: string) => (
+      <script
+        dangerouslySetInnerHTML={{ __html: `label.innerHTML = ' data-konte-panel="${color}"';` }}
+      />
+    );
+    await acceptComposition(fileBoard(6, undefined, label("red")), BOARD);
+
+    expect(
+      leafSettledAcross(
+        manager,
+        fileCut(6, undefined, label("blue")),
+        fileBoard(6, undefined, label("red")),
+        CUT,
+      ),
+    ).toBe(false);
+  });
+
+  it("routes the review to the video alone until the video signs the shot off", async () => {
+    await acceptComposition(fileBoard(4), BOARD);
+
+    expect((await needsReview(fileBoard(6), fileCut(6))).needsReview).toEqual([CUT]);
+  });
+
+  it("is review work on the board after an edit the video's picture does not draw", async () => {
+    await acceptComposition(fileBoard(4), BOARD);
+    await acceptComposition(fileCut(6), CUT);
+
+    expect(leafSettledAcross(manager, fileBoard(8), fileCut(6), BOARD)).toBe(false);
+    expect((await needsReview(fileBoard(8), fileCut(6))).needsReview).toContain(BOARD);
+  });
+
+  it("re-makes and accepts the board composition the video's accept settled", async () => {
+    await acceptComposition(fileBoard(4), BOARD);
+    await acceptComposition(fileCut(6), CUT);
+
+    const remade = await remakeSettledLeaves({
+      videoRoot: dir,
+      stage: fileBoard(6),
+      counterpart: fileCut(6),
+      include: "compositions",
+    });
+
+    expect(remade).toEqual({ accepted: [{ shotId: "01", address: BOARD }], failed: [] });
+    expect(leafSignedOff(await StateManager.load(dir), fileBoard(6), BOARD)).toBe(true);
+  });
+
+  it("keeps a mix edited under the video's composition accept on the board's review", async () => {
+    const BOARD_STEM = "animatic:shot.01#stem";
+    await writeSilentWav(path.join(dir, "assets", "line.wav"));
+    acceptVariant("animatic:shot.01.line", "line.wav");
+    await acceptStem(fileBoard(6, 1), BOARD_STEM);
+    await acceptComposition(fileBoard(6, 1), BOARD);
+    await acceptComposition(fileCut(6, 1), CUT);
+
+    expect(leafSettledAcross(manager, fileBoard(6, 0.5), fileCut(6, 0.5), BOARD_STEM)).toBe(false);
+    expect((await needsReview(fileBoard(6, 0.5), fileCut(6, 0.5))).needsReview).toContain(
+      BOARD_STEM,
+    );
   });
 });
 

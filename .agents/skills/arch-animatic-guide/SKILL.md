@@ -99,7 +99,7 @@ Past the board:
 - From then on a definition edit (a retime, a moved cue) is the video's to judge, and konte re-makes and accepts the leaf (`remakeSettledLeaves`): its stems before `generate` / `reroll` / `patch apply` gate a video spend and before `konte preview video`, both leaves when that review accepts the shot, the composition after the video's.
 - Until then `status` lists an aged-out stem under Board stems to re-mix (`konte generate video`).
 - A moved or new input, an unaccepted take under the leaf, and a stem whose line the clamp cuts stay the board's.
-- A graphic shot's composition shows on both reviews; either signed-off one settles the other its picture (`compositionPictureNodes`) holds over the same takes, re-made then and on export. `status` routes a board one the video would settle to the video.
+- A graphic shot's composition, or one of a shot the video builds without spending, shows on both reviews; either signed-off one settles the other its picture (`compositionPictureNodes`) holds over the same takes, re-made then and on export. `status` routes a board one the video would settle to the video.
 
 On the video side the only trace left is the stand-in:
 
