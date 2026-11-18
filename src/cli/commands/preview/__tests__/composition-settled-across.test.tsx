@@ -5,9 +5,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { remakeSettledLeaves } from "../../../../core/board-leaves.js";
 import { compositionPictureNodes } from "../../../../core/composition-builder.js";
 import {
+  commitShotStem,
   leafSettledAcross,
   leafSignedOff,
   materializeCompositionVariant,
+  prepareShotStem,
 } from "../../../../core/composition-resource.js";
 import { Audio, Composition, Image } from "../../../../core/dsl/composition/index.js";
 import { defineComfyAsset } from "../../../../core/dsl/comfy-asset.js";
@@ -15,6 +17,7 @@ import { asset, defineAnimatic, defineDirection, defineVideo } from "../../../..
 import { StateManager } from "../../../../core/state/index.js";
 import type { StageDefinition } from "../../../../core/types/index.js";
 import { directionDefaults } from "../../../../core/__tests__/helpers/direction.js";
+import { writeSilentWav } from "../../../../core/__tests__/helpers/wav.js";
 import { buildAssetStatus, needsReviewItems } from "../../../../core/status-report.js";
 import { handleGetReelState } from "../reel-review.js";
 import { ASSET_SITES } from "../../../../core/dsl/adapter.js";
@@ -93,6 +96,22 @@ const cut = (size: number, opts: { caption?: boolean; logo?: boolean } = {}) =>
     },
   });
 
+const heard = (
+  animatic: ReturnType<typeof board>,
+  opts: { volume?: number; twice?: boolean } = {},
+) =>
+  defineVideo(direction, {
+    timeline: ({ graphicShot }) => ({
+      shots: graphicShot("01", () => (
+        <Composition>
+          <Card size={6} />
+          <Audio src={animatic.shot("01").stem} volume={opts.volume} />
+          {opts.twice ? <Audio src={animatic.shot("01").stem} /> : null}
+        </Composition>
+      )),
+    }),
+  });
+
 const pendingCut = () =>
   defineVideo(direction, {
     timeline: ({ pendingShot }) => ({ shots: pendingShot("01") }),
@@ -116,6 +135,13 @@ function acceptVariant(address: string, name: string, outputHash?: string): stri
   variant.outputHash = outputHash ?? `out-${id}`;
   manager.setAccepted(address, id);
   return id;
+}
+
+async function acceptStem(def: StageDefinition, address: string): Promise<void> {
+  const prepared = await prepareShotStem({ manager, video: def, address });
+  const variantId = await commitShotStem({ manager, video: def, address, prepared: prepared! });
+  manager.setAccepted(address, variantId!);
+  await manager.save();
 }
 
 async function acceptComposition(def: StageDefinition, address: string): Promise<void> {
@@ -454,5 +480,58 @@ describe("compositionPictureNodes", () => {
       '<script>host.innerHTML = "<div>";</script>',
       '<div id="caption">hello</div>',
     ]);
+  });
+});
+
+describe("a video shot's stem that plays its board shot's stem as mixed", () => {
+  const BOARD_STEM = "animatic:shot.01#stem";
+  const CUT_STEM = "video:shot.01#stem";
+
+  beforeEach(async () => {
+    await writeSilentWav(path.join(dir, "assets", "line.wav"));
+    acceptVariant("animatic:shot.01.line", "line.wav");
+    await acceptStem(board(6, { line: true }), BOARD_STEM);
+  });
+
+  it("is settled by the board stem's accept", async () => {
+    const b = board(6, { line: true });
+
+    expect(leafSettledAcross(manager, heard(b), b, CUT_STEM)).toBe(true);
+    expect((await needsReview(b, heard(b))).needsReview).not.toContain(CUT_STEM);
+  });
+
+  it("is review work once the video sets its own level on it", async () => {
+    const b = board(6, { line: true });
+
+    expect(leafSettledAcross(manager, heard(b, { volume: 0.5 }), b, CUT_STEM)).toBe(false);
+    expect((await needsReview(b, heard(b, { volume: 0.5 }))).needsReview).toContain(CUT_STEM);
+  });
+
+  it("is review work when it plays the board stem twice", async () => {
+    const b = board(6, { line: true });
+
+    expect(leafSettledAcross(manager, heard(b, { twice: true }), b, CUT_STEM)).toBe(false);
+  });
+
+  it("is review work while the board stem's accept does not stand", async () => {
+    acceptVariant("animatic:shot.01.line", "line.wav");
+    await manager.save();
+    const b = board(6, { line: true });
+
+    expect(leafSettledAcross(manager, heard(b), b, CUT_STEM)).toBe(false);
+  });
+
+  it("is re-made and accepted over the board stem the board's accept settled", async () => {
+    const b = board(6, { line: true });
+
+    const remade = await remakeSettledLeaves({
+      videoRoot: dir,
+      stage: heard(b),
+      counterpart: b,
+      include: "stems",
+    });
+
+    expect(remade).toEqual({ accepted: [{ shotId: "01", address: CUT_STEM }], failed: [] });
+    expect(leafSignedOff(await StateManager.load(dir), heard(b), CUT_STEM)).toBe(true);
   });
 });

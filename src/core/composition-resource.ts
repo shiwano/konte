@@ -1191,8 +1191,42 @@ export function leafSettledAcross(
   if (composition && videoShot.graphic === true) {
     return graphicCompositionCovered(manager, own, counterpart, ownShot, address);
   }
+  if (!composition && own.stage === "video") {
+    return videoStemPlaysBoardStems(manager, own, counterpart, address);
+  }
   if (own.stage !== "animatic") return false;
   return boardLeafPastBoard(manager, own, counterpart, ownShot, counterpartShot, address);
+}
+
+// A video shot's stem whose every cue is a distinct signed-off stem of its board shot, played whole
+// at its own level.
+function videoStemPlaysBoardStems(
+  manager: StateManager,
+  video: StageDefinition,
+  board: StageDefinition,
+  address: string,
+): boolean {
+  const structure = shotStemStructure(video, address);
+  if (structure === null) return false;
+  const parsed = parseAddress(address);
+  if (parsed.kind !== "shot") return false;
+  const boardStems = new Set(
+    shotStemAssetNames("animatic").map((name) => formatAddress("animatic", parsed.shotId, name)),
+  );
+  if (new Set(structure.cues.map((cue) => cue.src)).size !== structure.cues.length) return false;
+  return structure.cues.every(
+    (cue) =>
+      boardStems.has(cue.src) &&
+      cue.track === "sound" &&
+      (cue.start ?? 0) === 0 &&
+      cue.duration === null &&
+      (cue.mediaStart ?? 0) === 0 &&
+      cue.rate === 1 &&
+      (cue.volume ?? 1) === 1 &&
+      cue.fadeIn === null &&
+      cue.fadeOut === null &&
+      leafSignedOff(manager, board, cue.src),
+  );
 }
 
 // A graphic shot's composition whose picture the other stage's signed-off composition holds, drawn

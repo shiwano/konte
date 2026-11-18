@@ -570,13 +570,14 @@ export async function handleReelSubmit(
   };
 
   const verdicts = collectShotVerdicts(submit, ledger);
-  await remakeSettledLeavesFor(submit, verdicts, ledger, "stems");
+  if (submit.stage === "video") await remakeSettledLeavesFor(submit, verdicts, ledger, "stems");
   await acceptShotPictures(submit, verdicts, ledger);
   const acceptedShots = submit.plan.shots.filter((s) => verdicts.accept.has(s.shotId));
   const settledSources = await acceptShotStemSources(submit, acceptedShots, ledger);
   await materializeShotStems(submit, acceptedShots, settledSources, ledger);
   await materializeShotCompositions(submit, verdicts, ledger);
   await remakeSettledLeavesFor(submit, verdicts, ledger, "compositions");
+  if (submit.stage === "animatic") await remakeSettledLeavesFor(submit, verdicts, ledger, "stems");
   await releaseShots(submit, verdicts, ledger);
   await readBackShotVerdicts(submit, verdicts, ledger);
   await cascadeDirectionParts(submit, verdicts, ledger);
@@ -849,9 +850,9 @@ function collectShotVerdicts(submit: ReelSubmit, ledger: ReelSubmitLedger): Shot
 }
 
 // The other shot stage's leaves this review settles, re-made for the shots it accepts: the board's
-// stems before any video leaf is built over one, and the compositions whose picture this stage's
-// hold once those have signed it off. One that cannot be made is reported with the review's other
-// skips.
+// stems before any video leaf is built over one, the compositions whose picture this stage's hold
+// once those have signed it off, and the video's stems over the board stems this review accepted.
+// One that cannot be made is reported with the review's other skips.
 async function remakeSettledLeavesFor(
   submit: ReelSubmit,
   verdicts: ShotVerdicts,
@@ -860,7 +861,6 @@ async function remakeSettledLeavesFor(
 ): Promise<void> {
   const { counterpart, stage } = submit;
   if (!counterpart || verdicts.accept.size === 0) return;
-  if (include === "stems" && stage !== "video") return;
   const remade = await remakeSettledLeaves({
     videoRoot: submit.ctx.videoRoot,
     stage: counterpart,

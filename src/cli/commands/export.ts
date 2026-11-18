@@ -56,15 +56,19 @@ async function registerVideoExport(opts: {
     await syncFileAssets({ reference, animatic, video }, m, { measure: true });
     return m;
   });
-  // A graphic shot's composition the board's accept signed off is re-made and accepted before the
-  // gate reads it. One that cannot be made stays unsigned, and the gate names it.
-  const remade = await remakeSettledLeaves({
-    videoRoot,
-    stage: video,
-    counterpart: animatic,
-    include: "compositions",
-  });
-  const manager = remade.accepted.length > 0 ? await StateManager.load(videoRoot) : synced;
+  // A composition or stem the board's accept signed off is re-made and accepted before the gate
+  // reads it. One that cannot be made stays unsigned, and the gate names it.
+  let remadeAny = false;
+  for (const include of ["compositions", "stems"] as const) {
+    const remade = await remakeSettledLeaves({
+      videoRoot,
+      stage: video,
+      counterpart: animatic,
+      include,
+    });
+    remadeAny ||= remade.accepted.length > 0;
+  }
+  const manager = remadeAny ? await StateManager.load(videoRoot) : synced;
 
   // Store the base output dir on the job; the render worker picks a fresh timestamped
   // subdir per attempt (so a reclaimed render never collides with a stalled prior one).
