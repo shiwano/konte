@@ -48,6 +48,8 @@ import { adapterGuides, GUIDE_SPECIFIER_PREFIX } from "../src/core/dsl/adapter.j
 // passed. A cut is logged the same way and drops that journey's older entries.
 //
 // Budget log:
+// - adaptation 36,400 → 36,450, persuasion 35,650 → 35,700 (agreed by a human): an element on both
+//   sides of a graphic shot's boundary kept in place, a shot picking up the last one's final frame.
 // - persuasion (new, 35,650): the `video` chain for a persuasion piece, persuasion.md read in
 //   place of story.md.
 // - adaptation 36,350 → 36,400 (agreed by a human): a real product, logo, currency, landmark or
@@ -227,12 +229,12 @@ const SHIPPED_JOURNEYS = [
   },
   {
     name: "adaptation",
-    budget: 36_400,
+    budget: 36_450,
     files: [...VIDEO_FILES, `${SKILLS}/scenario-guide/references/adaptation.md`],
   },
   {
     name: "persuasion",
-    budget: 35_650,
+    budget: 35_700,
     files: VIDEO_FILES.map((file) =>
       file.endsWith("/story.md") ? `${SKILLS}/scenario-guide/references/persuasion.md` : file,
     ),

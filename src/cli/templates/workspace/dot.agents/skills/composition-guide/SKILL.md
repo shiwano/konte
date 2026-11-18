@@ -61,6 +61,8 @@ Gotchas:
 ## Graphic shots
 
 - Finished on the board — animatic.tsx's `graphicShot` is the picture itself: components, `<Image>` layers, `<Animate>`; no `<Panel>` outside `<Cutin>`. video.tsx's `graphicShot` imports and places the same component.
+- An element on both sides of a boundary is one component, at one position and size.
+- A shot whose `action` picks up where the last one ends opens on its final frame — every element as it was left.
 
 ## Fonts
 
