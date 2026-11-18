@@ -623,6 +623,25 @@ describe("resolveAuthoredNotes", () => {
     ]);
   });
 
+  it("files a note on the thumbnail's frame, still or asset under the thumbnail", async () => {
+    expect(
+      await resolveAuthoredNotes(
+        [
+          { address: "video:thumbnail#frame", text: "a" },
+          { address: "thumbnail#still", text: "b" },
+          { address: "video:thumbnail.title", text: "c" },
+        ],
+        "video",
+        ["video:thumbnail", "video:shot.01"],
+        noReview,
+      ),
+    ).toEqual([
+      { address: "video:thumbnail", text: "a" },
+      { address: "video:thumbnail", text: "b" },
+      { address: "video:thumbnail", text: "c" },
+    ]);
+  });
+
   it("names the authored address of a shot the stage does not hold", async () => {
     await expect(
       resolveAuthoredNotes(

@@ -353,8 +353,8 @@ export function collectAllDirectionAddresses(direction: Direction): string[] {
   return [...directionPartHashes(direction).keys()];
 }
 
-// An address missing its `<stage>:` prefix is the stage's own when the prefixed form is one, and an
-// asset of a shot is that shot. `changedAddresses` is read only to name the intended targets when an
+// An address missing its `<stage>:` prefix is the stage's own when the prefixed form is one, an
+// asset of a shot is that shot, and the thumbnail's frame, still or asset is the thumbnail. `changedAddresses` is read only to name the intended targets when an
 // address is refused.
 export async function resolveAuthoredNotes(
   authored: HandoffNote[],
@@ -369,6 +369,9 @@ export async function resolveAuthoredNotes(
       const parsed = tryParseAddress(candidate);
       if (parsed?.kind === "shot" && parsed.stage === stage) {
         return formatShotAddress(parsed.stage as ShotStage, parsed.shotId);
+      }
+      if (parsed?.kind === "thumbnail" && parsed.stage === stage && valid.has(THUMBNAIL_TARGET)) {
+        return THUMBNAIL_TARGET;
       }
     }
     return address;
