@@ -21,6 +21,7 @@ import {
   VIDEO_TSX,
   TRIMMED_VIDEO_TSX,
   STEM_PLAYED_VIDEO_TSX,
+  UNSPENT_VIDEO_TSX,
   THUMBNAIL_VIDEO_TSX,
   generateAll,
   seed,
@@ -159,6 +160,36 @@ describe("video review closure", () => {
       expect(after.getAcceptedVariant(address)).not.toBe(before[i]);
     }
   });
+
+  // A retime ages out the board's mix of shot 02, which the video plays under a picture it builds
+  // without spending.
+  it.each(["video", "animatic"] as const)(
+    "closes a retime of a mix an unspent video shot plays with the %s review alone",
+    async (stage) => {
+      const videoRoot = await project("here we go", UNSPENT_VIDEO_TSX);
+      await settle(videoRoot);
+      expect(await outstanding(videoRoot)).toEqual({ needsReview: [], problems: [], remixes: [] });
+
+      await fs.writeFile(
+        path.join(videoRoot, "direction.ts"),
+        DIRECTION_TS.replace('join: "continuous", duration: 2', 'join: "continuous", duration: 3'),
+      );
+      await generateAll(videoRoot);
+      expect((await outstanding(videoRoot)).needsReview).toEqual([
+        "video:shot.02#composition",
+        "video:shot.02#stem",
+      ]);
+      const page = await reelPage(videoRoot, stage);
+      expect(page.find((s) => s.shotId === "02")).toMatchObject({
+        notReady: false,
+        needsVerdict: true,
+      });
+
+      await acceptAll(videoRoot, stage);
+
+      expect(await outstanding(videoRoot)).toEqual({ needsReview: [], problems: [], remixes: [] });
+    },
+  );
 
   // What `generate` / `reroll` / `patch apply` run before their gate: the mix a spend consumes,
   // re-made once the video has taken it over.

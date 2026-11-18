@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { remakeSettledLeaves } from "../../../../core/board-leaves.js";
 import { compositionPictureNodes } from "../../../../core/composition-builder.js";
 import {
+  boardStemAwaitsVideo,
   commitShotStem,
   leafSettledAcross,
   leafSignedOff,
@@ -593,7 +594,7 @@ describe("a narrative shot both stages build from files alone", () => {
     expect(leafSignedOff(await StateManager.load(dir), fileBoard(6), BOARD)).toBe(true);
   });
 
-  it("keeps a mix edited under the video's composition accept on the board's review", async () => {
+  it("offers a mix edited under the video's composition accept on both reviews", async () => {
     const BOARD_STEM = "animatic:shot.01#stem";
     await writeSilentWav(path.join(dir, "assets", "line.wav"));
     acceptVariant("animatic:shot.01.line", "line.wav");
@@ -602,9 +603,34 @@ describe("a narrative shot both stages build from files alone", () => {
     await acceptComposition(fileCut(6, 1), CUT);
 
     expect(leafSettledAcross(manager, fileBoard(6, 0.5), fileCut(6, 0.5), BOARD_STEM)).toBe(false);
-    expect((await needsReview(fileBoard(6, 0.5), fileCut(6, 0.5))).needsReview).toContain(
-      BOARD_STEM,
+    expect(boardStemAwaitsVideo(manager, fileBoard(6, 0.5), fileCut(6, 0.5), BOARD_STEM)).toBe(
+      true,
     );
+    expect((await boardShot(fileBoard(6, 0.5), fileCut(6, 0.5))).needsVerdict).toBe(true);
+    expect((await needsReview(fileBoard(6, 0.5), fileCut(6, 0.5))).needsReview).toContain(
+      "video:shot.01#stem",
+    );
+  });
+
+  it("keeps a mix edited under a video shot that still has a take to spend on on the board's review", async () => {
+    const BOARD_STEM = "animatic:shot.01#stem";
+    await writeSilentWav(path.join(dir, "assets", "line.wav"));
+    acceptVariant("animatic:shot.01.line", "line.wav");
+    await acceptStem(fileBoard(6, 1), BOARD_STEM);
+    const b = fileBoard(6, 0.5);
+    const unspent = defineVideo(narrative, {
+      timeline: ({ shot }) => ({
+        shots: shot("01", () => (
+          <Composition>
+            <Image src={asset("still", still, { prompt: "the screen" })} fill />
+            <Audio src={b.shot("01").stem} />
+          </Composition>
+        )),
+      }),
+    });
+
+    expect(boardStemAwaitsVideo(manager, b, unspent, BOARD_STEM)).toBe(false);
+    expect((await needsReview(b, unspent)).needsReview).toContain(BOARD_STEM);
   });
 });
 

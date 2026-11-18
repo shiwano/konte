@@ -161,6 +161,26 @@ export const STEM_PLAYED_VIDEO_TSX = VIDEO_TSX.replace(
   }),`,
 );
 
+// Shot 02 built from the board's panel and mix alone, with nothing to spend on.
+export const UNSPENT_VIDEO_TSX = VIDEO_TSX.replace(
+  "import { Composition, Video, defineVideo, defineFalAsset, asset }",
+  "import { Audio, Composition, Image, Video, defineVideo, defineFalAsset, asset }",
+).replace(
+  `.nextShot("02", () => {
+      const motion = asset("motion", ia2v, {
+        prompt: "she steps through",
+        audio: animaticStage.shot("02").stem,
+      });
+      return <Composition><Video src={motion} /></Composition>;
+    }),`,
+  `.nextShot("02", () => (
+      <Composition>
+        <Image src={animaticStage.shot("02").image("first")} fill />
+        <Audio src={animaticStage.shot("02").stem} />
+      </Composition>
+    )),`,
+);
+
 // The video's thumbnail: the cut's frame in shot 01, under a frame of its motion.
 export const THUMBNAIL_VIDEO_TSX = VIDEO_TSX.replace(
   "import { Composition, Video, defineVideo, defineFalAsset, asset }",

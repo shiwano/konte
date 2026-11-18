@@ -1,5 +1,6 @@
-import { getStage, isStemAddress } from "./address.js";
+import { formatAddress, getStage, isStemAddress, shotStemAssetNames } from "./address.js";
 import {
+  boardStemAwaitsVideo,
   commitShotStem,
   definitionHashForAddress,
   discardPreparedStem,
@@ -137,6 +138,55 @@ export async function remakeSettledLeaves(opts: {
       return landed;
     });
     return { accepted, failed };
+  } finally {
+    for (const p of prepared.values()) await discardPreparedStem(p);
+  }
+}
+
+/**
+ * Records the re-mix of each board stem `boardStemAwaitsVideo` names as an undecided take. Returns
+ * the stems that could not be mixed, with why.
+ */
+export async function recordBoardStemsForVideo(opts: {
+  videoRoot: string;
+  board: StageDefinition;
+  video: StageDefinition;
+}): Promise<{ failed: Array<{ address: string; reason: string }> }> {
+  const { videoRoot, board, video } = opts;
+  const awaiting = (mgr: StateManager): string[] =>
+    board.shots.flatMap((shot) =>
+      shotStemAssetNames("animatic")
+        .map((name) => formatAddress("animatic", shot.id, name))
+        .filter((address) => boardStemAwaitsVideo(mgr, board, video, address)),
+    );
+  const snapshot = await StateManager.load(videoRoot);
+  const pending = awaiting(snapshot).filter((address) => snapshot.selectVariant(address) === null);
+  const failed: Array<{ address: string; reason: string }> = [];
+  if (pending.length === 0) return { failed };
+
+  const prepared = new Map<string, PreparedShotStem>();
+  try {
+    for (const address of pending) {
+      try {
+        const p = await prepareShotStem({ manager: snapshot, video: board, address });
+        if (p) prepared.set(address, p);
+        else failed.push({ address, reason: "its cues do not resolve to a take" });
+      } catch (err) {
+        failed.push({ address, reason: errorMessage(err) });
+      }
+    }
+    await StateManager.withLock(videoRoot, async (mgr) => {
+      const still = new Set(awaiting(mgr));
+      for (const [address, p] of prepared) {
+        if (!still.has(address)) continue;
+        try {
+          await commitShotStem({ manager: mgr, video: board, address, prepared: p });
+        } catch (err) {
+          failed.push({ address, reason: errorMessage(err) });
+        }
+      }
+    });
+    return { failed };
   } finally {
     for (const p of prepared.values()) await discardPreparedStem(p);
   }

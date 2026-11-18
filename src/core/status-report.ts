@@ -36,6 +36,7 @@ import { loadCheckContext } from "./check-context.js";
 import { type PatchSubject, type StaleWaiverLine, collectFindings } from "./checks.js";
 import {
   boardCompositionAwaitsVideo,
+  boardStemAwaitsVideo,
   leafSettledAcross,
   collectDeadCompositionVariants,
   collectDeadStemVariants,
@@ -355,11 +356,13 @@ async function buildStatusReport(
       addr,
     );
     // Reviewed on the video's page; status never sends anyone to the board's.
-    const awaitsVideo = boardCompositionAwaitsVideo(
-      manager,
-      def as unknown as VideoDefinition | null,
-      options?.videoDefinition ?? null,
-      addr,
+    const awaitsVideo = [boardCompositionAwaitsVideo, boardStemAwaitsVideo].some((awaits) =>
+      awaits(
+        manager,
+        def as unknown as VideoDefinition | null,
+        options?.videoDefinition ?? null,
+        addr,
+      ),
     );
     const reviewTarget =
       (getStage(addr) !== "reference" || isDeliveryAddress(addr) || exposedReferences.has(addr)) &&
@@ -378,7 +381,14 @@ async function buildStatusReport(
       // Leaves are materialized only on accept, so a never-accepted leaf has no variant — its
       // first-review need is this live signal (renderable + refs resolvable), not a ready variant.
       leafReady =
-        definitionHash !== null && leafDef !== null && leafReadyForReview(manager, leafDef, addr);
+        definitionHash !== null &&
+        leafDef !== null &&
+        leafReadyForReview(
+          manager,
+          leafDef,
+          addr,
+          getStage(addr) === "video" ? leafStages.get("animatic") : null,
+        );
     } else if (isPatchAddress(addr)) {
       // A patch step is declared by `patches/<variantId>.ts`, so the stage definition has no entry
       // to hash. Its whole chain is hashed as the patch's own `patchHash`, and an edit surfaces

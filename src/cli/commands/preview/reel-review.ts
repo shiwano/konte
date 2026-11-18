@@ -1,4 +1,4 @@
-import { remakeSettledLeaves } from "../../../core/board-leaves.js";
+import { recordBoardStemsForVideo, remakeSettledLeaves } from "../../../core/board-leaves.js";
 import { variantDefinitionSnapshot } from "../../../core/definition-snapshot.js";
 import { overlayLineTimer } from "../../../core/line-timing.js";
 import { buildDependencyGraph } from "../../../core/graph.js";
@@ -460,20 +460,22 @@ async function withHeardTakes<S extends { shotId: string; startTime: number }>(
   );
 }
 
-// The board stems the video has taken over, re-mixed so a shot that plays one can be drawn.
+// The board stems the video has taken over, re-mixed so a shot that plays one can be drawn, and
+// those its accept would settle, re-mixed as a take for it to hear.
 async function remixTakenOverBoardStems(
   videoRoot: string,
   video: StageDefinition,
   animatic: AnimaticDefinition | null,
 ): Promise<void> {
   if (video.stage !== "video" || !animatic) return;
-  const { failed } = await remakeSettledLeaves({
+  const remade = await remakeSettledLeaves({
     videoRoot,
     stage: animatic,
     counterpart: video,
     include: "stems",
   });
-  for (const { address, reason } of failed) {
+  const recorded = await recordBoardStemsForVideo({ videoRoot, board: animatic, video });
+  for (const { address, reason } of [...remade.failed, ...recorded.failed]) {
     console.error(`Could not re-mix ${address}: ${reason}`);
   }
 }

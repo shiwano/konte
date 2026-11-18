@@ -1114,9 +1114,16 @@ export function leafReadyForReview(
   manager: StateManager,
   video: StageDefinition,
   address: string,
+  // The board, to count a stem the video's review re-mixes on opening (`boardStemAwaitsVideo`) ready.
+  board?: StageDefinition | null,
 ): boolean {
   const refs = leafReadinessRefs(video, address);
-  return refs !== null && compositionRefsResolvable(manager, refs);
+  if (refs === null) return false;
+  const remixed = (ref: string) => !!board && boardStemAwaitsVideo(manager, board, video, ref);
+  return compositionRefsResolvable(
+    manager,
+    refs.filter((ref) => !remixed(ref)),
+  );
 }
 
 // The review status of a materialized leaf (composition / stem / overlay): its accepted variant
@@ -1218,6 +1225,53 @@ function compositionCovered(
   return leafInputsJudged(manager, own, ownShot, address, drawn);
 }
 
+// A board stem the video plays under a shot it builds without spending, aged out under an accept
+// whose takes still stand: either review hears the same mix, so either one's accept settles it.
+export function boardStemAwaitsVideo(
+  manager: StateManager,
+  board: StageDefinition | null,
+  video: StageDefinition | null,
+  address: string,
+): boolean {
+  if (board?.stage !== "animatic" || video?.stage !== "video") return false;
+  if (!boardStemAgedUnderVideo(manager, board, video, address)) return false;
+  // The video can review the shot once these re-mixes resolve: every other ref is ready.
+  const parsed = parseAddress(address);
+  if (parsed.kind !== "shot") return false;
+  const refs = leafReadinessRefs(video, formatCompositionAddress(video.stage, parsed.shotId)) ?? [];
+  return compositionRefsResolvable(
+    manager,
+    refs.filter((ref) => !boardStemAgedUnderVideo(manager, board, video, ref)),
+  );
+}
+
+function boardStemAgedUnderVideo(
+  manager: StateManager,
+  board: StageDefinition,
+  video: StageDefinition,
+  address: string,
+): boolean {
+  if (!isStemAddress(address)) return false;
+  const parsed = parseAddress(address);
+  if (parsed.stage !== "animatic" || parsed.kind !== "shot") return false;
+  const boardShot = shotById(board.shots, parsed.shotId);
+  const videoShot = shotById(video.shots, parsed.shotId);
+  if (!boardShot?.shotFn || !videoShot?.shotFn || isPendingShot(videoShot)) return false;
+  if (!(videoShot.compositionRefs ?? []).includes(address)) return false;
+  if (videoShotHasVariant(manager, video, videoShot)) return false;
+  if (manager.getAcceptedVariant(address) === null) return false;
+  if (
+    !materializedLeafReviewStatus(manager, address, definitionHashForAddress(board, address))
+      .needsReview
+  ) {
+    return false;
+  }
+  if (!leafInputsJudged(manager, board, boardShot, address, new Set())) return false;
+  return !findShotOverflows(board as AnimaticDefinition, manager, boardShot).some(
+    (o) => o.address === address,
+  );
+}
+
 // A board composition the video's own pending verdict will settle: the video's picture holds it
 // over the takes it draws now, and the video's composition awaits review. Its review is the
 // video's to route to.
@@ -1238,7 +1292,7 @@ export function boardCompositionAwaitsVideo(
   if (!pictureContains(manager, video, board, parsed.shotId)) return false;
   const videoAddress = formatCompositionAddress(video.stage, parsed.shotId);
   if (
-    !leafReadyForReview(manager, video, videoAddress) ||
+    !leafReadyForReview(manager, video, videoAddress, board) ||
     leafSignedOff(manager, video, videoAddress)
   ) {
     return false;
