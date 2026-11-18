@@ -19,6 +19,7 @@ import {
   isCompositionAddress,
   isOverlayAddress,
   parseAddress,
+  parseReelScope,
   type ShotStage,
 } from "../../../core/address.js";
 import { shotSpans } from "../../../core/render-plan.js";
@@ -70,6 +71,34 @@ function drawsVideo(
     const resolved = manager.resolveReference(ref, { includeStale: true });
     return resolved != null && variantMediaKind(manager, ref, resolved.variantId) === "video";
   });
+}
+
+function shotScope(target: string): { stage: ShotStage; shotId: string } | null {
+  try {
+    const scope = parseReelScope(target);
+    return scope.shotId ? { stage: scope.stage, shotId: scope.shotId } : null;
+  } catch {
+    return null;
+  }
+}
+
+// A single shot's scope sweeping no video take reads as its composition, the motion that shot has.
+export function shotScopeComposition(
+  stages: { video: VideoDefinition; animatic: AnimaticDefinition | null },
+  manager: StateManager,
+  target: string,
+): string | null {
+  const scope = shotScope(target);
+  if (!scope) return null;
+  try {
+    resolveProbeTargets(manager, [target], { mediaKinds: ["video"] });
+    return null;
+  } catch (err) {
+    if (!(err instanceof KonteError) || err.code !== "VARIANT_NOT_FOUND") throw err;
+  }
+  const stage = scope.stage === "animatic" ? stages.animatic : stages.video;
+  if (!stage || !shotById(stage.shots, scope.shotId)?.shotFn) return null;
+  return formatCompositionAddress(scope.stage, scope.shotId);
 }
 
 // The shot a timeline moment falls in, and the moment on that shot's own clock.
@@ -157,7 +186,8 @@ single-target form still prints only the strip path. A sweep spanning several sh
 steps line: those shots side by side on one sheet is probe contact-sheet.
 
 A composition address (<stage>:shot.<id>#composition) draws that shot as its live definition
-renders it, clips included — the read for an <Animate> move's speed, easing and continuity. A scope never sweeps one in. A composition has no decoded profile: no
+renders it, clips included — the read for an <Animate> move's speed, easing and continuity. A scope never sweeps one in,
+bar a single shot's scope with no video take, which draws that shot's composition. A composition has no decoded profile: no
 warnings, no motion peak (a window needs --at), and --fps is rejected.
 
 The overlay address (<stage>:timeline#overlay) takes --at in timeline seconds: it draws the
@@ -215,6 +245,12 @@ Examples:
         );
       }
       const drawn = (t: string) => isCompositionAddress(t) || isOverlayAddress(t);
+      let opened: Awaited<ReturnType<typeof openCompositionStages>> | null = null;
+      if (!opts.needsReview && targets.some((t) => shotScope(t) != null)) {
+        opened = await openCompositionStages(requireVideoRoot());
+        const { stages, manager } = opened;
+        targets = targets.map((t) => shotScopeComposition(stages, manager, t) ?? t);
+      }
       const compositions = targets.filter(drawn);
       if (compositions.length > 0 && opts.fps != null) {
         throw new KonteError("INVALID_OPTION", "--fps sets a clip's decode rate");
@@ -235,14 +271,16 @@ Examples:
       }
       // Before the targets open, so their state holds the synced `file` takes.
       const stages =
-        compositions.length > 0 ? (await openCompositionStages(requireVideoRoot())).stages : null;
-      const opened = await openProbeTargets(
+        compositions.length > 0
+          ? (opened ?? (await openCompositionStages(requireVideoRoot()))).stages
+          : null;
+      const probed = await openProbeTargets(
         targets.filter((t) => !drawn(t)),
         { mediaKinds: ["video"], definitions: compositions.length > 0 },
       );
-      const { videoRoot } = opened;
-      const manager = reviewManager ?? opened.manager;
-      const multi = opts.needsReview || opened.multi || targets.length > 1;
+      const { videoRoot } = probed;
+      const manager = reviewManager ?? probed.manager;
+      const multi = opts.needsReview || probed.multi || targets.length > 1;
 
       const plan: ({ composition: string; at?: number } | { variantId: string })[] = [];
       const seen = new Set<string>();
