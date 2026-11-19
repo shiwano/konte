@@ -37,7 +37,7 @@ The agent helps you develop a new idea or picks up an existing project where you
 4. **Revise.** Choose takes and leave comments; the agent makes the changes.
 5. **Export.** When you accept the cut, the agent renders the MP4.
 
-https://github.com/user-attachments/assets/752ed713-a210-44b8-ba14-74973285ecb7
+https://github.com/user-attachments/assets/465819b3-bd07-4ca8-901e-bb942a0d5cd1
 
 <sup>Project files for this video: [konte-demo-video](https://github.com/shiwano/konte-demo-video/tree/main/videos/how-you-use-it).</sup>
 
@@ -70,7 +70,7 @@ Or in the desktop app, open **Settings → Plugins → Add marketplace → Add f
 > /konte-checkin
 ```
 
-https://github.com/user-attachments/assets/c10629d3-e1eb-4708-95da-c3720bac878f
+https://github.com/user-attachments/assets/18882070-7814-4f83-9862-200e86a9eb84
 
 <sup>Project files for this video: [konte-demo-video](https://github.com/shiwano/konte-demo-video/tree/main/videos/claude-code-desktop-setup).</sup>
 
@@ -103,7 +103,7 @@ Install **konte** from the added marketplace.
 > $konte-checkin
 ```
 
-https://github.com/user-attachments/assets/ac615568-6e7f-434a-aa34-e17c6381d57c
+https://github.com/user-attachments/assets/8c183e5c-3878-4497-ab82-fcb3466faae1
 
 <sup>Project files for this video: [konte-demo-video](https://github.com/shiwano/konte-demo-video/tree/main/videos/codex-desktop-setup).</sup>
 
