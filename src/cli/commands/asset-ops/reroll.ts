@@ -17,7 +17,7 @@ import {
   validateAddress,
 } from "../../../core/address.js";
 import { loadKonteConfig } from "../../../core/config.js";
-import { KonteError, errorMessage } from "../../../core/errors.js";
+import { KonteError } from "../../../core/errors.js";
 import { collectRerollCascade, listUnusedAddresses } from "../../../core/graph.js";
 import { JobIndex } from "../../../core/job-index.js";
 import {
@@ -51,7 +51,7 @@ import { requireVideoRoots } from "../../context.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
 import { nextAfterSpend, submitRegisteredJobs } from "../../spend-submit.js";
 import { computeDefinitionHash } from "../../../core/definition-hash.js";
-import { applyPatch } from "../../patch-orchestrator.js";
+import { applyPatches } from "../../patch-orchestrator.js";
 import { gatePatchApply } from "../patch/apply.js";
 
 export function registerRerollCommand(program: Command): void {
@@ -690,29 +690,21 @@ async function rerollPatchSteps(
   for (const spend of spends.values()) printSpendNotices(spend);
 
   const jobManager = new JobManager(videoRoot);
-  const rows: Array<{ address: string; variantId: string; status: string }> = [];
-  const failures: Array<{ address: string; error: string }> = [];
-  const chainSteps: string[] = [];
-  for (let i = 0; i < variantCount; i++) {
-    for (const step of steps) {
-      try {
-        const result = await applyPatch(
-          step.patch,
-          roots,
-          jobManager,
-          spends.get(step.patch)!,
-          step.stepName,
-        );
-        chainSteps.push(...result.steps);
-        for (const job of result.jobs) rows.push({ address: result.address, ...job });
-        if (result.status === "failed") {
-          failures.push({ address: step.address, error: result.error ?? "generation failed" });
-        }
-      } catch (err) {
-        failures.push({ address: step.address, error: errorMessage(err) });
-      }
-    }
-  }
+  const applied = await applyPatches(
+    Array.from({ length: variantCount }, () =>
+      steps.map((step) => ({
+        patch: step.patch,
+        spend: spends.get(step.patch)!,
+        rerollStep: step.stepName,
+        label: step.address,
+      })),
+    ).flat(),
+    roots,
+    jobManager,
+  );
+  const rows = applied.rows;
+  const failures = applied.failures.map((f) => ({ address: f.source, error: f.error }));
+  const chainSteps = applied.steps;
 
   for (const f of await submitRegisteredJobs(roots, jobManager, rows, chainSteps)) {
     failures.push({ address: `${f.address} (${f.variantId})`, error: f.error });

@@ -345,7 +345,9 @@ describe("the video delivers the board's narration", () => {
       }),
     });
     const graph = buildDependencyGraph(video, board);
-    expect(listBoardlessVideoShots(video, board, graph)).toEqual([{ shotId: "01", spends: true }]);
+    expect(listBoardlessVideoShots(video, board, graph)).toMatchObject([
+      { shotId: "01", spends: true },
+    ]);
   });
 
   it("is refused by every model input's type", () => {

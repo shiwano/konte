@@ -1222,7 +1222,7 @@ describe("listBoardlessVideoShots", () => {
     };
     const graph = buildDependencyGraph(video, animatic);
 
-    expect(listBoardlessVideoShots(video, animatic, graph)).toEqual([
+    expect(listBoardlessVideoShots(video, animatic, graph)).toMatchObject([
       { shotId: "01", spends: false },
     ]);
   });
@@ -1232,7 +1232,7 @@ describe("listBoardlessVideoShots", () => {
     const video = videoWithShots([{ id: "01", refsAnimatic: false }]);
     const graph = buildDependencyGraph(video, animatic);
 
-    expect(listBoardlessVideoShots(video, animatic, graph)).toEqual([
+    expect(listBoardlessVideoShots(video, animatic, graph)).toMatchObject([
       { shotId: "01", spends: true },
     ]);
   });
@@ -1483,7 +1483,7 @@ describe("listBoardlessVideoShots", () => {
 
     // Boardless because the take it draws is footage — and the undrawn comfy asset neither makes it
     // spend nor stands in for a board it never reaches the screen with.
-    expect(listBoardlessVideoShots(video, animatic, graph)).toEqual([
+    expect(listBoardlessVideoShots(video, animatic, graph)).toMatchObject([
       { shotId: "01", spends: false },
     ]);
   });

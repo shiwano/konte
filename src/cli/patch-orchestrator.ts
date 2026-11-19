@@ -1,5 +1,5 @@
 import { computeDefinitionHash } from "../core/definition-hash.js";
-import { KonteError } from "../core/errors.js";
+import { KonteError, errorMessage } from "../core/errors.js";
 import { extractRefs } from "../core/graph.js";
 import type { JobManager } from "../core/job-manager.js";
 import type { LoadedPatch } from "../core/patch.js";
@@ -42,6 +42,54 @@ export function preparePatchSpend(
     })),
     config,
   );
+}
+
+export type PatchRun = {
+  patch: LoadedPatch;
+  spend: SpendPlan;
+  rerollStep?: string;
+  // What a failure is reported under; the source take's id when absent.
+  label?: string;
+};
+
+export type PatchRunRow = { source: string; address: string; variantId: string; status: string };
+
+// Applies each run in order, collecting a failure per run.
+export async function applyPatches(
+  runs: readonly PatchRun[],
+  roots: VideoRoots,
+  jobManager: JobManager,
+): Promise<{
+  rows: PatchRunRow[];
+  failures: Array<{ source: string; error: string }>;
+  steps: string[];
+}> {
+  const rows: PatchRunRow[] = [];
+  const failures: Array<{ source: string; error: string }> = [];
+  const steps: string[] = [];
+  for (const run of runs) {
+    const source = run.label ?? run.patch.sourceVariantId;
+    try {
+      const result = await applyPatch(run.patch, roots, jobManager, run.spend, run.rerollStep);
+      steps.push(...result.steps);
+      for (const job of result.jobs) {
+        rows.push({
+          source: run.patch.sourceVariantId,
+          // The chain's own address while a step is running, the corrected take's once the patched
+          // variant is registered.
+          address: result.address,
+          variantId: job.variantId,
+          status: job.status,
+        });
+      }
+      if (result.status === "failed") {
+        failures.push({ source, error: result.error ?? "generation failed" });
+      }
+    } catch (err) {
+      failures.push({ source, error: errorMessage(err) });
+    }
+  }
+  return { rows, failures, steps };
 }
 
 /**

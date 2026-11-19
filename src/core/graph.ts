@@ -579,6 +579,10 @@ interface BoardlessVideoShot {
   // `file` or `local` asset takes a path or another take, never a board, so no edit would satisfy a
   // gate on one. `doctor` reports those instead.
   spends: boolean;
+  // The nodes of its own board shot.
+  board: ReadonlySet<string>;
+  // Every node its deliverable draws.
+  reaches: ReadonlySet<string>;
 }
 
 // Video shots that build on nothing from the board they develop. Walked per video shot from its
@@ -653,7 +657,9 @@ export function listBoardlessVideoShots(
     }
     // A graphic shot that spends nothing owes the board nothing; one that spends is refused like any
     // other.
-    if (!consumesBoard && (spends || s.graphic !== true)) boardless.push({ shotId: s.id, spends });
+    if (!consumesBoard && (spends || s.graphic !== true)) {
+      boardless.push({ shotId: s.id, spends, board, reaches: seen });
+    }
   }
   return boardless;
 }

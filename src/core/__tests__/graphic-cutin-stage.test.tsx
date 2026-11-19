@@ -272,7 +272,9 @@ describe("the graphic starters", () => {
       }),
     });
     const graph = buildDependencyGraph(video, board, reference);
-    expect(listBoardlessVideoShots(video, board, graph)).toEqual([{ shotId: "02", spends: true }]);
+    expect(listBoardlessVideoShots(video, board, graph)).toMatchObject([
+      { shotId: "02", spends: true },
+    ]);
   });
 
   it("credits a pin to every frame that reaches its take", () => {

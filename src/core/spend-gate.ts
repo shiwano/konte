@@ -4,10 +4,16 @@ import {
   formatReferenceAddress,
   getStage,
   isMaterializedLeafAddress,
+  isPatchAddress,
   matchesAddressScope,
   tryParseAddress,
 } from "./address.js";
-import { type CheckContext, type FindingReport, waiverCoverageOf } from "./checks.js";
+import {
+  type CheckContext,
+  type FindingReport,
+  type PatchSubject,
+  waiverCoverageOf,
+} from "./checks.js";
 import { collectFramedCharacterIds } from "./direction.js";
 import { directionAcceptanceView, songGateBlocking } from "./direction-acceptance.js";
 import type { Character, Direction } from "./dsl/direction.js";
@@ -20,7 +26,7 @@ import {
   formatFindingGroups,
   spendHold,
 } from "./finding.js";
-import { collectTransitiveDependents, type DependencyGraph } from "./graph.js";
+import { collectTransitiveDependents, type DependencyGraph, extractRefs } from "./graph.js";
 import { songAddressOf } from "./song-variant.js";
 import { collectUndecidedUpstreamVariants } from "./staleness.js";
 import type { StateManager } from "./state/index.js";
@@ -95,20 +101,20 @@ type UpstreamBlocker =
 // spending: its own nodes are walked through (so a `animatic → video → video` chain cannot slip
 // past by targeting the far end), as are the deterministic ones. The walk stops at every gated
 // upstream node — its own upstreams were reviewed as part of it, which is why accepting a board
-// does not re-ask for the sheets under it. `extraRefs` carries addresses consumed by something with
-// no graph node of its own, i.e. a patch definition's refs. `redone` names upstreams this same run
+// does not re-ask for the sheets under it. `consumes` carries addresses read by something with no
+// graph node of its own, i.e. a patch chain's refs. `redone` names upstreams this same run
 // makes a fresh take of, which the spend builds on in place of the undecided one.
 function unacceptedUpstreamDeps(opts: {
   manager: StateManager;
   graph: DependencyGraph;
   addresses: Iterable<string>;
   stage: Stage;
-  extraRefs?: Iterable<string>;
+  consumes?: Iterable<string>;
   redone?: ReadonlySet<string>;
 }): Map<string, UpstreamBlocker> {
   const blocking = new Map<string, UpstreamBlocker>();
   const seen = new Set<string>();
-  const queue: string[] = [...(opts.extraRefs ?? [])];
+  const queue: string[] = [...(opts.consumes ?? [])];
   for (const address of opts.addresses) {
     queue.push(...(opts.graph.dependencies.get(address) ?? []));
   }
@@ -188,11 +194,36 @@ export type SpendRequest = {
   targeted: boolean;
   // The take whose patch script is applied.
   patch?: string;
-  // Addresses the spend consumes that have no graph node of their own (a patch's refs).
-  extraRefs?: readonly string[];
+  // Addresses the spend reads with no graph node of its own to read them through: a patch chain's
+  // refs, bar its own steps and the pinned source. A targeted spend is held on what holds these and
+  // what they build on, but not by a finding an accept of them signed off.
+  consumes?: readonly string[];
+  // Where a patch's corrected take lands: gated by what gates a take there being drawn (the song's
+  // direction accept), not by its definition or upstream.
+  source?: string;
   // Upstreams this same run makes a fresh take of.
   redone?: ReadonlySet<string>;
 };
+
+// What the gate judges a patch application by: what its chain reads beside its own steps, and the
+// source, which it reads pinned.
+export function patchSpendRequest(patch: PatchSubject, command: SpendCommand): SpendRequest {
+  return {
+    command,
+    stage: getStage(patch.sourceAddress) as AssetStage,
+    patch: patch.sourceVariantId,
+    addresses: [],
+    source: patch.sourceAddress,
+    targeted: true,
+    consumes: [
+      ...new Set(
+        Object.values(patch.assets ?? {})
+          .flatMap((def) => extractRefs(def))
+          .filter((ref) => !isPatchAddress(ref) && ref !== patch.sourceAddress),
+      ),
+    ],
+  };
+}
 
 // What has not been accepted, ranked by how far upstream it sits: only the upstream-most rank is
 // named.
@@ -212,6 +243,11 @@ type SpendVerdict = {
   held: Map<string, HeldWhy>;
 };
 
+// What a targeted spend is held on: what it submits and what it reads beside the graph.
+function targetedScope(req: SpendRequest): readonly string[] {
+  return req.consumes ? [...req.addresses, ...req.consumes] : req.addresses;
+}
+
 export function judgeSpend(
   ctx: CheckContext,
   report: FindingReport,
@@ -230,7 +266,9 @@ export function judgeSpend(
     });
   for (const f of report.findings) {
     const hold = spendHold(f, op);
-    if (req.targeted && findingTraits(f.code).holds.spend?.named && !named(f)) continue;
+    // A patch script's own finding names that patch, whatever it targets.
+    const own = f.fixIn.patch !== undefined;
+    if (req.targeted && !own && findingTraits(f.code).holds.spend?.named && !named(f)) continue;
     if (hold === "whole") findings.push(f);
     else if (hold === "edge" && (req.targeted || (f.targets ?? []).length > 0))
       edgeFindings.push(f);
@@ -266,7 +304,7 @@ export function judgeSpend(
 
   if (ctx.manager && ctx.direction && req.stage === "reference") {
     const song = songAddressOf(ctx.direction);
-    if (song !== null && req.addresses.includes(song)) {
+    if (song !== null && (req.addresses.includes(song) || req.source === song)) {
       const blocking = songGateBlocking(ctx.direction, ctx.manager.getDirectionAcceptance());
       if (blocking.length > 0) {
         unaccepted.push({
@@ -294,7 +332,7 @@ export function judgeSpend(
         const blocking = unacceptedUpstreamDeps({
           ...upstreamOpts,
           addresses: req.addresses,
-          ...(req.extraRefs ? { extraRefs: req.extraRefs } : {}),
+          ...(req.consumes ? { consumes: req.consumes } : {}),
         });
         const named = upstreamMostBlockers(blocking);
         if (named) unaccepted.push(upstreamUnaccepted(req.stage, named));
@@ -408,7 +446,8 @@ export function findingFixInstruction(findings: readonly Finding[]): string {
 export function spendHeldError(req: SpendRequest, verdict: SpendVerdict): KonteError | null {
   const allHeld =
     req.addresses.length > 0 && req.addresses.every((address) => verdict.held.has(address));
-  const targetedHeld = req.targeted && req.addresses.some((address) => verdict.held.has(address));
+  const scope = targetedScope(req);
+  const targetedHeld = req.targeted && scope.some((address) => verdict.held.has(address));
   if (
     verdict.findings.length === 0 &&
     verdict.unaccepted.length === 0 &&
@@ -417,7 +456,11 @@ export function spendHeldError(req: SpendRequest, verdict: SpendVerdict): KonteE
   ) {
     return null;
   }
-  const findings = [...verdict.findings, ...(allHeld || targetedHeld ? verdict.edgeFindings : [])];
+  const heldHere = [...verdict.held].filter(([address]) => scope.includes(address));
+  const findings = [
+    ...verdict.findings,
+    ...verdict.edgeFindings.filter((f) => heldHere.some(([, why]) => why.findings.includes(f))),
+  ];
   const lines = [
     ...(findings.length > 0
       ? [
@@ -429,12 +472,10 @@ export function spendHeldError(req: SpendRequest, verdict: SpendVerdict): KonteE
     ...(allHeld || targetedHeld
       ? [
           "  Held:",
-          ...[...verdict.held]
-            .filter(([address]) => req.addresses.includes(address))
-            .flatMap(([address, why]) => [
-              `    ${address}${why.findings.length > 0 ? ` — ${why.findings.map((f) => `[${findingLabel(f)}]`).join(", ")}` : ""}`,
-              ...why.upstream.map((l) => `    ${l}`),
-            ]),
+          ...heldHere.flatMap(([address, why]) => [
+            `    ${address}${why.findings.length > 0 ? ` — ${why.findings.map((f) => `[${findingLabel(f)}]`).join(", ")}` : ""}`,
+            ...why.upstream.map((l) => `    ${l}`),
+          ]),
         ]
       : []),
   ];

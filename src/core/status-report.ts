@@ -103,6 +103,7 @@ import {
   unsatisfiedCharacters,
   unsatisfiedVoices,
   judgeSpend,
+  patchSpendRequest,
   spendHeldError,
 } from "./spend-gate.js";
 import { loadStageDefinitions, loadDirectionIfPresent } from "./stage-definitions.js";
@@ -977,16 +978,15 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
         }) ?? [],
     ),
   ];
-  // A patch whose own prompt or pin finding holds it withholds `konte patch apply` for the set.
+  // A patch the spend gate holds withholds `konte patch apply` for the set.
   const heldPatchAddresses = [
     ...new Set(
-      findingReport.findings.flatMap((f) =>
-        f.fixIn.patch === undefined
-          ? []
-          : report.patchSubjects
-              .filter((p) => p.sourceVariantId === f.fixIn.patch)
-              .map((p) => p.sourceAddress),
-      ),
+      report.patchSubjects
+        .filter((p) => {
+          const req = patchSpendRequest(p, "patch");
+          return spendHeldError(req, judgeSpend(checkContext, spendReport, req)) !== null;
+        })
+        .map((p) => p.sourceAddress),
     ),
   ];
 

@@ -205,6 +205,29 @@ export default defineReference(direction, { references: () => {
     await fs.writeFile(statePath, JSON.stringify(state, null, 2));
     const { stdout } = await run(["generate", "reference", "--plan"], projectDir);
     expect(planEntries(stdout).map((e) => e.address)).toContain("reference:song");
+
+    // A patch draws a song take as surely as a generate does.
+    await run(["generate", "reference"], projectDir);
+    await run(["job", "run"], projectDir).catch(() => undefined);
+    const songId = Object.entries(
+      (await StateManager.load(projectDir)).getState().assets["reference:song"]?.variants ?? {},
+    ).find(([, v]) => v.file)?.[0];
+    expect(songId).toBeDefined();
+    await fs.mkdir(path.join(projectDir, "patches"), { recursive: true });
+    await fs.writeFile(
+      path.join(projectDir, "patches", `${songId}.ts`),
+      `import { asset, definePatch, adapters } from "konte";
+export default definePatch<"image">(({ source }) =>
+  asset("patched", adapters.imageResize, { image: source, width: 32, height: 32 }),
+);
+`,
+    );
+    const accepted = JSON.parse(await fs.readFile(statePath, "utf-8"));
+    accepted.directionAcceptance = null;
+    await fs.writeFile(statePath, JSON.stringify(accepted, null, 2));
+    await expect(run(["patch", "apply", songId!], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringMatching(/SPEND_HELD[\s\S]*policy and lyrics/),
+    });
   });
 
   it("makes and waits on the song while a board cut to it waits on a read take", async () => {

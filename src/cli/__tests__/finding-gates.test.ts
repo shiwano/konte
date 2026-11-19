@@ -1,3 +1,6 @@
+import * as fs from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { type CheckContext, collectFindings } from "../../core/checks.js";
 import { type Finding, reviewHold } from "../../core/finding.js";
@@ -7,7 +10,9 @@ import type {
   AssetDefinition,
   VideoDefinition,
 } from "../../core/types/index.js";
-import { judgeSpend } from "../../core/spend-gate.js";
+import { judgeSpend, patchSpendRequest, spendHeldError } from "../../core/spend-gate.js";
+import type { LoadedPatch } from "../../core/patch.js";
+import { StateManager } from "../../core/state/index.js";
 import { loadCheckContext } from "../../core/check-context.js";
 
 const format = { size: { width: 100, height: 100 }, fps: 30 };
@@ -170,10 +175,10 @@ describe("line-truncated", () => {
 });
 
 describe("animatic-unconsumed on a patch", () => {
-  const patch = (sourceAddress: string) => ({
+  const patch = (sourceAddress: string, step: AssetDefinition = comfy) => ({
     sourceVariantId: "v-patch",
     sourceAddress,
-    assets: { step: comfy },
+    assets: { step },
   });
   const footage: VideoDefinition = {
     ...video,
@@ -194,13 +199,13 @@ describe("animatic-unconsumed on a patch", () => {
       },
     ],
   };
-  const patched = async (sourceAddress: string) =>
+  const patched = async (sourceAddress: string, step?: AssetDefinition) =>
     (
       await collectFindings({
         ...ctx,
         video: footage,
         graph: buildDependencyGraph(footage, animatic),
-        patches: [patch(sourceAddress)],
+        patches: [patch(sourceAddress, step)],
       })
     ).findings.filter((f) => f.code === "animatic-unconsumed");
 
@@ -212,6 +217,66 @@ describe("animatic-unconsumed on a patch", () => {
 
   it("never holds a patch of another stage", async () => {
     expect(await patched("animatic:shot.01.first")).toEqual([]);
+  });
+
+  it("holds a vendor patch of a shot that spends without its board itself", async () => {
+    const found = (
+      await collectFindings({ ...ctx, patches: [patch("video:shot.02.motion")] })
+    ).findings.filter((f) => f.code === "animatic-unconsumed");
+    expect(found.map((f) => f.fixIn)).toEqual([
+      { stage: "video" },
+      { stage: "video", patch: "v-patch" },
+    ]);
+  });
+
+  it("counts a panel drawn from a shared asset as the shot's board", async () => {
+    const shared: AnimaticDefinition = {
+      ...animatic,
+      shots: animatic.shots.map((s) =>
+        s.id === "02"
+          ? {
+              ...s,
+              assets: {},
+              panels: [{ assetName: "style", address: "reference:style", start: 0, duration: 5 }],
+            }
+          : s,
+      ),
+    };
+    const step = { ...comfy, inputs: { image: "__konte:reference:style__" } };
+    const found = (
+      await collectFindings({
+        ...ctx,
+        animatic: shared,
+        video: footage,
+        graph: buildDependencyGraph(footage, shared),
+        patches: [patch("video:shot.02.clip", step)],
+      })
+    ).findings.filter((f) => f.code === "animatic-unconsumed");
+    expect(found).toEqual([]);
+  });
+
+  it("counts a board the chain reads through another asset", async () => {
+    const bridged: VideoDefinition = {
+      ...footage,
+      topLevelAssets: {
+        bridge: { ...comfy, inputs: { image: "__konte:animatic:shot.02.first__" } },
+      },
+    };
+    const step = { ...comfy, inputs: { image: "__konte:video:timeline.bridge__" } };
+    const found = (
+      await collectFindings({
+        ...ctx,
+        video: bridged,
+        graph: buildDependencyGraph(bridged, animatic),
+        patches: [patch("video:shot.02.clip", step)],
+      })
+    ).findings.filter((f) => f.code === "animatic-unconsumed" && f.fixIn.patch);
+    expect(found).toEqual([]);
+  });
+
+  it("never holds a patch that reads the shot's own board", async () => {
+    const step = { ...comfy, inputs: { image: "__konte:animatic:shot.02.first__" } };
+    expect(await patched("video:shot.02.clip", step)).toEqual([]);
   });
 });
 
@@ -239,5 +304,92 @@ describe("loadCheckContext", () => {
     expect(
       found.findings.filter((f) => f.code === "pending-reference").map((f) => f.subject),
     ).toEqual(["animatic:shot.01.first"]);
+  });
+});
+
+describe("judgeSpend on a patch application", () => {
+  const source = "video:shot.01.motion";
+  const patchOf = (stepInputs: Record<string, string>) =>
+    ({
+      sourceVariantId: "v-src",
+      sourceAddress: source,
+      filePath: "patches/v-src.ts",
+      patchHash: "h",
+      outputName: "fix",
+      assets: { fix: { ...comfy, inputs: { image: `__konte:${source}__`, ...stepInputs } } },
+    }) as unknown as LoadedPatch;
+  const sourceOnly = patchOf({});
+  const withBoard = patchOf({ reference: "__konte:animatic:shot.02.first__" });
+  const held = (c: CheckContext, findings: Finding[], patch: LoadedPatch) =>
+    spendHeldError(
+      patchSpendRequest(patch, "patch"),
+      judgeSpend(c, report(findings), patchSpendRequest(patch, "patch")),
+    );
+
+  it("leaves a finding on the source's own definition to the source", () => {
+    const negation: Finding = {
+      code: "prompt-negation",
+      subject: '"no blur"',
+      fixIn: { stage: "video" },
+      message: "",
+      targets: [source],
+      judgedBy: [source],
+    };
+    expect(held(ctx, [negation], sourceOnly)).toBeNull();
+  });
+
+  it("holds on a finding over what the chain reads", () => {
+    const negation: Finding = {
+      code: "prompt-negation",
+      subject: '"no blur"',
+      fixIn: { stage: "animatic" },
+      message: "",
+      targets: ["animatic:shot.02.first"],
+      judgedBy: ["animatic:shot.02.first"],
+    };
+    const other: Finding = {
+      ...negation,
+      targets: ["animatic:shot.01.first"],
+      judgedBy: ["animatic:shot.01.first"],
+    };
+    const error = held(ctx, [negation, other], withBoard);
+    expect(error?.code).toBe("SPEND_HELD");
+    expect(error?.items.join("\n")).toContain("animatic:shot.02.first");
+    expect(error?.items.join("\n")).not.toContain("animatic:shot.01.first");
+  });
+
+  it("leaves a read take whose accept signed the finding off", () => {
+    const signedOff: Finding = {
+      code: "prompt-negation",
+      subject: '"no blur"',
+      fixIn: { stage: "animatic" },
+      message: "",
+      targets: [],
+      judgedBy: ["animatic:shot.02.first"],
+      signedOff: ["animatic:shot.02.first"],
+    };
+    expect(held(ctx, [signedOff], withBoard)).toBeNull();
+  });
+
+  it("is not held by another shot's board wiring for what it reads off the shots", () => {
+    const unconsumed: Finding = {
+      code: "animatic-unconsumed",
+      subject: "video:shot.02",
+      fixIn: { stage: "video" },
+      message: "",
+      targets: ["video:shot.02"],
+    };
+    expect(held(ctx, [unconsumed], patchOf({ style: "__konte:reference:style__" }))).toBeNull();
+  });
+
+  it("asks for what the chain reads accepted, not the source's own upstream", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "konte-gate-"));
+    try {
+      const withState = { ...ctx, manager: await StateManager.init(dir) };
+      expect(held(withState, [], sourceOnly)).toBeNull();
+      expect(held(withState, [], withBoard)?.items.join("\n")).toContain("animatic:shot.02.first");
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
   });
 });

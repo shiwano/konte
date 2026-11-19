@@ -19,9 +19,7 @@ import {
 } from "../../core/patch.js";
 import { JobIndex } from "../../core/job-index.js";
 import { type PendingReason, describePendingJob } from "../../core/pending-jobs.js";
-import { pinFindings } from "../../core/pin-check.js";
-import { promptFindings } from "../../core/prompt-check.js";
-import { applyPatch, preparePatchSpend } from "../patch-orchestrator.js";
+import { type PatchRun, applyPatches, preparePatchSpend } from "../patch-orchestrator.js";
 import { selectDefinition } from "../../core/select-definition.js";
 import { computeDefinitionHash } from "../../core/definition-hash.js";
 import {
@@ -34,10 +32,10 @@ import { type StaleRefreshStep, staleRefreshStep } from "../stale-refresh-step.j
 import type { AssetDefinition } from "../../core/types/index.js";
 import { loadDirectionIfPresent } from "../../core/stage-definitions.js";
 import { openVideoSession } from "../../core/video-session.js";
-import { assertNoSpendFindings, spendGate } from "../finding-gates.js";
+import { spendVerdicts } from "../finding-gates.js";
 import { loadCheckContext } from "../../core/check-context.js";
 import { formatFindingGroups } from "../../core/finding.js";
-import { findingFixInstruction } from "../../core/spend-gate.js";
+import { findingFixInstruction, patchSpendRequest } from "../../core/spend-gate.js";
 import { errorMessage } from "../../core/errors.js";
 import {
   type AcceptedStaleAsset,
@@ -161,26 +159,48 @@ export function registerGenerateCommand(program: Command): void {
         graph,
       });
       const { stageAddresses, skippedUnused } = selected;
+      const jobManager = new JobManager(videoRoot);
+      const patchCatalog = await loadPatchCatalog(videoRoot, manager.getState());
+      const pendingPatches = findPendingPatches(
+        manager.getState(),
+        patchCatalog,
+        activeGenerationVariantIds(await jobManager.listJobs()),
+        manager.stalenessCache(),
+      ).filter((p) => getStage(p.sourceAddress) === stage);
       // Before any job is created: a finding or an unaccepted upstream holding the whole stage refuses
-      // the run; one holding only some assets leaves them out.
-      const { held } = await spendGate(
+      // the run; one holding only some assets or patches leaves them out.
+      const [stageVerdict, ...patchVerdicts] = await spendVerdicts(
         await loadCheckContext({
           cueTakes: "resolved",
           videoRoot,
           definitions: defs,
           manager,
           graph,
+          patches: pendingPatches,
         }),
-        {
-          command: "generate",
-          stage: loaded.stage,
-          addresses: selected.spending,
-          targeted: false,
-        },
+        [
+          {
+            command: "generate",
+            stage: loaded.stage,
+            addresses: selected.spending,
+            targeted: false,
+          },
+          ...pendingPatches.map((patch) => patchSpendRequest(patch, "patch")),
+        ],
       );
+      const heldPatches = pendingPatches.flatMap((patch, i) => {
+        const error = patchVerdicts[i]!.error;
+        return error ? [{ patch, error }] : [];
+      });
+      const applyingPatches = pendingPatches.filter((_, i) => !patchVerdicts[i]!.error);
+      // Every asset held one by one still leaves the patches that pass to run.
+      if (stageVerdict!.error && (stageVerdict!.whole || applyingPatches.length === 0)) {
+        throw stageVerdict!.error;
+      }
+      const { held } = stageVerdict!;
       const spending = selected.spending.filter((address) => !held.has(address));
       for (const address of held.keys()) stageAddresses.delete(address);
-      const heldCount = selected.spending.length - spending.length;
+      const heldCount = selected.spending.length - spending.length + heldPatches.length;
       const heldWhys = selected.spending.flatMap((address) => {
         const why = held.get(address);
         return why ? [why] : [];
@@ -212,9 +232,17 @@ export function registerGenerateCommand(program: Command): void {
           );
           printCapped(upstreamLines, (line) => line.trimStart(), { verbose: opts.verbose });
         }
+        if (heldPatches.length > 0) {
+          console.log(
+            `\nHeld: ${heldPatches.length} patch(es) — clear what holds each, then run \`konte generate ${stage}\` again:`,
+          );
+          for (const { patch, error } of heldPatches) {
+            console.log(`  ${patch.sourceAddress} (patch of ${patch.sourceVariantId})`);
+            for (const line of error.items) console.log(`  ${line}`);
+          }
+        }
       };
 
-      const jobManager = new JobManager(videoRoot);
       const failedAddresses = new Set<string>();
 
       const levelResults: LevelResult[] = [];
@@ -236,14 +264,10 @@ export function registerGenerateCommand(program: Command): void {
         });
         // The real run applies pending patches too, and each one spends. A plan that omitted them
         // would understate the cost of the command it is previewing.
-        const plannedPatches = findPendingPatches(
-          manager.getState(),
-          await loadPatchCatalog(videoRoot, manager.getState()),
-          activeGenerationVariantIds(await jobManager.listJobs()),
-          manager.stalenessCache(),
-        )
-          .filter((p) => getStage(p.sourceAddress) === stage)
-          .map((p) => ({ address: p.sourceAddress, source: p.sourceVariantId }));
+        const plannedPatches = applyingPatches.map((p) => ({
+          address: p.sourceAddress,
+          source: p.sourceVariantId,
+        }));
         // The skip a plan exists to catch: an edit whose regeneration this command will not do.
         const plannedAcceptedStale = describeAcceptedStale(
           plan.levels.flatMap((lvl) =>
@@ -458,20 +482,6 @@ export function registerGenerateCommand(program: Command): void {
       // correction never flows downstream on its own. With nothing accepted the correction does
       // become what resolves, staling its consumers — rebuilt by the next run, not this one, whose
       // levels are already behind us.
-      const patchCatalog = await loadPatchCatalog(videoRoot, manager.getState());
-      const pendingPatches = findPendingPatches(
-        manager.getState(),
-        patchCatalog,
-        activeGenerationVariantIds(await jobManager.listJobs()),
-        manager.stalenessCache(),
-      ).filter((p) => getStage(p.sourceAddress) === stage);
-      const patchApplications: Array<{
-        source: string;
-        address: string;
-        variantId: string;
-        status: string;
-      }> = [];
-      const patchSteps: string[] = [];
       const patchFailures: Array<{ source: string; error: string }> = [];
       // Only broken patches belonging to THIS stage are this run's failures. A broken patch
       // elsewhere is real, and `status` reports it, but it must not make `generate reference`
@@ -482,41 +492,22 @@ export function registerGenerateCommand(program: Command): void {
         if (!errAddress || getStage(errAddress) !== stage) continue;
         patchFailures.push({ source: err.sourceVariantId, error: err.message });
       }
-      for (const patch of pendingPatches) {
+      const patchRuns: PatchRun[] = [];
+      for (const patch of applyingPatches) {
         try {
           const patchSpend = await preparePatchSpend(patch, roots, config);
           printSpendNotices(patchSpend);
-          const fixIn = { stage: loaded.stage, patch: patch.sourceVariantId };
-          assertNoSpendFindings([...promptFindings(patch, fixIn), ...pinFindings(patch, fixIn)], {
-            command: "patch",
-            stage: loaded.stage,
-            patch: patch.sourceVariantId,
-            addresses: [patch.sourceAddress],
-            targeted: true,
-          });
-          const result = await applyPatch(patch, roots, jobManager, patchSpend);
-          patchSteps.push(...result.steps);
-          for (const job of result.jobs) {
-            patchApplications.push({
-              source: patch.sourceVariantId,
-              address: result.address,
-              variantId: job.variantId,
-              status: job.status,
-            });
-          }
-          if (result.status === "failed") {
-            patchFailures.push({
-              source: patch.sourceVariantId,
-              error: result.error ?? "generation failed",
-            });
-          }
+          patchRuns.push({ patch, spend: patchSpend });
         } catch (err) {
-          patchFailures.push({
-            source: patch.sourceVariantId,
-            error: errorMessage(err),
-          });
+          patchFailures.push({ source: patch.sourceVariantId, error: errorMessage(err) });
         }
       }
+      const {
+        rows: patchApplications,
+        failures: applyFailures,
+        steps: patchSteps,
+      } = await applyPatches(patchRuns, roots, jobManager);
+      patchFailures.push(...applyFailures);
 
       const submitFailures = await submitRegisteredJobs(
         roots,
@@ -659,12 +650,18 @@ export function registerGenerateCommand(program: Command): void {
       }
       // The outcome and the one command that answers it share the last line, so a caller piping
       // through `tail -1` keeps both.
-      const next = hasWork ? "run `konte job run`" : "nothing to wait on; run `konte status`";
+      // A run that only held work is a refusal.
+      const heldOnly = !hasWork && heldCount > 0;
+      const next = hasWork
+        ? "run `konte job run`"
+        : heldOnly
+          ? `clear what holds each above, then run \`konte generate ${stage}\` again`
+          : "nothing to wait on; run `konte status`";
       console.log(
         `\n${summary.started} started, ${summary.waiting} waiting, ${summary.synced} synced, ${summary.failed} failed, ${summary.skipped} skipped${skipBreakdown}${heldCount > 0 ? `, ${heldCount} held` : ""} — ${next}`,
       );
 
-      if (summary.failed > 0 || patchFailures.length > 0) {
+      if (summary.failed > 0 || patchFailures.length > 0 || heldOnly) {
         process.exitCode = 1;
       }
     });

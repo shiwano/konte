@@ -15,7 +15,7 @@ import {
 import { StateManager } from "../../../core/state/index.js";
 import { syncFileAssets } from "../../../core/file-sync.js";
 import { requireVideoRoots } from "../../context.js";
-import { getStage, isPatchAddress } from "../../../core/address.js";
+import { getStage } from "../../../core/address.js";
 import { buildDependencyGraph, extractRefs } from "../../../core/graph.js";
 import { loadStageDefinitions } from "../../../core/stage-definitions.js";
 import { spendGate } from "../../finding-gates.js";
@@ -23,10 +23,10 @@ import { loadCheckContext } from "../../../core/check-context.js";
 import type { SpendCommand } from "../../../core/finding.js";
 import type { VideoRoots } from "../../../core/roots.js";
 import type { KonteConfig } from "../../../core/types/index.js";
-import { applyPatch, preparePatchSpend } from "../../patch-orchestrator.js";
+import { applyPatches, preparePatchSpend } from "../../patch-orchestrator.js";
+import { patchSpendRequest } from "../../../core/spend-gate.js";
 import { printSpendNotices, type SpendPlan } from "../../generate-orchestrator.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
-import { errorMessage } from "../../../core/errors.js";
 import { nextAfterSpend, submitRegisteredJobs } from "../../spend-submit.js";
 
 export function registerPatchApplyCommand(parent: Command): void {
@@ -88,39 +88,17 @@ Examples:
       const config = await loadKonteConfig(roots.workspace);
       const spends = await gatePatchApply(roots, catalog, targets, config, "patch");
 
-      const applied: Array<{ variantId: string; address: string; source: string; status: string }> =
-        [];
-
-      const steps: string[] = [];
-      for (const patch of targets) {
-        try {
-          const spend = spends.get(patch)!;
-          printSpendNotices(spend);
-          const result = await applyPatch(patch, roots, jobManager, spend);
-          steps.push(...result.steps);
-          for (const job of result.jobs) {
-            applied.push({
-              variantId: job.variantId,
-              // The chain's own address while a step is running, the corrected take's once the
-              // patched variant is registered — which is what `result.address` already says.
-              address: result.address,
-              source: patch.sourceVariantId,
-              status: job.status,
-            });
-          }
-          if (result.status === "failed") {
-            failures.push({
-              source: patch.sourceVariantId,
-              error: result.error ?? "generation failed",
-            });
-          }
-        } catch (err) {
-          failures.push({
-            source: patch.sourceVariantId,
-            error: errorMessage(err),
-          });
-        }
-      }
+      for (const spend of spends.values()) printSpendNotices(spend);
+      const {
+        rows: applied,
+        failures: applyFailures,
+        steps,
+      } = await applyPatches(
+        targets.map((patch) => ({ patch, spend: spends.get(patch)! })),
+        roots,
+        jobManager,
+      );
+      failures.push(...applyFailures);
 
       for (const f of await submitRegisteredJobs(roots, jobManager, applied, steps)) {
         failures.push({ source: `${f.address} (${f.variantId})`, error: f.error });
@@ -208,17 +186,7 @@ export async function gatePatchApply(
   });
   await spendGate(
     ctx,
-    targets.map((patch) => ({
-      command,
-      stage: getStage(patch.sourceAddress) as "reference" | "animatic" | "video",
-      patch: patch.sourceVariantId,
-      addresses: [patch.sourceAddress],
-      targeted: true,
-      // A chain's own steps are produced by this very application, so they are not upstream work.
-      extraRefs: Object.values(patch.assets)
-        .flatMap((def) => extractRefs(def))
-        .filter((ref) => !isPatchAddress(ref)),
-    })),
+    targets.map((patch) => patchSpendRequest(patch, command)),
   );
   return spends;
 }

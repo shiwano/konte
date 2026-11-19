@@ -26,6 +26,20 @@ export async function spendGate(
   ctx: CheckContext,
   reqs: SpendRequest | readonly SpendRequest[],
 ): Promise<{ held: Map<string, HeldWhy> }> {
+  const held = new Map<string, HeldWhy>();
+  for (const verdict of await spendVerdicts(ctx, Array.isArray(reqs) ? reqs : [reqs])) {
+    if (verdict.error) throw verdict.error;
+    for (const [address, why] of verdict.held) held.set(address, why);
+  }
+  return { held };
+}
+
+// Each request's verdict without refusing any: the SPEND_HELD it would raise, whether that holds the
+// whole spend rather than each of its assets, and what a whole-stage spend leaves out.
+export async function spendVerdicts(
+  ctx: CheckContext,
+  reqs: readonly SpendRequest[],
+): Promise<Array<{ error: KonteError | null; whole: boolean; held: Map<string, HeldWhy> }>> {
   const report = await collectFindings(
     spendContext(ctx),
     (traits) => traits.holds.spend !== undefined,
@@ -33,14 +47,14 @@ export async function spendGate(
       signedOff: true,
     },
   );
-  const held = new Map<string, HeldWhy>();
-  for (const req of Array.isArray(reqs) ? reqs : [reqs as SpendRequest]) {
+  return reqs.map((req) => {
     const verdict = judgeSpend(ctx, report, req);
-    const error = spendHeldError(req, verdict);
-    if (error) throw error;
-    for (const [address, why] of verdict.held) held.set(address, why);
-  }
-  return { held };
+    return {
+      error: spendHeldError(req, verdict),
+      whole: verdict.findings.length > 0 || verdict.unaccepted.length > 0,
+      held: verdict.held,
+    };
+  });
 }
 
 // What a whole-stage spend would leave out, without refusing anything — for a surface that reports

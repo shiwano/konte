@@ -254,5 +254,52 @@ export default definePatch<"image">(({ source }) =>
         stderr: expect.stringMatching(/SPEND_HELD[\s\S]*no chip/),
       });
     });
+
+    it("holds the patch out of generate and runs the rest", async () => {
+      const projectDir = await initPatchProject();
+      await fs.writeFile(
+        path.join(projectDir, "reference.tsx"),
+        REFERENCE_TS.replace(
+          "return { character, bgm, latentA, latentB };",
+          `const latentC = asset("latentC", internalTestImage, { width: 16, height: 16 });
+  return { character, bgm, latentA, latentB, latentC };`,
+        ),
+      );
+      const sourceId = await generateSource(projectDir);
+      // Leave latentC to generate beside the held patch.
+      await StateManager.withLock(projectDir, async (m) => {
+        for (const id of Object.keys(m.getState().assets["reference:latentC"]?.variants ?? {})) {
+          m.removeVariant("reference:latentC", id);
+        }
+      });
+      await writePatch(projectDir, sourceId, negatedPatch);
+
+      const plan = await run(["generate", "reference", "--plan"], projectDir);
+      expect(plan.stdout).not.toContain("Patches to apply:");
+      expect(plan.stdout).toContain("Held: 1 patch(es)");
+
+      const { stdout } = await run(["generate", "reference"], projectDir);
+      expect(stdout).toMatch(
+        new RegExp(
+          `Held: 1 patch\\(es\\)[^\\n]*\\n {2}reference:latentA \\(patch of ${sourceId}\\)`,
+        ),
+      );
+      expect(stdout).toContain("no chip");
+      expect(stdout).not.toContain("Patches applied:");
+      expect(stdout).not.toContain("Patches failed:");
+      expect(stdout).toMatch(/^1 started,.*, 1 held — /m);
+    });
+
+    it("fails generate when a held patch is all it had to do", async () => {
+      const projectDir = await initPatchProject();
+      const sourceId = await generateSource(projectDir);
+      await writePatch(projectDir, sourceId, negatedPatch);
+
+      const err = await run(["generate", "reference"], projectDir).catch((e) => e);
+      expect(err.code).toBe(1);
+      expect(err.stdout).toContain(`reference:latentA (patch of ${sourceId})`);
+      expect(err.stdout).toContain("no chip");
+      expect(err.stdout).toMatch(/, 1 held — clear what holds each above/);
+    });
   });
 });

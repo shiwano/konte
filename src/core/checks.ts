@@ -9,8 +9,9 @@ import {
   formatTimelineOverlayAddress,
   getAssetEntry,
   getStage,
+  isHeardStemAddress,
+  isPatchAddress,
   listAddresses,
-  tryParseAddress,
 } from "./address.js";
 import {
   type CueTakes,
@@ -40,11 +41,7 @@ import {
   type FindingTraits,
   findingTraits,
 } from "./finding.js";
-import {
-  type DependencyGraph,
-  collectTransitiveDependents,
-  listBoardlessVideoShots,
-} from "./graph.js";
+import { type DependencyGraph, extractRefs, listBoardlessVideoShots } from "./graph.js";
 import { acceptedIn, listReferenceImageTexts, listViewAnchorGaps } from "./board-analysis.js";
 import { findUnheldLandmarks } from "./landmark-held-check.js";
 import { type PinOccurrence, pinFindings } from "./pin-check.js";
@@ -406,8 +403,8 @@ const SILENT_TAIL_CHECK: Check = {
   },
 };
 
-// A shot whose definition spends holds the stage; one that spends only through a patch's own steps
-// holds that patch.
+// A shot whose definition spends holds the stage; a vendor patch of a take a boardless shot plays
+// holds that patch, unless the patch reads the shot's board.
 const ANIMATIC_CONSUMED_CHECK: Check = {
   codes: ["animatic-unconsumed"],
   run: (ctx) => {
@@ -426,17 +423,30 @@ const ANIMATIC_CONSUMED_CHECK: Check = {
         if (getStage(p.sourceAddress) !== "video") return [];
         const spends = Object.values(p.assets ?? {}).some((def) => isVendorBackendAsset(def.kind));
         if (!spends) return [];
-        // The shots the patched take plays in: its own, or every shot drawing a timeline asset.
-        const shotIds = new Set(
-          [p.sourceAddress, ...collectTransitiveDependents(ctx.graph!, p.sourceAddress)].flatMap(
-            (address) => {
-              const parsed = tryParseAddress(address);
-              return parsed?.stage === "video" && parsed.kind === "shot" ? [parsed.shotId] : [];
-            },
-          ),
-        );
+        // What the chain reads, walked as the graph does; the pinned source is read as a file.
+        const refs = Object.values(p.assets ?? {})
+          .flatMap((def) => extractRefs(def))
+          .filter((ref) => ref !== p.sourceAddress && !isPatchAddress(ref));
+        const readsBoard = (s: { shotId: string; board: ReadonlySet<string> }) => {
+          const seen = new Set<string>();
+          const stack = [...refs];
+          while (stack.length > 0) {
+            const node = stack.pop()!;
+            if (seen.has(node) || isHeardStemAddress(node)) continue;
+            seen.add(node);
+            if (
+              s.board.has(node) ||
+              node.startsWith(`animatic:shot.${s.shotId}.`) ||
+              node.startsWith(`animatic:shot.${s.shotId}#`)
+            ) {
+              return true;
+            }
+            stack.push(...(ctx.graph!.dependencies.get(node) ?? []));
+          }
+          return false;
+        };
         return boardless
-          .filter((s) => !s.spends && shotIds.has(s.shotId))
+          .filter((s) => s.reaches.has(p.sourceAddress) && !readsBoard(s))
           .map((s) => finding(s.shotId, p.sourceVariantId));
       }),
     ];
