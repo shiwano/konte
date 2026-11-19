@@ -310,7 +310,7 @@ export class JobManager {
       provenance: {
         workflowHash: null,
         inputHash: null,
-        resolvedDependencies: hasPendingDeps ? {} : opts.resolvedDeps,
+        resolvedDependencies: opts.resolvedDeps,
         compositionCacheKeys: opts.compositionCacheKeys ?? {},
       },
       createdAt: now,

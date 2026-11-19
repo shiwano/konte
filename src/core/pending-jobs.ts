@@ -292,6 +292,7 @@ type JobEvaluation = { action: "submit" | "wait" } | { action: "fail"; reason: s
 
 // How to tell the user to re-run this job's stage.
 function rerunHint(address: string): string {
+  if (isDeliveryAddress(address)) return `re-run "konte export video"`;
   return `re-run "konte generate ${getStage(address)}"`;
 }
 

@@ -107,3 +107,53 @@ it("submits a delivery upscale from the target its variant snapshotted", async (
     [SOURCE]: "assets/video/shot.01.motion/v-src.mp4",
   });
 });
+
+async function deliveryJobAfterModelDownload(downloadStatus: "completed" | "failed") {
+  const def = synthesizeDeliveryAssetDefinition(VIDEO, ADDRESS, TARGET);
+  const variantId = await StateManager.withLock(roots.video, async (m) => {
+    const vid = m.reserveVariantId(ADDRESS);
+    m.getAssetState(ADDRESS).variants![vid]!.deliveryTarget = TARGET;
+    return vid;
+  });
+  const jobManager = new JobManager(roots.video);
+  const download = await jobManager.ensureComfyModelDownloadJob({
+    filename: "upscaler.safetensors",
+    type: "upscale",
+    url: "https://example.com/upscaler.safetensors",
+  });
+  await jobManager.updateJob(download.id, { status: "running" });
+  await jobManager.updateJob(download.id, { status: downloadStatus });
+  await jobManager.createJob({
+    address: ADDRESS,
+    variantId,
+    resolvedDeps: { [SOURCE]: "assets/video/shot.01.motion/v-src.mp4" },
+    backendKind: "fal",
+    dependsOnJobs: [download.id],
+    metadata: { definitionHash: computeDefinitionHash(def) },
+  });
+  const backend = new RecordingBackend();
+  const res = await submitReadyPendingJobs(
+    jobManager,
+    roots,
+    new Map<BackendKind, GenerationBackend>(),
+    async () => backend,
+    async () => ({ video: VIDEO, animatic: emptyAnimatic(), reference: emptyReference() }),
+  );
+  return { variantId, backend, res, jobManager };
+}
+
+it("keeps a delivery upscale's source through the provisioning it waits on", async () => {
+  const { variantId, backend, res } = await deliveryJobAfterModelDownload("completed");
+
+  expect(res.submitted).toEqual([variantId]);
+  expect(backend.requests[0]!.resolvedDependencies).toEqual({
+    [SOURCE]: "assets/video/shot.01.motion/v-src.mp4",
+  });
+});
+
+it("sends a delivery upscale whose provisioning failed back to export", async () => {
+  const { variantId, jobManager } = await deliveryJobAfterModelDownload("failed");
+
+  const job = await jobManager.getJob(variantId);
+  expect(job?.error).toContain(`re-run "konte export video"`);
+});

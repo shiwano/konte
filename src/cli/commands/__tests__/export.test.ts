@@ -184,6 +184,16 @@ export default defineVideo(direction, {
 });
 `;
 
+// A per-layer upscaler declaring a model its ComfyUI has to download first.
+const VIDEO_WITH_MODEL_UPSCALE_TSX = VIDEO_WITH_UPSCALE_TSX.replace(
+  `description: "test upscaler",`,
+  `description: "test upscaler",
+  models: [{ filename: "upscaler.safetensors", type: "upscale", url: "https://example.com/upscaler.safetensors" }],`,
+).replace(
+  "upscale: { frame: ({ video, width, height }) =>",
+  "upscale: { video: ({ video, width, height }) =>",
+);
+
 // Shot 01 developed, shot 02 undeveloped — a shot with no motion at all, which no flag overrides.
 const VIDEO_WITH_PENDING_TSX = VIDEO_TSX.replace(
   `    }),
@@ -630,6 +640,66 @@ describe("export delivery gate", () => {
       stderr: expect.stringContaining("KTEST_EXPORT_TOKEN"),
     });
     expect(await new JobManager(projectDir).listJobs()).toEqual([]);
+  });
+
+  // An upscale on a ComfyUI waits on the provisioning its upscaler declares.
+  it("makes each delivery upscale wait on its upscaler's model download", async () => {
+    projectDir = await initProject({
+      direction: DIRECTION_WITH_DELIVERY_TS,
+      video: VIDEO_WITH_MODEL_UPSCALE_TSX,
+    });
+    await writeConfig(projectDir, { comfy: { comfyui: { url: "http://127.0.0.1:1" } } });
+    await acceptDirection(projectDir);
+    await seedAcceptedCut(projectDir);
+
+    const { stdout } = await run(["export", "video"], projectDir);
+    expect(stdout).toContain("download  upscaler.safetensors (upscale)");
+
+    const jobs = await new JobManager(projectDir).listJobs();
+    const download = jobs.find((j) => j.kind === "comfy-model-download");
+    const upscale = jobs.find(
+      (j) => "address" in j && j.address === "video:shot.01.motion#delivery",
+    );
+    expect(download).toBeDefined();
+    expect(upscale).toMatchObject({ dependsOnJobs: [download!.id] });
+  });
+
+  // Two exports racing for one upscale: the reservation a concurrent run already holds wins.
+  it("leaves a delivery upscale another export has reserved to that export", async () => {
+    projectDir = await initProject({
+      direction: DIRECTION_WITH_DELIVERY_TS,
+      video: VIDEO_WITH_MODEL_UPSCALE_TSX,
+    });
+    await writeConfig(projectDir, { comfy: { comfyui: { url: "http://127.0.0.1:1" } } });
+    await acceptDirection(projectDir);
+    await seedAcceptedCut(projectDir);
+    await StateManager.withLock(projectDir, async (m) => {
+      m.reserveVariantId("video:shot.01.motion#delivery");
+    });
+
+    const { stdout } = await run(["export", "video"], projectDir);
+    expect(stdout).toContain("Delivery upscales: 0 submitted, 1 already running.");
+    const jobs = await new JobManager(projectDir).listJobs();
+    expect(jobs.filter((j) => j.kind === "generation")).toEqual([]);
+  });
+
+  it("reserves no delivery upscale when its provisioning cannot be registered", async () => {
+    projectDir = await initProject({
+      direction: DIRECTION_WITH_DELIVERY_TS,
+      video: VIDEO_WITH_MODEL_UPSCALE_TSX.replace(
+        "https://example.com/upscaler.safetensors",
+        "https://example.com/upscaler.safetensors?token=${KTEST_UNSET_MODEL_TOKEN}",
+      ),
+    });
+    await writeConfig(projectDir, { comfy: { comfyui: { url: "http://127.0.0.1:1" } } });
+    await acceptDirection(projectDir);
+    await seedAcceptedCut(projectDir);
+
+    await expect(run(["export", "video"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining("KTEST_UNSET_MODEL_TOKEN"),
+    });
+    const manager = await StateManager.load(projectDir);
+    expect(manager.tryGetAssetState("video:shot.01.motion#delivery")?.variants ?? {}).toEqual({});
   });
 
   // The working canvas is derived from the delivery's own aspect, so it lands a grid step off it
