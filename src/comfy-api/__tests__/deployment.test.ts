@@ -261,7 +261,6 @@ describe("buildDeployment", () => {
       new ComfyApiHttpError("COMFY_API_ERROR", "gated", {
         status: 400,
         serverCode: null,
-        body: "",
       }),
     );
     await expect(buildDeployment(ctx(platform), "main")).rejects.toMatchObject({

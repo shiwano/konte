@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TransientHttpError } from "../../core/http-retry.js";
+import { toHttpError } from "../http.js";
 import { blake3File, ComfyApiRuntimeClient } from "../runtime-client.js";
 
 let tmpDir: string;
@@ -18,6 +19,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
 
@@ -191,6 +193,33 @@ describe("submitJob", () => {
       status: 409,
       serverCode: "idempotency_key_reuse",
     });
+  });
+
+  it("keeps the server's code past the persisted body's length cap", async () => {
+    const message = "x".repeat(600);
+    mockFetch(() => json({ error: { code: "idempotency_key_reuse", message } }, 409));
+    const client = new ComfyApiRuntimeClient("https://dep.example", () => "key", "deployment");
+
+    await expect(client.submitJob({}, "v-abc")).rejects.toMatchObject({
+      serverCode: "idempotency_key_reuse",
+      message: expect.stringMatching(
+        /^Comfy API job submit failed \(409 idempotency_key_reuse\): x{500}… \(truncated\)$/,
+      ),
+    });
+  });
+});
+
+describe("toHttpError", () => {
+  it("redacts the key from the server's code and message", async () => {
+    vi.stubEnv("COMFY_API_KEY", "private-test-key");
+    const err = await toHttpError(
+      json({ error: "Invalid key private-test-key", message: "got private-test-key" }, 401),
+      "Comfy API job submit",
+    );
+
+    expect(err.serverCode).toBe("Invalid key private-test-key");
+    expect(err.message).not.toContain("private-test-key");
+    expect(err.message).toContain("(401 Invalid key ${COMFY_API_KEY}): got ${COMFY_API_KEY}");
   });
 });
 

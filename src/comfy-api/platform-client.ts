@@ -153,7 +153,6 @@ export class ComfyPlatformClient {
       throw new ComfyApiHttpError("COMFY_API_ERROR", `${what} returned no release id`, {
         status: res.status,
         serverCode: null,
-        body: "",
       });
     }
     return id;

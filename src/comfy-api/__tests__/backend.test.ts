@@ -152,7 +152,6 @@ const keyReuse = () =>
   new ComfyApiHttpError("COMFY_API_ERROR", "Comfy API job submit failed (409)", {
     status: 409,
     serverCode: "idempotency_key_reuse",
-    body: "",
   });
 
 // `konte adapter comfy build` cut rel-1, and the human deployed it.
@@ -315,7 +314,6 @@ describe("submit", () => {
       new ComfyApiHttpError("COMFY_API_INSUFFICIENT_CREDITS", "no credits", {
         status: 402,
         serverCode: null,
-        body: "",
       }),
     );
     const { backend } = backendWith(client);
@@ -413,7 +411,6 @@ describe("waitForCompletion", () => {
     const refused = new ComfyApiHttpError("COMFY_API_UNAUTHORIZED", "refused", {
       status: 401,
       serverCode: null,
-      body: "",
     });
     client.getJob
       .mockRejectedValueOnce(refused)

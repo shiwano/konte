@@ -22,17 +22,15 @@ function authHeaders(auth: ComfyApiAuth): Record<string, string> {
 export class ComfyApiHttpError extends KonteError {
   readonly status: number;
   readonly serverCode: string | null;
-  readonly body: string;
 
   constructor(
     code: KonteErrorCode,
     message: string,
-    info: { status: number; serverCode: string | null; body: string },
+    info: { status: number; serverCode: string | null },
   ) {
     super(code, message);
     this.status = info.status;
     this.serverCode = info.serverCode;
-    this.body = info.body;
   }
 }
 
@@ -75,16 +73,17 @@ function codeFor(status: number, serverCode: string | null, body: string): Konte
 }
 
 export async function toHttpError(res: Response, what: string): Promise<ComfyApiHttpError> {
-  const body = redactExternalBody(await res.text().catch(() => ""), [`\${${COMFY_API_KEY_ENV}}`]);
+  const body = await res.text().catch(() => "");
   const { code: serverCode, message } = serverCodeOf(body);
-  const detail = message ?? body;
+  const redact = (text: string) => redactExternalBody(text, [`\${${COMFY_API_KEY_ENV}}`]);
+  const detail = redact(message ?? body);
   const code = codeFor(res.status, serverCode, body);
   const hint =
     code === "COMFY_API_UNAUTHORIZED" ? `. ${rejectedCredentialMessage(COMFY_API_KEY_ENV)}` : "";
   return new ComfyApiHttpError(
     code,
-    `${what} failed (${res.status}${serverCode ? ` ${serverCode}` : ""})${detail ? `: ${detail}` : ""}${hint}`,
-    { status: res.status, serverCode, body },
+    `${what} failed (${res.status}${serverCode ? ` ${redact(serverCode)}` : ""})${detail ? `: ${detail}` : ""}${hint}`,
+    { status: res.status, serverCode },
   );
 }
 
