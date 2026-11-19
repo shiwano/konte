@@ -354,7 +354,6 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
           address,
           text,
           annotation,
-          displayedVariants: {},
         })),
         feedbackPatches,
         ...(accept === undefined ? {} : { accept }),

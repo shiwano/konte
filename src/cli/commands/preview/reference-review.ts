@@ -287,6 +287,17 @@ export async function handleReferenceSubmit(
   const reviewedAt = new Date().toISOString();
   const body = await parseAddressReviewBody(req);
   if (!body) return errorResponse("Invalid review payload", "INVALID_REQUEST", 400);
+  const exposed = new Set(listExposedReferenceAddresses(reference));
+  const unknownTargets = body.addedFeedback
+    .map((fb) => fb.address)
+    .filter((address) => !exposed.has(address));
+  if (unknownTargets.length > 0) {
+    return errorResponse(
+      `This stage holds no target for ${unknownTargets.join(", ")} — no part of this review was applied.`,
+      "INVALID_ADDRESS",
+      400,
+    );
+  }
   if (addressReviewTouchesNothing(body)) {
     reportOutcome?.(emptyOutcome("reference"));
     return jsonResponse({ saved: false, filePath: null } satisfies AddressReviewSubmitResponse);

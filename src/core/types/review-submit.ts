@@ -22,13 +22,13 @@ const CommentFieldsSchema = z.object({
   shotTime: z.number().optional(),
 });
 
-const AddedFeedbackSchema = z.array(
+const ReferenceAddedFeedbackSchema = z.array(
   CommentFieldsSchema.extend({
     displayedVariants: z.record(z.string(), z.string()).optional(),
-    displayedDefinitionHashes: z.record(z.string(), z.string()).optional(),
-    subjectHash: z.string().optional(),
   }),
 );
+
+const DirectionAddedFeedbackSchema = z.array(CommentFieldsSchema);
 
 // The reel's comments carry WHERE they were written and nothing about what they were written
 // against: which addresses a target perceives is a question about the definition, and the handler
@@ -119,7 +119,7 @@ export type SongLineBody = z.infer<typeof SongLineSchema>;
 
 // An address-keyed review (reference): one decision entry per address, feedback always sent.
 export const AddressReviewSubmitSchema = z.object({
-  addedFeedback: AddedFeedbackSchema,
+  addedFeedback: ReferenceAddedFeedbackSchema,
   feedbackPatches: z.array(FeedbackPatchSchema),
   decisions: z
     .array(
@@ -146,7 +146,7 @@ export type AddressReviewSubmitBody = z.infer<typeof AddressReviewSubmitSchema>;
 // box's verdict fans out to every part it holds. A section the reviewer never touched is absent
 // rather than false, so a feedback-only submit revokes nothing.
 export const DirectionSubmitSchema = z.object({
-  addedFeedback: AddedFeedbackSchema,
+  addedFeedback: DirectionAddedFeedbackSchema,
   feedbackPatches: z.array(FeedbackPatchSchema),
   // True signs off every part the page can sign, false revokes them.
   accept: z.boolean().optional(),

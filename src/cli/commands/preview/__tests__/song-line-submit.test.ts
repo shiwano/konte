@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { loadPreviewDefinitions } from "../load-definitions.js";
 import { handleReferenceSubmit } from "../reference-review.js";
 import { formatReviewRecord, loadLatestReviewRecord } from "../../../../core/review-record.js";
+import { FeedbackManager } from "../../../../core/feedback/manager.js";
 import { StateManager } from "../../../../core/state/index.js";
 import { writeSongReading } from "../../../../core/song-reading.js";
 import { ctx, initWorkspace, useTempWorkspace } from "../../../__tests__/cli-fixtures.js";
@@ -161,5 +162,30 @@ describe("handleReferenceSubmit — lyric lines placed on the song", () => {
     expect(record?.skippedDecisions).toEqual([
       expect.objectContaining({ address: SONG, reason: expect.stringMatching(/^line 3\.1:/) }),
     ]);
+  });
+});
+
+describe("handleReferenceSubmit — comment targets", () => {
+  it("refuses the whole submit when a comment names no exposed reference asset", async () => {
+    const { videoRoot, variantId } = await project();
+    const res = await submit(videoRoot, {
+      addedFeedback: [{ address: "reference:gone", text: "orphan" }],
+      decisions: [{ address: SONG, variantId, status: "accepted" }],
+    });
+    expect(res.status).toBe(400);
+    expect(await res.text()).toContain("reference:gone");
+    expect((await StateManager.load(videoRoot)).getAcceptedVariant(SONG)).toBeNull();
+    expect((await FeedbackManager.load(videoRoot, "reference")).list()).toEqual([]);
+  });
+
+  it("stores no subject hash a client sent", async () => {
+    const { videoRoot } = await project();
+    const res = await submit(videoRoot, {
+      addedFeedback: [{ address: SONG, text: "too quiet", subjectHash: "forged" }],
+    });
+    expect(res.status).toBe(200);
+    const [stored] = (await FeedbackManager.load(videoRoot, "reference")).list();
+    expect(stored?.entry.text).toBe("too quiet");
+    expect(stored?.entry).not.toHaveProperty("subjectHash");
   });
 });
