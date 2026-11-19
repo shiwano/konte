@@ -75,7 +75,7 @@ import { liveDefinitionHashesOf } from "./feedback/definition-hashes.js";
 import { feedbackStaleness, listAllFeedback } from "./feedback/index.js";
 import { syncFileAssets } from "./file-sync.js";
 import { type Finding, reviewHold } from "./finding.js";
-import { listSpendingAssets } from "./generation-selection.js";
+import { listSpendingAssets, liveGenerationVariantIds } from "./generation-selection.js";
 import {
   type DependencyGraph,
   videoDependentsHoldVerdicts,
@@ -85,13 +85,7 @@ import {
 import { jobStatusFlags } from "./job-diagnosis.js";
 import { JobIndex } from "./job-index.js";
 import { JobManager, isJobTerminal } from "./job-manager.js";
-import {
-  type PatchCatalog,
-  activeGenerationVariantIds,
-  findPendingPatches,
-  loadPatchCatalog,
-  patchHashesOf,
-} from "./patch.js";
+import { type PatchCatalog, findPendingPatches, loadPatchCatalog, patchHashesOf } from "./patch.js";
 import { unacceptedOutsideRefs, unacceptedThumbnailRefs } from "./render-plan.js";
 import { reviewTimes as readReviewTimes } from "./review-record.js";
 import { requireShotStages } from "./select-definition.js";
@@ -277,7 +271,7 @@ async function buildStatusReport(
   const pendingPatches = findPendingPatches(
     state,
     patchCatalog,
-    activeGenerationVariantIds(everyJob),
+    await liveGenerationVariantIds(jobManager.videoRoot, everyJob, state),
     stalenessCache,
   );
 
@@ -872,12 +866,15 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
     { ...checkContext, cueTakes: "resolved" },
     (traits) => traits.holds.spend !== undefined,
   );
+  const jobs = await new JobManager(videoRoot).listJobs();
+  const liveJobs = await liveGenerationVariantIds(videoRoot, jobs, state);
   const spendHeldStages = (["reference", "animatic", "video"] as const).filter((stage) => {
     const def = stage === "video" ? video : stage === "animatic" ? animatic : reference;
     const spending = listSpendingAssets(
       def,
       new Set(listAddresses(def, stage).filter((p) => !unusedPaths.has(p))),
       manager,
+      liveJobs,
       graph,
     );
     const req = { command: "generate", stage, addresses: spending, targeted: false } as const;
@@ -946,7 +943,6 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
   const songPending = pendingSong(manager, direction);
   const sourceGaps =
     directionReviewNeeded && direction ? await pendingSourceGaps(direction, videoRoot) : null;
-  const jobs = await new JobManager(videoRoot).listJobs();
   const songReadingsPending = jobs.some(
     (j) => j.kind === "song-analysis" && (j.status === "pending" || j.status === "running"),
   );

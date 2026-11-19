@@ -142,6 +142,10 @@ export class StateManager {
     });
   }
 
+  static async writersSettled(videoRoot: string): Promise<void> {
+    await withFileLock(path.join(videoRoot, `${STATE_FILE}.lock`), async () => {});
+  }
+
   static async load(videoRoot: string): Promise<StateManager> {
     const statePath = path.join(videoRoot, STATE_FILE);
 

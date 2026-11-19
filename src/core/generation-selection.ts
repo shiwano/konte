@@ -4,7 +4,9 @@ import { computeDefinitionHash } from "./definition-hash.js";
 import { type DependencyGraph, listUnusedAddresses } from "./graph.js";
 import { type LoadedDefinitions, selectDefinition } from "./select-definition.js";
 import { computeVariantStaleness, isVariantStale } from "./staleness.js";
-import type { StateManager } from "./state/index.js";
+import { isJobTerminal } from "./job-manager.js";
+import { StateManager } from "./state/index.js";
+import type { GenerationJob, JobRecord, KonteState } from "./types/index.js";
 
 export type SkipReason = "active" | "accepted" | "accepted-stale" | "ready";
 
@@ -25,12 +27,13 @@ export type SkipReason = "active" | "accepted" | "accepted-stale" | "ready";
  */
 export function assetSkipReason(
   manager: StateManager,
+  liveJobs: ReadonlySet<string>,
   address: string,
   currentDefinitionHash: string,
   deterministic = false,
   inputRebuilt = false,
 ): SkipReason | null {
-  if (getActiveVariantIds(manager, address).length > 0) return "active";
+  if (inFlightVariantIds(manager.getState(), address, liveJobs).length > 0) return "active";
   const target = manager.tryGetAssetState(address);
   if (!target) return null;
   const state = manager.getState();
@@ -69,21 +72,53 @@ export function assetSkipReason(
   return hasReady && !inputRebuilt ? "ready" : null;
 }
 
-export function getActiveVariantIds(manager: StateManager, address: string): string[] {
-  const target = manager.tryGetAssetState(address);
-  if (!target) return [];
-  const variantIds: string[] = [];
-  for (const [variantId, v] of Object.entries(target.variants ?? {})) {
-    // A variant with no file is only "active" (an in-flight job) when it has no
-    // terminal marker. A failed job records metadata.error and a cancelled one
-    // metadata.cancelledAt, both leaving no file; treating either as active would make
-    // a re-run skip the asset forever with a false "active job(s) exist". Same terminal
-    // set as status-sections/suggested-actions/clean.
-    if (!v.file && !v.metadata?.error && !v.metadata?.cancelledAt) {
-      variantIds.push(variantId);
+// The generation jobs still making a take `state` holds fileless. A completed one counts only while
+// the state on disk, read after `jobs` was listed, holds its file.
+export async function liveGenerationVariantIds(
+  videoRoot: string,
+  jobs: readonly JobRecord[],
+  state: KonteState,
+): Promise<Set<string>> {
+  const live = new Set<string>();
+  const completed: GenerationJob[] = [];
+  for (const job of jobs) {
+    if (job.kind !== "generation") continue;
+    if (!isJobTerminal(job.status)) live.add(job.id);
+    else if (job.status === "completed") {
+      const variant = state.assets[job.address]?.variants?.[job.variantId];
+      if (variant && !variant.file) completed.push(job);
     }
   }
-  return variantIds;
+  if (completed.length > 0) {
+    const fresh = (await StateManager.load(videoRoot)).getState();
+    for (const job of completed) {
+      if (fresh.assets[job.address]?.variants?.[job.variantId]?.file) live.add(job.id);
+    }
+  }
+  return live;
+}
+
+// Whether `state` holds a fileless take with no terminal marker and no job: a registration still
+// creating its jobs under the state lock, or one interrupted before it did.
+export function holdsJoblessReservation(state: KonteState, jobs: readonly JobRecord[]): boolean {
+  const jobIds = new Set(jobs.map((job) => job.id));
+  return Object.values(state.assets).some((asset) =>
+    Object.entries(asset.variants ?? {}).some(
+      ([id, v]) => !v.file && !v.metadata?.error && !v.metadata?.cancelledAt && !jobIds.has(id),
+    ),
+  );
+}
+
+// Outside the state lock a registration between its save and its `createJob` reads as absent;
+// `registerJobsBatch` judges again inside the lock.
+export function inFlightVariantIds(
+  state: KonteState,
+  address: string,
+  liveJobs: ReadonlySet<string>,
+): string[] {
+  return Object.entries(state.assets[address]?.variants ?? {})
+    .filter(([id, v]) => !v.file && liveJobs.has(id))
+    .map(([id]) => id);
 }
 
 // What a whole-stage `generate` would submit, before the spend gate leaves out what it holds.
@@ -91,13 +126,14 @@ export function selectGenerationAssets(opts: {
   definitions: LoadedDefinitions;
   stage: AssetStage;
   manager: StateManager;
+  liveJobs: ReadonlySet<string>;
   graph: DependencyGraph;
 }): {
   stageAddresses: Set<string>;
   skippedUnused: string[];
   spending: string[];
 } {
-  const { definitions, stage, manager, graph } = opts;
+  const { definitions, stage, manager, liveJobs, graph } = opts;
   const { video, animatic, reference } = definitions;
   const { def } = selectDefinition(stage, definitions);
   const stageAddresses = new Set(listAddresses(def, stage));
@@ -105,7 +141,7 @@ export function selectGenerationAssets(opts: {
     stageAddresses.has(p),
   );
   for (const p of skippedUnused) stageAddresses.delete(p);
-  const spending = listSpendingAssets(def, stageAddresses, manager, graph);
+  const spending = listSpendingAssets(def, stageAddresses, manager, liveJobs, graph);
   return { stageAddresses, skippedUnused, spending };
 }
 
@@ -114,6 +150,7 @@ export function listSpendingAssets(
   def: DefinitionLike,
   addresses: ReadonlySet<string>,
   manager: StateManager,
+  liveJobs: ReadonlySet<string>,
   graph: DependencyGraph | null,
 ): string[] {
   const spending = new Set<string>();
@@ -123,6 +160,7 @@ export function listSpendingAssets(
     if (asset.kind === "file") continue;
     const skip = assetSkipReason(
       manager,
+      liveJobs,
       address,
       computeDefinitionHash(asset),
       asset.deterministic === true,

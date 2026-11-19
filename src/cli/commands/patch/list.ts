@@ -1,11 +1,7 @@
 import type { Command } from "commander";
+import { liveGenerationVariantIds } from "../../../core/generation-selection.js";
 import { JobManager } from "../../../core/job-manager.js";
-import {
-  activeGenerationVariantIds,
-  findPendingPatches,
-  loadPatchCatalog,
-  patchHashesOf,
-} from "../../../core/patch.js";
+import { findPendingPatches, loadPatchCatalog, patchHashesOf } from "../../../core/patch.js";
 import { isVariantStale, variantsNewestFirst } from "../../../core/staleness.js";
 import { StateManager } from "../../../core/state/index.js";
 import { requireVideoRoots } from "../../context.js";
@@ -64,7 +60,7 @@ Examples:
         findPendingPatches(
           state,
           catalog,
-          activeGenerationVariantIds(jobs),
+          await liveGenerationVariantIds(videoRoot, jobs, state),
           manager.stalenessCache(),
         ).map((p) => p.sourceVariantId),
       );

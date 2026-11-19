@@ -80,20 +80,6 @@ function suggestCleanForProblems(actions: SuggestedAction[], problemAddresses: s
   }
 }
 
-// Job-blind fallback used only when the caller can't supply the report's job-aware
-// "Problems" set: a variant with no file and no error/cancel marker. It cannot tell a
-// still-running variant apart from a dead one, so prefer the caller-supplied set.
-function fallbackProblemAddresses(state: KonteState): string[] {
-  return Object.entries(state.assets)
-    .filter(([, a]) => {
-      if (!a.variants) return false;
-      return Object.values(a.variants).some(
-        (v) => !v.file && !v.metadata?.error && !v.metadata?.cancelledAt,
-      );
-    })
-    .map(([addr]) => addr);
-}
-
 // A failed generation job's error lives on its job record — and `konte clean`, the step below,
 // deletes that record and its log along with the variant.
 function suggestFailedJobDiagnosis(
@@ -529,10 +515,7 @@ interface SuggestStatusInput {
   spendHeldStages?: readonly string[];
   /** Stages whose `konte preview` the review gate would refuse right now. */
   previewHeldStages?: readonly string[];
-  /**
-   * The report's job-aware "Problems" addresses. The state-only fallback cannot see job state, so it
-   * wrongly flags a still-running variant (no file yet, no error) as a problem.
-   */
+  /** The report's job-aware "Problems" addresses. */
   problemAddresses?: readonly string[];
   /** The report's per-stage readiness — what is left to generate, and whether video can export. */
   readiness?: readonly ExportReadiness[];
@@ -653,9 +636,7 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
   }
 
   suggestFailedJobDiagnosis(actions, input.failedJobVariantIds ?? []);
-  suggestCleanForProblems(actions, [
-    ...(input.problemAddresses ?? fallbackProblemAddresses(state)),
-  ]);
+  suggestCleanForProblems(actions, [...(input.problemAddresses ?? [])]);
   // The rest of "Problems": none of these has a variant for `clean` to act on.
   suggestMissingFiles(actions, input.missingFilePaths ?? []);
   suggestOrphanJobCancel(actions, input.orphanJobIds ?? []);

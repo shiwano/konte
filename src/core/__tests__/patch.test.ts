@@ -63,7 +63,7 @@ function stateWith(
 describe("findPendingPatches", () => {
   it("reports a script that has never produced anything", () => {
     const state = stateWith({ [SOURCE]: variant({ file: "src.png" }) });
-    const pending = findPendingPatches(state, catalog("h1"));
+    const pending = findPendingPatches(state, catalog("h1"), new Set());
     expect(pending.map((p) => p.sourceVariantId)).toEqual([SOURCE]);
     expect(pending[0]!.reason).toBe("never-applied");
   });
@@ -73,7 +73,7 @@ describe("findPendingPatches", () => {
       [SOURCE]: variant({ file: "src.png" }),
       "v-fix": variant({ file: "fix.png", derivedFrom: SOURCE, patchHash: "h1" }),
     });
-    expect(findPendingPatches(state, catalog("h1"))).toEqual([]);
+    expect(findPendingPatches(state, catalog("h1"), new Set())).toEqual([]);
   });
 
   // "Never applied" and "applied, then the script was edited" are the same situation to
@@ -83,7 +83,7 @@ describe("findPendingPatches", () => {
       [SOURCE]: variant({ file: "src.png" }),
       "v-fix": variant({ file: "fix.png", derivedFrom: SOURCE, patchHash: "h1" }),
     });
-    const pending = findPendingPatches(state, catalog("h2"));
+    const pending = findPendingPatches(state, catalog("h2"), new Set());
     expect(pending.map((p) => p.sourceVariantId)).toEqual([SOURCE]);
     expect(pending[0]!.reason).toBe("script-changed");
   });
@@ -103,7 +103,7 @@ describe("findPendingPatches", () => {
       },
       { "v-step": variant({ file: "step.png", status: "accepted", outputHash: "new" }) },
     );
-    const pending = findPendingPatches(state, catalog("h1"));
+    const pending = findPendingPatches(state, catalog("h1"), new Set());
     expect(pending.map((p) => p.reason)).toEqual(["inputs-changed"]);
   });
 
@@ -122,7 +122,7 @@ describe("findPendingPatches", () => {
     state.assets[UPSTREAM] = {
       variants: { "v-up": variant({ status: "accepted", file: "up.png", outputHash: "new" }) },
     };
-    expect(findPendingPatches(state, catalog("h1"))).toEqual([]);
+    expect(findPendingPatches(state, catalog("h1"), new Set())).toEqual([]);
   });
 
   // The reason is read off the takes the CURRENT script produced — an older attempt from a
@@ -141,7 +141,7 @@ describe("findPendingPatches", () => {
     state.assets[STEP_ADDR]!.variants = {
       "v-step": variant({ status: "accepted", file: "step.png", outputHash: "new" }),
     };
-    const pending = findPendingPatches(state, catalog("h2"));
+    const pending = findPendingPatches(state, catalog("h2"), new Set());
     expect(pending.map((p) => p.reason)).toEqual(["inputs-changed"]);
   });
 
@@ -153,13 +153,10 @@ describe("findPendingPatches", () => {
       { [SOURCE]: variant({ file: "src.png" }) },
       { "v-step": variant({ file: null }) },
     );
-    expect(findPendingPatches(state, catalog("h1"))).toEqual([]);
     expect(findPendingPatches(state, catalog("h1"), new Set(["v-step"]))).toEqual([]);
   });
 
-  // A job that completed but downloaded nothing leaves a fileless variant carrying NO terminal
-  // marker, so the metadata heuristic cannot tell it from a live one. The job list can.
-  it("re-reports the patch when a finished attempt produced no file", () => {
+  it("re-reports the patch when a fileless attempt has no live job", () => {
     const state = stateWith(
       { [SOURCE]: variant({ file: "src.png" }) },
       { "v-step": variant({ file: null }) },
@@ -181,9 +178,9 @@ describe("findPendingPatches", () => {
         metadata: { cancelledAt: "2026-01-02T00:00:00.000Z" },
       }),
     });
-    expect(findPendingPatches(state, catalog("h1")).map((p) => p.sourceVariantId)).toEqual([
-      SOURCE,
-    ]);
+    expect(
+      findPendingPatches(state, catalog("h1"), new Set()).map((p) => p.sourceVariantId),
+    ).toEqual([SOURCE]);
   });
 
   it("re-reports the patch when its only attempt failed", () => {
@@ -196,18 +193,18 @@ describe("findPendingPatches", () => {
         metadata: { error: "backend exploded" },
       }),
     });
-    expect(findPendingPatches(state, catalog("h1")).map((p) => p.sourceVariantId)).toEqual([
-      SOURCE,
-    ]);
+    expect(
+      findPendingPatches(state, catalog("h1"), new Set()).map((p) => p.sourceVariantId),
+    ).toEqual([SOURCE]);
   });
 
   it("skips a source with no output file to feed the adapter", () => {
     const state = stateWith({ [SOURCE]: variant({ file: null }) });
-    expect(findPendingPatches(state, catalog("h1"))).toEqual([]);
+    expect(findPendingPatches(state, catalog("h1"), new Set())).toEqual([]);
   });
 
   it("skips a source that is no longer in state", () => {
-    expect(findPendingPatches(stateWith({}), catalog("h1"))).toEqual([]);
+    expect(findPendingPatches(stateWith({}), catalog("h1"), new Set())).toEqual([]);
   });
 
   // An input-stale output is not a realized correction either — the take it built on has moved.
@@ -231,9 +228,9 @@ describe("findPendingPatches", () => {
         },
       },
     };
-    expect(findPendingPatches(state, catalog("h1")).map((p) => p.sourceVariantId)).toEqual([
-      SOURCE,
-    ]);
+    expect(
+      findPendingPatches(state, catalog("h1"), new Set()).map((p) => p.sourceVariantId),
+    ).toEqual([SOURCE]);
   });
 });
 

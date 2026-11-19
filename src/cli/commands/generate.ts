@@ -12,11 +12,7 @@ import { printCapped } from "../format-list.js";
 import { collectTransitiveDependents } from "../../core/graph.js";
 import { plateFork } from "../../core/stale-refresh.js";
 import { JobManager } from "../../core/job-manager.js";
-import {
-  activeGenerationVariantIds,
-  findPendingPatches,
-  loadPatchCatalog,
-} from "../../core/patch.js";
+import { findPendingPatches, loadPatchCatalog } from "../../core/patch.js";
 import { JobIndex } from "../../core/job-index.js";
 import { type PendingReason, describePendingJob } from "../../core/pending-jobs.js";
 import { type PatchRun, applyPatches, preparePatchSpend } from "../patch-orchestrator.js";
@@ -54,6 +50,7 @@ import { printRemixedBoardStems } from "../generation-selection.js";
 import {
   type SkipReason,
   assetSkipReason,
+  liveGenerationVariantIds,
   selectGenerationAssets,
 } from "../../core/generation-selection.js";
 import { planSupersededStemRemakes, remakeSettledLeaves } from "../../core/board-leaves.js";
@@ -150,19 +147,25 @@ export function registerGenerateCommand(program: Command): void {
 
       const { levels } = computeDependencyLevels(graph);
 
+      const jobManager = new JobManager(videoRoot);
+      const liveJobs = await liveGenerationVariantIds(
+        videoRoot,
+        await jobManager.listJobs(),
+        manager.getState(),
+      );
       const selected = selectGenerationAssets({
         definitions: defs,
         stage: loaded.stage,
         manager,
+        liveJobs,
         graph,
       });
       const { stageAddresses, skippedUnused } = selected;
-      const jobManager = new JobManager(videoRoot);
       const patchCatalog = await loadPatchCatalog(videoRoot, manager.getState());
       const pendingPatches = findPendingPatches(
         manager.getState(),
         patchCatalog,
-        activeGenerationVariantIds(await jobManager.listJobs()),
+        liveJobs,
         manager.stalenessCache(),
       ).filter((p) => getStage(p.sourceAddress) === stage);
       // Before any job is created: a finding or an unaccepted upstream holding the whole stage refuses
@@ -253,6 +256,7 @@ export function registerGenerateCommand(program: Command): void {
           levels,
           graph,
           manager,
+          liveJobs,
           stageAddresses,
           variantCount,
           getAssetDef: assetEntryOf,
@@ -368,6 +372,7 @@ export function registerGenerateCommand(program: Command): void {
           // Readiness first, then the gate — see buildGeneratePlan for why that order.
           const skipReason = assetSkipReason(
             manager,
+            liveJobs,
             address,
             computeDefinitionHash(assetDef),
             assetDef.deterministic === true,

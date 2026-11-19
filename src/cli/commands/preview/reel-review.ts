@@ -23,7 +23,11 @@ import {
   type CompositionClip,
 } from "../../../core/composition-builder.js";
 import { resolveCompositionRef } from "../../../core/composition-refs.js";
-import { getActiveVariantIds } from "../../../core/generation-selection.js";
+import {
+  inFlightVariantIds,
+  liveGenerationVariantIds,
+} from "../../../core/generation-selection.js";
+import { JobManager } from "../../../core/job-manager.js";
 import {
   leafSettledAcross,
   compositionDefinitionHashForAddress,
@@ -313,6 +317,7 @@ interface ReelStateScope {
   stage: StageDefinition["stage"];
   counterpart: StageDefinition | null;
   manager: StateManager;
+  liveJobs: ReadonlySet<string>;
   feedbackMgr: FeedbackManager;
   waiverCoverage: WaiverCoverage | undefined;
 }
@@ -335,6 +340,11 @@ export async function handleGetReelState(
     stage,
     counterpart,
     manager,
+    liveJobs: await liveGenerationVariantIds(
+      videoRoot,
+      await new JobManager(videoRoot).listJobs(),
+      manager.getState(),
+    ),
     feedbackMgr: await FeedbackManager.load(videoRoot, stage),
     waiverCoverage: waiverCoverageOf(
       await loadCheckContext({
@@ -556,6 +566,7 @@ function reelLevelKinds(video: StageDefinition): Map<string, LevelKind> {
 
 function standInCause(
   manager: StateManager,
+  liveJobs: ReadonlySet<string>,
   video: StageDefinition,
   shot: StageDefinition["shots"][number] | undefined,
 ): StandInCause {
@@ -563,7 +574,9 @@ function standInCause(
     (ref) =>
       !resolveCompositionRef(manager, ref) && !drawsStaleRefAsWritten(manager, video, shot!, ref),
   );
-  const waiting = unresolved.filter((ref) => getActiveVariantIds(manager, ref).length === 0);
+  const waiting = unresolved.filter(
+    (ref) => inFlightVariantIds(manager.getState(), ref, liveJobs).length === 0,
+  );
   if (unresolved.length > 0 && waiting.length === 0) return "generating";
   return waiting.some((ref) => resolveCompositionRef(manager, ref, { includeStale: true }))
     ? "stale"
@@ -619,7 +632,7 @@ function reelShotStates(
       pending,
       aside,
       showingStandIn,
-      standInCause: showingStandIn ? standInCause(manager, video, shot) : null,
+      standInCause: showingStandIn ? standInCause(manager, scope.liveJobs, video, shot) : null,
       notReady,
       handoffNotes: handoffNotesForShot(ctx.handoff, stage, s.shotId),
     };

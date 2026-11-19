@@ -14,7 +14,11 @@ import {
 import { loadCheckContext } from "../../core/check-context.js";
 import { panelRole } from "../../core/direction.js";
 import { spellingsOf } from "../../core/dsl/respell.js";
-import { selectGenerationAssets } from "../../core/generation-selection.js";
+import {
+  liveGenerationVariantIds,
+  selectGenerationAssets,
+} from "../../core/generation-selection.js";
+import { JobManager } from "../../core/job-manager.js";
 import type { PromptOccurrence } from "../../core/prompt-check.js";
 import {
   formatOffscreen,
@@ -83,7 +87,18 @@ export async function inspectPrompts(
       sync: "memory",
       through: stage,
     });
-    const { spending } = selectGenerationAssets({ definitions, stage, manager, graph });
+    const liveJobs = await liveGenerationVariantIds(
+      videoRoot,
+      await new JobManager(videoRoot).listJobs(),
+      manager.getState(),
+    );
+    const { spending } = selectGenerationAssets({
+      definitions,
+      stage,
+      manager,
+      liveJobs,
+      graph,
+    });
     const held = await spendHeldAssets(
       await loadCheckContext({ cueTakes: "played", videoRoot, definitions, manager, graph }),
       { command: "generate", stage, addresses: spending, targeted: false },

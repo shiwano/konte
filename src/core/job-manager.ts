@@ -645,6 +645,11 @@ export class JobManager {
     return this.read(jobId) !== undefined;
   }
 
+  // Null when missing or corrupt.
+  tryGetJob(jobId: string): JobRecord | null {
+    return this.read(jobId) ?? null;
+  }
+
   // Overwrite a whole record as given, validated. For a caller that owns the record outright (a
   // fixture, a repair) — the transition-aware path is updateJob.
   async putJob(record: JobRecordInput): Promise<void> {

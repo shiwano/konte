@@ -20,6 +20,7 @@ import {
 import type { PatchBuild } from "./dsl/patch.js";
 import type { BuildFormat } from "./dsl/shot-context.js";
 import { KonteError, errorMessage } from "./errors.js";
+import { inFlightVariantIds } from "./generation-selection.js";
 import { extractRefs } from "./graph.js";
 import { loadDirectionDefinition, loadIfPresent, reloadPatchDefinition } from "./loader.js";
 import { computeVariantStaleness, type StalenessCache } from "./staleness.js";
@@ -438,11 +439,7 @@ interface PendingPatch extends LoadedPatch {
 export function findPendingPatches(
   state: KonteState,
   catalog: PatchCatalog,
-  // Variant ids of generation jobs that are pending/queued/running. Supplied by callers that hold
-  // a JobManager; it is the only reliable "still working" signal, since a variant left fileless by
-  // a job that completed empty carries no terminal marker at all. Without it the fallback below
-  // reads the markers, which is right for the common cases but cannot see that one.
-  activeJobVariantIds?: ReadonlySet<string>,
+  liveJobs: ReadonlySet<string>,
   // The caller's resolution memo. Without it a reverted edit reads as a moved input, and this asks
   // for a re-apply nothing is waiting on — a spend.
   cache?: StalenessCache,
@@ -472,14 +469,8 @@ export function findPendingPatches(
     // A chain still running counts as realized — re-applying would double-spend. Asked of the STEP
     // addresses: the patched variant is registered only once the returned step lands, so until then
     // an apply in flight leaves nothing at the source's address to see it by.
-    const inFlight = patchPoolAddresses(patch).some((address) =>
-      Object.entries(state.assets[address]?.variants ?? {}).some(([id, v]) => {
-        if (v.file) return false;
-        if (activeJobVariantIds) return activeJobVariantIds.has(id);
-        // `error` and `cancelledAt` land on different metadata keys (see job cancel), so both must
-        // be checked or a cancelled attempt would block its patch from ever being applied again.
-        return !v.metadata?.error && !v.metadata?.cancelledAt;
-      }),
+    const inFlight = patchPoolAddresses(patch).some(
+      (address) => inFlightVariantIds(state, address, liveJobs).length > 0,
     );
     if (fresh.length > 0 || inFlight) continue;
 

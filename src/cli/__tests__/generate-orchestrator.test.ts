@@ -1,3 +1,4 @@
+import { Database } from "bun:sqlite";
 import * as fs from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
@@ -5,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { computeDefinitionHash } from "../../core/definition-hash.js";
 import type { DependencyGraph } from "../../core/graph.js";
 import { StateManager } from "../../core/state/index.js";
-import { comfyModelJobId, JobManager } from "../../core/job-manager.js";
+import { comfyModelJobId, JobManager, jobsDbPath } from "../../core/job-manager.js";
 import type { AssetDefinition, ComfyModelDeclaration } from "../../core/types/index.js";
 import {
   buildGeneratePlan,
@@ -14,7 +15,12 @@ import {
   formatComfyDownloadNotice,
   registerJobsBatch,
 } from "../generate-orchestrator.js";
-import { assetSkipReason, getActiveVariantIds } from "../../core/generation-selection.js";
+import {
+  assetSkipReason,
+  holdsJoblessReservation,
+  inFlightVariantIds,
+  liveGenerationVariantIds,
+} from "../../core/generation-selection.js";
 
 async function createManager(): Promise<StateManager> {
   const dir = await fs.mkdtemp(path.join(tmpdir(), "konte-genorch-"));
@@ -25,6 +31,7 @@ const comfyDef = { kind: "comfy" } as unknown as AssetDefinition;
 const fileDef = { kind: "file" } as unknown as AssetDefinition;
 
 const HASH = "def-current";
+const NO_JOBS: ReadonlySet<string> = new Set();
 
 function graphOf(deps: Record<string, string[]>): DependencyGraph {
   return {
@@ -64,46 +71,46 @@ describe("assetSkipReason", () => {
 
   it("generates when no variants exist", async () => {
     const manager = await createManager();
-    expect(assetSkipReason(manager, address, HASH)).toBeNull();
+    expect(assetSkipReason(manager, NO_JOBS, address, HASH)).toBeNull();
   });
 
   it("skips an unaccepted variant that is ready", async () => {
     const { manager } = await withReadyVariant();
-    expect(assetSkipReason(manager, address, HASH)).toBe("ready");
+    expect(assetSkipReason(manager, NO_JOBS, address, HASH)).toBe("ready");
   });
 
   it("generates a ready variant whose upstream the same run rebuilds", async () => {
     const { manager } = await withReadyVariant();
-    expect(assetSkipReason(manager, address, HASH, false, true)).toBeNull();
+    expect(assetSkipReason(manager, NO_JOBS, address, HASH, false, true)).toBeNull();
   });
 
   it("keeps an accepted variant whose upstream the same run rebuilds", async () => {
     const { manager, vid } = await withReadyVariant();
     manager.setAccepted(address, vid);
-    expect(assetSkipReason(manager, address, HASH, false, true)).toBe("accepted");
+    expect(assetSkipReason(manager, NO_JOBS, address, HASH, false, true)).toBe("accepted");
   });
 
   it("generates when the only ready variant was dismissed", async () => {
     const { manager, vid } = await withReadyVariant();
     manager.getAssetState(address).variants![vid]!.status = "dismissed";
-    expect(assetSkipReason(manager, address, HASH)).toBeNull();
+    expect(assetSkipReason(manager, NO_JOBS, address, HASH)).toBeNull();
   });
 
   it("generates when the only variant is definition-stale and unaccepted", async () => {
     const { manager } = await withReadyVariant();
-    expect(assetSkipReason(manager, address, "def-edited")).toBeNull();
+    expect(assetSkipReason(manager, NO_JOBS, address, "def-edited")).toBeNull();
   });
 
   it("generates when the only variant is input-stale and unaccepted", async () => {
     const { manager, vid } = await withReadyVariant();
     makeInputStale(manager, vid);
-    expect(assetSkipReason(manager, address, HASH)).toBeNull();
+    expect(assetSkipReason(manager, NO_JOBS, address, HASH)).toBeNull();
   });
 
   it("skips an accepted variant that is ready", async () => {
     const { manager, vid } = await withReadyVariant();
     manager.setAccepted(address, vid);
-    expect(assetSkipReason(manager, address, HASH)).toBe("accepted");
+    expect(assetSkipReason(manager, NO_JOBS, address, HASH)).toBe("accepted");
   });
 
   // generate never draws a rival to a take a human accepted — that is reroll's job. A new variant
@@ -111,20 +118,26 @@ describe("assetSkipReason", () => {
   it("skips an accepted variant that is definition-stale", async () => {
     const { manager, vid } = await withReadyVariant();
     manager.setAccepted(address, vid);
-    expect(assetSkipReason(manager, address, "def-edited")).toBe("accepted-stale");
+    expect(assetSkipReason(manager, NO_JOBS, address, "def-edited")).toBe("accepted-stale");
   });
 
   it("skips an accepted variant that is input-stale as accepted", async () => {
     const { manager, vid } = await withReadyVariant();
     makeInputStale(manager, vid);
     manager.setAccepted(address, vid);
-    expect(assetSkipReason(manager, address, HASH)).toBe("accepted");
+    expect(assetSkipReason(manager, NO_JOBS, address, HASH)).toBe("accepted");
   });
 
   it("reports an in-flight job before anything else", async () => {
     const { manager } = await withReadyVariant();
+    const vid = manager.reserveVariantId(address);
+    expect(assetSkipReason(manager, new Set([vid]), address, HASH)).toBe("active");
+  });
+
+  it("generates past a reservation whose job was never created", async () => {
+    const manager = await createManager();
     manager.reserveVariantId(address);
-    expect(assetSkipReason(manager, address, HASH)).toBe("active");
+    expect(assetSkipReason(manager, NO_JOBS, address, HASH)).toBeNull();
   });
 });
 
@@ -166,12 +179,31 @@ describe("registerJobsBatch", () => {
 
     expect(result!.jobs).toHaveLength(1);
     const manager = await StateManager.load(dir);
-    expect(getActiveVariantIds(manager, "video:shot.01.clip")).toEqual([
+    const active = new Set([result!.jobs[0]!.variantId]);
+    expect(inFlightVariantIds(manager.getState(), "video:shot.01.clip", active)).toEqual([
       result!.jobs[0]!.variantId,
     ]);
     expect(
       manager.getAssetState("video:shot.01.clip").variants![stranded]!.metadata?.error,
     ).toBeDefined();
+  });
+
+  it("registers past a reserved take whose job record is corrupt", async () => {
+    const { dir, jobManager } = await setup();
+    const vid = await StateManager.withLock(dir, async (m) =>
+      m.reserveVariantId("video:shot.01.clip"),
+    );
+    await jobManager.createJob({
+      address: "video:shot.01.clip",
+      variantId: vid,
+      resolvedDeps: {},
+      backendKind: "comfy",
+    });
+    new Database(jobsDbPath(dir)).run("UPDATE jobs SET data = ? WHERE id = ?", ["{", vid]);
+
+    const [result] = await registerJobsBatch(dir, jobManager, [request("video:shot.01.clip")]);
+
+    expect(result!.jobs).toHaveLength(1);
   });
 
   it("refuses a rival that registered after the caller listed jobs", async () => {
@@ -257,30 +289,109 @@ describe("formatAcceptedStaleNotice", () => {
   });
 });
 
-describe("getActiveVariantIds", () => {
-  it("counts a fileless variant with no error as active", async () => {
+describe("inFlightVariantIds", () => {
+  const address = "video:shot.01.motion";
+
+  it("counts a fileless variant whose job is active", async () => {
     const manager = await createManager();
-    const address = "video:shot.01.motion";
     const vid = manager.reserveVariantId(address);
-    expect(getActiveVariantIds(manager, address)).toEqual([vid]);
+    expect(inFlightVariantIds(manager.getState(), address, new Set([vid]))).toEqual([vid]);
   });
 
-  it("excludes a failed variant (no file, metadata.error) so a re-run regenerates", async () => {
+  it("excludes a fileless variant with no active job", async () => {
     const manager = await createManager();
-    const address = "video:shot.01.motion";
-    const vid = manager.reserveVariantId(address);
-    manager.getAssetState(address).variants![vid]!.metadata = { error: "boom" };
-    expect(getActiveVariantIds(manager, address)).toEqual([]);
+    manager.reserveVariantId(address);
+    expect(inFlightVariantIds(manager.getState(), address, NO_JOBS)).toEqual([]);
   });
 
-  it("excludes a cancelled variant (no file, metadata.cancelledAt) so a re-run regenerates", async () => {
+  it("excludes a variant that has its file", async () => {
     const manager = await createManager();
-    const address = "video:shot.01.motion";
     const vid = manager.reserveVariantId(address);
-    manager.getAssetState(address).variants![vid]!.metadata = {
-      cancelledAt: "2025-01-01T00:00:00Z",
-    };
-    expect(getActiveVariantIds(manager, address)).toEqual([]);
+    manager.getAssetState(address).variants![vid]!.file = "out.png";
+    expect(inFlightVariantIds(manager.getState(), address, new Set([vid]))).toEqual([]);
+  });
+});
+
+describe("liveGenerationVariantIds", () => {
+  const address = "video:shot.01.motion";
+
+  async function withJob(status: "queued" | "completed" | "failed") {
+    const dir = await fs.mkdtemp(path.join(tmpdir(), "konte-genorch-"));
+    const manager = await StateManager.init(dir);
+    const vid = manager.reserveVariantId(address);
+    await manager.save();
+    const jobManager = new JobManager(dir);
+    await jobManager.createJob({ address, variantId: vid, resolvedDeps: {}, backendKind: "comfy" });
+    if (status !== "queued") {
+      await jobManager.putJob({ ...(await jobManager.getJob(vid)), status } as never);
+    }
+    return { dir, manager, vid, jobs: await jobManager.listJobs() };
+  }
+
+  it("counts a job not yet finished", async () => {
+    const { dir, manager, vid, jobs } = await withJob("queued");
+    expect(await liveGenerationVariantIds(dir, jobs, manager.getState())).toEqual(new Set([vid]));
+  });
+
+  it("counts a completed job whose file landed after the state was read", async () => {
+    const { dir, manager, vid, jobs } = await withJob("completed");
+    await StateManager.withLock(dir, async (m) => {
+      m.getAssetState(address).variants![vid]!.file = "out.png";
+    });
+    expect(await liveGenerationVariantIds(dir, jobs, manager.getState())).toEqual(new Set([vid]));
+  });
+
+  it("leaves out a completed job whose take has no file on disk either", async () => {
+    const { dir, manager, jobs } = await withJob("completed");
+    expect(await liveGenerationVariantIds(dir, jobs, manager.getState())).toEqual(new Set());
+  });
+
+  it("leaves out a failed job", async () => {
+    const { dir, manager, jobs } = await withJob("failed");
+    expect(await liveGenerationVariantIds(dir, jobs, manager.getState())).toEqual(new Set());
+  });
+});
+
+describe("holdsJoblessReservation", () => {
+  it("finds a fileless take with no job until its job exists", async () => {
+    const dir = await fs.mkdtemp(path.join(tmpdir(), "konte-genorch-"));
+    const manager = await StateManager.init(dir);
+    const vid = manager.reserveVariantId("video:shot.01.motion");
+    const jobManager = new JobManager(dir);
+    expect(holdsJoblessReservation(manager.getState(), await jobManager.listJobs())).toBe(true);
+
+    await jobManager.createJob({
+      address: "video:shot.01.motion",
+      variantId: vid,
+      resolvedDeps: {},
+      backendKind: "comfy",
+    });
+    expect(holdsJoblessReservation(manager.getState(), await jobManager.listJobs())).toBe(false);
+  });
+});
+
+describe("StateManager.writersSettled", () => {
+  it("resolves only after the writer holding the state lock releases it", async () => {
+    const dir = await fs.mkdtemp(path.join(tmpdir(), "konte-genorch-"));
+    await StateManager.init(dir);
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    let entered!: () => void;
+    const inside = new Promise<void>((resolve) => (entered = resolve));
+    const writer = StateManager.withLock(dir, async () => {
+      entered();
+      await held;
+    });
+    await inside;
+
+    let settled = false;
+    const waiting = StateManager.writersSettled(dir).then(() => (settled = true));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(settled).toBe(false);
+
+    release();
+    await Promise.all([writer, waiting]);
+    expect(settled).toBe(true);
   });
 });
 
@@ -302,6 +413,7 @@ describe("buildGeneratePlan", () => {
       levels: [["video:shot.01.key"], ["video:shot.01.motion"]],
       graph,
       manager,
+      liveJobs: NO_JOBS,
       stageAddresses: new Set(["video:shot.01.key", "video:shot.01.motion"]),
       variantCount: 1,
       getAssetDef,
@@ -332,6 +444,7 @@ describe("buildGeneratePlan", () => {
         "video:shot.01.motion": ["video:shot.01.key"],
       }),
       manager,
+      liveJobs: NO_JOBS,
       stageAddresses: new Set([key, "video:shot.01.motion"]),
       variantCount: 1,
       getAssetDef,
@@ -364,6 +477,7 @@ describe("buildGeneratePlan", () => {
       levels: [[key], [motion]],
       graph: graphOf({ [key]: [], [motion]: [key] }),
       manager,
+      liveJobs: NO_JOBS,
       stageAddresses: new Set([key, motion]),
       variantCount: 1,
       getAssetDef,
@@ -381,7 +495,7 @@ describe("buildGeneratePlan", () => {
     const key = "video:shot.01.key";
     const oldVid = manager.reserveVariantId(key);
     manager.getAssetState(key).variants![oldVid]!.file = "old-key.png";
-    manager.reserveVariantId(key); // fileless -> active job
+    const activeVid = manager.reserveVariantId(key);
 
     const plan = buildGeneratePlan({
       levels: [[key], ["video:shot.01.motion"]],
@@ -390,6 +504,7 @@ describe("buildGeneratePlan", () => {
         "video:shot.01.motion": ["video:shot.01.key"],
       }),
       manager,
+      liveJobs: new Set([activeVid]),
       stageAddresses: new Set([key, "video:shot.01.motion"]),
       variantCount: 1,
       getAssetDef,
@@ -407,12 +522,13 @@ describe("buildGeneratePlan", () => {
     const board = "animatic:shot.01.keyframe";
     const oldVid = manager.reserveVariantId(board);
     manager.getAssetState(board).variants![oldVid]!.file = "old-board.png";
-    manager.reserveVariantId(board); // fileless -> active job
+    const activeVid = manager.reserveVariantId(board);
 
     const plan = buildGeneratePlan({
       levels: [[board], ["video:shot.01.motion"]],
       graph: graphOf({ "video:shot.01.motion": [board] }),
       manager,
+      liveJobs: new Set([activeVid]),
       stageAddresses: new Set(["video:shot.01.motion"]),
       variantCount: 1,
       getAssetDef,
@@ -435,6 +551,7 @@ describe("buildGeneratePlan", () => {
         "video:shot.01.motion": ["video:timeline.bgm"],
       }),
       manager,
+      liveJobs: NO_JOBS,
       stageAddresses: new Set(["video:timeline.bgm", "video:shot.01.motion"]),
       variantCount: 1,
       getAssetDef,
@@ -458,6 +575,7 @@ describe("buildGeneratePlan", () => {
         "video:shot.01.motion": [bgm],
       }),
       manager,
+      liveJobs: NO_JOBS,
       stageAddresses: new Set([bgm, "video:shot.01.motion"]),
       variantCount: 1,
       getAssetDef,
@@ -474,12 +592,13 @@ describe("buildGeneratePlan", () => {
     manager.getAssetState(ready).variants![readyVid]!.file = "key.png";
 
     const active = "video:shot.01.motion";
-    manager.reserveVariantId(active); // no file -> active job
+    const activeVid = manager.reserveVariantId(active);
 
     const plan = buildGeneratePlan({
       levels: [["video:shot.01.key", "video:shot.01.motion"]],
       graph: graphOf({ "video:shot.01.key": [], "video:shot.01.motion": [] }),
       manager,
+      liveJobs: new Set([activeVid]),
       stageAddresses: new Set(["video:shot.01.key", "video:shot.01.motion"]),
       variantCount: 1,
       getAssetDef,
@@ -488,6 +607,26 @@ describe("buildGeneratePlan", () => {
     const entries = plan.levels.flatMap((l) => l.entries);
     expect(entries.every((e) => e.action === "skip")).toBe(true);
     expect(plan.summary.skip).toBe(2);
+  });
+
+  it("starts an asset whose only fileless take has no job", async () => {
+    const manager = await createManager();
+    const key = "video:shot.01.key";
+    manager.reserveVariantId(key);
+
+    const plan = buildGeneratePlan({
+      levels: [[key], ["video:shot.01.motion"]],
+      graph: graphOf({ [key]: [], "video:shot.01.motion": [key] }),
+      manager,
+      liveJobs: NO_JOBS,
+      stageAddresses: new Set([key, "video:shot.01.motion"]),
+      variantCount: 1,
+      getAssetDef,
+    });
+
+    const entries = plan.levels.flatMap((l) => l.entries);
+    expect(entries.find((e) => e.address === key)?.action).toBe("start");
+    expect(entries.find((e) => e.address === "video:shot.01.motion")?.action).toBe("wait");
   });
 
   it("numbers shown levels sequentially across cross-stage gaps", async () => {
@@ -506,6 +645,7 @@ describe("buildGeneratePlan", () => {
         "video:shot.01.motion": ["video:shot.01.key"],
       }),
       manager,
+      liveJobs: NO_JOBS,
       stageAddresses: new Set(["video:shot.01.key", "video:shot.01.motion"]),
       variantCount: 1,
       getAssetDef,
@@ -520,6 +660,7 @@ describe("buildGeneratePlan", () => {
       levels: [["video:timeline.bgm"]],
       graph: graphOf({ "video:timeline.bgm": [] }),
       manager,
+      liveJobs: NO_JOBS,
       stageAddresses: new Set(["video:timeline.bgm"]),
       variantCount: 1,
       getAssetDef,

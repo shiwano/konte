@@ -1,10 +1,10 @@
 import { consumedBoardStems, remakeSettledLeaves } from "../../../core/board-leaves.js";
+import { liveGenerationVariantIds } from "../../../core/generation-selection.js";
 import { printRemixedBoardStems } from "../../generation-selection.js";
 import type { Command } from "commander";
 import { loadKonteConfig } from "../../../core/config.js";
 import { JobManager } from "../../../core/job-manager.js";
 import {
-  activeGenerationVariantIds,
   findPendingPatches,
   loadPatchCatalog,
   patchHashesOf,
@@ -66,7 +66,11 @@ Examples:
         : findPendingPatches(
             manager.getState(),
             catalog,
-            activeGenerationVariantIds(await jobManager.listJobs()),
+            await liveGenerationVariantIds(
+              videoRoot,
+              await jobManager.listJobs(),
+              manager.getState(),
+            ),
             manager.stalenessCache(),
           );
 

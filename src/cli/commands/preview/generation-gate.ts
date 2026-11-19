@@ -2,22 +2,32 @@ import { loadCheckContext } from "../../../core/check-context.js";
 import { collectFindings } from "../../../core/checks.js";
 import type { DependencyGraph } from "../../../core/graph.js";
 import { KonteError } from "../../../core/errors.js";
-import { selectGenerationAssets } from "../../../core/generation-selection.js";
+import {
+  holdsJoblessReservation,
+  liveGenerationVariantIds,
+  selectGenerationAssets,
+} from "../../../core/generation-selection.js";
+import { JobManager } from "../../../core/job-manager.js";
 import { judgeSpend, spendHeldError, type SpendRequest } from "../../../core/spend-gate.js";
 import { spendContext } from "../../finding-gates.js";
 import type { LoadedDefinitions } from "../../../core/select-definition.js";
-import type { StateManager } from "../../../core/state/index.js";
+import { StateManager } from "../../../core/state/index.js";
 import { formatStaleCause } from "../../../core/staleness.js";
 import { drawsStaleRefAsWritten } from "../../../core/render-plan.js";
 
 // A take whose job failed: `generate` was run and the asset is that failure's to answer.
-function newestTakeFailed(manager: StateManager, address: string): boolean {
-  const variants = Object.values(manager.tryGetAssetState(address)?.variants ?? {});
+function newestTakeFailed(
+  manager: StateManager,
+  address: string,
+  failedJobs: ReadonlySet<string>,
+): boolean {
+  const variants = Object.entries(manager.tryGetAssetState(address)?.variants ?? {});
   const newest = variants.reduce<(typeof variants)[number] | null>(
-    (latest, v) => (latest === null || v.createdAt > latest.createdAt ? v : latest),
+    (latest, entry) =>
+      latest === null || entry[1].createdAt > latest[1].createdAt ? entry : latest,
     null,
   );
-  return newest?.metadata?.error != null;
+  return newest !== null && (newest[1].metadata?.error != null || failedJobs.has(newest[0]));
 }
 
 function unsubmittedCause(manager: StateManager, address: string): string {
@@ -27,7 +37,11 @@ function unsubmittedCause(manager: StateManager, address: string): string {
     .filter(([, v]) => v.file && v.status !== "dismissed")
     .sort(([, a], [, b]) => b.createdAt.localeCompare(a.createdAt));
   const newest = kept[0];
-  if (!newest) return "every take dismissed";
+  if (!newest) {
+    return variants.every(([, v]) => v.status === "dismissed")
+      ? "every take dismissed"
+      : "no undismissed take has a file";
+  }
   const staleness = manager.variantStaleness(address, newest[0]);
   const cause = staleness ? formatStaleCause(staleness) : "";
   return cause ? `${newest[0]} is stale (${cause})` : `${newest[0]} is stale`;
@@ -60,7 +74,20 @@ export async function assertVideoGenerationSubmitted(opts: {
   graph: DependencyGraph;
 }): Promise<void> {
   const { videoRoot, definitions, manager, graph } = opts;
-  const { spending } = selectGenerationAssets({ definitions, stage: "video", manager, graph });
+  const jobManager = new JobManager(videoRoot);
+  let jobs = await jobManager.listJobs();
+  if (holdsJoblessReservation(manager.getState(), jobs)) {
+    await StateManager.writersSettled(videoRoot);
+    jobs = await jobManager.listJobs();
+  }
+  const liveJobs = await liveGenerationVariantIds(videoRoot, jobs, manager.getState());
+  const { spending } = selectGenerationAssets({
+    definitions,
+    stage: "video",
+    manager,
+    liveJobs,
+    graph,
+  });
   if (spending.length === 0) return;
   const ctx = await loadCheckContext({
     cueTakes: "resolved",
@@ -88,6 +115,9 @@ export async function assertVideoGenerationSubmitted(opts: {
     manager,
     definitions,
     spending.filter((address) => !verdict.held.has(address)),
+    new Set(
+      jobs.filter((job) => job.kind === "generation" && job.status === "failed").map((j) => j.id),
+    ),
   );
   if (error) throw error;
 }
@@ -100,10 +130,12 @@ export function unsubmittedGenerationError(
   manager: StateManager,
   definitions: LoadedDefinitions,
   submittable: readonly string[],
+  failedJobs: ReadonlySet<string>,
 ): KonteError | null {
   const unsubmitted = submittable.filter(
     (address) =>
-      !drawnAsWritten(manager, definitions, address) && !newestTakeFailed(manager, address),
+      !drawnAsWritten(manager, definitions, address) &&
+      !newestTakeFailed(manager, address, failedJobs),
   );
   if (unsubmitted.length === 0) return null;
   return new KonteError(

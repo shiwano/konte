@@ -311,13 +311,11 @@ describe("suggestForStatus", () => {
       },
     });
 
-    const actions = suggestForStatus({ state });
+    const actions = suggestForStatus({ state, problemAddresses: ["video:shot.01.motion"] });
     expect(actions.some((a) => a.command === "konte clean video:shot.01.motion")).toBe(true);
   });
 
-  it("does not suggest clean for a still-generating variant when given the job-aware problem set", () => {
-    // A running variant has no file yet and no error, so the state-only fallback would
-    // wrongly flag it. The caller passes the report's job-aware (empty) problem set instead.
+  it("does not suggest clean for a fileless variant outside the problem set", () => {
     const state = makeState({
       "video:shot.06.motion": { variants: { v001: problemVariant() } },
     });
@@ -349,7 +347,10 @@ describe("suggestForStatus", () => {
       "animatic:shot.01.first": { variants: { v003: problemVariant() } },
     });
 
-    const actions = suggestForStatus({ state });
+    const actions = suggestForStatus({
+      state,
+      problemAddresses: ["video:shot.01.motion", "video:shot.02.motion", "animatic:shot.01.first"],
+    });
     const cleanCommands = actions
       .filter((a) => a.command?.startsWith("konte clean"))
       .map((a) => a.command);
@@ -364,7 +365,10 @@ describe("suggestForStatus", () => {
       "video:shot.02.motion": { variants: { v002: problemVariant() } },
     });
 
-    const actions = suggestForStatus({ state });
+    const actions = suggestForStatus({
+      state,
+      problemAddresses: ["video:shot.01.motion", "video:shot.02.motion"],
+    });
     const cleanCommands = actions.filter((a) => a.command?.startsWith("konte clean"));
     expect(cleanCommands).toHaveLength(1);
     expect(cleanCommands[0]?.command).toBe("konte clean video");

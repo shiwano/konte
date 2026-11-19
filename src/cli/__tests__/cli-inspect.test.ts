@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getAssetEntry } from "../../core/address.js";
 import { writeDefinitionSnapshot } from "../../core/definition-snapshot.js";
+import { JobManager } from "../../core/job-manager.js";
 import { StateManager } from "../../core/state/manager.js";
 import type { ComfyAssetDefinition } from "../../core/types/index.js";
 import { loadDefinitionForAddress } from "../../core/stage-definitions.js";
@@ -165,9 +166,14 @@ describe("inspect --prompts", () => {
 
   it("reports no pending prompts when all takes are in flight", async () => {
     const sm = await StateManager.load(projectDir);
-    sm.reserveVariantId("video:shot.01.motion");
-    sm.reserveVariantId("video:shot.01.voice");
+    const reserved = ["video:shot.01.motion", "video:shot.01.voice"].map(
+      (address) => [address, sm.reserveVariantId(address)] as const,
+    );
     await sm.save();
+    const jobManager = new JobManager(projectDir);
+    for (const [address, variantId] of reserved) {
+      await jobManager.createJob({ address, variantId, resolvedDeps: {}, backendKind: "comfy" });
+    }
     const { stdout } = await run(
       ["inspect", "video", "--prompts", "--pending-generation"],
       projectDir,

@@ -81,16 +81,21 @@ function addTake(
   return id;
 }
 
-async function gate(video: ReturnType<typeof cut>): Promise<KonteError | null> {
+async function gate(
+  video: ReturnType<typeof cut>,
+  liveJobs: ReadonlySet<string> = new Set(),
+  failedJobs: ReadonlySet<string> = new Set(),
+): Promise<KonteError | null> {
   const definitions = { reference: null, animatic, video } as never;
   await applyResolutionDefinitions({ videoRoot: dir, definitions, state: manager.getState() });
   const { spending } = selectGenerationAssets({
     definitions,
     stage: "video",
     manager,
+    liveJobs,
     graph: buildDependencyGraph(video, animatic, null),
   });
-  return unsubmittedGenerationError(manager, definitions, spending);
+  return unsubmittedGenerationError(manager, definitions, spending, failedJobs);
 }
 
 describe("opening the video review while generate would still submit work", () => {
@@ -113,8 +118,8 @@ describe("opening the video review while generate would still submit work", () =
   });
 
   it("opens while a job is making the take", async () => {
-    addTake(cut("a card"), { file: false });
-    expect(await gate(cut("a card"))).toBeNull();
+    const id = addTake(cut("a card"), { file: false });
+    expect(await gate(cut("a card"), new Set([id]))).toBeNull();
   });
 
   it("opens over a take stale only under its adapter, which the page draws", async () => {
@@ -133,8 +138,19 @@ describe("opening the video review while generate would still submit work", () =
     expect(await gate(video)).toBeNull();
   });
 
+  it("refuses a take whose job was never created, without calling it dismissed", async () => {
+    addTake(cut("a card"), { file: false });
+    const err = await gate(cut("a card"));
+    expect(err?.items).toEqual([`  ${CARD} — no undismissed take has a file`]);
+  });
+
   it("opens when the newest job failed", async () => {
     addTake(cut("a card"), { file: false, error: "boom" });
     expect(await gate(cut("a card"))).toBeNull();
+  });
+
+  it("opens when the newest job failed before its take recorded the error", async () => {
+    const id = addTake(cut("a card"), { file: false });
+    expect(await gate(cut("a card"), new Set(), new Set([id]))).toBeNull();
   });
 });

@@ -13,7 +13,7 @@ import { variantDir } from "../core/variant-dir.js";
 import type { DeliveryTarget } from "../core/delivery.js";
 import { KonteError } from "../core/errors.js";
 import type { DependencyGraph } from "../core/graph.js";
-import { comfyModelJobId, JobManager } from "../core/job-manager.js";
+import { comfyModelJobId, isJobTerminal, JobManager } from "../core/job-manager.js";
 import type { JobRecord } from "../core/types/index.js";
 import type { PatchFinalize } from "../core/patch-output.js";
 import { assetResolves } from "../core/pending-jobs.js";
@@ -23,7 +23,7 @@ import type { UndecidedUpstreamVariant } from "../core/staleness.js";
 import {
   type SkipReason,
   assetSkipReason,
-  getActiveVariantIds,
+  inFlightVariantIds,
 } from "../core/generation-selection.js";
 import { StateManager } from "../core/state/index.js";
 import type {
@@ -514,6 +514,11 @@ interface JobRegistration extends JobRequest {
 
 const INTERRUPTED_REGISTRATION = "Its registration was interrupted before a job was created";
 
+// Inside the state lock the state is current, so a completed job's take already has its file.
+function isActiveGenerationJob(job: JobRecord | null): boolean {
+  return job?.kind === "generation" && !isJobTerminal(job.status);
+}
+
 /**
  * Reserve each request's variants and create their jobs in ONE state-lock hold, the state saved
  * before any job exists so the worker never reads a job whose variant is absent. A variant with no
@@ -550,12 +555,15 @@ export async function registerJobsBatch(
   if (planned.length === 0) return results;
 
   await StateManager.withLock(videoRoot, async (manager) => {
+    const liveJobs = new Set<string>();
     for (const address of new Set(planned.map((p) => p.req.address))) {
       for (const [id, v] of Object.entries(manager.tryGetAssetState(address)?.variants ?? {})) {
-        if (v.file || v.metadata?.error || v.metadata?.cancelledAt || jobManager.hasJob(id)) {
-          continue;
+        if (v.file || v.metadata?.error || v.metadata?.cancelledAt) continue;
+        if (!jobManager.hasJob(id)) {
+          v.metadata = { ...v.metadata, error: INTERRUPTED_REGISTRATION };
+        } else if (isActiveGenerationJob(jobManager.tryGetJob(id))) {
+          liveJobs.add(id);
         }
-        v.metadata = { ...v.metadata, error: INTERRUPTED_REGISTRATION };
       }
     }
 
@@ -577,7 +585,10 @@ export async function registerJobsBatch(
     const reserved: Array<(typeof planned)[number] & { ids: string[] }> = [];
     for (const p of planned) {
       const { req } = p;
-      if (req.skipIfActive && getActiveVariantIds(manager, req.address).length > 0) {
+      if (
+        req.skipIfActive &&
+        inFlightVariantIds(manager.getState(), req.address, liveJobs).length > 0
+      ) {
         results[p.slot] = {
           address: req.address,
           status: "skipped",
@@ -673,6 +684,7 @@ export function buildGeneratePlan(params: {
   levels: readonly (readonly string[])[];
   graph: DependencyGraph;
   manager: StateManager;
+  liveJobs: ReadonlySet<string>;
   stageAddresses: ReadonlySet<string>;
   variantCount: number;
   getAssetDef: (address: string) => AssetDefinition;
@@ -684,6 +696,7 @@ export function buildGeneratePlan(params: {
     levels,
     graph,
     manager,
+    liveJobs,
     stageAddresses,
     variantCount,
     getAssetDef,
@@ -706,7 +719,7 @@ export function buildGeneratePlan(params: {
   const planCache = manager.stalenessCache();
   const depBlocks = (dep: string) =>
     notYetBuilt.has(dep) ||
-    getActiveVariantIds(manager, dep).length > 0 ||
+    inFlightVariantIds(state, dep, liveJobs).length > 0 ||
     !assetResolves(state, dep, planCache);
 
   // Number the levels shown to the user sequentially — the cross-stage graph
@@ -738,6 +751,7 @@ export function buildGeneratePlan(params: {
         // count mean "held back", not "not due yet".
         const skip = assetSkipReason(
           manager,
+          liveJobs,
           address,
           computeDefinitionHash(assetDef),
           assetDef.deterministic === true,
@@ -748,7 +762,7 @@ export function buildGeneratePlan(params: {
           skipReason = skip;
           reason =
             skip === "active"
-              ? `${getActiveVariantIds(manager, address).length} active job(s) exist`
+              ? `${inFlightVariantIds(state, address, liveJobs).length} active job(s) exist`
               : SKIP_REASON_TEXT[skip];
         } else if (
           deps.some(depBlocks) ||
