@@ -116,12 +116,10 @@ const injected = new Map<string, string>();
  *
  * Re-runnable, and the worker runs it again on its reconcile tick. Only konte's
  * own injections move — a real environment variable keeps winning, whenever
- * it arrived. Returns whether the environment changed, so a caller holding anything built from a
- * credential (a backend instance) can drop it.
+ * it arrived.
  */
-export async function applyCredentials(workspaceRoot: string): Promise<boolean> {
+export async function applyCredentials(workspaceRoot: string): Promise<void> {
   const stored = await loadCredentials(workspaceRoot);
-  let changed = false;
 
   for (const [key, value] of Object.entries(stored)) {
     const current = process.env[key] ?? "";
@@ -129,7 +127,6 @@ export async function applyCredentials(workspaceRoot: string): Promise<boolean> 
     if (current === value) continue;
     process.env[key] = value;
     injected.set(key, value);
-    changed = true;
   }
 
   // A credential deleted from the file leaves the environment with it — unless something else has
@@ -138,10 +135,7 @@ export async function applyCredentials(workspaceRoot: string): Promise<boolean> 
     if (key in stored) continue;
     if ((process.env[key] ?? "") === value) delete process.env[key];
     injected.delete(key);
-    changed = true;
   }
-
-  return changed;
 }
 
 /** Is this key set in the environment by something other than the workspace's own file? */

@@ -14,7 +14,7 @@ import { submitReadyPendingJobs } from "../pending-jobs.js";
 import type { VideoRoots } from "../roots.js";
 import { StateManager } from "../state/index.js";
 import { drainSubmissions } from "../submission-drain.js";
-import type { BackendKind, DeliveryUpscaleFn, VideoDefinition } from "../types/index.js";
+import type { DeliveryUpscaleFn, VideoDefinition } from "../types/index.js";
 import { emptyAnimatic, emptyReference } from "./helpers/shot.js";
 import { makeWorkspace, type Workspace } from "./helpers/workspace.js";
 
@@ -107,7 +107,6 @@ it("lets a submit in flight commit its backend job id, and starts no other", asy
   const cascade = submitReadyPendingJobs(
     jobManager,
     roots,
-    new Map<BackendKind, GenerationBackend>(),
     async () => backend,
     async () => ({ video: VIDEO, animatic: emptyAnimatic(), reference: emptyReference() }),
   );

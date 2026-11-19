@@ -15,10 +15,6 @@ function watchers(registry: VideoRegistry): JobWatcher[] {
   return [...(registry as unknown as { watchers: Map<string, JobWatcher> }).watchers.values()];
 }
 
-function backendCache(watcher: JobWatcher): Map<string, unknown> {
-  return (watcher as unknown as { backendCache: Map<string, unknown> }).backendCache;
-}
-
 async function waitFor(predicate: () => boolean, timeoutMs = 10_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (!predicate()) {
@@ -33,7 +29,7 @@ let registry: VideoRegistry | null = null;
 beforeEach(async () => {
   ws = await makeWorkspace({ videos: ["opening"] });
   // applyCredentials keeps a process-wide record of what it injected; settle it against this
-  // workspace so a previous test's key is not this one's first change.
+  // workspace so a previous test's key does not leak into this one.
   await applyCredentials(ws.root);
 });
 
@@ -135,38 +131,14 @@ describe("VideoRegistry", () => {
   });
 
   // The CLI loads credentials once at startup, which is the whole life of a worker. A key set in
-  // `konte settings` after it started has to reach the environment it submits from — and every
-  // backend already built from the old one has to go.
-  it("picks up a credential set after it started, and drops the backends built without it", async () => {
+  // `konte settings` after it started has to reach the environment it submits from.
+  it("picks up a credential set after it started", async () => {
     // The 5s production poll outruns waitFor under a loaded suite.
     registry = new VideoRegistry(ws.root, { reconcileIntervalMs: 50 });
     await registry.start();
 
-    const watcher = watchers(registry)[0]!;
-    backendCache(watcher).set("fal", {});
-
     await saveCredentials(ws.root, { KTEST_CRED: "set-after-start" });
 
     await waitFor(() => process.env.KTEST_CRED === "set-after-start");
-    expect(backendCache(watcher).size).toBe(0);
-  });
-
-  // A submit past its cache miss resolves the backend across an await and then writes it into the
-  // map it was handed. Clearing in place would let that write — a backend built on the old key —
-  // land back in the live cache and stay until the next rotation.
-  it("leaves a submit already resolving a backend writing into a map nothing reads again", async () => {
-    registry = new VideoRegistry(ws.root);
-    await registry.start();
-
-    const watcher = watchers(registry)[0]!;
-    // What a submit captured before the drop.
-    const captured = backendCache(watcher);
-
-    watcher.dropBackendCache();
-    // ...and writes into afterwards.
-    captured.set("fal", { builtOnTheOldKey: true });
-
-    expect(backendCache(watcher)).not.toBe(captured);
-    expect(backendCache(watcher).size).toBe(0);
   });
 });

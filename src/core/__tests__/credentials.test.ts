@@ -102,15 +102,14 @@ describe("applyCredentials", () => {
   // The worker loads credentials once at startup and then lives as long as its wait, so a key
   // set, rotated or deleted in `konte settings` has to reach it on a later pass — otherwise the
   // worker keeps submitting on a key the workspace no longer has.
-  it("picks up a key added after it first ran, and reports the change", async () => {
-    expect(await applyCredentials(ws.root)).toBe(false);
+  it("picks up a key added after it first ran", async () => {
+    await applyCredentials(ws.root);
+    expect(process.env.KTEST_CRED).toBeUndefined();
 
     await saveCredentials(ws.root, { KTEST_CRED: "added-later" });
 
-    expect(await applyCredentials(ws.root)).toBe(true);
+    await applyCredentials(ws.root);
     expect(process.env.KTEST_CRED).toBe("added-later");
-    // Nothing moved the second time round.
-    expect(await applyCredentials(ws.root)).toBe(false);
   });
 
   it("follows a rotated value", async () => {
@@ -119,7 +118,7 @@ describe("applyCredentials", () => {
 
     await saveCredentials(ws.root, { KTEST_CRED: "second" });
 
-    expect(await applyCredentials(ws.root)).toBe(true);
+    await applyCredentials(ws.root);
     expect(process.env.KTEST_CRED).toBe("second");
   });
 
@@ -129,7 +128,7 @@ describe("applyCredentials", () => {
 
     await saveCredentials(ws.root, {});
 
-    expect(await applyCredentials(ws.root)).toBe(true);
+    await applyCredentials(ws.root);
     expect(process.env.KTEST_CRED).toBeUndefined();
   });
 
@@ -142,7 +141,7 @@ describe("applyCredentials", () => {
     process.env.KTEST_CRED = "from-shell";
     await saveCredentials(ws.root, { KTEST_CRED: "rotated" });
 
-    expect(await applyCredentials(ws.root)).toBe(false);
+    await applyCredentials(ws.root);
     expect(process.env.KTEST_CRED).toBe("from-shell");
   });
 

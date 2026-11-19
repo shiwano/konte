@@ -69,7 +69,6 @@ export async function submitRegisteredJobs(
     await submitReadyPendingJobs(
       jobManager,
       roots,
-      new Map(),
       resolveBackend,
       () => loadStageDefinitions(roots.video),
       { only: remote },

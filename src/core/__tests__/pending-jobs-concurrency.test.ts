@@ -248,7 +248,6 @@ describe("submitReadyPendingJobs concurrency", () => {
         submitReadyPendingJobs(
           jobManager,
           roots,
-          new Map(),
           async () => backend,
           async () => ({ video, animatic: emptyAnimatic(), reference: emptyReference() }),
         );
@@ -291,7 +290,6 @@ describe("submitReadyPendingJobs concurrency", () => {
     await submitReadyPendingJobs(
       jobManager,
       roots,
-      new Map(),
       async () => backend,
       async () => ({ video: buildVideo(), animatic: emptyAnimatic(), reference: emptyReference() }),
       { workerId: "w-submitter", onSubmitted: () => {} },
@@ -340,7 +338,6 @@ describe("submitReadyPendingJobs concurrency", () => {
     const result = await submitReadyPendingJobs(
       jobManager,
       roots,
-      new Map(),
       async () => new CountingBackend(counts, 0),
       async () => ({ video: buildVideo(), animatic: emptyAnimatic(), reference: emptyReference() }),
     );
@@ -361,7 +358,6 @@ describe("submitReadyPendingJobs concurrency", () => {
     await submitReadyPendingJobs(
       jobManager,
       roots,
-      new Map(),
       async () => new CountingBackend(new Map(), 0),
       async () => ({ video: buildVideo(), animatic: emptyAnimatic(), reference: emptyReference() }),
       { workerId: "w-worker", onSubmitted: (vid) => submitted.push(vid) },
@@ -387,7 +383,6 @@ describe("submitReadyPendingJobs concurrency", () => {
     const result = await submitReadyPendingJobs(
       jobManager,
       roots,
-      new Map(),
       async () => new CountingBackend(counts, 0),
       async () => ({ video: buildVideo(), animatic: emptyAnimatic(), reference: emptyReference() }),
       { only: new Set(["v-mine1111"]) },
@@ -436,7 +431,6 @@ describe("submitReadyPendingJobs concurrency", () => {
     const result = await submitReadyPendingJobs(
       jobManager,
       roots,
-      new Map(),
       async () => new CountingBackend(counts, 0),
       async () => ({ video: buildVideo(), animatic: emptyAnimatic(), reference: emptyReference() }),
       { only: new Set(["v-mine2222", "v-mine3333"]) },
@@ -475,27 +469,23 @@ describe("submitReadyPendingJobs concurrency", () => {
     }
 
     // Two independent submitters (mirrors a worker vs a spend command
-    // two-process race), each with its own backend cache + backend instance,
+    // two-process race), each with its own backend instances,
     // but sharing the submit counter so we can assert the global total.
     const counts = new Map<string, number>();
     const resolveA = async (): Promise<GenerationBackend> => new CountingBackend(counts);
     const resolveB = async (): Promise<GenerationBackend> => new CountingBackend(counts);
 
     const [resA, resB] = await Promise.all([
-      submitReadyPendingJobs(
-        jobManager,
-        roots,
-        new Map<BackendKind, GenerationBackend>(),
-        resolveA,
-        async () => ({ video: video, animatic: emptyAnimatic(), reference: emptyReference() }),
-      ),
-      submitReadyPendingJobs(
-        jobManager,
-        roots,
-        new Map<BackendKind, GenerationBackend>(),
-        resolveB,
-        async () => ({ video: video, animatic: emptyAnimatic(), reference: emptyReference() }),
-      ),
+      submitReadyPendingJobs(jobManager, roots, resolveA, async () => ({
+        video: video,
+        animatic: emptyAnimatic(),
+        reference: emptyReference(),
+      })),
+      submitReadyPendingJobs(jobManager, roots, resolveB, async () => ({
+        video: video,
+        animatic: emptyAnimatic(),
+        reference: emptyReference(),
+      })),
     ]);
 
     // Each job was submitted to the backend exactly once.
@@ -559,13 +549,11 @@ describe("submitReadyPendingJobs upstream gating", () => {
     const resolve = async (): Promise<GenerationBackend> => new CountingBackend(counts);
 
     // Phase 1 — upstream still running: the downstream must NOT submit, despite the file.
-    const r1 = await submitReadyPendingJobs(
-      jobManager,
-      roots,
-      new Map<BackendKind, GenerationBackend>(),
-      resolve,
-      async () => ({ video: video, animatic: emptyAnimatic(), reference: emptyReference() }),
-    );
+    const r1 = await submitReadyPendingJobs(jobManager, roots, resolve, async () => ({
+      video: video,
+      animatic: emptyAnimatic(),
+      reference: emptyReference(),
+    }));
     expect(counts.get("v-down2222")).toBeUndefined();
     expect(r1.submitted).not.toContain("v-down2222");
     expect((await jobManager.getJob("v-down2222")).status).toBe("pending");
@@ -587,13 +575,11 @@ describe("submitReadyPendingJobs upstream gating", () => {
 
     // Phase 2 — no active upstream job: the downstream submits, resolving to the FRESH
     // upstream variant (newest non-stale), not the stale one it also could have used.
-    const r2 = await submitReadyPendingJobs(
-      jobManager,
-      roots,
-      new Map<BackendKind, GenerationBackend>(),
-      resolve,
-      async () => ({ video: video, animatic: emptyAnimatic(), reference: emptyReference() }),
-    );
+    const r2 = await submitReadyPendingJobs(jobManager, roots, resolve, async () => ({
+      video: video,
+      animatic: emptyAnimatic(),
+      reference: emptyReference(),
+    }));
     expect(counts.get("v-down2222")).toBe(1);
     expect(r2.submitted).toContain("v-down2222");
 
@@ -674,7 +660,6 @@ describe("submitReadyPendingJobs pinned dependencies", () => {
     const res = await submitReadyPendingJobs(
       jobManager,
       roots,
-      new Map<BackendKind, GenerationBackend>(),
       async () => new CountingBackend(counts),
       async () => ({ video: video, animatic: emptyAnimatic(), reference: emptyReference() }),
     );
@@ -726,7 +711,6 @@ describe("submitReadyPendingJobs pinned dependencies", () => {
     const res = await submitReadyPendingJobs(
       jobManager,
       roots,
-      new Map<BackendKind, GenerationBackend>(),
       async () => new CountingBackend(counts),
       async () => ({ video: video, animatic: emptyAnimatic(), reference: emptyReference() }),
     );

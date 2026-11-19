@@ -17,7 +17,7 @@ import { submitReadyPendingJobs } from "../pending-jobs.js";
 import type { VideoRoots } from "../roots.js";
 import type { LoadedDefinitions } from "../select-definition.js";
 import { StateManager } from "../state/index.js";
-import type { AssetDefinition, BackendKind, VideoDefinition } from "../types/index.js";
+import type { AssetDefinition, VideoDefinition } from "../types/index.js";
 import { testDirection } from "./helpers/direction.js";
 import { emptyAnimatic, emptyReference, shot, videoTimeline } from "./helpers/shot.js";
 import { makeWorkspace, type Workspace } from "./helpers/workspace.js";
@@ -104,13 +104,7 @@ async function createPendingJob(variantId: string, definitionHash: string): Prom
 }
 
 function cascade(load: () => Promise<LoadedDefinitions> = async () => definitions) {
-  return submitReadyPendingJobs(
-    jobManager,
-    roots,
-    new Map<BackendKind, GenerationBackend>(),
-    async () => backend,
-    load,
-  );
+  return submitReadyPendingJobs(jobManager, roots, async () => backend, load);
 }
 
 beforeEach(async () => {

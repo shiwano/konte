@@ -1,7 +1,6 @@
 import { randomBytes } from "node:crypto";
 import * as path from "node:path";
 import { watch, type FSWatcher } from "node:fs";
-import type { GenerationBackend } from "../core/backend.js";
 import {
   JOBS_DB_FILE,
   JobManager,
@@ -13,7 +12,7 @@ import { prerequisiteVerdict } from "../core/job-index.js";
 import { type StaleJudgeRelease, submitReadyPendingJobs } from "../core/pending-jobs.js";
 import { applyResolutionDefinitions } from "../core/definition-hashes.js";
 import { loadStageDefinitions } from "../core/stage-definitions.js";
-import type { BackendKind, GenerationJob, JobRecord } from "../core/types/index.js";
+import type { GenerationJob, JobRecord } from "../core/types/index.js";
 import { resolveBackend } from "../backends/resolve-backend.js";
 import {
   runComfyModelDownloadJob,
@@ -82,7 +81,6 @@ export class JobWatcher {
   private watcher: FSWatcher | null = null;
   private scanTimer: ReturnType<typeof setTimeout> | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
-  private backendCache = new Map<BackendKind, GenerationBackend>();
   private readonly handledJobs = new Set<string>();
   private readonly loggedSubmissions = new Set<string>();
   // The failure each job's watch last reported, for dedup — see reportWatchFailure.
@@ -126,19 +124,6 @@ export class JobWatcher {
     this.pollTimer = setInterval(() => {
       void this.scanForNewJobs();
     }, POLL_INTERVAL_MS);
-  }
-
-  /**
-   * Forget the backends built so far, so the next submit resolves them again. Called when the
-   * workspace's credentials changed under the worker: a cached backend closed over the key it was
-   * built with, and would keep submitting on a rotated or deleted one.
-   *
-   * Replaced, not cleared. A submit already past its cache miss resolves the backend across an
-   * `await` and then writes it into the map it was handed — clearing in place would let a backend
-   * built on the old key land back in the live cache, and stay there until the next rotation.
-   */
-  dropBackendCache(): void {
-    this.backendCache = new Map();
   }
 
   stop(): void {
@@ -592,7 +577,6 @@ export class JobWatcher {
       const { released } = await submitReadyPendingJobs(
         this.jobManager,
         this.roots,
-        this.backendCache,
         resolveBackend,
         () => this.loadDefinitions(),
         {

@@ -76,7 +76,6 @@ export type SpendSubmitter = {
 export async function submitReadyPendingJobs(
   jobManager: JobManager,
   roots: VideoRoots,
-  backendCache: Map<BackendKind, GenerationBackend>,
   resolveBackendFn: ResolveBackendFn,
   loadDefinitions: LoadDefinitionsFn,
   by?: Submitter | SpendSubmitter,
@@ -135,7 +134,6 @@ export async function submitReadyPendingJobs(
             jobManager,
             roots,
             definitions,
-            backendCache,
             resolveBackendFn,
             scope === undefined,
           ),
@@ -378,7 +376,6 @@ async function trySubmitJob(
   jobManager: JobManager,
   roots: VideoRoots,
   definitions: LoadedDefinitions,
-  backendCache: Map<BackendKind, GenerationBackend>,
   resolveBackendFn: ResolveBackendFn,
   keepLease: boolean,
 ): Promise<"submitted" | "failed" | StaleJudgeRelease> {
@@ -452,11 +449,7 @@ async function trySubmitJob(
       }
     }
 
-    let backend = backendCache.get(job.backendKind);
-    if (!backend) {
-      backend = await resolveBackendFn(job.backendKind, roots);
-      backendCache.set(job.backendKind, backend);
-    }
+    const backend = await resolveBackendFn(job.backendKind, roots);
 
     const outputDir = variantDir(videoRoot, job.address, job.variantId);
     const request = {

@@ -13,7 +13,7 @@ import { JobManager } from "../job-manager.js";
 import { submitReadyPendingJobs } from "../pending-jobs.js";
 import type { VideoRoots } from "../roots.js";
 import { StateManager } from "../state/index.js";
-import type { BackendKind, DeliveryUpscaleFn, VideoDefinition } from "../types/index.js";
+import type { DeliveryUpscaleFn, VideoDefinition } from "../types/index.js";
 import { emptyAnimatic, emptyReference } from "./helpers/shot.js";
 import { makeWorkspace, type Workspace } from "./helpers/workspace.js";
 
@@ -96,7 +96,6 @@ it("submits a delivery upscale from the target its variant snapshotted", async (
   const res = await submitReadyPendingJobs(
     jobManager,
     roots,
-    new Map<BackendKind, GenerationBackend>(),
     async () => backend,
     async () => ({ video: VIDEO, animatic: emptyAnimatic(), reference: emptyReference() }),
   );
@@ -135,7 +134,6 @@ async function deliveryJobAfterModelDownload(downloadStatus: "completed" | "fail
   const res = await submitReadyPendingJobs(
     jobManager,
     roots,
-    new Map<BackendKind, GenerationBackend>(),
     async () => backend,
     async () => ({ video: VIDEO, animatic: emptyAnimatic(), reference: emptyReference() }),
   );

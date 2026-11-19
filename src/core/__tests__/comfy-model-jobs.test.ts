@@ -18,12 +18,7 @@ import { submitReadyPendingJobs } from "../pending-jobs.js";
 import { StateManager } from "../state/index.js";
 import { makeWorkspace, type Workspace } from "./helpers/workspace.js";
 import type { VideoRoots } from "../roots.js";
-import type {
-  AssetDefinition,
-  BackendKind,
-  ComfyModelDeclaration,
-  VideoDefinition,
-} from "../types/index.js";
+import type { AssetDefinition, ComfyModelDeclaration, VideoDefinition } from "../types/index.js";
 import { ASSET_SITES } from "../dsl/adapter.js";
 
 function el(): React.ReactElement {
@@ -293,7 +288,6 @@ describe("submitReadyPendingJobs with comfy model dependencies", () => {
     return submitReadyPendingJobs(
       jobManager,
       roots,
-      new Map<BackendKind, GenerationBackend>(),
       async () => new CountingBackend(counts),
       async () => ({ video: video, animatic: emptyAnimatic(), reference: emptyReference() }),
     );

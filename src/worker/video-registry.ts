@@ -108,9 +108,6 @@ export class VideoRegistry {
    * Re-read the workspace's credentials into the environment. The CLI loads them once at startup,
    * which is the whole life of a worker — so a key set, rotated or deleted in `konte settings`
    * would otherwise never reach the submissions this worker makes.
-   *
-   * Workspace-level, so it runs here rather than per video: `applyCredentials` reports a change
-   * once, and every watcher's backend cache has to hear about it.
    */
   private async refreshCredentials(): Promise<void> {
     // Serialized like reconcile: two passes overlapping on a slow filesystem could apply the older
@@ -118,10 +115,7 @@ export class VideoRegistry {
     if (this.refreshing || this.stopped) return;
     this.refreshing = true;
     try {
-      if (!(await applyCredentials(this.workspaceRoot))) return;
-      for (const watcher of this.watchers.values()) {
-        watcher.dropBackendCache();
-      }
+      await applyCredentials(this.workspaceRoot);
     } catch {
       // An unreadable credentials file is the CLI's error to report; the worker keeps what it has.
     } finally {
