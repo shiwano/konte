@@ -195,13 +195,17 @@ export function DirectionPreview({ state }: { state: DirectionPreviewState }): R
   // A click outside the panel shuts it — bar one on what opens it: the index, or a name in the script.
   useEffect(() => {
     if (!peekOpen) return;
+    // The path, not target.closest: React has re-rendered by now, and a click that swapped its
+    // own button out (Add note, Edit, Cancel) leaves a target detached from the panel.
     const onClick = (e: MouseEvent) => {
-      if (
-        e.target instanceof Element &&
-        !e.target.closest(".dir-peek, .dir-rail, .dir-rail-toggle, .dir-roster-name")
-      ) {
-        setPeekOpen(false);
-      }
+      const inside = e
+        .composedPath()
+        .some(
+          (n) =>
+            n instanceof Element &&
+            n.matches(".dir-peek, .dir-rail, .dir-rail-toggle, .dir-roster-name"),
+        );
+      if (!inside) setPeekOpen(false);
     };
     document.addEventListener("click", onClick);
     return () => document.removeEventListener("click", onClick);
