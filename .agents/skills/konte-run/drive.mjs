@@ -1,16 +1,22 @@
 #!/usr/bin/env bun
 // Self-contained headless-Chrome driver for the konte preview UI (a React SPA).
-// Launches its own Chrome with the DevTools protocol, navigates, optionally clicks a
-// button by its visible text, optionally evaluates a probe expression, and writes a
-// screenshot. Use it to SEE and DRIVE the review UI from a headless container.
+// Launches its own Chrome with the DevTools protocol, navigates, optionally clicks through
+// a sequence of elements, optionally evaluates a probe expression, and writes a screenshot.
+// Use it to SEE and DRIVE the review UI from a headless container.
 //
 // Usage:
 //   bun .agents/skills/konte-run/drive.mjs --url http://127.0.0.1:4651 --out /tmp/shot.png
 //   bun .../drive.mjs --url ... --out /tmp/after.png --click "View accepted" --probe \
 //     "document.querySelector('.vp-new-take-banner') ? 'banner' : 'gone'"
+//   bun .../drive.mjs --url ... --out /tmp/note.png \
+//     --click "@.dir-rail button||@.dir-peek--open .comment-add-btn" --probe "!!document.querySelector('textarea')"
 //
-// Flags: --url (required) --out (required) --wait <ms, default 8000 before action,
-//        +4000 after a click> --click "<button text>" --probe "<js expression>"
+// Flags: --url (required) --out (required) --wait <ms before the clicks, default 8000>
+//        --click "<step>[||<step>…]" (1000ms after each, 4000ms after the last)
+//        --probe "<js expression>"
+// A step is a <button>'s visible text, or `@<css selector>`. Each click is real mouse input
+// (CDP Input.dispatchMouseEvent): under el.click() React does not re-render before a document
+// listener runs, so an outside-click handler sees a DOM no real click leaves.
 import { spawn } from "node:child_process";
 
 const args = Object.fromEntries(
@@ -84,18 +90,35 @@ async function main() {
   await sleep(waitMs); // SPA fetches /api/state + renders + composition
 
   if (args.click) {
-    const res = await send("Runtime.evaluate", {
-      returnByValue: true,
-      expression: `(() => {
-        const b = [...document.querySelectorAll('button')]
-          .find(el => (el.textContent||'').toLowerCase().includes(${JSON.stringify(String(args.click).toLowerCase())}));
-        if (!b) return 'NO_BUTTON';
-        b.click();
-        return 'CLICKED';
-      })()`,
-    });
-    console.log(`click(${args.click}): ${res.result?.value}`);
-    await sleep(4000);
+    const steps = String(args.click).split("||");
+    for (const [i, step] of steps.entries()) {
+      const res = await send("Runtime.evaluate", {
+        returnByValue: true,
+        expression: `(() => {
+          const step = ${JSON.stringify(step)};
+          const el = step.startsWith("@")
+            ? document.querySelector(step.slice(1))
+            : [...document.querySelectorAll("button")]
+                .find((b) => (b.textContent || "").toLowerCase().includes(step.toLowerCase()));
+          if (!el) return null;
+          el.scrollIntoView({ block: "center" });
+          const r = el.getBoundingClientRect();
+          return [r.x + r.width / 2, r.y + r.height / 2];
+        })()`,
+      });
+      const point = res.result?.value;
+      if (!point) {
+        console.log(`click(${step}): NO_MATCH`);
+        break;
+      }
+      const [x, y] = point;
+      await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
+      for (const type of ["mousePressed", "mouseReleased"]) {
+        await send("Input.dispatchMouseEvent", { type, x, y, button: "left", clickCount: 1 });
+      }
+      console.log(`click(${step}): CLICKED`);
+      await sleep(i === steps.length - 1 ? 4000 : 1000);
+    }
   }
 
   if (args.probe) {

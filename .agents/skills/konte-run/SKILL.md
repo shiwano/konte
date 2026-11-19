@@ -91,9 +91,14 @@ bun .agents/skills/konte-run/drive.mjs --url http://127.0.0.1:4655 --out /tmp/de
 bun .agents/skills/konte-run/drive.mjs --url http://127.0.0.1:4655 --out /tmp/accepted.png \
   --click "Accept all" \
   --probe "document.querySelectorAll('.rt-shot--accepted').length"
+
+# click through steps (`||`), `@` for a CSS selector
+bun .agents/skills/konte-run/drive.mjs --url http://127.0.0.1:4658 --out /tmp/note.png \
+  --click "@.dir-rail button||@.dir-peek--open .comment-add-btn" \
+  --probe "!!document.querySelector('.dir-peek--open textarea')"
 ```
 
-`drive.mjs` launches headless Chrome, clicks the first `<button>` whose text contains `--click`, evaluates `--probe`, and writes `--out`. Open the PNG — a blank/error frame means it didn't render. Driver-free:
+`drive.mjs` launches headless Chrome, clicks each `--click` step in turn — the first `<button>` whose text contains it, or the first match of an `@` selector — evaluates `--probe`, and writes `--out`. A click is real mouse input, so an outside-click listener on `document` sees the DOM React left; `el.click()` in `--probe` does not. Open the PNG — a blank/error frame means it didn't render. Driver-free:
 
 ```bash
 google-chrome --headless=new --disable-gpu --no-sandbox --window-size=1400,900 \
@@ -108,5 +113,5 @@ google-chrome --headless=new --disable-gpu --no-sandbox --window-size=1400,900 \
 - Crafted variants must read non-stale — staleness fires only on a non-null `definitionHash` mismatch or a changed `inputFingerprints` entry, so dummy variants use `definitionHash: null` + `inputFingerprints: {}`.
 - A take is badged new while its `status` is `"none"` and it is not stale; beside an accepted one it is also `undecidedBesideAccepted`, which the reel shows in the accepted one's place. An accept settles the rest as `"dismissed"`. Flip `status` to control what needs review.
 - setup-fixture patches the fixture video by string replace — a changed `reference.tsx`/`video.tsx` shape can silently no-op it; check those first if a fixture asset is missing.
-- `drive.mjs` prints `NO_BUTTON` → the `--click` text matched no `<button>`; check the exact visible text.
+- `drive.mjs` prints `click(<step>): NO_MATCH` → the step matched no `<button>` text or selector, and the later steps are skipped; check the exact visible text.
 - Chrome `Crash Reports`/`UPower` D-Bus warnings → benign; ignore.
