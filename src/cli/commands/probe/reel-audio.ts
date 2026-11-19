@@ -150,7 +150,7 @@ Examples:
       // The animatic's cues are not tracks here — they never reach the mux, and this view is the mux
       // — but the clamp that cuts them is a timing fault this page is read for.
       const overflows = loaded.animatic
-        ? findAnimaticOverflows(loaded.animatic, manager).filter(
+        ? findAnimaticOverflows(loaded.animatic, manager, "resolved").filter(
             (o) => !shotId || o.shotId === shotId,
           )
         : [];

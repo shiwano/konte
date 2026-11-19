@@ -167,7 +167,7 @@ describe("unsatisfiedVoices", () => {
 // leave the scope free to be removed or reversed unnoticed.
 describe("the spend gate's voice scope", () => {
   const gate = async (root: string, stage: "reference" | "animatic" | "video") =>
-    spendGate(await loadCheckContext({ videoRoot: root }), {
+    spendGate(await loadCheckContext({ cueTakes: "played", videoRoot: root }), {
       command: "generate",
       stage,
       addresses: [],

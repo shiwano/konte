@@ -572,6 +572,7 @@ describe("the video delivers the board's off-frame lines", () => {
     const traits = findingTraits("stem-unplaced");
     const { findings } = await collectFindings(
       {
+        cueTakes: "played",
         videoRoot: "",
         direction: null,
         directionAccepted: true,

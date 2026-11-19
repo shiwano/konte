@@ -60,11 +60,39 @@ interface CueSpan {
   untrimmed: boolean;
 }
 
+/**
+ * Which take of each cue is measured: the one a review plays, the one the address resolves to (what
+ * an accepted stem is mixed from and a spend consumes), or the one a review submit showed, else the
+ * played one.
+ */
+export type CueTakes = "played" | "resolved" | { shown: Readonly<Record<string, string>> };
+
+function cueTake(
+  manager: StateManager,
+  src: string,
+  cache: StalenessCache,
+  takes: CueTakes,
+): string | null {
+  const variants = manager.getState().assets[src]?.variants ?? {};
+  const picked = typeof takes === "object" ? takes.shown[src] : undefined;
+  if (picked && variants[picked]?.file) return picked;
+  // The review page's default beside an accept: the newest-created take awaiting a verdict.
+  if (takes !== "resolved" && manager.getAcceptedVariant(src) !== null) {
+    const undecided = new Set(manager.readyUndecidedVariants(src, cache));
+    const beside = Object.keys(variants)
+      .toReversed()
+      .find((id) => undecided.has(id));
+    if (beside) return beside;
+  }
+  return selectResolvedVariant(manager.getState(), src, undefined, cache)?.variantId ?? null;
+}
+
 function cueSpan(
   cue: StemAudioEntry,
   kind: CueKind | undefined,
-  state: KonteState,
+  manager: StateManager,
   cache: StalenessCache,
+  takes: CueTakes,
 ): CueSpan | "unmeasured" | "silent" {
   const start = cue.start ?? 0;
   // A cue mixed at zero is in the stem and in nobody's ears (`volume`, `trackFilter`).
@@ -73,9 +101,9 @@ function cueSpan(
   // The source bounds the cue even when the cue declares a `duration`: that becomes an `atrim`, which
   // shortens a take but never pads one (only the final clamp pads, `buildAudioMixArgs`). Unknown
   // source, no claim.
-  const resolved = selectResolvedVariant(state, cue.src, undefined, cache);
-  if (!resolved) return "unmeasured";
-  const variant = state.assets[cue.src]?.variants?.[resolved.variantId];
+  const take = cueTake(manager, cue.src, cache, takes);
+  if (!take) return "unmeasured";
+  const variant = manager.getState().assets[cue.src]?.variants?.[take];
   const sourceDuration = mediaDurationSec(variant?.media ?? null);
   if (sourceDuration === null) return "unmeasured";
 
@@ -124,12 +152,13 @@ function retimeFor(spans: readonly CueSpan[], durationSec: number): AnimaticReti
 export function findAnimaticOverflows(
   animatic: AnimaticDefinition,
   manager: StateManager,
+  takes: CueTakes,
   // One memo for the whole pass: resolution recurses through a candidate's inputs, so a per-cue
   // context re-explores the same upstream cone once per cue. A caller with its own hands it over;
   // the manager's carries whatever definitions were registered for the video.
   cache: StalenessCache = manager.stalenessCache(),
 ): AnimaticOverflow[] {
-  return animatic.shots.flatMap((shot) => findShotOverflows(animatic, manager, shot, cache));
+  return animatic.shots.flatMap((shot) => findShotOverflows(animatic, manager, shot, takes, cache));
 }
 
 /** The stems of one board shot whose lines the clamp cuts. */
@@ -137,9 +166,9 @@ export function findShotOverflows(
   animatic: AnimaticDefinition,
   manager: StateManager,
   shot: ShotDefinition,
+  takes: CueTakes,
   cache: StalenessCache = manager.stalenessCache(),
 ): AnimaticOverflow[] {
-  const state = manager.getState();
   const stems = listShotStems("animatic", shot);
   if (stems.length === 0) return [];
   const cues = harvestShotAudioStructure(animatic, shot.id);
@@ -153,7 +182,7 @@ export function findShotOverflows(
     const spans: CueSpan[] = [];
     for (const cue of cues) {
       if (!stem.refs.includes(cue.src)) continue;
-      const span = cueSpan(cue, shot.cueKinds?.[cue.src], state, cache);
+      const span = cueSpan(cue, shot.cueKinds?.[cue.src], manager, cache, takes);
       if (span === "unmeasured") unmeasuredCues++;
       else if (span !== "silent") {
         spans.push(span);
@@ -324,10 +353,10 @@ function findShotSilentTail(
   let soundEnd = Math.max(0, ...beds.map((bed) => bed.end));
   const takes: Array<string | null> = [];
   for (const cue of cues) {
-    const span = cueSpan(cue, kinds[cue.src], state, cache);
+    const span = cueSpan(cue, kinds[cue.src], manager, cache, "played");
     if (span === "unmeasured") return null;
     if (span !== "silent" && span.soundEnd !== null) soundEnd = Math.max(soundEnd, span.soundEnd);
-    takes.push(selectResolvedVariant(state, cue.src, undefined, cache)?.variantId ?? null);
+    takes.push(cueTake(manager, cue.src, cache, "played"));
   }
 
   const durationSec = shot.duration;

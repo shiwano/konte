@@ -423,6 +423,11 @@ const STAGE_FINDING_DOCS: Record<OtherCode, { flags: string; fixIn: string }> = 
       "An animatic shot with lines, not a coverage shot, runs on in silence after its last sound for at least 2s and a quarter of its `duration`. Cleared by shortening the `duration`, by sound that fills the tail, by `konte vouch` on the shot for a hold the picture needs, or by the shot's accept.",
     fixIn: "`direction.ts` or `animatic.tsx`",
   },
+  "take-stranded": {
+    flags:
+      "An undecided take that its shot plays only through a dependent asset, every job of which built on the take failed, so the review cannot show it.",
+    fixIn: "the failed dependent's stage",
+  },
   "animatic-unconsumed": {
     flags: "A video shot spends without building on the board shot it develops.",
     fixIn: "`video.tsx`",

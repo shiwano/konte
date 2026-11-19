@@ -14,6 +14,7 @@ import {
   type SilentTail,
   findAnimaticOverflows,
   findAnimaticSilentTails,
+  findShotOverflows,
   formatAnimaticOverflow,
   formatSilentTail,
 } from "../animatic-overflow.js";
@@ -581,7 +582,7 @@ describe("animatic overflow", () => {
         });
         manager.setAccepted(VO, id);
       }
-      return findAnimaticOverflows(animatic, manager);
+      return findAnimaticOverflows(animatic, manager, "played");
     } finally {
       await fs.rm(tmp, { recursive: true, force: true });
     }
@@ -609,6 +610,66 @@ describe("animatic overflow", () => {
     expect(formatAnimaticOverflow(overflow!)).toBe(
       "lines truncated by 1.8s — 5.8s of audio in a 4s shot",
     );
+  });
+
+  it("measures the undecided take a review plays beside the accept", async () => {
+    const withRival = async (accepted: VariantMedia, rival: VariantMedia) => {
+      const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "konte-animatic-overflow-"));
+      try {
+        const manager = await StateManager.init(tmp);
+        for (const [i, media] of [accepted, rival].entries()) {
+          const id = manager.reserveVariantId(VO);
+          Object.assign(manager.getAssetState(VO).variants![id]!, {
+            file: `vo-${i}.mp3`,
+            outputHash: `vo-${i}`,
+            media,
+          });
+          if (i === 0) manager.setAccepted(VO, id);
+        }
+        const animatic = speakingAnimatic();
+        const [acceptedId] = Object.keys(manager.getAssetState(VO).variants!);
+        return {
+          shownAccepted: findAnimaticOverflows(animatic, manager, {
+            shown: { [VO]: acceptedId! },
+          }),
+          played: findAnimaticOverflows(animatic, manager, "played"),
+          acceptedAsResolved: findAnimaticOverflows(animatic, manager, "resolved"),
+          resolved: findShotOverflows(animatic, manager, animatic.shots[0]!, "resolved"),
+        };
+      } finally {
+        await fs.rm(tmp, { recursive: true, force: true });
+      }
+    };
+    const fitsNow = await withRival(vo(5.6), vo(3));
+    expect(fitsNow.played).toEqual([]);
+    expect(fitsNow.resolved[0]?.neededSec).toBeCloseTo(5.8, 5);
+    const cutNow = await withRival(vo(3), vo(5.6));
+    expect(cutNow.played[0]?.neededSec).toBeCloseTo(5.8, 5);
+    expect(cutNow.resolved).toEqual([]);
+    expect(cutNow.shownAccepted).toEqual([]);
+    expect(cutNow.acceptedAsResolved).toEqual([]);
+    expect(fitsNow.acceptedAsResolved[0]?.neededSec).toBeCloseTo(5.8, 5);
+  });
+
+  it("plays the newest-created rival beside the accept, whichever landed last", async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "konte-animatic-overflow-"));
+    try {
+      const manager = await StateManager.init(tmp);
+      const ids = [vo(3), vo(5.6), vo(3)].map((media, i) => {
+        const id = manager.reserveVariantId(VO);
+        Object.assign(manager.getAssetState(VO).variants![id]!, {
+          file: `vo-${i}.mp3`,
+          outputHash: `vo-${i}`,
+          media,
+          readyAt: `2026-01-01T00:00:0${[0, 9, 5][i]}.000Z`,
+        });
+        return id;
+      });
+      manager.setAccepted(VO, ids[0]!);
+      expect(findAnimaticOverflows(speakingAnimatic(), manager, "played")).toEqual([]);
+    } finally {
+      await fs.rm(tmp, { recursive: true, force: true });
+    }
   });
 
   it("says nothing about a line that fits, or one under the floor", async () => {
@@ -730,7 +791,8 @@ describe("animatic silent tail", () => {
       outputHash: `vo-${id}`,
       media,
     });
-    manager.setAccepted(VO, id);
+    const replaced = Object.keys(manager.getAssetState(VO).variants!).filter((v) => v !== id);
+    manager.setAccepted(VO, id, { dismiss: replaced });
   }
 
   const tailsWithVo = (

@@ -249,6 +249,7 @@ describe("stem-unmouthed", () => {
     const traits = findingTraits("stem-unmouthed");
     const { findings } = await collectFindings(
       {
+        cueTakes: "played",
         videoRoot: "",
         direction,
         directionAccepted: true,

@@ -13,6 +13,7 @@ import {
   tryParseAddress,
 } from "./address.js";
 import {
+  type CueTakes,
   findAnimaticOverflows,
   findAnimaticSilentTails,
   formatAnimaticOverflow,
@@ -60,6 +61,8 @@ import type {
 } from "./types/index.js";
 import { checkSourceLocators } from "./source-direction.js";
 import { findUnplacedStems } from "./heard-stem.js";
+import { JobManager } from "./job-manager.js";
+import { type StrandedTake, findStrandedTakes } from "./stranded-takes.js";
 import { findUnmouthedStems } from "./stem-mouth-check.js";
 import { type Accepted, signedOffBy, withAwaitingAccept } from "./sign-off.js";
 import { isVendorBackendAsset } from "./vendor-backend.js";
@@ -95,6 +98,8 @@ export type CheckContext = {
   lang: string | null;
   // The one stage whose takes are heard; absent, every stage's.
   variantStage?: AssetStage;
+  // The cue takes a take check measures.
+  cueTakes: CueTakes;
   animaticSetups?: AnimaticSetupState;
   stagingStage?: StagingStageState;
   songVariant?: SongVariantState;
@@ -367,7 +372,7 @@ const OVERFLOW_CHECK: Check = {
   codes: ["line-truncated"],
   run: (ctx) => {
     if (!ctx.manager || !ctx.animatic) return [];
-    return findAnimaticOverflows(ctx.animatic, ctx.manager).map((o): Finding => {
+    return findAnimaticOverflows(ctx.animatic, ctx.manager, ctx.cueTakes).map((o): Finding => {
       const retime = o.retime
         ? ` — retime ${o.retime.src} to duration ${o.retime.roomSec.toFixed(2)} ` +
           `(${o.retime.rate.toFixed(3)}x)`
@@ -493,6 +498,36 @@ const SUBTITLE_PAUSE_CHECK: Check = {
   },
 };
 
+const STRANDED_TAKE_CHECK: Check = {
+  codes: ["take-stranded"],
+  run: async (ctx) => {
+    if (!ctx.manager || !ctx.graph) return [];
+    const jobs = await new JobManager(ctx.videoRoot).listJobs();
+    return findStrandedTakes({
+      manager: ctx.manager,
+      jobs,
+      graph: ctx.graph,
+      animatic: ctx.animatic,
+      video: ctx.video,
+    }).map((t): Finding => {
+      const [first] = t.failed as [StrandedTake["failed"][number]];
+      const error = first.error?.split("\n")[0]?.replace(/\.$/, "") ?? "no error recorded";
+      return {
+        code: "take-stranded",
+        subject: t.variantId,
+        fixIn: { stage: getStage(first.address) },
+        message:
+          `${t.address} never reaches its shot: ${first.address} ${first.variantId} ` +
+          `failed: ${error}` +
+          `; \`konte dismiss ${t.variantId}\` ` +
+          (t.accepted ? "keeps the accepted take" : "leaves the address to `konte generate`"),
+        targets: [t.address],
+        variant: t.variantId,
+      };
+    });
+  },
+};
+
 // What a stage build found of itself instead of refusing to load.
 const BUILD_CHECK: Check = {
   codes: [
@@ -550,6 +585,7 @@ const CHECKS: readonly Check[] = [
   STEM_MOUTH_CHECK,
   STEM_PLACED_CHECK,
   SUBTITLE_PAUSE_CHECK,
+  STRANDED_TAKE_CHECK,
   BUILD_CHECK,
   PENDING_REFERENCE_CHECK,
 ];

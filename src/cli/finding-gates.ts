@@ -15,15 +15,24 @@ import {
 } from "../core/finding.js";
 import { type HeldWhy, type SpendRequest, judgeSpend, spendHeldError } from "../core/spend-gate.js";
 
+// A spend consumes the cue takes each address resolves to.
+export function spendContext(ctx: CheckContext): CheckContext {
+  return { ...ctx, cueTakes: "resolved" };
+}
+
 // The gate: refuses with SPEND_HELD on the first request held, else hands back what the whole-stage
 // spends leave out. Several requests share one pass of the checks.
 export async function spendGate(
   ctx: CheckContext,
   reqs: SpendRequest | readonly SpendRequest[],
 ): Promise<{ held: Map<string, HeldWhy> }> {
-  const report = await collectFindings(ctx, (traits) => traits.holds.spend !== undefined, {
-    signedOff: true,
-  });
+  const report = await collectFindings(
+    spendContext(ctx),
+    (traits) => traits.holds.spend !== undefined,
+    {
+      signedOff: true,
+    },
+  );
   const held = new Map<string, HeldWhy>();
   for (const req of Array.isArray(reqs) ? reqs : [reqs as SpendRequest]) {
     const verdict = judgeSpend(ctx, report, req);
@@ -40,9 +49,13 @@ export async function spendHeldAssets(
   ctx: CheckContext,
   req: SpendRequest,
 ): Promise<Map<string, HeldWhy>> {
-  const report = await collectFindings(ctx, (traits) => traits.holds.spend !== undefined, {
-    signedOff: true,
-  });
+  const report = await collectFindings(
+    spendContext(ctx),
+    (traits) => traits.holds.spend !== undefined,
+    {
+      signedOff: true,
+    },
+  );
   return judgeSpend(ctx, report, req).held;
 }
 

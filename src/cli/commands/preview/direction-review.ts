@@ -627,7 +627,7 @@ export async function handleDirectionSubmit(
   // A box holding a part a finding to fix sits on is not signed off. Only that box's accept is dropped; the rest of the review still lands.
   const skippedDecisions: NonNullable<ReviewRecord["skippedDecisions"]> = [];
   const acceptedSections = DIRECTION_SECTIONS.filter((s) => sectionDecisions[s] === true);
-  const ctx = await loadCheckContext({ videoRoot, direction });
+  const ctx = await loadCheckContext({ cueTakes: "played", videoRoot, direction });
   const waiverCoverage = waiverCoverageOf(ctx);
   if (acceptedSections.length > 0) {
     const findings = await collectFindings(ctx, (t) => t.holds.accept === true);

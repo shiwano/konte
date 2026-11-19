@@ -145,6 +145,7 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
     if (stage) {
       await reviewGate(
         await loadCheckContext({
+          cueTakes: "played",
           videoRoot,
           definitions: { reference, animatic, video },
           direction,

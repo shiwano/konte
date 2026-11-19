@@ -36,6 +36,8 @@ export type FindingCode =
   | "line-truncated"
   // An animatic shot that runs on long in silence after its last sound.
   | "tail-silent"
+  // An undecided take its shot plays only through a dependent whose every job built on it failed.
+  | "take-stranded"
   // A video shot that spends without building on the board it develops.
   | "animatic-unconsumed"
   // A video take driven by a board stem no mouth in the frame speaks.
@@ -339,6 +341,13 @@ const OTHER_TRAITS: TraitsOf<Exclude<FindingCode, DirectionFindingCode | Directi
   "tail-silent": {
     reads: "take",
     clears: "vouch",
+    holds: { preview: true },
+    onset: "always",
+    signsOff: false,
+  },
+  "take-stranded": {
+    reads: "take",
+    clears: "fix",
     holds: { preview: true },
     onset: "always",
     signsOff: false,

@@ -164,7 +164,13 @@ export function registerGenerateCommand(program: Command): void {
       // Before any job is created: a finding or an unaccepted upstream holding the whole stage refuses
       // the run; one holding only some assets leaves them out.
       const { held } = await spendGate(
-        await loadCheckContext({ videoRoot, definitions: defs, manager, graph }),
+        await loadCheckContext({
+          cueTakes: "resolved",
+          videoRoot,
+          definitions: defs,
+          manager,
+          graph,
+        }),
         {
           command: "generate",
           stage: loaded.stage,

@@ -199,6 +199,7 @@ export async function gatePatchApply(
     printRemixedBoardStems(remixed);
   }
   const ctx = await loadCheckContext({
+    cueTakes: "resolved",
     videoRoot,
     definitions: { reference, animatic, video },
     manager,

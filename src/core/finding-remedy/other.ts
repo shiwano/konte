@@ -31,6 +31,9 @@ export const OTHER_FINDING_REMEDY: Record<
   "tail-silent":
     "set the shot's `duration` in direction.ts to the fit given, fill the tail with sound, or " +
     "`konte vouch <shot address>` for a hold the picture needs",
+  "take-stranded":
+    "make the failed step run on the take (its error names the edit), then `konte reroll` the " +
+    "take's address with --with-dependents for a take built through it; or dismiss the take",
   "animatic-unconsumed":
     "build the video shot from its own board shot (a panel image, `.stem` — not " +
     "`.narrationStem` / `.offFrameStem`) in video.tsx, developing that board shot first if it is still a " +

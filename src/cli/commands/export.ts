@@ -249,7 +249,11 @@ Examples:
       // The spend gate before rendering the deliverable. An export builds on what is already
       // accepted, so it is held by findings and the cast alone; its own acceptance check follows.
       await spendGate(
-        await loadCheckContext({ videoRoot, definitions: { reference, animatic, video } }),
+        await loadCheckContext({
+          cueTakes: "resolved",
+          videoRoot,
+          definitions: { reference, animatic, video },
+        }),
         { command: "export", stage, addresses: [], targeted: false },
       );
 

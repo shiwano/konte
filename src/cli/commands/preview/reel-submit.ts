@@ -692,6 +692,7 @@ async function prepareReelSubmit(
 
   // A shot whose accept a finding holds is not signed off. A dep a cascade reaches that one holds is left for its own accept.
   const checkContext = await loadCheckContext({
+    cueTakes: { shown: body.displayedVariants ?? {} },
     videoRoot,
     definitions: {
       reference: ctx.reference,
@@ -701,8 +702,8 @@ async function prepareReelSubmit(
     direction: ctx.direction,
     manager,
   });
-  const report = await collectFindings(checkContext, (t) => t.holds.accept === true);
   const displayed = body.displayedVariants ?? {};
+  const report = await collectFindings(checkContext, (t) => t.holds.accept === true);
   const heldFor = (addresses: readonly string[]) =>
     reviewHeldFindings(
       report,

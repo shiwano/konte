@@ -297,6 +297,7 @@ export async function handleReferenceSubmit(
     findings: async (mgr) =>
       collectFindings(
         await loadCheckContext({
+          cueTakes: "played",
           videoRoot,
           definitions: { reference, animatic, video: null },
           direction,

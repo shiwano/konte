@@ -47,6 +47,7 @@ const video: VideoDefinition = {
 const graph = buildDependencyGraph(video, animatic);
 
 const ctx: CheckContext = {
+  cueTakes: "played",
   videoRoot: "",
   direction: null,
   directionAccepted: false,
@@ -228,6 +229,7 @@ describe("loadCheckContext", () => {
     };
     const found = await collectFindings(
       await loadCheckContext({
+        cueTakes: "played",
         videoRoot: "",
         definitions: { reference: null, animatic: board, video: null },
         direction: null,

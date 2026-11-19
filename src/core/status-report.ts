@@ -202,6 +202,32 @@ function reelProgressByStage(
   return out;
 }
 
+// A stranded take is not on the page.
+function dropStrandedFromNeedsReview(sections: StatusSection[], findings: readonly Finding[]) {
+  const stranded = new Set(
+    findings.flatMap((f) => (f.code === "take-stranded" && f.variant ? [f.variant] : [])),
+  );
+  const section = sections.find((s) => s.title === "Needs review");
+  if (!section || stranded.size === 0) return;
+  section.items = section.items.flatMap((item) => {
+    if (!item.variantId) return [item];
+    const kept = (item.variants ?? [{ variantId: item.variantId, detail: item.detail }]).filter(
+      (v) => !stranded.has(v.variantId),
+    );
+    const [first] = kept;
+    if (!first) return [];
+    return [
+      {
+        ...item,
+        detail: first.detail,
+        variantId: first.variantId,
+        ...(item.variants ? { variants: kept } : {}),
+      },
+    ];
+  });
+  if (section.items.length === 0) sections.splice(sections.indexOf(section), 1);
+}
+
 // The shared computation behind `konte status`:
 // every section, the per-stage progress, and the last exports are
 // derived from the definition-supplied `addresses` so both renderings agree —
@@ -822,6 +848,7 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
 
   // Every finding, and what each spend and review it holds — the same judgement the gates make.
   const checkContext = await loadCheckContext({
+    cueTakes: "played",
     videoRoot,
     definitions: { reference, animatic, video },
     direction,
@@ -830,6 +857,12 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
     patches: report.patchSubjects,
   });
   const findingReport = await collectFindings(checkContext);
+  dropStrandedFromNeedsReview(report.sections, findingReport.findings);
+  // A spend consumes the cue takes each address resolves to.
+  const spendReport = await collectFindings(
+    { ...checkContext, cueTakes: "resolved" },
+    (traits) => traits.holds.spend !== undefined,
+  );
   const spendHeldStages = (["reference", "animatic", "video"] as const).filter((stage) => {
     const def = stage === "video" ? video : stage === "animatic" ? animatic : reference;
     const spending = listSpendingAssets(
@@ -839,7 +872,7 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
       graph,
     );
     const req = { command: "generate", stage, addresses: spending, targeted: false } as const;
-    return spendHeldError(req, judgeSpend(checkContext, findingReport, req)) !== null;
+    return spendHeldError(req, judgeSpend(checkContext, spendReport, req)) !== null;
   });
   const previewHeldStages = (["reference", "animatic", "video"] as const).filter((stage) =>
     findingReport.findings.some((f) => reviewHold(f, { op: "preview", stage })),

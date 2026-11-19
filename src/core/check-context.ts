@@ -1,3 +1,4 @@
+import type { CueTakes } from "./animatic-overflow.js";
 import { animaticSetupState, stagingStageState } from "./board-analysis.js";
 import type { CheckContext, PatchSubject } from "./checks.js";
 import { directionAcceptedWhole, isDirectionSpendGateSatisfied } from "./direction-acceptance.js";
@@ -24,6 +25,7 @@ export async function loadCheckContext(opts: {
   manager?: StateManager | null;
   graph?: DependencyGraph | null;
   patches?: readonly PatchSubject[];
+  cueTakes: CueTakes;
 }): Promise<CheckContext> {
   const { videoRoot } = opts;
   const direction =
@@ -49,6 +51,7 @@ export async function loadCheckContext(opts: {
     manager,
     graph,
     patches: opts.patches ?? [],
+    cueTakes: opts.cueTakes,
     lang: video?.typography.lang ?? direction?.policy.lang ?? null,
     ...(direction && animatic
       ? {

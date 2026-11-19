@@ -250,6 +250,7 @@ describe("view-unanchored", () => {
 
   it("holds the reference spend before the direction is accepted or a board exists", async () => {
     const { findings: found } = await collectFindings({
+      cueTakes: "played",
       videoRoot: "",
       direction: direction as unknown as Direction,
       directionAccepted: false,
@@ -330,6 +331,7 @@ describe("view-unnamed", () => {
   it("holds the reference spend once the direction is accepted", async () => {
     const run = (directionAccepted: boolean) =>
       collectFindings({
+        cueTakes: "played",
         videoRoot: "",
         direction: boarded as unknown as Direction,
         directionAccepted,

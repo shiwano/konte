@@ -428,6 +428,7 @@ Examples:
         // Every asset was asked for, so any hold refuses the run.
         await spendGate(
           await loadCheckContext({
+            cueTakes: "resolved",
             videoRoot,
             definitions: { reference, animatic, video },
             manager,

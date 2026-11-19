@@ -4,6 +4,7 @@ import type { DependencyGraph } from "../../../core/graph.js";
 import { KonteError } from "../../../core/errors.js";
 import { selectGenerationAssets } from "../../../core/generation-selection.js";
 import { judgeSpend, spendHeldError, type SpendRequest } from "../../../core/spend-gate.js";
+import { spendContext } from "../../finding-gates.js";
 import type { LoadedDefinitions } from "../../../core/select-definition.js";
 import type { StateManager } from "../../../core/state/index.js";
 import { formatStaleCause } from "../../../core/staleness.js";
@@ -61,10 +62,20 @@ export async function assertVideoGenerationSubmitted(opts: {
   const { videoRoot, definitions, manager, graph } = opts;
   const { spending } = selectGenerationAssets({ definitions, stage: "video", manager, graph });
   if (spending.length === 0) return;
-  const ctx = await loadCheckContext({ videoRoot, definitions, manager, graph });
-  const report = await collectFindings(ctx, (traits) => traits.holds.spend !== undefined, {
-    signedOff: true,
+  const ctx = await loadCheckContext({
+    cueTakes: "resolved",
+    videoRoot,
+    definitions,
+    manager,
+    graph,
   });
+  const report = await collectFindings(
+    spendContext(ctx),
+    (traits) => traits.holds.spend !== undefined,
+    {
+      signedOff: true,
+    },
+  );
   const req: SpendRequest = {
     command: "generate",
     stage: "video",

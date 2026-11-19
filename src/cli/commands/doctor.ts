@@ -1090,7 +1090,13 @@ async function checkFindings(
     return [{ name: "direction", status: "FAIL", message: errorMessage(err) }];
   }
   const { findings: all, staleWaivers } = await collectFindings(
-    await loadCheckContext({ videoRoot, definitions: defs, direction, manager }),
+    await loadCheckContext({
+      cueTakes: "played",
+      videoRoot,
+      definitions: defs,
+      direction,
+      manager,
+    }),
   );
   const results: CheckResult[] = [];
 

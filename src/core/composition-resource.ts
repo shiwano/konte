@@ -1267,7 +1267,7 @@ function boardStemAgedUnderVideo(
     return false;
   }
   if (!leafInputsJudged(manager, board, boardShot, address, new Set())) return false;
-  return !findShotOverflows(board as AnimaticDefinition, manager, boardShot).some(
+  return !findShotOverflows(board as AnimaticDefinition, manager, boardShot, "resolved").some(
     (o) => o.address === address,
   );
 }
@@ -1318,7 +1318,7 @@ function boardLeafPastBoard(
   if (!videoShotHasVariant(manager, video, videoShot)) return false;
   if (!leafInputsJudged(manager, board, boardShot, address, new Set())) return false;
   if (isCompositionAddress(address)) return true;
-  return !findShotOverflows(board as AnimaticDefinition, manager, boardShot).some(
+  return !findShotOverflows(board as AnimaticDefinition, manager, boardShot, "resolved").some(
     (o) => o.address === address,
   );
 }

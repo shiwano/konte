@@ -85,7 +85,7 @@ export async function inspectPrompts(
     });
     const { spending } = selectGenerationAssets({ definitions, stage, manager, graph });
     const held = await spendHeldAssets(
-      await loadCheckContext({ videoRoot, definitions, manager, graph }),
+      await loadCheckContext({ cueTakes: "played", videoRoot, definitions, manager, graph }),
       { command: "generate", stage, addresses: spending, targeted: false },
     );
     pending = new Set(spending.filter((address) => !held.has(address)));

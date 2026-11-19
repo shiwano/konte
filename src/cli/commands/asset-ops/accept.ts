@@ -218,7 +218,12 @@ async function runDirectionAcceptance(
 
   const previewManager = await StateManager.load(videoRoot);
   const acceptance = previewManager.getDirectionAcceptance();
-  const checkContext = await loadCheckContext({ videoRoot, direction, manager: previewManager });
+  const checkContext = await loadCheckContext({
+    cueTakes: "resolved",
+    videoRoot,
+    direction,
+    manager: previewManager,
+  });
   const waiverCoverage = waiverCoverageOf(checkContext);
   const view = directionAcceptanceView(direction, acceptance, waiverCoverage);
   const recorded = Object.keys(acceptance?.parts ?? {});
@@ -772,6 +777,7 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
   // a finding to fix sits on it: a named target is refused, a stage's unit left out and named.
   // A dep the cascade reaches that one holds is left for its own accept.
   const checkContext = await loadCheckContext({
+    cueTakes: "resolved",
     videoRoot,
     definitions,
     direction,
