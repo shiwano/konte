@@ -341,6 +341,7 @@ export async function handleReferenceSubmit(
     createdAt: reviewedAt,
     context: { shots: [], timeline },
     decisions: outcome.decisions,
+    ...(outcome.songLines.length > 0 ? { songLines: outcome.songLines } : {}),
     ...(outcome.cascadeAccepted.length > 0 ? { cascadeAccepted: outcome.cascadeAccepted } : {}),
     ...(outcome.overturned.length > 0 ? { overturned: outcome.overturned } : {}),
     ...(outcome.kept.length > 0 ? { kept: outcome.kept } : {}),
@@ -350,7 +351,9 @@ export async function handleReferenceSubmit(
     ...handoffRecordFields(handoff),
   };
 
-  const filePath = await saveReviewRecord(videoRoot, record);
+  const filePath = await saveReviewRecord(videoRoot, record, {
+    force: outcome.skippedDecisions.length > 0,
+  });
   if (filePath) await storeOverallComment(videoRoot, "reference", record);
 
   reportOutcome?.({
@@ -406,13 +409,22 @@ function placeSongLines(
   mgr: StateManager,
   direction: Direction | null,
   songLines: readonly SongLineBody[],
-): Array<{ address: string; reason: string }> {
-  if (songLines.length === 0) return [];
+): {
+  placed: NonNullable<ReviewRecord["songLines"]>;
+  skipped: Array<{ address: string; reason: string }>;
+} {
+  if (songLines.length === 0) return { placed: [], skipped: [] };
   const songAddress = songAddressOf(direction);
   if (!direction || !songAddress) {
-    return [{ address: "direction", reason: "direction.ts declares no song to place lines on" }];
+    return {
+      placed: [],
+      skipped: [
+        { address: "direction", reason: "direction.ts declares no song to place lines on" },
+      ],
+    };
   }
   const lines = lyricLines(direction);
+  const placed: NonNullable<ReviewRecord["songLines"]> = [];
   const skipped: Array<{ address: string; reason: string }> = [];
   const byVariant = Map.groupBy(songLines, (edit) => edit.variantId);
   for (const [variantId, edits] of byVariant) {
@@ -424,6 +436,9 @@ function placeSongLines(
       const durationSec =
         variant.media && variant.media.kind !== "image" ? variant.media.durationSec : Infinity;
       variant.song = setSongLines(variant.song, lines, edits, durationSec);
+      placed.push(
+        ...edits.map(({ key, span }) => ({ address: songAddress, variantId, key, span })),
+      );
     } catch (err) {
       skipped.push({
         address: songAddress,
@@ -431,5 +446,5 @@ function placeSongLines(
       });
     }
   }
-  return skipped;
+  return { placed, skipped };
 }

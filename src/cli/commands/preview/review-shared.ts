@@ -664,6 +664,7 @@ type AddressReviewOutcome = {
   // on a success that state does not back.
   skippedDecisions: NonNullable<ReviewRecord["skippedDecisions"]>;
   decisions: ReviewDecisionEntry[];
+  songLines: NonNullable<ReviewRecord["songLines"]>;
   kept: string[];
   regenerate: string[];
 };
@@ -686,9 +687,11 @@ export async function applyAddressReview(
     staleDefinitionHashes?: ReadonlyMap<string, string>;
     // A reason to refuse an accept made on this page, or null to let it through.
     refuseAccept?: (address: string, variantId: string, mgr: StateManager) => string | null;
-    // Writes the lyric lines the reviewer placed, before any accept lands, returning the ones that
-    // did not.
-    placeSongLines?: (mgr: StateManager) => AddressReviewOutcome["skippedDecisions"];
+    // Writes the lyric lines the reviewer placed, before any accept lands.
+    placeSongLines?: (mgr: StateManager) => {
+      placed: AddressReviewOutcome["songLines"];
+      skipped: AddressReviewOutcome["skippedDecisions"];
+    };
     // The direction parts an applied accept re-signs, tagged with the accept's address.
     cascadeDirection: (
       mgr: StateManager,
@@ -701,6 +704,7 @@ export async function applyAddressReview(
   const cascadeAccepted: AddressReviewOutcome["cascadeAccepted"] = [];
   const overturned: AddressReviewOutcome["overturned"] = [];
   const skippedDecisions: AddressReviewOutcome["skippedDecisions"] = [];
+  const songLines: AddressReviewOutcome["songLines"] = [];
   // The accepts that actually landed. A decision the loop below drops — a made-up address, a
   // variant pruned since the page loaded, a target whose review prerequisites are unwritten —
   // signed nothing off, so neither the direction cascade nor the record may read it as an accept.
@@ -744,7 +748,11 @@ export async function applyAddressReview(
         ...(hooks.staleDefinitionHashes ? { definitionHashes: hooks.staleDefinitionHashes } : {}),
       });
 
-      skippedDecisions.push(...(hooks.placeSongLines?.(mgr) ?? []));
+      if (hooks.placeSongLines) {
+        const { placed, skipped } = hooks.placeSongLines(mgr);
+        songLines.push(...placed);
+        skippedDecisions.push(...skipped);
+      }
       const findings = await hooks.findings(mgr);
       const isHeld = (address: string, variantId?: string) =>
         reviewHeldFindings(findings, [{ op: "accept", address, variantId }]).length > 0;
@@ -846,6 +854,7 @@ export async function applyAddressReview(
     overturned,
     skippedDecisions,
     decisions,
+    songLines,
     kept,
     regenerate,
   };

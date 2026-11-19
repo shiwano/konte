@@ -18,7 +18,7 @@ import { writeFileAtomic } from "./atomic-write.js";
 import { KonteError } from "./errors.js";
 import { isWithinRootRealAsync } from "./path-containment.js";
 import { type FeedbackAnnotation, NormalizedCoordSchema } from "./types/feedback.js";
-import { formatSeconds } from "./format-duration.js";
+import { formatSeconds, formatSecondsRange } from "./format-duration.js";
 
 const ReviewDecisionEntrySchema = z.object({
   address: z.string(),
@@ -136,6 +136,17 @@ export const ReviewRecordSchema = z.object({
       z.object({ address: z.string(), variantId: z.string(), displaced: z.string().optional() }),
     )
     .optional(),
+  // Reference only: the lyric lines this review placed on takes of the song, a null span cleared.
+  songLines: z
+    .array(
+      z.object({
+        address: z.string(),
+        variantId: z.string(),
+        key: z.string(),
+        span: z.object({ startSec: z.number(), endSec: z.number() }).nullable(),
+      }),
+    )
+    .optional(),
   // Accepted takes this review kept against a newer upstream (`keptInputs`).
   kept: z.array(z.string()).optional(),
   // Accepted takes the reviewer decided to regenerate against a newer upstream.
@@ -223,7 +234,7 @@ export function hasFeedback(record: ReviewRecord): boolean {
       // review-submitted notification.
       return Object.keys(record.directionDecisions ?? {}).length > 0 || hasDecisionEntries(record);
     case "reference-preview":
-      return hasDecisionEntries(record);
+      return hasDecisionEntries(record) || (record.songLines?.length ?? 0) > 0;
     default:
       return false;
   }
@@ -582,6 +593,15 @@ export function formatReviewRecord(
       lines.push(`  ${address} (${variantId}) — ${what} changed since this take`);
     }
     lines.push("  the definition each take was made from: konte inspect <variantId>");
+  }
+
+  if ((record.songLines ?? []).length > 0) {
+    lines.push("");
+    lines.push("Lyric lines placed:");
+    for (const { address, variantId, key, span } of record.songLines ?? []) {
+      const where = span ? formatSecondsRange(span.startSec, span.endSec, 2) : "cleared";
+      lines.push(`  ${address} ${variantId} line ${key} ${where}`);
+    }
   }
 
   if ((record.kept ?? []).length > 0) {

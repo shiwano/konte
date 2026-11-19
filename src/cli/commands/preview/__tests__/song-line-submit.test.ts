@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { loadPreviewDefinitions } from "../load-definitions.js";
 import { handleReferenceSubmit } from "../reference-review.js";
+import { formatReviewRecord, loadLatestReviewRecord } from "../../../../core/review-record.js";
 import { StateManager } from "../../../../core/state/index.js";
 import { writeSongReading } from "../../../../core/song-reading.js";
 import { ctx, initWorkspace, useTempWorkspace } from "../../../__tests__/cli-fixtures.js";
@@ -129,6 +130,19 @@ describe("handleReferenceSubmit — lyric lines placed on the song", () => {
     expect(sm.getAssetState(SONG).variants![variantId]!.song?.lines?.["1.2"]).toBeTruthy();
   });
 
+  it("records the lines a submit placed with nothing else", async () => {
+    const { videoRoot, variantId } = await project();
+    const res = await submit(videoRoot, {
+      songLines: [{ variantId, key: "1.2", span: { startSec: 2.54, endSec: 4 } }],
+    });
+    expect(((await res.json()) as { saved: boolean }).saved).toBe(true);
+    const record = await loadLatestReviewRecord(videoRoot, "reference-preview");
+    expect(record?.songLines).toEqual([
+      { address: SONG, variantId, key: "1.2", span: { startSec: 2.54, endSec: 4 } },
+    ]);
+    expect(formatReviewRecord(record!, {})).toContain(`${SONG} ${variantId} line 1.2 2.54–4s`);
+  });
+
   it("reports a line it cannot place and writes nothing for it", async () => {
     const { videoRoot, variantId } = await project();
     const res = await submit(videoRoot, {
@@ -142,5 +156,10 @@ describe("handleReferenceSubmit — lyric lines placed on the song", () => {
     ]);
     const sm = await StateManager.load(videoRoot);
     expect(sm.getAssetState(SONG).variants![variantId]!.song?.lines).toBeUndefined();
+    const record = await loadLatestReviewRecord(videoRoot, "reference-preview");
+    expect(record?.songLines).toBeUndefined();
+    expect(record?.skippedDecisions).toEqual([
+      expect.objectContaining({ address: SONG, reason: expect.stringMatching(/^line 3\.1:/) }),
+    ]);
   });
 });
