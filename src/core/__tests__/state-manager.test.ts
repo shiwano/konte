@@ -47,6 +47,11 @@ describe("StateManager.load", () => {
     await expect(StateManager.load(tmpDir)).rejects.toThrow("not found");
   }, 10_000);
 
+  it("throws STATE_READ_FAILED when the state path cannot be read", async () => {
+    await fs.mkdir(path.join(tmpDir, "konte.state.json"));
+    await expect(StateManager.load(tmpDir)).rejects.toMatchObject({ code: "STATE_READ_FAILED" });
+  });
+
   it("does not recover a leftover temp — recovery is reserved for withLock", async () => {
     await StateManager.init(tmpDir);
     const statePath = path.join(tmpDir, "konte.state.json");

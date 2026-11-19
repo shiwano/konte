@@ -148,8 +148,14 @@ export class StateManager {
     let raw: string;
     try {
       raw = await fs.readFile(statePath, "utf-8");
-    } catch {
-      throw new KonteError("STATE_NOT_FOUND", `State file not found at "${statePath}"`);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+        throw new KonteError("STATE_NOT_FOUND", `State file not found at "${statePath}"`);
+      }
+      throw new KonteError(
+        "STATE_READ_FAILED",
+        `Failed to read state file "${statePath}": ${errorMessage(err)}`,
+      );
     }
 
     let parsed: unknown;
