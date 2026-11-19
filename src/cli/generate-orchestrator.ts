@@ -1,3 +1,4 @@
+import * as fs from "node:fs/promises";
 import {
   assertSpendAllowed,
   type SpendItem,
@@ -8,10 +9,12 @@ import { resolveComfyUIConfig } from "../comfyui/config.js";
 import { resolveUrlTokens } from "../comfyui/token-resolver.js";
 import { computeDefinitionHash } from "../core/definition-hash.js";
 import { writeDefinitionSnapshot } from "../core/definition-snapshot.js";
+import { variantDir } from "../core/variant-dir.js";
 import type { DeliveryTarget } from "../core/delivery.js";
 import { KonteError } from "../core/errors.js";
 import type { DependencyGraph } from "../core/graph.js";
 import { comfyModelJobId, JobManager } from "../core/job-manager.js";
+import type { JobRecord } from "../core/types/index.js";
 import type { PatchFinalize } from "../core/patch-output.js";
 import { assetResolves } from "../core/pending-jobs.js";
 import { formatNotice } from "../core/notice.js";
@@ -74,95 +77,6 @@ const SKIP_REASON_TEXT: Record<SkipReason, string> = {
   "accepted-stale": "accepted but stale — the accept stands",
   ready: "already ready",
 };
-
-// Reserve `variantCount` variant ids for `address`, persisting them to state under
-// the state lock before any job file is created. Reserving-then-persisting first is
-// the invariant that keeps a completed job from being stranded: the worker (or
-// a crash) must never see a job whose variant is absent from state, because waitForJob
-// only fills a variant that already exists. The lock also prevents this from clobbering
-// concurrent watcher writes to other variants.
-async function reserveVariants(
-  videoRoot: string,
-  address: string,
-  variantCount: number,
-  definitionHash: string,
-  assetDef: AssetDefinition,
-  deliveryTarget: DeliveryTarget | null = null,
-  rivalJobVariantIds?: ReadonlySet<string>,
-): Promise<string[]> {
-  return StateManager.withLock(videoRoot, async (manager) => {
-    const target = manager.ensureAssetState(address);
-    if (rivalJobVariantIds) {
-      // A rival is an attempt at THIS definition of this address that is genuinely still working —
-      // a concurrent `patch apply`/`generate` reserving the same chain step. Re-checked here, under
-      // the same lock that creates the reservation, because the caller's join check ran on an
-      // unlocked snapshot; without it both runs would pay for one step. The caller decides which
-      // in-flight variants qualify (it is the one that knows which chain they belong to) and
-      // supplies them from the live job list: a reservation whose job never got created (a crash
-      // between the two) carries no terminal marker, so going by markers alone would let one
-      // stranded row block the step forever.
-      const rival = Object.entries(target.variants ?? {}).find(
-        ([id, v]) => rivalJobVariantIds.has(id) && v.definitionHash === definitionHash && !v.file,
-      );
-      if (rival) {
-        throw new KonteError(
-          "PATCH_ALREADY_APPLYING",
-          `A job for this step of "${address}" is already in flight (${rival[0]})`,
-        );
-      }
-    }
-    const ids: string[] = [];
-    for (let i = 0; i < variantCount; i++) {
-      const vid = manager.reserveVariantId(address);
-      const variant = target.variants![vid]!;
-      variant.definitionHash = definitionHash;
-      if (deliveryTarget) variant.deliveryTarget = deliveryTarget;
-      writeDefinitionSnapshot(videoRoot, address, vid, assetDef);
-      ids.push(vid);
-    }
-    return ids;
-  });
-}
-
-export interface VariantReservationRequest {
-  address: string;
-  variantCount: number;
-  definitionHash: string;
-  assetDef: AssetDefinition;
-  deliveryTarget?: DeliveryTarget | null;
-}
-
-/**
- * Reserve every requested address's variants under ONE state-lock cycle — the per-asset
- * `reserveVariants` pays a full state load + rewrite each, which is quadratic in bytes across a
- * level of many assets. Same invariant as `reserveVariants` (persist before any job file exists).
- * Returns address → reserved variant ids; an address a concurrent run holds an active variant at
- * is absent — the caller's skip check read an unlocked snapshot.
- */
-export async function reserveVariantsBatch(
-  videoRoot: string,
-  requests: readonly VariantReservationRequest[],
-): Promise<Map<string, string[]>> {
-  if (requests.length === 0) return new Map();
-  return StateManager.withLock(videoRoot, async (manager) => {
-    const result = new Map<string, string[]>();
-    for (const req of requests) {
-      if (getActiveVariantIds(manager, req.address).length > 0) continue;
-      const target = manager.ensureAssetState(req.address);
-      const ids: string[] = [];
-      for (let i = 0; i < req.variantCount; i++) {
-        const vid = manager.reserveVariantId(req.address);
-        const variant = target.variants![vid]!;
-        variant.definitionHash = req.definitionHash;
-        if (req.deliveryTarget) variant.deliveryTarget = req.deliveryTarget;
-        writeDefinitionSnapshot(videoRoot, req.address, vid, req.assetDef);
-        ids.push(vid);
-      }
-      result.set(req.address, ids);
-    }
-    return result;
-  });
-}
 
 // Which of the given comfy models are not yet present in ComfyUI, as a set of `comfyModelJobId`
 // keys — one declaration's install target, not its filename, since a directory-shaped model
@@ -562,12 +476,11 @@ function jobBackendKind(assetDef: AssetDefinition, target: ComfyTarget | null): 
   return getBackendKind(assetDef);
 }
 
-interface JobRegistration {
+/** One address's jobs, registered by `registerJobsBatch`. */
+export interface JobRequest {
   address: string;
   assetDef: AssetDefinition;
   variantCount: number;
-  videoRoot: string;
-  jobManager: JobManager;
   // Upstream addresses resolved when the worker submits.
   deps?: readonly string[];
   dependsOnJobs?: readonly string[];
@@ -579,73 +492,157 @@ interface JobRegistration {
   // Dependencies already resolved to files, for an input no address resolves (a delivery
   // upscale's rendered composite).
   resolvedDeps?: Record<string, string>;
+  // Places files the job reads once its variant id exists, returning them as resolved deps.
+  placeSources?: (variantId: string) => Promise<Record<string, string>>;
   compositionCacheKeys?: Record<string, string>;
   deliveryTarget?: DeliveryTarget | null;
   patchFinalize?: PatchFinalize | null;
-  rivalVariantIds?: ReadonlySet<string> | null;
-  // Variants already reserved by a reserveVariantsBatch pass — skips the per-asset lock cycle.
-  reservedVariantIds?: readonly string[] | null;
+  // The in-flight variants, picked from the job listing read under the state lock, that are
+  // attempts at this same definition (a concurrent `patch apply` or `generate` reserving one chain
+  // step): one at this definition hash refuses the registration.
+  rivals?: (jobs: readonly JobRecord[]) => ReadonlySet<string>;
+  // Skip the address while a variant there is in flight (`AssetResult.skipReason: "active"`).
+  skipIfActive?: boolean;
   // Where the spend gate routed a comfy asset (`SpendRoutes.targetOf`).
   comfyTarget?: ComfyTarget | null;
 }
 
-/** Reserve the variants and register their jobs, which the worker submits once they are ready. */
-export async function registerJobs(opts: JobRegistration): Promise<AssetResult> {
-  const { address, assetDef, videoRoot, jobManager } = opts;
-  const comfyTarget = opts.comfyTarget ?? null;
-  const backendKind = jobBackendKind(assetDef, comfyTarget);
-  if (!backendKind) {
-    return {
-      address,
-      status: "failed",
-      jobs: [],
-      error: `Asset kind "${assetDef.kind}" has no generation backend`,
-    };
+interface JobRegistration extends JobRequest {
+  videoRoot: string;
+  jobManager: JobManager;
+}
+
+const INTERRUPTED_REGISTRATION = "Its registration was interrupted before a job was created";
+
+/**
+ * Reserve each request's variants and create their jobs in ONE state-lock hold, the state saved
+ * before any job exists so the worker never reads a job whose variant is absent. A variant with no
+ * file, no terminal marker and no job is therefore always a dead registration here, and is marked
+ * failed rather than read as in flight. Results are in request order.
+ */
+export async function registerJobsBatch(
+  videoRoot: string,
+  jobManager: JobManager,
+  requests: readonly JobRequest[],
+): Promise<AssetResult[]> {
+  const results: AssetResult[] = [];
+  const planned: Array<{
+    slot: number;
+    req: JobRequest;
+    backendKind: BackendKind;
+    definitionHash: string;
+  }> = [];
+  for (const req of requests) {
+    const slot = results.length;
+    const backendKind = jobBackendKind(req.assetDef, req.comfyTarget ?? null);
+    if (!backendKind) {
+      results.push({
+        address: req.address,
+        status: "failed",
+        jobs: [],
+        error: `Asset kind "${req.assetDef.kind}" has no generation backend`,
+      });
+      continue;
+    }
+    results.push({ address: req.address, status: "pending", jobs: [] });
+    planned.push({ slot, req, backendKind, definitionHash: computeDefinitionHash(req.assetDef) });
   }
+  if (planned.length === 0) return results;
 
-  const definitionHash = computeDefinitionHash(assetDef);
-  const variantIds =
-    opts.reservedVariantIds ??
-    (await reserveVariants(
-      videoRoot,
-      address,
-      opts.variantCount,
-      definitionHash,
-      assetDef,
-      opts.deliveryTarget ?? null,
-      opts.rivalVariantIds ?? undefined,
-    ));
-  const jobs: Array<{ variantId: string; status: string }> = [];
-  const pinnedDeps = opts.pinnedDeps ?? {};
-  const hasPins = Object.keys(pinnedDeps).length > 0;
+  await StateManager.withLock(videoRoot, async (manager) => {
+    for (const address of new Set(planned.map((p) => p.req.address))) {
+      for (const [id, v] of Object.entries(manager.tryGetAssetState(address)?.variants ?? {})) {
+        if (v.file || v.metadata?.error || v.metadata?.cancelledAt || jobManager.hasJob(id)) {
+          continue;
+        }
+        v.metadata = { ...v.metadata, error: INTERRUPTED_REGISTRATION };
+      }
+    }
 
-  for (const vid of variantIds) {
+    const jobs = planned.some((p) => p.req.rivals) ? await jobManager.listJobs() : [];
+    for (const { req, definitionHash } of planned) {
+      if (!req.rivals) continue;
+      const rivalIds = req.rivals(jobs);
+      const rival = Object.entries(manager.tryGetAssetState(req.address)?.variants ?? {}).find(
+        ([id, v]) => rivalIds.has(id) && v.definitionHash === definitionHash && !v.file,
+      );
+      if (rival) {
+        throw new KonteError(
+          "PATCH_ALREADY_APPLYING",
+          `A job for this step of "${req.address}" is already in flight (${rival[0]})`,
+        );
+      }
+    }
+
+    const reserved: Array<(typeof planned)[number] & { ids: string[] }> = [];
+    for (const p of planned) {
+      const { req } = p;
+      if (req.skipIfActive && getActiveVariantIds(manager, req.address).length > 0) {
+        results[p.slot] = {
+          address: req.address,
+          status: "skipped",
+          skipReason: "active",
+          jobs: [],
+        };
+        continue;
+      }
+      const target = manager.ensureAssetState(req.address);
+      const ids: string[] = [];
+      for (let i = 0; i < req.variantCount; i++) {
+        const vid = manager.reserveVariantId(req.address);
+        const variant = target.variants![vid]!;
+        variant.definitionHash = p.definitionHash;
+        if (req.deliveryTarget) variant.deliveryTarget = req.deliveryTarget;
+        writeDefinitionSnapshot(videoRoot, req.address, vid, req.assetDef);
+        ids.push(vid);
+      }
+      reserved.push({ ...p, ids });
+    }
+    await manager.save();
+
+    const jobless = new Map(reserved.flatMap((r) => r.ids.map((id) => [id, r.req.address])));
     try {
-      await jobManager.createJob({
-        address,
-        variantId: vid,
-        resolvedDeps: opts.resolvedDeps ?? {},
-        backendKind,
-        comfyTarget: assetDef.kind === "comfy" ? comfyTarget : null,
-        dependsOnAssets: [...(opts.deps ?? [])],
-        dependsOnJobs: [...(opts.dependsOnJobs ?? [])],
-        compositionCacheKeys: opts.compositionCacheKeys,
-        metadata: {
-          definitionHash,
-          ...(hasPins ? { pinnedDeps } : {}),
-          ...(opts.patchFinalize ? { patchFinalize: opts.patchFinalize } : {}),
-        },
-      });
+      for (const { slot, req, backendKind, definitionHash, ids } of reserved) {
+        const pinnedDeps = req.pinnedDeps ?? {};
+        for (const vid of ids) {
+          const placed = (await req.placeSources?.(vid)) ?? {};
+          await jobManager.createJob({
+            address: req.address,
+            variantId: vid,
+            resolvedDeps: { ...req.resolvedDeps, ...placed },
+            backendKind,
+            comfyTarget: req.assetDef.kind === "comfy" ? (req.comfyTarget ?? null) : null,
+            dependsOnAssets: [...(req.deps ?? [])],
+            dependsOnJobs: [...(req.dependsOnJobs ?? [])],
+            compositionCacheKeys: req.compositionCacheKeys,
+            metadata: {
+              definitionHash,
+              ...(Object.keys(pinnedDeps).length > 0 ? { pinnedDeps } : {}),
+              ...(req.patchFinalize ? { patchFinalize: req.patchFinalize } : {}),
+            },
+          });
+          jobless.delete(vid);
+          results[slot]!.jobs.push({ variantId: vid, status: "pending" });
+        }
+      }
     } catch (err) {
-      await StateManager.withLock(videoRoot, async (manager) => {
-        manager.removeVariant(address, vid);
-      });
+      for (const [vid, address] of jobless) manager.removeVariant(address, vid);
+      await manager.save();
+      for (const [vid, address] of jobless) {
+        await fs
+          .rm(variantDir(videoRoot, address, vid), { recursive: true, force: true })
+          .catch(() => {});
+      }
       throw err;
     }
-    jobs.push({ variantId: vid, status: "pending" });
-  }
+  });
+  return results;
+}
 
-  return { address, status: "pending", jobs };
+/** Reserve the variants and register their jobs, which the worker submits once they are ready. */
+export async function registerJobs(opts: JobRegistration): Promise<AssetResult> {
+  const { videoRoot, jobManager, ...req } = opts;
+  return (await registerJobsBatch(videoRoot, jobManager, [req]))[0]!;
 }
 
 type PlanAction = "start" | "wait" | "skip" | "synced";

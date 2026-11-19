@@ -664,8 +664,8 @@ describe("export delivery gate", () => {
     expect(upscale).toMatchObject({ dependsOnJobs: [download!.id] });
   });
 
-  // Two exports racing for one upscale: the reservation a concurrent run already holds wins.
-  it("leaves a delivery upscale another export has reserved to that export", async () => {
+  // Two exports racing for one upscale: the job a concurrent run already registered wins.
+  it("leaves a delivery upscale another export has registered to that export", async () => {
     projectDir = await initProject({
       direction: DIRECTION_WITH_DELIVERY_TS,
       video: VIDEO_WITH_MODEL_UPSCALE_TSX,
@@ -673,14 +673,20 @@ describe("export delivery gate", () => {
     await writeConfig(projectDir, { comfy: { comfyui: { url: "http://127.0.0.1:1" } } });
     await acceptDirection(projectDir);
     await seedAcceptedCut(projectDir);
-    await StateManager.withLock(projectDir, async (m) => {
-      m.reserveVariantId("video:shot.01.motion#delivery");
+    const rival = await StateManager.withLock(projectDir, async (m) =>
+      m.reserveVariantId("video:shot.01.motion#delivery"),
+    );
+    await new JobManager(projectDir).createJob({
+      address: "video:shot.01.motion#delivery",
+      variantId: rival,
+      resolvedDeps: {},
+      backendKind: "comfy",
     });
 
     const { stdout } = await run(["export", "video"], projectDir);
     expect(stdout).toContain("Delivery upscales: 0 submitted, 1 already running.");
     const jobs = await new JobManager(projectDir).listJobs();
-    expect(jobs.filter((j) => j.kind === "generation")).toEqual([]);
+    expect(jobs.filter((j) => j.kind === "generation").map((j) => j.id)).toEqual([rival]);
   });
 
   it("reserves no delivery upscale when its provisioning cannot be registered", async () => {

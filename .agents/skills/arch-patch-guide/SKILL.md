@@ -79,7 +79,6 @@ A patch script names one take and dies with it; a lineage is deleted as a unit �
 - `patch remove` deletes the script, the patched variants and the chain's own takes, re-derived under the state lock. A step still generating blocks it. It also takes a hand-written `patches/<id>.ts` named after a patched variant.
 - `clean` holds back a take whose patch is applying — the chain is pinned to it and the finalize reads it back.
 - `clean` and `patch remove` refuse a lineage or chain with an active job, re-checking on a fresh job listing inside the state lock (`patch remove` aborts, the others skip and report).
-- A run starting in the same moment can slip through — the job list is outside that lock and a job file lands only after the reservation's releases. The materialize tolerates it: a source gone by then is logged and skipped, never failing the step's own commit. `clean` is the recovery.
 
 ## Applying
 
@@ -89,8 +88,7 @@ The pipeline is generation's, plus the pin.
 - The pin bypasses resolution instead of overriding its result (`resolveJobDeps`) and waits only on its own producer — a pinned step goes input-stale the moment a later take lands at the source address, and stale-unaccepted resolves to nothing.
 - Everything else the patch references resolves normally, as a real upstream.
 - The patched variant is materialized, not generated (`materializePatchOutput`): it points at the returned step's file and carries the lineage. Written by the waiter in the same lock that commits that step's take — else the correction sits on disk with nothing at the corrected address pointing at it — or by `applyPatch` when the take is already current. Idempotent per step take, recognized by its file.
-- Reservation re-checks for a rival under the state lock (a concurrent `patch apply`/`generate` reserving the same step) — the caller's join check ran on an unlocked snapshot. `applyPatch` supplies what counts as a rival, by the criterion it joined on: what it declined would abort the apply instead of queueing beside it.
-- The rival check narrows the race above without closing it — two concurrent runs can each spend on one correction. Closing it needs reservation and job creation made atomic in the shared generation path; until then, do not run two on one video.
+- Registration re-checks for a rival (a concurrent `patch apply`/`generate` reserving the same step) against a job listing read under the state lock, where every reservation is created with its job. `applyPatch` supplies what counts as a rival, by the criterion it joined on: what it declined would abort the apply instead of queueing beside it.
 - Same spend gates as `generate` — the direction gate per stage, and the backend gate across every step of the chain (checked directly; the stage-walking policy helper has no stage to walk).
 - The spend gate judges a patch by what its chain reads (`patchSpendRequest`'s `consumes`), never by the source's own definition or upstream. `generate` holds a held patch out of the run and refuses when held patches are all it has left to spend on; `patch apply` and a step `reroll` refuse on it. A vendor patch of a take a boardless video shot plays is held (`animatic-unconsumed`) unless the chain reads that shot's board.
 - Comfy prerequisites — a comfy step resolves its declared `models`/`nodes` and goes pending behind the install jobs, with the pin carried as `pinnedDeps` to submit time. A step also goes pending behind the earlier steps' jobs, by the same mechanism.

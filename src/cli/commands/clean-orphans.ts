@@ -293,7 +293,7 @@ export async function collectOrphans(opts: {
   }
 
   // Orphaned jobs: generation job files whose (address, variant) no longer exists in state. Active
-  // jobs are skipped: `reserveVariants` records a variant before its job is created, and deleting a
+  // jobs are skipped: `registerJobsBatch` records a variant before its job is created, and deleting a
   // live job's files would strand a backend job.
   for (const job of allJobs) {
     if (job.kind !== "generation") continue;

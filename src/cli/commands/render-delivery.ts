@@ -21,16 +21,10 @@ import { JobIndex } from "../../core/job-index.js";
 import type { JobManager } from "../../core/job-manager.js";
 import { collectDeliveryLayers, renderShotCompositeToFile } from "../../core/render-video.js";
 import type { ShotRenderPlan } from "../../core/render-plan.js";
-import { StateManager } from "../../core/state/index.js";
-import { computeDefinitionHash } from "../../core/definition-hash.js";
+import type { StateManager } from "../../core/state/index.js";
 import { variantDir } from "../../core/variant-dir.js";
 import type { AssetDefinition, VideoDefinition } from "../../core/types/index.js";
-import {
-  prepareSpend,
-  printSpendNotices,
-  registerJobs,
-  reserveVariantsBatch,
-} from "../generate-orchestrator.js";
+import { prepareSpend, printSpendNotices, registerJobsBatch } from "../generate-orchestrator.js";
 import type { VideoRoots } from "../../core/roots.js";
 
 // Result of planning the video's delivery upscales (export command side).
@@ -99,10 +93,9 @@ export async function planDelivery(opts: {
     );
   }
 
-  // Each frame source is rendered before its variant is reserved, so a reservation never sits
-  // without a job while a composite renders.
+  // Frame sources render before registration, which holds the state lock; a source no job takes
+  // is removed.
   const rendered = new Map<string, string>();
-  const prereqJobs = new Map<string, string[]>();
   try {
     for (const item of items) {
       if (typeof item.source === "string") continue;
@@ -112,79 +105,49 @@ export async function planDelivery(opts: {
     }
     // The provisioning jobs are registered once every source is ready, so none completes and is
     // cleaned before the upscale that depends on it exists.
+    const prereqJobs = new Map<string, string[]>();
     for (const item of items) {
       prereqJobs.set(item.address, await spend.prereqJobs(item.assetDef, jobManager));
     }
-  } catch (err) {
-    await removeFiles(rendered.values());
-    throw err;
-  }
 
-  // Reserved under the state lock, which re-checks for an upscale a concurrent export already
-  // reserved: that one is in progress here.
-  const reserved = await reserveVariantsBatch(
-    videoRoot,
-    items.map((item) => ({
-      address: item.address,
-      variantCount: 1,
-      definitionHash: computeDefinitionHash(item.assetDef),
-      assetDef: item.assetDef,
-      deliveryTarget: item.target,
-    })),
-  );
-  const claimed = items.flatMap((item) => {
-    const variantId = reserved.get(item.address)?.[0];
-    return variantId ? [{ item, variantId }] : [];
-  });
-  await removeFiles(
-    items.filter((i) => !reserved.has(i.address)).map((i) => rendered.get(i.address)),
-  );
-
-  const unregistered = new Map(claimed.map((c) => [c.variantId, c.item.address]));
-  const submittedJobIds: string[] = [];
-  try {
-    for (const { item, variantId } of claimed) {
-      let source = item.source;
-      if (typeof source !== "string") {
-        const file = path.join(variantDir(videoRoot, item.address, variantId), FRAME_SOURCE_FILE);
-        await fs.rename(rendered.get(item.address)!, file);
-        source = path.relative(videoRoot, file);
-      }
-      // registerJobs drops its own reservation when it fails to create the job.
-      unregistered.delete(variantId);
-      const result = await registerJobs({
+    // An upscale a concurrent export already registered is in progress here.
+    const results = await registerJobsBatch(
+      videoRoot,
+      jobManager,
+      items.map((item) => ({
         address: item.address,
         assetDef: item.assetDef,
         variantCount: 1,
-        videoRoot,
-        jobManager,
-        reservedVariantIds: [variantId],
         dependsOnJobs: prereqJobs.get(item.address),
-        resolvedDeps: { [item.sourceAddress]: source },
+        resolvedDeps: typeof item.source === "string" ? { [item.sourceAddress]: item.source } : {},
+        placeSources:
+          typeof item.source === "string"
+            ? undefined
+            : async (variantId) => {
+                const file = path.join(
+                  variantDir(videoRoot, item.address, variantId),
+                  FRAME_SOURCE_FILE,
+                );
+                await fs.rename(rendered.get(item.address)!, file);
+                return { [item.sourceAddress]: path.relative(videoRoot, file) };
+              },
         compositionCacheKeys: item.compositionCacheKeys,
         // Snapshot the resolved target so the variant's definition hash is re-derived from these
         // exact dims at export time, never from a fresh probe — and the worker rebuilds the
         // definition from it.
         deliveryTarget: item.target,
+        skipIfActive: true,
         comfyTarget: spend.targetOf(item.assetDef),
-      });
-      for (const j of result.jobs) submittedJobIds.push(j.variantId);
-    }
-  } catch (err) {
-    // A reservation with no job reads as in flight and would hold its address forever.
-    if (unregistered.size > 0) {
-      await StateManager.withLock(videoRoot, async (m) => {
-        for (const [variantId, address] of unregistered) m.removeVariant(address, variantId);
-      });
-    }
-    await removeFiles([...unregistered.values()].map((address) => rendered.get(address)));
-    throw err;
+      })),
+    );
+    return {
+      deliveryAddresses,
+      submittedJobIds: results.flatMap((r) => r.jobs.map((j) => j.variantId)),
+      inProgress: inProgress + results.filter((r) => r.skipReason === "active").length,
+    };
+  } finally {
+    await removeFiles(rendered.values());
   }
-  return {
-    deliveryAddresses,
-    submittedJobIds,
-    inProgress: inProgress + items.length - claimed.length,
-  };
 }
 
 type DeliveryItem = {
@@ -199,8 +162,8 @@ type DeliveryItem = {
 
 const FRAME_SOURCE_FILE = "frame-source.mp4";
 
-async function removeFiles(files: Iterable<string | undefined>): Promise<void> {
-  for (const file of files) if (file) await fs.rm(file, { force: true });
+async function removeFiles(files: Iterable<string>): Promise<void> {
+  for (const file of files) await fs.rm(file, { force: true });
 }
 
 type DeliveryItems = {

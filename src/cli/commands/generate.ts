@@ -47,9 +47,7 @@ import {
   type LevelResult,
   prepareSpend,
   printSpendNotices,
-  reserveVariantsBatch,
-  registerJobs,
-  type VariantReservationRequest,
+  registerJobsBatch,
 } from "../generate-orchestrator.js";
 import { formatSubmitFailure, submitRegisteredJobs } from "../spend-submit.js";
 import { printRemixedBoardStems } from "../generation-selection.js";
@@ -333,8 +331,8 @@ export function registerGenerateCommand(program: Command): void {
         const assetResults: (AssetResult | null)[] = [];
 
         // Phase 1 — classify each asset and create comfy prereq jobs, collecting what this
-        // level will generate so its variants can be reserved in one state-lock cycle: the
-        // per-asset reserve paid a full state load + rewrite each, quadratic in bytes.
+        // level will generate so it registers in one state-lock cycle: a per-asset registration
+        // pays a full state load + rewrite each, quadratic in bytes.
         const work: Array<{
           slot: number;
           address: string;
@@ -342,7 +340,6 @@ export function registerGenerateCommand(program: Command): void {
           deps: string[];
           prereqJobIds: string[];
         }> = [];
-        const reservations: VariantReservationRequest[] = [];
 
         for (const address of addresses) {
           const assetDef = assetEntryOf(address);
@@ -397,75 +394,37 @@ export function registerGenerateCommand(program: Command): void {
             deps: [...deps],
             prereqJobIds,
           });
-          reservations.push({
-            address,
-            variantCount,
-            definitionHash: computeDefinitionHash(assetDef),
-            assetDef,
-          });
         }
 
-        // Phase 2 — one lock cycle reserves every variant this level generates.
-        const reserved = await reserveVariantsBatch(videoRoot, reservations);
-
-        // Phase 3 — register the jobs against the reserved variants.
-        // If this aborts partway, every reserved variant that got no job file is rolled back:
-        // a reservation with no job and no terminal marker reads as active forever, and every
-        // later `generate` would skip its asset as "active job(s) exist".
-        const jobbedVariantIds = new Set<string>();
-        try {
-          for (const w of work) {
-            const reservedIds = reserved.get(w.address);
-            if (!reservedIds) {
-              assetResults[w.slot] = {
-                address: w.address,
-                status: "skipped",
-                skipReason: "active",
-                jobs: [],
-              };
-              continue;
-            }
-            const result = await registerJobs({
-              address: w.address,
-              assetDef: w.assetDef,
-              deps: w.deps,
-              variantCount,
-              videoRoot,
-              jobManager,
-              dependsOnJobs: w.prereqJobIds,
-              reservedVariantIds: reservedIds,
-              comfyTarget: spend.targetOf(w.assetDef),
-            });
-            if (result.status === "failed") failedAddresses.add(w.address);
-            assetResults[w.slot] = result;
-            for (const j of result.jobs) jobbedVariantIds.add(j.variantId);
-            for (const id of w.prereqJobIds) await refreshKnownJob(id);
-            const pendingState = manager.getState();
-            // Valid against this snapshot: the jobs registered above wrote job files, not state.
-            const pendingCache = manager.stalenessCache();
-            for (const j of result.jobs) {
-              const rec = await addKnownJob(j.variantId);
-              const reason: PendingReason =
-                rec?.kind === "generation"
-                  ? describePendingJob(rec, pendingState, jobIndex, pendingCache)
-                  : { submittable: false, waitingOn: [] };
-              pendingReasons.set(j.variantId, reason);
-            }
+        // Phase 2 — one lock cycle registers every job this level generates.
+        const registered = await registerJobsBatch(
+          videoRoot,
+          jobManager,
+          work.map((w) => ({
+            address: w.address,
+            assetDef: w.assetDef,
+            deps: w.deps,
+            variantCount,
+            dependsOnJobs: w.prereqJobIds,
+            skipIfActive: true,
+            comfyTarget: spend.targetOf(w.assetDef),
+          })),
+        );
+        const pendingState = manager.getState();
+        const pendingCache = manager.stalenessCache();
+        for (const [i, w] of work.entries()) {
+          const result = registered[i]!;
+          if (result.status === "failed") failedAddresses.add(w.address);
+          assetResults[w.slot] = result;
+          for (const id of w.prereqJobIds) await refreshKnownJob(id);
+          for (const j of result.jobs) {
+            const rec = await addKnownJob(j.variantId);
+            const reason: PendingReason =
+              rec?.kind === "generation"
+                ? describePendingJob(rec, pendingState, jobIndex, pendingCache)
+                : { submittable: false, waitingOn: [] };
+            pendingReasons.set(j.variantId, reason);
           }
-        } catch (err) {
-          await StateManager.withLock(videoRoot, async (mgr) => {
-            for (const w of work) {
-              for (const id of reserved.get(w.address) ?? []) {
-                if (jobbedVariantIds.has(id)) continue;
-                try {
-                  mgr.removeVariant(w.address, id);
-                } catch {
-                  // already removed by the per-variant cleanup in the job creators
-                }
-              }
-            }
-          });
-          throw err;
         }
 
         levelResults.push({

@@ -373,13 +373,12 @@ async function launchStep(opts: {
   const comfyTarget = opts.spend.targetOf(assetDef);
 
   const finalize = patchFinalizeOf(assetDef, opts.output ?? undefined);
-  // The reservation re-runs the join question under the state lock, against a listing fresh enough
-  // to catch a rival that reserved after this run's snapshot — so it must ask it the same way. An
-  // in-flight variant this run declined to join is not a rival: it is producing something else, and
-  // counting it would abort the apply instead of queueing the fresh job alongside.
+  // The registration re-runs the join question under the state lock, so it must ask it the same
+  // way. An in-flight variant this run declined to join is not a rival: it is producing something
+  // else, and counting it would abort the apply instead of queueing the fresh job alongside.
   const rivals = opts.fresh
-    ? new Set<string>()
-    : rivalStepVariantIds(await jobManager.listJobs(), opts.output);
+    ? undefined
+    : (jobs: readonly JobRecord[]) => rivalStepVariantIds(jobs, opts.output);
 
   // The pin travels as `pinnedDeps` so the source variant is still the exact take when the worker
   // submits, however long the installs and earlier steps take.
@@ -393,7 +392,7 @@ async function launchStep(opts: {
     dependsOnJobs: prereqJobIds,
     pinnedDeps: opts.pin,
     patchFinalize: finalize,
-    rivalVariantIds: rivals,
+    rivals,
     comfyTarget,
   });
 }

@@ -5,14 +5,14 @@ import { describe, expect, it } from "vitest";
 import { computeDefinitionHash } from "../../core/definition-hash.js";
 import type { DependencyGraph } from "../../core/graph.js";
 import { StateManager } from "../../core/state/index.js";
-import { comfyModelJobId } from "../../core/job-manager.js";
+import { comfyModelJobId, JobManager } from "../../core/job-manager.js";
 import type { AssetDefinition, ComfyModelDeclaration } from "../../core/types/index.js";
 import {
   buildGeneratePlan,
   collectComfyDownloads,
   formatAcceptedStaleNotice,
   formatComfyDownloadNotice,
-  reserveVariantsBatch,
+  registerJobsBatch,
 } from "../generate-orchestrator.js";
 import { assetSkipReason, getActiveVariantIds } from "../../core/generation-selection.js";
 
@@ -128,30 +128,82 @@ describe("assetSkipReason", () => {
   });
 });
 
-describe("reserveVariantsBatch", () => {
-  it("leaves out an address a concurrent run already holds an active variant at", async () => {
+describe("registerJobsBatch", () => {
+  async function setup(): Promise<{ dir: string; jobManager: JobManager }> {
     const dir = await fs.mkdtemp(path.join(tmpdir(), "konte-genorch-"));
     await StateManager.init(dir);
-    const request = (address: string) => ({
-      address,
-      variantCount: 1,
-      definitionHash: HASH,
-      assetDef: comfyDef,
-    });
+    return { dir, jobManager: new JobManager(dir) };
+  }
+  const request = (address: string) => ({
+    address,
+    assetDef: comfyDef,
+    variantCount: 1,
+    skipIfActive: true,
+  });
 
-    const first = await reserveVariantsBatch(dir, [request("video:shot.01.clip")]);
-    const second = await reserveVariantsBatch(dir, [
+  it("skips an address a concurrent run already registered a job at", async () => {
+    const { dir, jobManager } = await setup();
+
+    const [first] = await registerJobsBatch(dir, jobManager, [request("video:shot.01.clip")]);
+    const [second, other] = await registerJobsBatch(dir, jobManager, [
       request("video:shot.01.clip"),
       request("video:shot.02.clip"),
     ]);
 
-    expect(first.get("video:shot.01.clip")).toHaveLength(1);
-    expect(second.has("video:shot.01.clip")).toBe(false);
-    expect(second.get("video:shot.02.clip")).toHaveLength(1);
-    const manager = await StateManager.load(dir);
-    expect(getActiveVariantIds(manager, "video:shot.01.clip")).toEqual(
-      first.get("video:shot.01.clip"),
+    expect(first!.jobs).toHaveLength(1);
+    expect(jobManager.hasJob(first!.jobs[0]!.variantId)).toBe(true);
+    expect(second).toMatchObject({ status: "skipped", skipReason: "active", jobs: [] });
+    expect(other!.jobs).toHaveLength(1);
+  });
+
+  it("marks a reservation whose job was never created failed, and registers anew", async () => {
+    const { dir, jobManager } = await setup();
+    const stranded = await StateManager.withLock(dir, async (m) =>
+      m.reserveVariantId("video:shot.01.clip"),
     );
+
+    const [result] = await registerJobsBatch(dir, jobManager, [request("video:shot.01.clip")]);
+
+    expect(result!.jobs).toHaveLength(1);
+    const manager = await StateManager.load(dir);
+    expect(getActiveVariantIds(manager, "video:shot.01.clip")).toEqual([
+      result!.jobs[0]!.variantId,
+    ]);
+    expect(
+      manager.getAssetState("video:shot.01.clip").variants![stranded]!.metadata?.error,
+    ).toBeDefined();
+  });
+
+  it("refuses a rival that registered after the caller listed jobs", async () => {
+    const { dir, jobManager } = await setup();
+    const listedBefore = await jobManager.listJobs();
+    await registerJobsBatch(dir, jobManager, [request("video:patch.v-src.edit")]);
+
+    await expect(
+      registerJobsBatch(dir, jobManager, [
+        {
+          ...request("video:patch.v-src.edit"),
+          skipIfActive: false,
+          rivals: (jobs) => {
+            expect(jobs.length).toBeGreaterThan(listedBefore.length);
+            return new Set(jobs.map((j) => j.id));
+          },
+        },
+      ]),
+    ).rejects.toMatchObject({ code: "PATCH_ALREADY_APPLYING" });
+  });
+
+  it("leaves no reservation behind when a job cannot be created", async () => {
+    const { dir, jobManager } = await setup();
+    jobManager.createJob = async () => {
+      throw new Error("disk full");
+    };
+
+    await expect(
+      registerJobsBatch(dir, jobManager, [request("video:shot.01.clip")]),
+    ).rejects.toThrow("disk full");
+    const manager = await StateManager.load(dir);
+    expect(manager.tryGetAssetState("video:shot.01.clip")?.variants ?? {}).toEqual({});
   });
 });
 
