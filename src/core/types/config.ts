@@ -40,6 +40,27 @@ export function comfyHeaderIssue(name: string, value: string): string | null {
   return null;
 }
 
+/** What is wrong with this ComfyUI server URL, or null if nothing is. The schema and the settings page share it. */
+export function comfyUrlIssue(raw: string): string | null {
+  if (raw === "") return null;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return "The ComfyUI server URL is not a URL (e.g. http://127.0.0.1:8188)";
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return "The ComfyUI server URL must be an http:// or https:// URL";
+  }
+  if (url.username !== "" || url.password !== "" || url.search !== "") {
+    return (
+      `"${url.origin}${url.pathname}" carries a credential in its user info or query. Send it as a header instead — comfy.comfyui.headers with a \${VAR} value (e.g. Authorization: Bearer ` +
+      `\${COMFYUI_TOKEN}), the value itself under Credentials in \`konte settings\` or as an environment variable.`
+    );
+  }
+  return null;
+}
+
 const ComfyUIHeadersSchema = z.record(z.string(), z.string()).superRefine((headers, ctx) => {
   const seen = new Set<string>();
   for (const [name, value] of Object.entries(headers)) {
@@ -107,7 +128,13 @@ const ComfyConfigSchema = z
     adapters: z.record(z.string(), z.array(ComfyTargetSchema).min(1)).optional(),
     comfyui: z
       .object({
-        url: z.string().optional(),
+        url: z
+          .string()
+          .superRefine((url, ctx) => {
+            const issue = comfyUrlIssue(url);
+            if (issue) ctx.addIssue({ code: z.ZodIssueCode.custom, message: issue });
+          })
+          .optional(),
         // Sent on every request to this server — a bearer token, a Basic credential, a Cloudflare
         // Access pair.
         headers: ComfyUIHeadersSchema.optional(),

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   allowedHostIssue,
   comfyHeaderIssue,
+  comfyUrlIssue,
   isSecretHeader,
   type KonteConfig,
 } from "../../core/types/config.js";
@@ -63,6 +64,13 @@ function text(raw: string): string | undefined {
   return trimmed === "" ? undefined : trimmed;
 }
 
+function comfyUrl(raw: string): string | undefined {
+  const url = text(raw);
+  const issue = url === undefined ? null : comfyUrlIssue(url);
+  if (issue) throw new DraftError(issue);
+  return url;
+}
+
 // Mirrors the schema's own rule (comfyHeaderIssue), so a bad header is caught before the save.
 function headers(rows: HeaderRow[]): Record<string, string> | undefined {
   const out: Record<string, string> = {};
@@ -103,7 +111,7 @@ function fromDraft(draft: Draft, base: KonteConfig): KonteConfig {
     comfy: {
       ...base.comfy,
       comfyui: {
-        url: text(draft.comfyUrl),
+        url: comfyUrl(draft.comfyUrl),
         headers: headers(draft.comfyHeaders),
         autoInstallModels: draft.autoInstallModels,
         autoInstallNodes: draft.autoInstallNodes,

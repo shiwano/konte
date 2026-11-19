@@ -7,7 +7,12 @@ import {
   resolveComfyUIConfig,
 } from "../../comfyui/config.js";
 import { loadKonteConfig } from "../config.js";
-import { allowedHostIssue, ComfyTargetSchema, KonteConfigSchema } from "../types/config.js";
+import {
+  allowedHostIssue,
+  ComfyTargetSchema,
+  comfyUrlIssue,
+  KonteConfigSchema,
+} from "../types/config.js";
 
 let tmpDir: string;
 
@@ -139,6 +144,37 @@ describe("preview.allowedHosts", () => {
       preview: { host: "0.0.0.0", allowedHosts: ["*.trycloudflare.com"] },
     });
     expect(parsed.success).toBe(true);
+  });
+});
+
+describe("comfy.comfyui.url", () => {
+  it("takes an http(s) URL, with or without a path, and the empty string", () => {
+    expect(comfyUrlIssue("http://127.0.0.1:8188")).toBeNull();
+    expect(comfyUrlIssue("https://comfy.example/prefix/")).toBeNull();
+    expect(comfyUrlIssue("")).toBeNull();
+  });
+
+  it("refuses a credential in the user info or query without echoing it", () => {
+    for (const url of [
+      "https://user:hunter2@comfy.example",
+      "https://comfy.example/?token=hunter2",
+    ]) {
+      const issue = comfyUrlIssue(url);
+      expect(issue).toContain("comfy.comfyui.headers");
+      expect(issue).not.toContain("hunter2");
+    }
+  });
+
+  it("refuses what is not an http(s) URL", () => {
+    expect(comfyUrlIssue("127.0.0.1:8188")).not.toBeNull();
+    expect(comfyUrlIssue("ftp://comfy.example")).not.toBeNull();
+  });
+
+  it("fails the schema", () => {
+    const parsed = KonteConfigSchema.safeParse({
+      comfy: { comfyui: { url: "https://user:hunter2@comfy.example" } },
+    });
+    expect(parsed.success).toBe(false);
   });
 });
 
