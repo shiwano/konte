@@ -484,6 +484,8 @@ export interface JobRequest {
   // Upstream addresses resolved when the worker submits.
   deps?: readonly string[];
   dependsOnJobs?: readonly string[];
+  // Creates the shared jobs this one also depends on, once the address is not skipped.
+  prereqJobs?: () => Promise<string[]>;
   // Address → variant-id of an upstream this job must consume specifically (not via the
   // newest-ready/accepted heuristic). Set by `reroll --with-dependents` so a cascaded
   // dependent builds on the freshly rerolled upstream variant even when an older one is
@@ -501,11 +503,20 @@ export interface JobRequest {
   // attempts at this same definition (a concurrent `patch apply` or `generate` reserving one chain
   // step): one at this definition hash refuses the registration.
   rivals?: (jobs: readonly JobRecord[]) => ReadonlySet<string>;
-  // Skip the address while a variant there is in flight (`AssetResult.skipReason: "active"`).
-  skipIfActive?: boolean;
+  // Judged under the state lock against the state as it stands there: a reason skips the address.
+  skip?: SkipJudge;
   // Where the spend gate routed a comfy asset (`SpendRoutes.targetOf`).
   comfyTarget?: ComfyTarget | null;
 }
+
+export type SkipJudge = (
+  manager: StateManager,
+  liveJobs: ReadonlySet<string>,
+  address: string,
+) => SkipReason | null;
+
+export const skipWhileActive: SkipJudge = (manager, liveJobs, address) =>
+  inFlightVariantIds(manager.getState(), address, liveJobs).length > 0 ? "active" : null;
 
 interface JobRegistration extends JobRequest {
   videoRoot: string;
@@ -530,28 +541,17 @@ export async function registerJobsBatch(
   jobManager: JobManager,
   requests: readonly JobRequest[],
 ): Promise<AssetResult[]> {
-  const results: AssetResult[] = [];
-  const planned: Array<{
-    slot: number;
-    req: JobRequest;
-    backendKind: BackendKind;
-    definitionHash: string;
-  }> = [];
-  for (const req of requests) {
-    const slot = results.length;
-    const backendKind = jobBackendKind(req.assetDef, req.comfyTarget ?? null);
-    if (!backendKind) {
-      results.push({
-        address: req.address,
-        status: "failed",
-        jobs: [],
-        error: `Asset kind "${req.assetDef.kind}" has no generation backend`,
-      });
-      continue;
-    }
-    results.push({ address: req.address, status: "pending", jobs: [] });
-    planned.push({ slot, req, backendKind, definitionHash: computeDefinitionHash(req.assetDef) });
-  }
+  const results: AssetResult[] = requests.map((req) => ({
+    address: req.address,
+    status: "pending",
+    jobs: [],
+  }));
+  const planned = requests.map((req, slot) => ({
+    slot,
+    req,
+    backendKind: jobBackendKind(req.assetDef, req.comfyTarget ?? null),
+    definitionHash: computeDefinitionHash(req.assetDef),
+  }));
   if (planned.length === 0) return results;
 
   await StateManager.withLock(videoRoot, async (manager) => {
@@ -582,38 +582,52 @@ export async function registerJobsBatch(
       }
     }
 
-    const reserved: Array<(typeof planned)[number] & { ids: string[] }> = [];
+    const admitted: Array<
+      (typeof planned)[number] & { backendKind: BackendKind; dependsOnJobs: string[] }
+    > = [];
     for (const p of planned) {
-      const { req } = p;
-      if (
-        req.skipIfActive &&
-        inFlightVariantIds(manager.getState(), req.address, liveJobs).length > 0
-      ) {
+      const { req, backendKind } = p;
+      const skipReason = req.skip?.(manager, liveJobs, req.address) ?? null;
+      if (skipReason) {
+        results[p.slot] = { address: req.address, status: "skipped", skipReason, jobs: [] };
+        continue;
+      }
+      if (!backendKind) {
         results[p.slot] = {
           address: req.address,
-          status: "skipped",
-          skipReason: "active",
+          status: "failed",
           jobs: [],
+          error: `Asset kind "${req.assetDef.kind}" has no generation backend`,
         };
         continue;
       }
+      admitted.push({ ...p, backendKind, dependsOnJobs: [] });
+    }
+    // Every prerequisite exists before the first reservation.
+    for (const a of admitted) {
+      a.dependsOnJobs = [...(a.req.dependsOnJobs ?? []), ...((await a.req.prereqJobs?.()) ?? [])];
+    }
+
+    const reserved: Array<(typeof admitted)[number] & { ids: string[] }> = [];
+    for (const a of admitted) {
+      const { req } = a;
       const target = manager.ensureAssetState(req.address);
       const ids: string[] = [];
       for (let i = 0; i < req.variantCount; i++) {
         const vid = manager.reserveVariantId(req.address);
         const variant = target.variants![vid]!;
-        variant.definitionHash = p.definitionHash;
+        variant.definitionHash = a.definitionHash;
         if (req.deliveryTarget) variant.deliveryTarget = req.deliveryTarget;
         writeDefinitionSnapshot(videoRoot, req.address, vid, req.assetDef);
         ids.push(vid);
       }
-      reserved.push({ ...p, ids });
+      reserved.push({ ...a, ids });
     }
     await manager.save();
 
     const jobless = new Map(reserved.flatMap((r) => r.ids.map((id) => [id, r.req.address])));
     try {
-      for (const { slot, req, backendKind, definitionHash, ids } of reserved) {
+      for (const { slot, req, backendKind, definitionHash, dependsOnJobs, ids } of reserved) {
         const pinnedDeps = req.pinnedDeps ?? {};
         for (const vid of ids) {
           const placed = (await req.placeSources?.(vid)) ?? {};
@@ -624,7 +638,7 @@ export async function registerJobsBatch(
             backendKind,
             comfyTarget: req.assetDef.kind === "comfy" ? (req.comfyTarget ?? null) : null,
             dependsOnAssets: [...(req.deps ?? [])],
-            dependsOnJobs: [...(req.dependsOnJobs ?? [])],
+            dependsOnJobs,
             compositionCacheKeys: req.compositionCacheKeys,
             metadata: {
               definitionHash,

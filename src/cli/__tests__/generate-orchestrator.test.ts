@@ -14,6 +14,7 @@ import {
   formatAcceptedStaleNotice,
   formatComfyDownloadNotice,
   registerJobsBatch,
+  skipWhileActive,
 } from "../generate-orchestrator.js";
 import {
   assetSkipReason,
@@ -151,7 +152,7 @@ describe("registerJobsBatch", () => {
     address,
     assetDef: comfyDef,
     variantCount: 1,
-    skipIfActive: true,
+    skip: skipWhileActive,
   });
 
   it("skips an address a concurrent run already registered a job at", async () => {
@@ -167,6 +168,69 @@ describe("registerJobsBatch", () => {
     expect(jobManager.hasJob(first!.jobs[0]!.variantId)).toBe(true);
     expect(second).toMatchObject({ status: "skipped", skipReason: "active", jobs: [] });
     expect(other!.jobs).toHaveLength(1);
+  });
+
+  it("skips an address a concurrent run's take became ready at after the caller judged it", async () => {
+    const { dir, jobManager } = await setup();
+    const address = "video:shot.01.clip";
+    const definitionHash = computeDefinitionHash(comfyDef);
+    const judged = await StateManager.load(dir);
+    const skip = (m: StateManager, live: ReadonlySet<string>, a: string) =>
+      assetSkipReason(m, live, a, definitionHash);
+    expect(skip(judged, NO_JOBS, address)).toBeNull();
+
+    const [rival] = await registerJobsBatch(dir, jobManager, [request(address)]);
+    const rivalId = rival!.jobs[0]!.variantId;
+    await StateManager.withLock(dir, async (m) => {
+      m.getAssetState(address).variants![rivalId]!.file = "out.png";
+    });
+    await jobManager.updateJob(rivalId, { status: "completed" });
+
+    const [result] = await registerJobsBatch(dir, jobManager, [{ ...request(address), skip }]);
+
+    expect(result).toMatchObject({ status: "skipped", skipReason: "ready", jobs: [] });
+    const variants = (await StateManager.load(dir)).getAssetState(address).variants!;
+    expect(Object.keys(variants)).toEqual([rivalId]);
+  });
+
+  it("creates prereq jobs only for an address it registers", async () => {
+    const { dir, jobManager } = await setup();
+    const address = "video:shot.01.clip";
+    await registerJobsBatch(dir, jobManager, [request(address)]);
+    const calls: string[] = [];
+    const prereqJobs = (a: string) => async () => {
+      calls.push(a);
+      return ["comfy-model-x"];
+    };
+
+    const [skipped, registered] = await registerJobsBatch(dir, jobManager, [
+      { ...request(address), prereqJobs: prereqJobs(address) },
+      { ...request("video:shot.02.clip"), prereqJobs: prereqJobs("video:shot.02.clip") },
+    ]);
+
+    expect(skipped).toMatchObject({ status: "skipped", skipReason: "active" });
+    expect(calls).toEqual(["video:shot.02.clip"]);
+    const job = await jobManager.getJob(registered!.jobs[0]!.variantId);
+    expect(job.kind === "generation" && job.dependsOnJobs).toEqual(["comfy-model-x"]);
+  });
+
+  it("registers nothing of the batch when a prereq job cannot be created", async () => {
+    const { dir, jobManager } = await setup();
+
+    await expect(
+      registerJobsBatch(dir, jobManager, [
+        request("video:shot.01.clip"),
+        {
+          ...request("video:shot.02.clip"),
+          prereqJobs: async () => {
+            throw new Error("missing token");
+          },
+        },
+      ]),
+    ).rejects.toThrow("missing token");
+    expect(await jobManager.listJobs()).toEqual([]);
+    const state = (await StateManager.load(dir)).getState();
+    expect(state.assets["video:shot.01.clip"]?.variants ?? {}).toEqual({});
   });
 
   it("marks a reservation whose job was never created failed, and registers anew", async () => {
@@ -215,7 +279,7 @@ describe("registerJobsBatch", () => {
       registerJobsBatch(dir, jobManager, [
         {
           ...request("video:patch.v-src.edit"),
-          skipIfActive: false,
+          skip: undefined,
           rivals: (jobs) => {
             expect(jobs.length).toBeGreaterThan(listedBefore.length);
             return new Set(jobs.map((j) => j.id));

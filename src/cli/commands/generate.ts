@@ -44,6 +44,7 @@ import {
   prepareSpend,
   printSpendNotices,
   registerJobsBatch,
+  type SkipJudge,
 } from "../generate-orchestrator.js";
 import { formatSubmitFailure, submitRegisteredJobs } from "../spend-submit.js";
 import { printRemixedBoardStems } from "../generation-selection.js";
@@ -111,38 +112,44 @@ export function registerGenerateCommand(program: Command): void {
       }
 
       // Shared by the plan and the run, which must price the same command.
-      const describeAcceptedStale = (addresses: readonly string[]): AcceptedStaleAsset[] =>
-        addresses.map((address) => {
+      const describeAcceptedStale = (
+        addresses: readonly string[],
+        source: StateManager = manager,
+      ): AcceptedStaleAsset[] =>
+        addresses.flatMap((address) => {
           const staleness = computeAcceptedStaleness(
-            manager.getState(),
+            source.getState(),
             address,
             computeDefinitionHash(assetEntryOf(address)),
             // The verdict being explained is `assetSkipReason`'s — read it the same way.
-            manager.stalenessCache(),
+            source.stalenessCache(),
           );
+          if (!staleness.definitionStale) return [];
           const cause = formatStaleCause(staleness);
           const fork = plateFork(
             address,
             collectTransitiveDependents(graph, address).map((address) => ({ address })),
             def,
           );
-          const variantId = manager.getAcceptedVariant(address);
+          const variantId = source.getAcceptedVariant(address);
           const step = variantId
             ? staleRefreshStep({
-                manager,
+                manager: source,
                 address,
                 variantId,
-                patchHashes: manager.patchHashes(),
+                patchHashes: source.patchHashes(),
                 animatic,
-                cache: manager.stalenessCache(),
+                cache: source.stalenessCache(),
               })
             : ({ kind: "reroll" } as const);
-          return {
-            address,
-            cause,
-            ...describeAcceptedStaleStep(step, variantId),
-            ...(fork ? { fork } : {}),
-          };
+          return [
+            {
+              address,
+              cause,
+              ...describeAcceptedStaleStep(step, variantId),
+              ...(fork ? { fork } : {}),
+            },
+          ];
         });
 
       const { levels } = computeDependencyLevels(graph);
@@ -314,9 +321,8 @@ export function registerGenerateCommand(program: Command): void {
           return null;
         }
       };
-      // Re-read a job the index already holds — a model/node prereq can complete (via the
-      // worker) while a long registration runs, and the pending summary must not report a
-      // satisfied prereq as still waiting. A job that is gone keeps its stale record.
+      // Re-read a model/node prereq — it can complete (via the worker) while a long registration
+      // runs. A job that is gone keeps its stale record.
       const refreshKnownJob = async (jobId: string) => {
         try {
           jobIndex.update(await jobManager.getJob(jobId));
@@ -334,15 +340,16 @@ export function registerGenerateCommand(program: Command): void {
 
         const assetResults: (AssetResult | null)[] = [];
 
-        // Phase 1 — classify each asset and create comfy prereq jobs, collecting what this
-        // level will generate so it registers in one state-lock cycle: a per-asset registration
-        // pays a full state load + rewrite each, quadratic in bytes.
+        // Phase 1 — classify each asset, collecting what this level will generate so it registers
+        // in one state-lock cycle: a per-asset registration pays a full state load + rewrite each,
+        // quadratic in bytes. Only what the spend gate priced reaches the lock, which may skip it
+        // again against the state as it stands there.
         const work: Array<{
           slot: number;
           address: string;
           assetDef: ReturnType<typeof assetEntryOf>;
           deps: string[];
-          prereqJobIds: string[];
+          skip: SkipJudge;
         }> = [];
 
         for (const address of addresses) {
@@ -369,39 +376,33 @@ export function registerGenerateCommand(program: Command): void {
           }
 
           const deps = graph.dependencies.get(address) ?? [];
+          const definitionHash = computeDefinitionHash(assetDef);
+          const inputRebuilt = deps.some((d) => rebuiltAddresses.has(d));
           // Readiness first, then the gate — see buildGeneratePlan for why that order.
-          const skipReason = assetSkipReason(
-            manager,
-            liveJobs,
-            address,
-            computeDefinitionHash(assetDef),
-            assetDef.deterministic === true,
-            deps.some((d) => rebuiltAddresses.has(d)),
-          );
+          const skip: SkipJudge = (m, live, a) =>
+            assetSkipReason(
+              m,
+              live,
+              a,
+              definitionHash,
+              assetDef.deterministic === true,
+              inputRebuilt,
+            );
+          const skipReason = skip(manager, liveJobs, address);
           if (skipReason) {
             assetResults.push({ address, status: "skipped", skipReason, jobs: [] });
             continue;
           }
-
-          for (const d of deps) generatedDepPaths.add(d);
-          // A comfy asset's prerequisites are shared jobs the generation job depends on — on a
-          // ComfyUI its models (comfy-model-download) and nodes (comfy-node-install gated by a
-          // comfy-node-activate reboot) — so anything with one is pending until it is ready.
-          const prereqJobIds = await spend.prereqJobs(assetDef, jobManager);
-          for (const id of prereqJobIds) await addKnownJob(id);
-
           const slot = assetResults.push(null) - 1;
+          // Rebuilt by this run or, when the lock skips it, by the concurrent one that made it skip.
           rebuiltAddresses.add(address);
-          work.push({
-            slot,
-            address,
-            assetDef,
-            deps: [...deps],
-            prereqJobIds,
-          });
+          work.push({ slot, address, assetDef, deps: [...deps], skip });
         }
 
-        // Phase 2 — one lock cycle registers every job this level generates.
+        // Phase 2 — one lock cycle registers every job this level generates. A comfy asset's
+        // prerequisites are shared jobs the generation job depends on — on a ComfyUI its models
+        // (comfy-model-download) and nodes (comfy-node-install gated by a comfy-node-activate
+        // reboot) — so anything with one is pending until it is ready.
         const registered = await registerJobsBatch(
           videoRoot,
           jobManager,
@@ -410,25 +411,34 @@ export function registerGenerateCommand(program: Command): void {
             assetDef: w.assetDef,
             deps: w.deps,
             variantCount,
-            dependsOnJobs: w.prereqJobIds,
-            skipIfActive: true,
+            prereqJobs: () => spend.prereqJobs(w.assetDef, jobManager),
+            skip: w.skip,
             comfyTarget: spend.targetOf(w.assetDef),
           })),
         );
-        const pendingState = manager.getState();
-        const pendingCache = manager.stalenessCache();
+        // The upstreams a job waits on are judged as the lock left them.
+        const pending = registered.some((r) => r.jobs.length > 0)
+          ? await StateManager.load(videoRoot)
+          : manager;
+        const pendingState = pending.getState();
+        const pendingCache = pending.stalenessCache();
         for (const [i, w] of work.entries()) {
           const result = registered[i]!;
-          if (result.status === "failed") failedAddresses.add(w.address);
           assetResults[w.slot] = result;
-          for (const id of w.prereqJobIds) await refreshKnownJob(id);
+          if (result.status === "failed") failedAddresses.add(w.address);
+          if (result.jobs.length === 0) continue;
+          for (const d of w.deps) generatedDepPaths.add(d);
           for (const j of result.jobs) {
             const rec = await addKnownJob(j.variantId);
-            const reason: PendingReason =
-              rec?.kind === "generation"
-                ? describePendingJob(rec, pendingState, jobIndex, pendingCache)
-                : { submittable: false, waitingOn: [] };
-            pendingReasons.set(j.variantId, reason);
+            if (rec?.kind !== "generation") {
+              pendingReasons.set(j.variantId, { submittable: false, waitingOn: [] });
+              continue;
+            }
+            for (const id of rec.dependsOnJobs) await refreshKnownJob(id);
+            pendingReasons.set(
+              j.variantId,
+              describePendingJob(rec, pendingState, jobIndex, pendingCache),
+            );
           }
         }
 
@@ -484,16 +494,19 @@ export function registerGenerateCommand(program: Command): void {
       // that resolution won't use — it binds the accepted variant, so this run builds on the
       // accepted frame until that take is accepted in its place. A cross-stage one holds the asset
       // instead (the spend gate).
+      // The skips were decided under the state lock; read them against the state as it is now.
+      const settled = await StateManager.load(videoRoot);
       const undecidedUpstreamVariants = collectUndecidedUpstreamVariants(
-        manager.getState(),
+        settled.getState(),
         [...generatedDepPaths],
-        manager.stalenessCache(),
+        settled.stalenessCache(),
       );
 
       const acceptedStale = describeAcceptedStale(
         levelResults.flatMap((lr) =>
           lr.assets.filter((a) => a.skipReason === "accepted-stale").map((a) => a.address),
         ),
+        settled,
       );
 
       const assetCounts = { submitted: 0, pending: 0, synced: 0, failed: 0, skipped: 0 };
@@ -552,7 +565,7 @@ export function registerGenerateCommand(program: Command): void {
       const songReadings = await queueSongAnalyses({
         videoRoot,
         direction: await loadDirectionIfPresent(videoRoot).catch(() => null),
-        state: (await StateManager.load(videoRoot)).getState(),
+        state: settled.getState(),
         jobManager,
       });
       if (songReadings.length > 0) {

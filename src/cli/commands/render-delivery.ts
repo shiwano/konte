@@ -24,7 +24,12 @@ import type { ShotRenderPlan } from "../../core/render-plan.js";
 import type { StateManager } from "../../core/state/index.js";
 import { variantDir } from "../../core/variant-dir.js";
 import type { AssetDefinition, VideoDefinition } from "../../core/types/index.js";
-import { prepareSpend, printSpendNotices, registerJobsBatch } from "../generate-orchestrator.js";
+import {
+  prepareSpend,
+  printSpendNotices,
+  registerJobsBatch,
+  skipWhileActive,
+} from "../generate-orchestrator.js";
 import type { VideoRoots } from "../../core/roots.js";
 
 // Result of planning the video's delivery upscales (export command side).
@@ -136,7 +141,7 @@ export async function planDelivery(opts: {
         // exact dims at export time, never from a fresh probe — and the worker rebuilds the
         // definition from it.
         deliveryTarget: item.target,
-        skipIfActive: true,
+        skip: skipWhileActive,
         comfyTarget: spend.targetOf(item.assetDef),
       })),
     );
