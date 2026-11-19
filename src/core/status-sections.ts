@@ -220,6 +220,11 @@ export interface ExportReadiness {
    */
   deliveryUpscalerMissing: boolean;
   /**
+   * video.tsx leaves `thumbnail` out — export refuses with THUMBNAIL_UNDECIDED. Populated by the
+   * status builder; computeExportReadiness leaves it false.
+   */
+  thumbnailUndecided: boolean;
+  /**
    * A video composition, stem or overlay is not signed off at its live definition — export refuses
    * with UNACCEPTED_ASSETS. Populated by the status builder; computeExportReadiness leaves it false.
    */
@@ -937,6 +942,7 @@ export function computeExportReadiness(
       pendingShots: pendingShotsByStage?.[label as Stage] ?? 0,
       unacceptedCast: [],
       deliveryUpscalerMissing: false,
+      thumbnailUndecided: false,
       leavesUnsigned: false,
       refsUnaccepted: 0,
       reel: reelByStage?.[label as Stage] ?? null,

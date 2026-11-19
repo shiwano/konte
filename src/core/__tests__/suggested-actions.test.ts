@@ -31,6 +31,7 @@ function readinessFor(
     pendingShots: 0,
     unacceptedCast: [],
     deliveryUpscalerMissing: false,
+    thumbnailUndecided: false,
     leavesUnsigned: false,
     refsUnaccepted: 0,
     reel: null,

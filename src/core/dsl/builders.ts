@@ -288,8 +288,9 @@ export interface DefineVideoOptions<D = unknown, Ids extends string = string> {
     // video is where its picture comes from — usually a `file` asset holding finished media.
     asideShot: VideoAsideShotStarter<D>;
   }) => StageTimelineReturn<Ids, D>;
-  // The cover exported beside the MP4, built once the timeline placed every shot.
-  thumbnail?: ThumbnailSpec<NoInfer<Ids>>;
+  // The cover exported beside the MP4, built once the timeline placed every shot; `false` exports
+  // none. Left out, export refuses until the human decides.
+  thumbnail?: ThumbnailSpec<NoInfer<Ids>> | false;
 }
 
 export function defineVideo<const D, Ids extends string = string>(
@@ -341,7 +342,7 @@ export function defineVideo<const D, Ids extends string = string>(
     ...definition,
     stage: "video",
     ...(exportDef ? { export: exportDef } : {}),
-    ...(thumbnail ? { thumbnail } : {}),
+    ...(thumbnail ? { thumbnail } : opts.thumbnail === false ? { thumbnail: null } : {}),
   };
   assertHeardStemsHeard(video);
   return video;

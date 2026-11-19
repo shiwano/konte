@@ -136,6 +136,13 @@ async function registerVideoExport(opts: {
       unaccepted.map((addr) => `  ${addr}`),
     );
   }
+  if (video.thumbnail === undefined && !allowUnaccepted) {
+    throw new KonteError(
+      "THUMBNAIL_UNDECIDED",
+      "Cannot export: video.tsx declares no `thumbnail` — ask the human for the cover: a moment " +
+        "of the cut (`thumbnail: { at: <seconds> }`), or none (`thumbnail: false`)",
+    );
+  }
 
   const jobManager = new JobManager(videoRoot);
 
@@ -184,11 +191,6 @@ async function registerVideoExport(opts: {
   });
 
   console.log(`Export job ${exportJob.id} registered (video).`);
-  if (!video.thumbnail) {
-    console.log(
-      "No thumbnail: video.tsx declares no `thumbnail`, so the MP4 ships with no cover image.",
-    );
-  }
   if (hasDelivery && noDelivery) {
     console.log(
       `Delivery skipped (${allowUnaccepted ? "--allow-unaccepted" : "--no-delivery"}): rendering at working size into a *_no_delivery dir.`,

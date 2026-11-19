@@ -83,6 +83,7 @@ const animateComfy = defineComfyAsset({
 });
 
 export default defineVideo(direction, {
+  thumbnail: false,
   timeline: ({ shot }) => ({
     shots: shot("01", () => {
       const motion = asset("motion", animateComfy, { prompt: "test" });
@@ -132,6 +133,7 @@ const animateComfy = defineComfyAsset({
 });
 
 export default defineVideo(direction, {
+  thumbnail: false,
   timeline: ({ shot }) => ({
     shots: shot("01", () => {
       const motion = asset("motion", animateComfy, { prompt: "test" });
@@ -167,6 +169,7 @@ const upscaleComfy = defineComfyAsset({
 });
 
 export default defineVideo(direction, {
+  thumbnail: false,
   export: {
     delivery: {
       upscale: { frame: ({ video, width, height }) => upscale(upscaleComfy, { video, width, height }) },
@@ -228,6 +231,7 @@ const animateComfy = defineComfyAsset({
 });
 
 export default defineVideo(direction, {
+  thumbnail: false,
   timeline: ({ shot }) => ({
     shots: shot("01", () => {
       const motion = asset("motion", animateComfy, { prompt: "test" });
@@ -351,6 +355,25 @@ describe("export video", () => {
       noDelivery: false,
       outputDir: path.join("dist", "video"),
     });
+  });
+
+  it("refuses a video that leaves its thumbnail undecided, and status asks the human first", async () => {
+    projectDir = await initProject({ video: VIDEO_TSX.replace("  thumbnail: false,\n", "") });
+    await acceptDirection(projectDir);
+    await seedAcceptedCut(projectDir);
+
+    const { stdout } = await run(["status"], projectDir);
+    expect(stdout).not.toContain("ready to export");
+    expect(stdout).toContain("thumbnail undecided");
+    expect(stdout).toContain("ask the human for the cover");
+    expect(stdout).not.toContain("konte export video");
+    await expect(run(["export", "video"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringMatching(/THUMBNAIL_UNDECIDED.*thumbnail: false/),
+    });
+    expect(await new JobManager(projectDir).listJobs()).toEqual([]);
+
+    await run(["export", "video", "--allow-unaccepted"], projectDir);
+    expect(await new JobManager(projectDir).listJobs()).toHaveLength(1);
   });
 
   it("blocks on a composition never accepted, though every take under it is", async () => {

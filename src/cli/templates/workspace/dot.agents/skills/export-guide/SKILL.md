@@ -10,7 +10,7 @@ Export the accepted cut; done = the render job finishes and `konte probe export`
 
 ## Run the export
 
-- Before exporting, set `thumbnail.at` to the cover frame.
+- The cover is the human's pick — a moment of the cut (`thumbnail: { at }`) or none (`thumbnail: false`); never set it unasked.
 - Run only once `konte status` marks the video line `— ready to export` (under "Progress"):
 
 ```sh

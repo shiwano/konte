@@ -577,6 +577,7 @@ async function buildStatusReport(
   const videoLine = readiness.find((r) => r.label === "video");
   if (videoDef && videoLine) {
     videoLine.deliveryUpscalerMissing = deliveryUpscalerMissing(videoDef);
+    videoLine.thumbnailUndecided = videoDef.thumbnail === undefined;
     videoLine.leavesUnsigned = [
       ...listCompositionAddresses(videoDef),
       ...listStemAddresses(videoDef),

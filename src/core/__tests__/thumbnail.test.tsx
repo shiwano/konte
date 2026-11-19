@@ -135,6 +135,17 @@ describe("thumbnail", () => {
     expect(video.thumbnail).toBeUndefined();
   });
 
+  it("is null when declined, with no address of its own", () => {
+    const video = defineVideo(direction(), {
+      thumbnail: false,
+      timeline: ({ shot }) => ({
+        shots: shot("01", () => <Composition />).nextShot("02", () => <Composition />),
+      }),
+    });
+    expect(video.thumbnail).toBeNull();
+    expect(listAddresses(video, "video").filter((a) => a.includes("thumbnail"))).toEqual([]);
+  });
+
   it("refuses a still that plays media", () => {
     for (const media of [
       <Video key="video" src={"clip.mp4" as never} />,

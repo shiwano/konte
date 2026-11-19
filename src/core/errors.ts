@@ -112,6 +112,8 @@ export type KonteErrorCode =
   | "NO_EXPORT_FOUND"
   | "UNACCEPTED_ASSETS"
   | "PENDING_SHOTS"
+  // `konte export video` while video.tsx leaves `thumbnail` out.
+  | "THUMBNAIL_UNDECIDED"
   | "INVALID_TIMECODE"
   | "HYPERFRAMES_NOT_FOUND"
   | "HYPERFRAMES_ERROR"

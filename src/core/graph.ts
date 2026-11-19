@@ -123,7 +123,7 @@ export function platesOf(def: object | null | undefined): Record<string, AssetDe
 
 // The thumbnail a stage carries. Only the video declares one.
 export function thumbnailOf(def: object | null | undefined): ThumbnailDefinition | undefined {
-  return (def as { thumbnail?: ThumbnailDefinition } | null)?.thumbnail;
+  return (def as { thumbnail?: ThumbnailDefinition | null } | null)?.thumbnail ?? undefined;
 }
 
 // The plates filed under a setup. A definition that never went through `defineAnimatic` filed all.

@@ -476,7 +476,8 @@ export type StageDefinition = z.infer<typeof StageDefinitionSchema>;
 export const VideoDefinitionSchema = StageDefinitionSchema.extend({
   stage: z.literal("video"),
   export: ExportSchema.optional(),
-  thumbnail: z.custom<ThumbnailDefinition>().optional(),
+  // null: the video exports no cover. Absent: undecided, which export refuses.
+  thumbnail: z.custom<ThumbnailDefinition | null>().optional(),
 });
 
 export type VideoDefinition = z.infer<typeof VideoDefinitionSchema>;

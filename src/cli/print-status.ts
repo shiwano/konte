@@ -139,7 +139,8 @@ export function printStatusReport(
             !reel?.thumbnailUnsigned &&
             !r.leavesUnsigned &&
             r.refsUnaccepted === 0 &&
-            !r.deliveryUpscalerMissing;
+            !r.deliveryUpscalerMissing &&
+            !r.thumbnailUndecided;
           parts.push(
             `all ${acceptTotal}${unit} accepted${ready ? " — ready to export" : ""}${staleSuffix}`,
           );
@@ -163,6 +164,7 @@ export function printStatusReport(
         parts.push(`cast not accepted: ${r.unacceptedCast.map(formatReferenceAddress).join(", ")}`);
       }
       if (r.deliveryUpscalerMissing) parts.push("no delivery upscaler");
+      if (r.thumbnailUndecided) parts.push("thumbnail undecided");
       console.log(`  ${r.label}: ${parts.join(", ")}`);
     }
   }

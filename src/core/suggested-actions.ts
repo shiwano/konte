@@ -459,6 +459,14 @@ function suggestExport(
     });
     return;
   }
+  if (video.thumbnailUndecided) {
+    actions.push({
+      command: null,
+      label: "ask the human for the cover",
+      detail: `A moment of the cut (\`thumbnail: { at: <seconds> }\`), or none (\`thumbnail: false\`), in ${STAGE_ENTRY_FILE.video}`,
+    });
+    return;
+  }
   actions.push({ command: "konte export video" });
 }
 

@@ -47,7 +47,7 @@ export interface DefinitionLike {
     assets: Record<string, AssetDefinition>;
     frame: { asset: AssetDefinition } | null;
     compose: { still: AssetDefinition } | null;
-  };
+  } | null;
   // What the prompt and pin checks read off a stage entry, whichever one this is (see
   // prompt-check.ts, pin-check.ts).
   prompts?: readonly PromptOccurrence[];

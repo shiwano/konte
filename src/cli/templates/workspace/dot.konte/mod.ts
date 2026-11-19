@@ -2487,7 +2487,7 @@ export interface DefineVideoOptions<D = unknown, Ids extends string = string> {
     pendingShot: StagePendingShotStarter<D, "video">;
     asideShot: VideoAsideShotStarter<D>;
   }) => StageTimelineReturn<Ids, D>;
-  thumbnail?: ThumbnailSpec<NoInfer<Ids>>;
+  thumbnail?: ThumbnailSpec<NoInfer<Ids>> | false;
 }
 export declare function defineVideo<const D, Ids extends string = string>(
   direction: DirectionEntry<D>,
@@ -8178,7 +8178,9 @@ declare const VideoDefinitionSchema: z.ZodObject<
         }
       >
     >;
-    thumbnail: z.ZodOptional<z.ZodType<ThumbnailDefinition, z.ZodTypeDef, ThumbnailDefinition>>;
+    thumbnail: z.ZodOptional<
+      z.ZodType<ThumbnailDefinition | null, z.ZodTypeDef, ThumbnailDefinition | null>
+    >;
   },
   "strip",
   z.ZodTypeAny,
@@ -8451,7 +8453,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
             | undefined;
         }
       | undefined;
-    thumbnail?: ThumbnailDefinition | undefined;
+    thumbnail?: ThumbnailDefinition | null | undefined;
   },
   {
     shots: {
@@ -8722,7 +8724,7 @@ declare const VideoDefinitionSchema: z.ZodObject<
             | undefined;
         }
       | undefined;
-    thumbnail?: ThumbnailDefinition | undefined;
+    thumbnail?: ThumbnailDefinition | null | undefined;
   }
 >;
 export type VideoDefinition = z.infer<typeof VideoDefinitionSchema>;
