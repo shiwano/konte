@@ -167,6 +167,29 @@ describe("clean command: patch steps", () => {
     expect(await stepIds(projectDir, sourceId, "wide")).toEqual([wide]);
   });
 
+  it("keeps a step of a chain with an active job, under --delete-undecided", async () => {
+    const projectDir = await initPatchProject();
+    const sourceId = await generateSource(projectDir);
+    await writePatch(projectDir, sourceId, twoStepPatch);
+    await apply(projectDir, sourceId);
+    const [wide] = await stepIds(projectDir, sourceId, "wide");
+    const outputAddress = `reference:patch.${sourceId}.patched`;
+    const sm = await StateManager.load(projectDir);
+    const pending = sm.reserveVariantId(outputAddress);
+    await sm.save();
+    await new JobManager(projectDir).createJob({
+      address: outputAddress,
+      variantId: pending,
+      resolvedDeps: {},
+      backendKind: "local",
+    });
+
+    const { stdout } = await run(["clean", "--delete-undecided", "--yes"], projectDir);
+
+    expect(stdout).toMatch(/has a patch applying\s+\d+/);
+    expect(await stepIds(projectDir, sourceId, "wide")).toEqual([wide]);
+  });
+
   it("keeps an earlier step a kept step was made from, however stale", async () => {
     const projectDir = await initPatchProject();
     const sourceId = await generateSource(projectDir);

@@ -422,6 +422,10 @@ async function executeClean(videoRoot: string, opts: CleanOptions): Promise<void
       const isDeadLeaf = deadLeafKeys.has(`${address} ${variantId}`);
       const isDismissed = variant.status === "dismissed";
       const stepSource = patchSourceVariantIdOf(address);
+      if (stepSource && chainBusy(state, stepSource, activeJobVariantIds)) {
+        kept.push("patch-applying");
+        continue;
+      }
       let isUnusedStep = false;
       if (stepSource && variant.file && !isDismissed && !opts.deleteUndecided) {
         const unloaded =
@@ -429,10 +433,6 @@ async function executeClean(videoRoot: string, opts: CleanOptions): Promise<void
         if (!unloaded) {
           if (stepPolicy.reusable.has(`${address} ${variantId}`)) {
             kept.push("reusable-patch-step");
-            continue;
-          }
-          if (chainBusy(state, stepSource, activeJobVariantIds)) {
-            kept.push("patch-applying");
             continue;
           }
           isUnusedStep = true;
@@ -641,6 +641,8 @@ async function executeClean(videoRoot: string, opts: CleanOptions): Promise<void
         const freshStepPolicy = collected.some((e) => e.category === "unused patch step")
           ? await loadPatchStepPolicy(videoRoot, mgr, mgr.absentVariantIds())
           : null;
+        // A take this pass holds back is not counted in `kept`: only a change made while the
+        // confirmation stood leads here, and the next run's first pass names its reason.
         const eligible: CollectedVariant[] = [];
         const freshConsumers = acceptedConsumers(freshState);
         for (const entry of collected) {
@@ -656,6 +658,7 @@ async function executeClean(videoRoot: string, opts: CleanOptions): Promise<void
           // dead composition/stem leftover; require it to still be so under the lock.
           const key = `${entry.address} ${entry.variantId}`;
           const stepSource = patchSourceVariantIdOf(entry.address);
+          if (stepSource && chainBusy(freshState, stepSource, freshActive)) continue;
           const stillUnusedStep =
             entry.category === "unused patch step" &&
             stepSource !== null &&
@@ -663,8 +666,7 @@ async function executeClean(videoRoot: string, opts: CleanOptions): Promise<void
             freshStepPolicy !== null &&
             freshStepPolicy.unloadedSources !== "all" &&
             !freshStepPolicy.unloadedSources.has(stepSource) &&
-            !freshStepPolicy.reusable.has(key) &&
-            !chainBusy(freshState, stepSource, freshActive);
+            !freshStepPolicy.reusable.has(key);
           if (
             !opts.deleteUndecided &&
             v.file &&
