@@ -378,6 +378,35 @@ describe("ComfyUIBackend", () => {
     expect(new Set(result.result.files).size).toBe(2);
   });
 
+  it("takes a saved output over a preview node's temp file", async () => {
+    currentHistoryEntry = {
+      ...mockHistoryEntry,
+      outputs: {
+        "5": { images: [{ filename: "preview_00001_.png", subfolder: "", type: "temp" }] },
+        "9": { images: [{ filename: "output_00001_.png", subfolder: "", type: "output" }] },
+      },
+    };
+
+    const result = await backend.waitForCompletion("test-prompt-id", path.join(tmpDir, "o-saved"));
+
+    if (result.kind !== "done") throw new Error("expected done");
+    expect(result.result.files.map((f) => path.basename(f))).toEqual(["output_00001_.png"]);
+  });
+
+  it("takes a preview node's temp file from a workflow that saves nothing", async () => {
+    currentHistoryEntry = {
+      ...mockHistoryEntry,
+      outputs: {
+        "5": { images: [{ filename: "preview_00001_.png", subfolder: "", type: "temp" }] },
+      },
+    };
+
+    const result = await backend.waitForCompletion("test-prompt-id", path.join(tmpDir, "o-temp"));
+
+    if (result.kind !== "done") throw new Error("expected done");
+    expect(result.result.files.map((f) => path.basename(f))).toEqual(["preview_00001_.png"]);
+  });
+
   it("waitForCompletion calls onLog callback", { timeout: 15_000 }, async () => {
     const outputDir = path.join(tmpDir, "output");
     const logs: string[] = [];

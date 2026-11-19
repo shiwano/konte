@@ -639,34 +639,24 @@ export class ComfyUIBackend implements GenerationBackend {
   }
 }
 
+function nodeOutputFiles(output: ComfyUIHistoryOutput): ComfyUIOutputFile[] {
+  return [...(output.images ?? []), ...(output.gifs ?? []), ...(output.audio ?? [])];
+}
+
+// A preview node's `temp` file is taken only from a workflow that saves nothing.
 function collectOutputFiles(outputs: Record<string, ComfyUIHistoryOutput>): ComfyUIOutputFile[] {
-  const files: ComfyUIOutputFile[] = [];
-  for (const output of Object.values(outputs)) {
-    if (output.images) files.push(...output.images);
-    if (output.gifs) files.push(...output.gifs);
-    if (output.audio) files.push(...output.audio);
-  }
-  return files;
+  const files = Object.values(outputs).flatMap(nodeOutputFiles);
+  const saved = files.filter((f) => f.type === "output");
+  return saved.length > 0 ? saved : files;
 }
 
 function selectOutputFiles(
   outputs: Record<string, ComfyUIHistoryOutput>,
   outputNodeId: string | undefined,
 ): ComfyUIOutputFile[] {
-  if (!outputNodeId) {
-    return collectOutputFiles(outputs);
-  }
-
-  const nodeOutput = outputs[outputNodeId];
-  if (nodeOutput) {
-    const files: ComfyUIOutputFile[] = [];
-    if (nodeOutput.images) files.push(...nodeOutput.images);
-    if (nodeOutput.gifs) files.push(...nodeOutput.gifs);
-    if (nodeOutput.audio) files.push(...nodeOutput.audio);
-    if (files.length > 0) return files;
-  }
-
-  return collectOutputFiles(outputs);
+  const nodeOutput = outputNodeId ? outputs[outputNodeId] : undefined;
+  const own = nodeOutput ? nodeOutputFiles(nodeOutput) : [];
+  return own.length > 0 ? own : collectOutputFiles(outputs);
 }
 
 /**
