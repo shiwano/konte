@@ -193,14 +193,13 @@ describe("ComfyUIHttpClient", () => {
   });
 
   it("uploads an image", async () => {
-    const data = Buffer.from("fake-image");
-    const result = await client.uploadImage("test.png", data);
+    const result = await client.uploadImage("test.png", new Blob(["fake-image"]));
 
     expect(result.name).toBe("test.png");
   });
 
   it("uploads without overwriting, so a re-upload never rewrites a file a running prompt reads", async () => {
-    await client.uploadImage("test.png", Buffer.from("fake-image"));
+    await client.uploadImage("test.png", new Blob(["fake-image"]));
 
     expect(lastUploadBody).toMatch(/name="overwrite"\r\n\r\nfalse\r\n/);
   });

@@ -1,6 +1,6 @@
 import { parseApiResponse, saveDownloadResponse } from "../backends/http-util.js";
 import { KonteError, errorMessage } from "../core/errors.js";
-import { MEDIA_TRANSFER_TIMEOUT_MS, fetchWithRetry, headersDeadline } from "../core/http-retry.js";
+import { fetchWithRetry, headersDeadline, mediaTransferTimeoutMs } from "../core/http-retry.js";
 import { redactExternalBody } from "../core/redact.js";
 import { resolveHeaderTokens } from "./token-resolver.js";
 import {
@@ -160,11 +160,10 @@ export class ComfyUIHttpClient {
 
   async uploadImage(
     filename: string,
-    data: Buffer | Uint8Array,
+    blob: Blob,
     subfolder?: string,
   ): Promise<ComfyUIUploadResult> {
     const formData = new FormData();
-    const blob = new Blob([data as unknown as Uint8Array<ArrayBuffer>]);
     formData.append("image", blob, filename);
     // Without overwrite, ComfyUI keeps an existing file whose bytes match and answers with its
     // name. Overwriting rewrites it in place while a prompt queued earlier may be reading it.
@@ -176,7 +175,7 @@ export class ComfyUIHttpClient {
     const res = await this.fetch("/upload/image", {
       method: "POST",
       body: formData,
-      timeout: MEDIA_TRANSFER_TIMEOUT_MS,
+      timeout: mediaTransferTimeoutMs(blob.size),
     });
 
     return parseApiResponse(

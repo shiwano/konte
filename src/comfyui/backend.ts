@@ -1,5 +1,4 @@
-import { sha256Hex } from "../core/content-hash.js";
-import * as fs from "node:fs/promises";
+import { openAsBlob } from "node:fs";
 import * as path from "node:path";
 import type {
   GenerationBackend,
@@ -8,7 +7,9 @@ import type {
   WaitForCompletionResult,
   WaitOptions,
 } from "../core/backend.js";
+import { uniqueOutputPath } from "../backends/http-util.js";
 import { assertSubmitNotCancelled } from "../core/backend.js";
+import { hashFile } from "../core/content-hash.js";
 import { KonteError, errorMessage } from "../core/errors.js";
 import { requireFileWithinRoot } from "../core/path-containment.js";
 import { observeOrTransient } from "../core/poll-until-terminal.js";
@@ -187,12 +188,17 @@ export class ComfyUIBackend implements GenerationBackend {
     }
 
     const outputFiles = selectOutputFiles(history.outputs, options?.outputNodeId);
+    if (outputFiles.length === 0) {
+      throw new KonteError(
+        "COMFYUI_ERROR",
+        `ComfyUI prompt ${backendJobId} succeeded with no output`,
+      );
+    }
     const savedFiles: string[] = [];
 
     for (const file of outputFiles) {
       options?.onLog?.(`Downloading: ${file.filename}`);
-      // basename guards against a crafted server returning a traversal in filename.
-      const outputPath = path.join(outputDir, path.basename(file.filename));
+      const outputPath = uniqueOutputPath(outputDir, file.filename, savedFiles);
       await observeOrTransient(["COMFYUI_UNAVAILABLE"], () =>
         this.httpClient.downloadOutputToFile(file, outputPath),
       );
@@ -597,9 +603,8 @@ export class ComfyUIBackend implements GenerationBackend {
     const prepared: Record<string, string> = {};
     for (const [address, depPath] of Object.entries(resolvedDependencies)) {
       const absPath = await requireFileWithinRoot(this.videoRoot, depPath);
-      const data = await fs.readFile(absPath);
-      const filename = generateUploadFilename(absPath, data);
-      const uploadResult = await this.httpClient.uploadImage(filename, data);
+      const filename = generateUploadFilename(absPath, await hashFile(absPath));
+      const uploadResult = await this.httpClient.uploadImage(filename, await openAsBlob(absPath));
       prepared[address] = uploadResult.subfolder
         ? `${uploadResult.subfolder}/${uploadResult.name}`
         : uploadResult.name;
@@ -706,9 +711,8 @@ function shellSingleQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
-function generateUploadFilename(filePath: string, data: Buffer | Uint8Array): string {
+function generateUploadFilename(filePath: string, contentHash: string): string {
   const ext = path.extname(filePath);
   const base = path.basename(filePath, ext);
-  const hash = sha256Hex(data).slice(0, 8);
-  return `konte-${base}-${hash}${ext}`;
+  return `konte-${base}-${contentHash.slice(0, 8)}${ext}`;
 }

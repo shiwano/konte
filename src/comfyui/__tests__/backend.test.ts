@@ -352,6 +352,32 @@ describe("ComfyUIBackend", () => {
     download.mockRestore();
   });
 
+  it("fails a prompt that succeeded with no output", async () => {
+    currentHistoryEntry = { ...mockHistoryEntry, outputs: {} };
+
+    await expect(
+      backend.waitForCompletion("test-prompt-id", path.join(tmpDir, "output-empty")),
+    ).rejects.toMatchObject({ code: "COMFYUI_ERROR" });
+  });
+
+  it("keeps same-named outputs from different subfolders apart", async () => {
+    currentHistoryEntry = {
+      ...mockHistoryEntry,
+      outputs: {
+        "9": { images: [{ filename: "x_00001_.png", subfolder: "a", type: "output" }] },
+        "10": { images: [{ filename: "x_00001_.png", subfolder: "b", type: "output" }] },
+      },
+    };
+
+    const result = await backend.waitForCompletion(
+      "test-prompt-id",
+      path.join(tmpDir, "output-collide"),
+    );
+
+    if (result.kind !== "done") throw new Error("expected done");
+    expect(new Set(result.result.files).size).toBe(2);
+  });
+
   it("waitForCompletion calls onLog callback", { timeout: 15_000 }, async () => {
     const outputDir = path.join(tmpDir, "output");
     const logs: string[] = [];
@@ -380,8 +406,8 @@ describe("ComfyUIBackend", () => {
         } else if (url.pathname.startsWith("/history/")) {
           historyCalls += 1;
           res.writeHead(200, { "Content-Type": "application/json" });
-          // Absent while running, then completes (no outputs → nothing to download) so the
-          // waiter finishes.
+          // Absent while running, then completes with no outputs, so the waiter finishes
+          // without a download.
           const done = {
             "run-me": {
               outputs: {},
@@ -415,16 +441,16 @@ describe("ComfyUIBackend", () => {
 
       let executionStarts = 0;
       let progressTicks = 0;
-      const result = await b.waitForCompletion("run-me", path.join(tmpDir, "output-runme"), {
-        onExecutionStarted: () => {
-          executionStarts += 1;
-        },
-        onProgress: () => {
-          progressTicks += 1;
-        },
-      });
-
-      expect(result.kind).toBe("done");
+      await expect(
+        b.waitForCompletion("run-me", path.join(tmpDir, "output-runme"), {
+          onExecutionStarted: () => {
+            executionStarts += 1;
+          },
+          onProgress: () => {
+            progressTicks += 1;
+          },
+        }),
+      ).rejects.toMatchObject({ code: "COMFYUI_ERROR" });
       expect(executionStarts).toBeGreaterThan(0);
       expect(progressTicks).toBe(0);
     } finally {
@@ -484,16 +510,16 @@ describe("ComfyUIBackend", () => {
 
       let executionStarts = 0;
       let progressTicks = 0;
-      const result = await b.waitForCompletion("run-me", path.join(tmpDir, "output-runhist"), {
-        onExecutionStarted: () => {
-          executionStarts += 1;
-        },
-        onProgress: () => {
-          progressTicks += 1;
-        },
-      });
-
-      expect(result.kind).toBe("done");
+      await expect(
+        b.waitForCompletion("run-me", path.join(tmpDir, "output-runhist"), {
+          onExecutionStarted: () => {
+            executionStarts += 1;
+          },
+          onProgress: () => {
+            progressTicks += 1;
+          },
+        }),
+      ).rejects.toMatchObject({ code: "COMFYUI_ERROR" });
       // Exactly one fire, from the fast-path check — the polling loop only ever saw success.
       expect(executionStarts).toBe(1);
       expect(progressTicks).toBe(0);
@@ -783,6 +809,7 @@ describe("ComfyUIBackend", () => {
 
     expect(uploadedFiles).toHaveLength(1);
     expect(uploadedFiles[0]!.filename).toMatch(/^konte-keyframe-[0-9a-f]{8}\.png$/);
+    expect(uploadedFiles[0]!.data.includes("fake-image-data")).toBe(true);
 
     const prompt = lastQueuedPrompt as Record<string, unknown>;
     const workflow = prompt.prompt as Record<string, { inputs: Record<string, unknown> }>;

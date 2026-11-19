@@ -362,43 +362,45 @@ async function runAsOwner(
       path.isAbsolute(f) ? path.relative(videoRoot, f) : f,
     );
 
-    const outputFile = outputFiles[0] ?? null;
+    const [outputFile] = outputFiles;
+    if (!outputFile) {
+      throw new KonteError(
+        "GENERATION_FAILED",
+        `Backend job ${backendJobId} returned no output file`,
+      );
+    }
 
     // Re-encode in place before hashing so the variant konte stores is always
     // seek-safe — AI video models often emit sparse keyframes that break
     // HyperFrames' frame-by-frame capture/render with freezing and A/V desync.
     // Doing it here covers every backend.
-    if (outputFile) {
-      try {
-        const norm = await normalizeKeyframesIfSparse(path.resolve(videoRoot, outputFile));
-        if (norm.normalized) {
-          jobManager.appendLog(
-            variantId,
-            `Normalized sparse keyframes (max interval ${norm.maxIntervalSeconds === undefined ? "?" : formatSeconds(norm.maxIntervalSeconds, 2)} > 2s) for reliable seeking.`,
-          );
-        } else if (norm.skipReason && norm.maxIntervalSeconds !== undefined) {
-          jobManager.appendLog(
-            variantId,
-            `Left sparse keyframes (max interval ${formatSeconds(norm.maxIntervalSeconds, 2)}) unchanged: ${norm.skipReason}.`,
-          );
-        }
-      } catch (normErr) {
-        const msg = errorMessage(normErr);
-        jobManager.appendLog(variantId, `Keyframe normalization failed (kept original): ${msg}`);
+    try {
+      const norm = await normalizeKeyframesIfSparse(path.resolve(videoRoot, outputFile));
+      if (norm.normalized) {
+        jobManager.appendLog(
+          variantId,
+          `Normalized sparse keyframes (max interval ${norm.maxIntervalSeconds === undefined ? "?" : formatSeconds(norm.maxIntervalSeconds, 2)} > 2s) for reliable seeking.`,
+        );
+      } else if (norm.skipReason && norm.maxIntervalSeconds !== undefined) {
+        jobManager.appendLog(
+          variantId,
+          `Left sparse keyframes (max interval ${formatSeconds(norm.maxIntervalSeconds, 2)}) unchanged: ${norm.skipReason}.`,
+        );
       }
-
-      // Re-verify ownership after the in-place re-encode (which can itself take a while) and
-      // before hashing/committing: had this worker stalled through the normalization, a reclaimer
-      // that took over could be rewriting the same file, and the hash would read half-written
-      // bytes. Lost the lease → bail and let the caller monitor for the reclaimer's result.
-      if (!(await stillOwnsLease(jobManager, variantId, workerId))) return null;
+    } catch (normErr) {
+      const msg = errorMessage(normErr);
+      jobManager.appendLog(variantId, `Keyframe normalization failed (kept original): ${msg}`);
     }
 
-    const outputHash = outputFile
-      ? await hashFile(path.resolve(videoRoot, outputFile)).catch(() => null)
-      : null;
+    // Re-verify ownership after the in-place re-encode (which can itself take a while) and
+    // before hashing/committing: had this worker stalled through the normalization, a reclaimer
+    // that took over could be rewriting the same file, and the hash would read half-written
+    // bytes. Lost the lease → bail and let the caller monitor for the reclaimer's result.
+    if (!(await stillOwnsLease(jobManager, variantId, workerId))) return null;
+
+    const outputHash = await hashFile(path.resolve(videoRoot, outputFile)).catch(() => null);
     // The one probe of these bytes, where the file has just landed.
-    const media = outputFile ? await probeMediaInfo(path.resolve(videoRoot, outputFile)) : null;
+    const media = await probeMediaInfo(path.resolve(videoRoot, outputFile));
     const durationSec = mediaDurationSec(media);
     const lang = speechLangOf(definitions);
     if (owesLine && !recognizesSpeechIn(lang)) {
@@ -406,14 +408,7 @@ async function runAsOwner(
         variantId,
         `Speech in ${lang} is not recognized; the line is not heard.`,
       );
-    } else if (
-      owesLine &&
-      outputFile &&
-      outputHash &&
-      durationSec &&
-      media &&
-      mediaHasAudio(media)
-    ) {
+    } else if (owesLine && outputHash && durationSec && media && mediaHasAudio(media)) {
       const workDir = path.join(videoRoot, ".konte", "cache", "heard", `${variantId}-${workerId}`);
       try {
         const heard = await hearSpeech(
@@ -468,7 +463,7 @@ async function runAsOwner(
         const variant = manager.tryGetAssetState(job.address)?.variants?.[job.variantId];
         if (variant) {
           variant.file = outputFile;
-          variant.readyAt = outputFile ? new Date().toISOString() : null;
+          variant.readyAt = new Date().toISOString();
           variant.outputHash = outputHash;
           // Absent unless the measurement came back, and only alongside the hash it is keyed to. A
           // retry commits over the same variant, so a failure has to clear rather than leave an
@@ -480,7 +475,7 @@ async function runAsOwner(
           // Recorded in the job's metadata at submission (see submitToBackend), so a reclaiming
           // waiter reads it back from the persisted job; absent for a seedless definition.
           if (typeof job.metadata.seed === "number") variant.seed = job.metadata.seed;
-          if (isDelivery && outputFile) {
+          if (isDelivery) {
             manager.setAccepted(job.address, job.variantId);
           }
           // The chain's returned step just landed, so the patched take exists: register it at the
@@ -491,7 +486,7 @@ async function runAsOwner(
           // (`patch remove`, `clean`) while the chain ran, and the step's own take is on disk
           // either way. Letting it throw would abandon that commit and leave the job unable to
           // settle, re-failing for every waiter that reclaims it.
-          if (patchOutput && outputFile) {
+          if (patchOutput) {
             try {
               materializePatchOutput(manager, patchOutput, {
                 address: job.address,
@@ -538,16 +533,13 @@ async function runAsOwner(
 
     let thumbnails: ThumbnailInfo[] = [];
     try {
-      const relFile = outputFiles[0];
-      if (relFile) {
-        thumbnails = await ensureVariantThumbnails(
-          videoRoot,
-          job.address,
-          job.variantId,
-          outputHash,
-          relFile,
-        );
-      }
+      thumbnails = await ensureVariantThumbnails(
+        videoRoot,
+        job.address,
+        job.variantId,
+        outputHash,
+        outputFile,
+      );
     } catch (thumbErr) {
       const msg = errorMessage(thumbErr);
       jobManager.appendLog(variantId, `Thumbnail extraction failed: ${msg}`);

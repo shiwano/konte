@@ -5,6 +5,7 @@ import { ComfyApiBackend } from "../../comfy-api/backend.js";
 import { ComfyUIBackend } from "../../comfyui/backend.js";
 import type { WaitForCompletionResult, WaitOptions } from "../../core/backend.js";
 import { FalHttpClient } from "../../fal/http-client.js";
+import { LocalBackend } from "../../local/backend.js";
 import { TransientHttpError } from "../../core/http-retry.js";
 import { defineComfyAsset } from "../../core/dsl/comfy-asset.js";
 import { asset, defineVideo } from "../../core/dsl/index.js";
@@ -281,6 +282,27 @@ describe("waitForJob completion ordering", () => {
     // Left non-terminal so a reclaimer can re-observe the backend job and retry the write.
     const job = await jobManager.getJob(variantId);
     expect(job.status).toBe("running");
+  });
+
+  it("fails a job whose backend returned no output file", async () => {
+    const { jobManager, variantId } = await setupLocalRunningJob();
+    vi.spyOn(LocalBackend.prototype, "waitForCompletion").mockResolvedValue({
+      kind: "done",
+      result: { files: [], metadata: {}, durationMs: 1 },
+    });
+
+    const result = await waitForJob(jobManager, variantId, roots, {
+      video: buildVideo(),
+      animatic: emptyAnimatic(),
+      reference: emptyReference(),
+    });
+
+    expect(result.status).toBe("failed");
+    expect((await jobManager.getJob(variantId)).status).toBe("failed");
+    const variant = (await StateManager.load(tmpDir)).tryGetAssetState(ADDRESS)?.variants?.[
+      variantId
+    ];
+    expect(variant?.file ?? null).toBeNull();
   });
 
   it("stores the variant file as a project-relative path, not the backend's absolute one", async () => {

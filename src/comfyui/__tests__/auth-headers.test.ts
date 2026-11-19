@@ -111,7 +111,7 @@ describe("ComfyUIHttpClient with configured headers", () => {
   it("leaves the multipart Content-Type to fetch on an upload", async () => {
     seen.length = 0;
     await client()
-      .uploadImage("a.png", Buffer.from("x"))
+      .uploadImage("a.png", new Blob(["x"]))
       .catch(() => {});
     expect(seen[0]?.auth).toBe("Bearer live-value");
     expect(seen[0]?.contentType).toMatch(/^multipart\/form-data; boundary=/);
