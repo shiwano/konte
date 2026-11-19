@@ -1,4 +1,3 @@
-import { rosterReferenceNames } from "../../../core/roots.js";
 import * as path from "node:path";
 import { ratioOf } from "../../../core/aspect.js";
 import { cachedClipStudy } from "../../../core/study-clip.js";
@@ -25,8 +24,7 @@ import {
   isDirectionBriefListField,
 } from "../../../core/address.js";
 import { errorResponse, jsonResponse, parseJsonBody } from "../../page-host/http.js";
-import { loadDirectionStageInputs } from "../../../core/board-analysis.js";
-import { checkDirection, resolveLens, setupView } from "../../../core/direction.js";
+import { resolveLens, setupView } from "../../../core/direction.js";
 import { directionWaiverKey } from "../../../core/direction-findings.js";
 import { ROLE_FUNCTION_LABEL, PLEASURE_GLOSS } from "../../../core/lenses.js";
 import { directionHash, directionPartHashes } from "../../../core/direction-hash.js";
@@ -67,7 +65,7 @@ import type {
   DirectionVoiceInfo,
 } from "../../../pages/preview/types.js";
 import { scriptLinesToView } from "../../../core/types/script.js";
-import type { Handoff, ReferenceDefinition } from "../../../core/types/index.js";
+import type { Handoff } from "../../../core/types/index.js";
 import {
   type ReviewDecisionEntry,
   type ReviewRecord,
@@ -90,8 +88,8 @@ import {
 } from "./review-shared.js";
 import { type ReportOutcome, emptyOutcome } from "./review-outcome.js";
 import { reviewHeldError, reviewHeldFindings } from "../../finding-gates.js";
-import { loadCheckContext } from "../../../core/check-context.js";
-import { collectFindings, waiverCoverageOf } from "../../../core/checks.js";
+import { loadCheckContext, type StageDefs } from "../../../core/check-context.js";
+import { collectFindings, directionCheckOf, waiverCoverageOf } from "../../../core/checks.js";
 import { sourceViewOf, spanLabelOf } from "../../../core/source-direction.js";
 
 // A direction part's feedback address is `direction:<part>`, the same form a handoff note carries.
@@ -144,17 +142,23 @@ async function referenceView(videoRoot: string, ref: BriefReference): Promise<Br
 export async function handleGetDirectionState(
   videoRoot: string,
   direction: Direction,
-  reference: ReferenceDefinition | null,
+  definitions: StageDefs,
   handoff: Handoff | null,
 ): Promise<Response> {
   const manager = await StateManager.load(videoRoot);
   const feedbackMgr = await FeedbackManager.load(videoRoot, "direction");
   const state = manager.getState();
 
-  const check = checkDirection(direction, {
-    referenceAssetNames: rosterReferenceNames(videoRoot, reference),
-    ...(await loadDirectionStageInputs(videoRoot, direction, reference)),
-  });
+  const check = directionCheckOf(
+    await loadCheckContext({
+      cueTakes: "played",
+      videoRoot,
+      definitions,
+      direction,
+      manager,
+      graph: null,
+    }),
+  )!;
   const currentHash = directionHash(direction);
   const acceptanceView = directionAcceptanceView(
     direction,
@@ -537,6 +541,7 @@ export async function handleDirectionSubmit(
   videoRoot: string,
   handoff: Handoff | null,
   direction: Direction,
+  definitions: StageDefs,
   req: Request,
   reportOutcome?: ReportOutcome,
 ): Promise<Response> {
@@ -555,6 +560,8 @@ export async function handleDirectionSubmit(
   const body = parsed.data;
 
   const currentHash = directionHash(direction);
+  const ctx = await loadCheckContext({ cueTakes: "played", videoRoot, definitions, direction });
+  const waiverCoverage = waiverCoverageOf(ctx);
   const { accept } = body;
   const sectionDecisions: DirectionSectionDecisions =
     accept === undefined
@@ -562,7 +569,8 @@ export async function handleDirectionSubmit(
       : Object.fromEntries(
           directionAcceptSections(
             direction,
-            (await StateManager.load(videoRoot)).getDirectionAcceptance(),
+            ctx.manager?.getDirectionAcceptance() ?? null,
+            waiverCoverage,
           ).map((s) => [s, accept]),
         );
   const accepting = Object.values(sectionDecisions).some((v) => v === true);
@@ -627,8 +635,6 @@ export async function handleDirectionSubmit(
   // A box holding a part a finding to fix sits on is not signed off. Only that box's accept is dropped; the rest of the review still lands.
   const skippedDecisions: NonNullable<ReviewRecord["skippedDecisions"]> = [];
   const acceptedSections = DIRECTION_SECTIONS.filter((s) => sectionDecisions[s] === true);
-  const ctx = await loadCheckContext({ cueTakes: "played", videoRoot, direction });
-  const waiverCoverage = waiverCoverageOf(ctx);
   if (acceptedSections.length > 0) {
     const findings = await collectFindings(ctx, (t) => t.holds.accept === true);
     for (const section of acceptedSections) {

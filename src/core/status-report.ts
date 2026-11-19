@@ -30,10 +30,15 @@ import {
   parseAddress,
 } from "./address.js";
 import { assertNever } from "./assert.js";
-import { waiverCoverageIn } from "./board-analysis.js";
 import { staleSettledLeaves } from "./board-leaves.js";
 import { loadCheckContext } from "./check-context.js";
-import { type PatchSubject, type StaleWaiverLine, collectFindings } from "./checks.js";
+import {
+  type CheckContext,
+  type PatchSubject,
+  type StaleWaiverLine,
+  collectFindings,
+  waiverCoverageOf,
+} from "./checks.js";
 import {
   boardCompositionAwaitsVideo,
   boardStemAwaitsVideo,
@@ -770,9 +775,15 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
   // whole-project view always reports the direction; the characters are accepted *in* the reference
   // stage and reported alongside it.
   const acceptance = manager.getDirectionAcceptance();
-  const waiverCoverage = direction
-    ? waiverCoverageIn(videoRoot, direction, { reference, animatic, video }, manager)
-    : undefined;
+  const baseCheckContext = await loadCheckContext({
+    cueTakes: "played",
+    videoRoot,
+    definitions: { reference, animatic, video },
+    direction,
+    manager,
+    graph: null,
+  });
+  const waiverCoverage = waiverCoverageOf(baseCheckContext);
   const directionAcceptance: DirectionAcceptanceSummary | null = direction
     ? summarizeDirectionAcceptance(direction, acceptance, waiverCoverage)
     : null;
@@ -848,15 +859,11 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
   }
 
   // Every finding, and what each spend and review it holds — the same judgement the gates make.
-  const checkContext = await loadCheckContext({
-    cueTakes: "played",
-    videoRoot,
-    definitions: { reference, animatic, video },
-    direction,
-    manager,
+  const checkContext: CheckContext = {
+    ...baseCheckContext,
     graph,
     patches: report.patchSubjects,
-  });
+  };
   const findingReport = await collectFindings(checkContext);
   dropStrandedFromNeedsReview(report.sections, findingReport.findings);
   // A spend consumes the cue takes each address resolves to.

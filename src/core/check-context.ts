@@ -9,7 +9,7 @@ import { loadDirectionIfPresent, loadStageDefinitions } from "./stage-definition
 import { StateManager } from "./state/index.js";
 import type { AnimaticDefinition, ReferenceDefinition, VideoDefinition } from "./types/index.js";
 
-type StageDefs = {
+export type StageDefs = {
   reference: ReferenceDefinition | null;
   animatic: AnimaticDefinition | null;
   video: VideoDefinition | null;

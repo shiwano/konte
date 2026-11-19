@@ -55,9 +55,15 @@ import type {
   VideoPreviewState,
 } from "../../../pages/preview/types.js";
 import { buildReelReviewPlan, reelShotAcceptability } from "../../../core/review-acceptability.js";
-import { continuousFrameKeys, directionShotWaivers, panelRole } from "../../../core/direction.js";
+import {
+  continuousFrameKeys,
+  directionShotWaivers,
+  panelRole,
+  type WaiverCoverage,
+} from "../../../core/direction.js";
 import { shotWaiversAwaitingAccept } from "../../../core/direction-acceptance.js";
-import { waiverCoverageIn } from "../../../core/board-analysis.js";
+import { loadCheckContext } from "../../../core/check-context.js";
+import { waiverCoverageOf } from "../../../core/checks.js";
 import type {
   AnimaticDefinition,
   Handoff,
@@ -263,23 +269,15 @@ function shotMoveIndex(
 
 function shotWaiverIndex(
   manager: StateManager,
-  ctx: ReelReviewContext,
-  video: VideoDefinition | null,
+  direction: Direction | null,
+  waiverCoverage: WaiverCoverage | undefined,
 ): Map<string, ShotWaiverInfo[]> {
   const byId = new Map<string, ShotWaiverInfo[]>();
-  const { direction } = ctx;
   if (!direction) return byId;
   const awaiting = new Set(
-    shotWaiversAwaitingAccept(
-      direction,
-      manager.getDirectionAcceptance(),
-      waiverCoverageIn(
-        ctx.videoRoot,
-        direction,
-        { reference: ctx.reference, animatic: ctx.animatic, video },
-        manager,
-      ),
-    ).map((w) => w.address),
+    shotWaiversAwaitingAccept(direction, manager.getDirectionAcceptance(), waiverCoverage).map(
+      (w) => w.address,
+    ),
   );
   for (const waiver of directionShotWaivers(direction)) {
     const info = {
@@ -316,6 +314,7 @@ interface ReelStateScope {
   counterpart: StageDefinition | null;
   manager: StateManager;
   feedbackMgr: FeedbackManager;
+  waiverCoverage: WaiverCoverage | undefined;
 }
 
 type ReelAsset = ReturnType<ReturnType<typeof reelAssetBuilder>>;
@@ -337,6 +336,20 @@ export async function handleGetReelState(
     counterpart,
     manager,
     feedbackMgr: await FeedbackManager.load(videoRoot, stage),
+    waiverCoverage: waiverCoverageOf(
+      await loadCheckContext({
+        cueTakes: "played",
+        videoRoot,
+        definitions: {
+          reference: ctx.reference,
+          animatic,
+          video: (stage === "video" ? video : ctx.downstreamVideo) as VideoDefinition | null,
+        },
+        direction: ctx.direction,
+        manager,
+        graph: null,
+      }),
+    ),
   };
   const patchCatalog = await loadPatchCatalog(videoRoot, manager.getState());
 
@@ -564,14 +577,10 @@ function reelShotStates(
   buildAsset: ReturnType<typeof reelAssetBuilder>,
   audioBuiltByAddress: Map<string, ReelAsset>,
 ) {
-  const { ctx, video, stage, manager } = scope;
+  const { ctx, video, stage, manager, waiverCoverage } = scope;
   const directionShotById = shotFactsIndex(ctx.direction);
   const movesByShotId = shotMoveIndex(ctx.animatic, ctx.direction);
-  const waiversByShotId = shotWaiverIndex(
-    manager,
-    ctx,
-    (video.stage === "video" ? video : ctx.downstreamVideo) as VideoDefinition | null,
-  );
+  const waiversByShotId = shotWaiverIndex(manager, ctx.direction, waiverCoverage);
   const acceptability = reelShotAcceptability(manager, video, plan);
 
   // A clip may name an address outside the shot's own pool — a board frame an animatic stands on,

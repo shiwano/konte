@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as loader from "../../core/loader.js";
 import type { Direction } from "../../core/dsl/direction.js";
 import type { AnimaticDefinition, VideoDefinition } from "../../core/types/index.js";
-import { loadDirectionStageInputs } from "../../core/board-analysis.js";
+import { stagingStageState } from "../../core/board-analysis.js";
 import { createMotionIntentLoader, formatMotionIntent } from "../commands/probe/motion-intent.js";
 import type { StateManager } from "../../core/state/index.js";
 import { directionDefaults } from "../../core/__tests__/helpers/direction.js";
@@ -17,12 +17,9 @@ vi.mock("../../core/loader.js", async (importOriginal) => ({
 const board = { shots: [], topLevelAssets: {} } as unknown as AnimaticDefinition;
 afterEach(() => vi.resetAllMocks());
 
-describe("passing stage loading", () => {
-  it("reads passers off the video only where a frame passes one", async () => {
-    vi.mocked(loader.loadAnimatic).mockResolvedValue(board);
-    const loadVideo = vi
-      .mocked(loader.loadVideoDefinition)
-      .mockResolvedValue({ shots: [], topLevelAssets: {} } as unknown as VideoDefinition);
+describe("passing stage", () => {
+  it("reads passers off the video only where a frame passes one", () => {
+    const video = { shots: [], topLevelAssets: {} } as unknown as VideoDefinition;
     const shot = {
       id: "01",
       role: "ordinary",
@@ -35,17 +32,14 @@ describe("passing stage loading", () => {
       ...directionDefaults,
       sequence: { lens: "mini-drama", pleasure: "cute", shots: [shot] },
     } as Direction;
-    const loadStaging = async (d: Direction) =>
-      (await loadDirectionStageInputs("/tmp/first-pass", d, null)).stagingStage;
-    const loaded = await loadStaging(direction);
-    expect(loadVideo).toHaveBeenCalledOnce();
-    expect(loaded?.videoPassers).toBeUndefined();
+    const staging = (d: Direction) => stagingStageState(d, board, video);
+    expect(staging(direction).videoPassers).toBeUndefined();
     direction.sequence.shots = [{ ...shot, passing: ["crow"] }];
-    expect((await loadStaging(direction))?.videoPassers).toEqual([]);
+    expect(staging(direction).videoPassers).toEqual([]);
     direction.sequence.shots = [
       { ...shot, cutin: { setup: "front", lineup: [], passing: ["crow"] } },
     ];
-    expect((await loadStaging(direction))?.videoPassers).toEqual([]);
+    expect(staging(direction).videoPassers).toEqual([]);
   });
 });
 

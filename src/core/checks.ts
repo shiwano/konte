@@ -180,7 +180,7 @@ export function signOffFinding(f: Finding, accepted: Accepted): Finding {
   };
 }
 
-function directionCheckOf(ctx: CheckContext): ReturnType<typeof checkDirection> | null {
+export function directionCheckOf(ctx: CheckContext): ReturnType<typeof checkDirection> | null {
   if (!ctx.direction) return null;
   let result = directionResult.get(ctx);
   if (!result) {

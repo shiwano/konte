@@ -1,4 +1,3 @@
-import { rosterReferenceNames } from "../../core/roots.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import {
@@ -8,7 +7,8 @@ import {
   matchesAddressScope,
 } from "../../core/address.js";
 import { assertNever } from "../../core/assert.js";
-import { checkDirection } from "../../core/direction.js";
+import { loadCheckContext } from "../../core/check-context.js";
+import { directionCheckOf } from "../../core/checks.js";
 import {
   classifyDirectionFinding,
   directionWaiverKey,
@@ -31,9 +31,7 @@ import { StateManager } from "../../core/state/index.js";
 import { reviewTimes as readReviewTimes } from "../../core/review-record.js";
 import { scriptLinesToView } from "../../core/types/script.js";
 import { loadDirectionIfPresent } from "../../core/stage-definitions.js";
-import { loadDirectionStageInputs } from "../../core/board-analysis.js";
 import { formatDirectionRemainder } from "../print-status.js";
-import { loadReference } from "../../core/loader.js";
 import { type FeedbackView, feedbackLine, feedbackTag, printFeedback } from "./inspect-feedback.js";
 
 // `konte inspect direction` — the direction as a target rather than a review page. The direction
@@ -63,13 +61,9 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
 
   const manager = await StateManager.load(videoRoot);
   const acceptance = manager.getDirectionAcceptance();
-  // The reference pool is what the roster is checked against — a missing reference.tsx leaves it
-  // empty rather than failing the read.
-  const reference = await loadReference(videoRoot).catch(() => null);
-  const check = checkDirection(direction, {
-    referenceAssetNames: rosterReferenceNames(videoRoot, reference),
-    ...(await loadDirectionStageInputs(videoRoot, direction, reference)),
-  });
+  const check = directionCheckOf(
+    await loadCheckContext({ cueTakes: "played", videoRoot, direction, manager, graph: null }),
+  )!;
   const view = directionAcceptanceView(direction, acceptance, check.waiverCoverage);
   const contents = directionPartContents(direction);
   const state = manager.getState();

@@ -27,22 +27,12 @@ import {
 
 import { harvestShotPictureCues } from "./composition-builder.js";
 import type { AnimaticSetupState } from "./direction-check.js";
-import {
-  checkDirection,
-  collectShotFrames,
-  setupView,
-  type SongVariantState,
-  type StagingStageState,
-  type WaiverCoverage,
-} from "./direction.js";
+import { collectShotFrames, setupView, type StagingStageState } from "./direction.js";
 import type { Direction } from "./dsl/direction.js";
 import { extractRefs, exposedPlateIdsOf, LANES, lanePanels, platesOf } from "./graph.js";
-import { loadAnimatic, loadVideoDefinition } from "./loader.js";
 import { definitionHashForAddress } from "./composition-resource.js";
 import type { Accepted } from "./sign-off.js";
-import { songVariantState } from "./song-variant.js";
-import { rosterReferenceNames, stageEntryPath } from "./roots.js";
-import { StateManager } from "./state/index.js";
+import type { StateManager } from "./state/index.js";
 
 /**
  * One camera frame the direction places on a board shot: which lane of which shot, on which setup.
@@ -1260,59 +1250,5 @@ export function acceptedIn(
       memo.set(address, hit);
     }
     return hit;
-  };
-}
-
-type DirectionStageInputs = {
-  animaticSetups: AnimaticSetupState | undefined;
-  stagingStage: StagingStageState | undefined;
-  songVariant: SongVariantState | undefined;
-  accepted: Accepted;
-};
-
-// What each waiver lets through now, off the definitions a caller already holds.
-export function waiverCoverageIn(
-  videoRoot: string,
-  direction: Direction,
-  defs: {
-    reference: ReferenceDefinition | null;
-    animatic: AnimaticDefinition | null;
-    video: VideoDefinition | null;
-  },
-  manager: StateManager | null,
-): WaiverCoverage {
-  const { reference, animatic, video } = defs;
-  return checkDirection(direction, {
-    referenceAssetNames: rosterReferenceNames(videoRoot, reference),
-    ...(animatic
-      ? {
-          animaticSetups: animaticSetupState(direction, animatic, reference, manager),
-          stagingStage: stagingStageState(direction, animatic, video),
-        }
-      : {}),
-  }).waiverCoverage;
-}
-
-// What `checkDirection` reads off the stages and state, read tolerantly. The setups and staging
-// halves are **undefined when the board could not be read**, and that distinction is the contract:
-// an unreadable board cannot owe plates, while a readable one that declares none owes every plate its
-// shared setups call for. Mirrors `reference?.exposedAssetNames` at the same call sites.
-export async function loadDirectionStageInputs(
-  videoRoot: string,
-  direction: Direction,
-  reference: ReferenceDefinition | null,
-): Promise<DirectionStageInputs> {
-  const animatic = await loadAnimatic(videoRoot).catch(() => null);
-  const video = animatic
-    ? await loadVideoDefinition(stageEntryPath(videoRoot, "video")).catch(() => null)
-    : null;
-  const manager = await StateManager.load(videoRoot).catch(() => null);
-  return {
-    animaticSetups: animatic
-      ? animaticSetupState(direction, animatic, reference, manager)
-      : undefined,
-    stagingStage: animatic ? stagingStageState(direction, animatic, video) : undefined,
-    songVariant: manager ? songVariantState(manager, direction) : undefined,
-    accepted: acceptedIn(manager, { reference, animatic, video }),
   };
 }

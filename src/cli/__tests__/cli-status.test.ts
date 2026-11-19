@@ -32,6 +32,10 @@ import { saveReviewRecord } from "../../core/review-record.js";
 import { writeHeardSpeech } from "../../core/speech-hearing.js";
 import { loadDirectionIfPresent } from "../../core/stage-definitions.js";
 import { panelMoveHashes } from "../../core/panel-move-hash.js";
+import { DIRECTION_SECTIONS } from "../../core/address.js";
+import { loadCheckContext } from "../../core/check-context.js";
+import { waiverCoverageOf } from "../../core/checks.js";
+import { applyDirectionSectionDecisions } from "../../core/direction-acceptance.js";
 
 vi.setConfig({ testTimeout: 15000 });
 
@@ -1042,6 +1046,32 @@ export default defineAnimatic`,
     const { stdout } = await run(["status"], projectDir);
     expect(stdout).toContain("animatic: all 1 shot accepted");
     expect(stdout).not.toContain("ready to export");
+  });
+
+  it("reads a stale song waiver as the spend gate does, owing it no sign-off", async () => {
+    const directionPath = path.join(projectDir, "direction.ts");
+    const source = await fs.readFile(directionPath, "utf-8");
+    await fs.writeFile(
+      directionPath,
+      source.replace("waivers: {", 'waivers: {\n    "song-overrun": "the song runs long",'),
+    );
+    const checkContext = await loadCheckContext({ videoRoot: projectDir, cueTakes: "played" });
+    await StateManager.withLock(projectDir, async (m) => {
+      m.setDirectionAcceptance(
+        applyDirectionSectionDecisions(
+          checkContext.direction!,
+          null,
+          Object.fromEntries(DIRECTION_SECTIONS.map((s) => [s, true])),
+          new Date(),
+          waiverCoverageOf(checkContext),
+        ),
+      );
+    });
+
+    const { stdout } = await run(["status"], projectDir);
+    expect(stdout).toContain("[song-overrun] stale waiver");
+    expect(stdout).toMatch(/^ {2}direction: accepted$/m);
+    expect(stdout).not.toContain("konte preview direction");
   });
 
   it("lists an unresolved direction finding with its waiver key, agreeing with doctor", async () => {

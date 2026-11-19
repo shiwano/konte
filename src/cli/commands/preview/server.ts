@@ -236,7 +236,12 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
         try {
           if (pathname === "/api/state") {
             if (mode === "direction-preview" && direction) {
-              return await handleGetDirectionState(videoRoot, direction, reference, handoff);
+              return await handleGetDirectionState(
+                videoRoot,
+                direction,
+                { reference, animatic, video },
+                handoff,
+              );
             }
             if (mode === "reference-preview" && reference) {
               return await handleGetReferenceState(
@@ -356,7 +361,14 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
               return errorResponse("No direction definition loaded", "ADDRESS_NOT_FOUND", 400);
             }
             return await lifecycle.track(() =>
-              handleDirectionSubmit(videoRoot, handoff, directionDef, req, reportOutcome),
+              handleDirectionSubmit(
+                videoRoot,
+                handoff,
+                directionDef,
+                { reference, animatic, video },
+                req,
+                reportOutcome,
+              ),
             );
           }
 

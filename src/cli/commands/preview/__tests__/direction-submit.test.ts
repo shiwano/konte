@@ -2,9 +2,13 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { handleDirectionSubmit } from "../direction-review.js";
-import { loadDirectionIfPresent } from "../../../../core/stage-definitions.js";
+import {
+  loadDirectionIfPresent,
+  loadStageDefinitions,
+} from "../../../../core/stage-definitions.js";
 import { directionHash } from "../../../../core/direction-hash.js";
 import { StateManager } from "../../../../core/state/index.js";
+import type { Direction } from "../../../../core/dsl/direction.js";
 import { ctx, initWorkspace, useTempWorkspace } from "../../../__tests__/cli-fixtures.js";
 
 vi.setConfig({ testTimeout: 30000 });
@@ -30,27 +34,29 @@ export default defineDirection({
 });
 `;
 
+const submit = async (videoRoot: string, direction: Direction, body: Record<string, unknown>) =>
+  handleDirectionSubmit(
+    videoRoot,
+    null,
+    direction,
+    await loadStageDefinitions(videoRoot, { tolerant: true }),
+    new Request("http://127.0.0.1/api/direction/submit", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ addedFeedback: [], feedbackPatches: [], ...body }),
+    }),
+  );
+
 describe("direction submit", () => {
   it("drops only the accept of a section a finding holds, and saves the rest of the review", async () => {
     const videoRoot = (await initWorkspace(path.join(ctx.dir, "testproject"))).video;
     await fs.writeFile(path.join(videoRoot, "direction.ts"), DIRECTION_TS);
     const direction = (await loadDirectionIfPresent(videoRoot))!;
 
-    const res = await handleDirectionSubmit(
-      videoRoot,
-      null,
-      direction,
-      new Request("http://127.0.0.1/api/direction/submit", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          addedFeedback: [],
-          feedbackPatches: [],
-          accept: true,
-          reviewedHash: directionHash(direction),
-        }),
-      }),
-    );
+    const res = await submit(videoRoot, direction, {
+      accept: true,
+      reviewedHash: directionHash(direction),
+    });
 
     expect(res.status).toBe(200);
     const payload = (await res.json()) as {
@@ -81,21 +87,7 @@ describe("direction submit", () => {
     await fs.writeFile(path.join(videoRoot, "direction.ts"), DIRECTION_TS);
     const direction = (await loadDirectionIfPresent(videoRoot))!;
 
-    const res = await handleDirectionSubmit(
-      videoRoot,
-      null,
-      direction,
-      new Request("http://127.0.0.1/api/direction/submit", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          addedFeedback: [],
-          feedbackPatches: [],
-          overallComment: "not yet",
-          accept: false,
-        }),
-      }),
-    );
+    const res = await submit(videoRoot, direction, { overallComment: "not yet", accept: false });
 
     expect(res.status).toBe(200);
     const payload = (await res.json()) as { filePath: string };
@@ -105,5 +97,30 @@ describe("direction submit", () => {
     >;
     expect(record.directionDecisions).toBeUndefined();
     expect((await StateManager.load(videoRoot)).getDirectionAcceptance()?.parts ?? {}).toEqual({});
+  });
+  it("offers no box a stale waiver alone holds open", async () => {
+    const videoRoot = (await initWorkspace(path.join(ctx.dir, "testproject"))).video;
+    await fs.writeFile(
+      path.join(videoRoot, "direction.ts"),
+      DIRECTION_TS.replace(
+        "  policy:",
+        '  waivers: { "song-overrun": "the song runs long" },\n  policy:',
+      ),
+    );
+    const direction = (await loadDirectionIfPresent(videoRoot))!;
+
+    const res = await submit(videoRoot, direction, {
+      accept: true,
+      reviewedHash: directionHash(direction),
+    });
+
+    expect(res.status).toBe(200);
+    const payload = (await res.json()) as { filePath: string };
+    const record = JSON.parse(await fs.readFile(payload.filePath, "utf-8")) as Record<
+      string,
+      unknown
+    >;
+    expect(record.directionDecisions).toMatchObject({ policy: "accepted" });
+    expect(record.directionDecisions).not.toHaveProperty("waivers");
   });
 });
