@@ -595,6 +595,40 @@ describe("Logs", () => {
     expect(lines[2]).toMatch(/^\[.+\] Done$/);
   });
 
+  it("strips a signed query from a URL in a log line", { timeout: 15_000 }, async () => {
+    await manager.createJob({
+      address: "video:shot.01.motion",
+      variantId: "v-abc12345",
+      resolvedDeps: {},
+      backendKind: "comfy",
+    });
+
+    manager.appendLog("v-abc12345", "Error: fetch https://cdn.example/a.png?token=hunter2 failed");
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    const log = await manager.readLog("v-abc12345");
+    expect(log).not.toContain("hunter2");
+    expect(log).toContain("https://cdn.example/a.png failed");
+  });
+
+  it("strips a signed query from a URL in a job's error", async () => {
+    await manager.createJob({
+      address: "video:shot.01.motion",
+      variantId: "v-abc12345",
+      resolvedDeps: {},
+      backendKind: "comfy",
+    });
+
+    await manager.updateJob("v-abc12345", {
+      status: "failed",
+      error: "FAL job failed: https://cdn.example/a.png?token=hunter2",
+    });
+
+    expect((await manager.getJob("v-abc12345")).error).toBe(
+      "FAL job failed: https://cdn.example/a.png",
+    );
+  });
+
   it("throws LOG_NOT_FOUND for non-existent log", async () => {
     await expect(manager.readLog("v-nonexist")).rejects.toMatchObject({
       code: "LOG_NOT_FOUND",

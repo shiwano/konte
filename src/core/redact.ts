@@ -10,7 +10,7 @@ export function redactUrlSecret(raw: string): string {
   }
 }
 
-const URL_IN_TEXT = /https?:\/\/[^\s"'<>)\\]+/g;
+const URL_IN_TEXT = /https?:\/\/[^\s"'<>\\]+/gi;
 
 export const PLACEHOLDER_RE = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
 
@@ -35,8 +35,35 @@ export function redactExternalBody(
     : redacted;
 }
 
+const MAX_PERSISTED_CHARS = 2000;
+const TRUNCATED = "… (truncated)";
+
+/**
+ * Text bound for `.konte/jobs.db`, `.konte/logs/` or `konte.state.json`: every URL stripped to
+ * origin+path, then the length bounded. The `${VAR}` reversal stays with the backend.
+ */
+export function redactPersisted(text: string): string {
+  const redacted = redactUrls(text);
+  return redacted.length > MAX_PERSISTED_CHARS
+    ? `${redacted.slice(0, MAX_PERSISTED_CHARS - TRUNCATED.length)}${TRUNCATED}`
+    : redacted;
+}
+
 export function redactUrls(body: string): string {
-  return unescapeJsonSlashes(body).replace(URL_IN_TEXT, (url) => redactUrlSecret(url));
+  return unescapeJsonSlashes(body).replace(URL_IN_TEXT, (match) => {
+    // A `)` is a URL character, but one closing an unopened `(` is the prose around the URL.
+    let url = match;
+    let closing = "";
+    while (url.endsWith(")") && count(url, ")") > count(url, "(")) {
+      url = url.slice(0, -1);
+      closing += ")";
+    }
+    return `${redactUrlSecret(url)}${closing}`;
+  });
+}
+
+function count(text: string, char: string): number {
+  return text.split(char).length - 1;
 }
 
 function unescapeJsonSlashes(text: string): string {

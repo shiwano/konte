@@ -11,6 +11,7 @@ import {
 import type { WaitOptions } from "../core/backend.js";
 import { hashFile } from "../core/content-hash.js";
 import { KonteError, errorMessage } from "../core/errors.js";
+import { redactPersisted } from "../core/redact.js";
 import { formatSeconds, formatDuration } from "../core/format-duration.js";
 import { isJobTerminal, type JobManager, RUN_LEASE_TTL_MS } from "../core/job-manager.js";
 import { startProgressWriter } from "./progress-writer.js";
@@ -561,7 +562,7 @@ async function runAsOwner(
     // A waiter timeout never reaches here — it is a returned value handled above, not a throw.
     // Only a genuine backend failure (or an externally cancelled/orphaned prompt) lands here.
     await Promise.all([progressWriter.settle(), stampWrite]);
-    const errorMsg = errorMessage(err);
+    const errorMsg = redactPersisted(errorMessage(err));
     // A prompt that vanished after we saw it alive was cancelled/removed externally — not a
     // failure (cancelled). One lost to a ComfyUI crash/restart (COMFYUI_JOB_ORPHANED) never
     // resumes and IS a failure — it falls through to the "failed" default below.

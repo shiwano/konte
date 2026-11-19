@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { redactExternalBody, redactUrlSecret } from "../redact.js";
+import { redactExternalBody, redactPersisted, redactUrlSecret } from "../redact.js";
 
 describe("redactUrlSecret", () => {
   it("drops the query where a signed token lives", () => {
@@ -97,5 +97,41 @@ describe("redactExternalBody", () => {
     expect(redactExternalBody('{"key":"a\\/b"}', ["${K}"], { env: { K: "a/b" } })).toBe(
       '{"key":"${K}"}',
     );
+  });
+});
+
+describe("redactPersisted", () => {
+  it("strips the query from every URL", () => {
+    expect(redactPersisted("node 3: GET https://h.example/m.bin?token=hunter2 (403)")).toBe(
+      "node 3: GET https://h.example/m.bin (403)",
+    );
+  });
+
+  it("strips the query past a `)` in the path and of an upper-case scheme", () => {
+    expect(redactPersisted("GET https://h.example/a(1).png?token=hunter2 failed")).toBe(
+      "GET https://h.example/a(1).png failed",
+    );
+    expect(redactPersisted("GET HTTPS://H.example/a.png?token=hunter2")).toBe(
+      "GET https://h.example/a.png",
+    );
+  });
+
+  it("keeps the parenthesis a URL is written in", () => {
+    expect(redactPersisted("failed (https://h.example/a.png?token=hunter2)")).toBe(
+      "failed (https://h.example/a.png)",
+    );
+  });
+
+  it("drops a URL's user info", () => {
+    expect(redactPersisted("ComfyUI at https://u:pw@h.example:8188 refused")).toBe(
+      "ComfyUI at https://h.example:8188/ refused",
+    );
+  });
+
+  it("bounds the length, and a bounded text passes through unchanged", () => {
+    const once = redactPersisted("x".repeat(10_000));
+    expect(once.length).toBe(2000);
+    expect(once.endsWith("… (truncated)")).toBe(true);
+    expect(redactPersisted(once)).toBe(once);
   });
 });

@@ -5,6 +5,7 @@ import * as path from "node:path";
 import { BACKEND_CAPS } from "./backend.js";
 import { computeDefinitionSourceFingerprint } from "./definition-source.js";
 import { KonteError, errorMessage } from "./errors.js";
+import { redactPersisted } from "./redact.js";
 import { hashToShortId, shortId } from "./short-id.js";
 import { stableStringify } from "./stable-stringify.js";
 import {
@@ -945,7 +946,7 @@ export class JobManager {
 
   appendLog(jobId: string, line: string): void {
     const timestamp = new Date().toISOString();
-    const entry = `[${timestamp}] ${line}\n`;
+    const entry = `[${timestamp}] ${redactPersisted(line)}\n`;
     this.logQueue = this.logQueue
       .then(() => fs.mkdir(this.logsDir, { recursive: true }))
       .then(() => {
@@ -1007,6 +1008,7 @@ export class JobManager {
     const updated = {
       ...job,
       ...update,
+      ...(typeof update.error === "string" ? { error: redactPersisted(update.error) } : {}),
       startedAt,
       processingStartedAt,
       reportedAt,

@@ -8,6 +8,7 @@ import { startLeaseHeartbeat } from "./lease-heartbeat.js";
 import { computeDefinitionHash } from "./definition-hash.js";
 import { computeDefinitionSourceFingerprint } from "./definition-source.js";
 import { KonteError, errorMessage } from "./errors.js";
+import { redactPersisted } from "./redact.js";
 import { JobIndex, prerequisiteVerdict } from "./job-index.js";
 import { isStrandedSubmit, type JobManager, RUN_LEASE_TTL_MS } from "./job-manager.js";
 import { loadPatchStepDefinition } from "./patch.js";
@@ -512,7 +513,7 @@ async function trySubmitJob(
 
     return "submitted";
   } catch (err) {
-    const errorMsg = errorMessage(err);
+    const errorMsg = redactPersisted(errorMessage(err));
     // Only record the failure if we still own the lease, so a reclaimer's in-flight
     // submit isn't overwritten with our error.
     const committed = await jobManager.finishIfOwner(job.variantId, workerId, {
