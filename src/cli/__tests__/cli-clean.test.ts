@@ -630,3 +630,33 @@ describe("clean command (the board's stem)", () => {
     await expect(fs.access(path.join(board, `${rel}/${ghost}`))).rejects.toThrow();
   });
 });
+
+describe("clean command (--all-videos)", () => {
+  it("cleans every video under its own heading", async () => {
+    const projectDir = await initWithTestVideo();
+    const workspace = path.dirname(path.dirname(projectDir));
+    await run(
+      ["video", "copy", path.basename(projectDir), "second", "--through", "video"],
+      workspace,
+    );
+    const second = path.join(workspace, "videos", "second");
+    const address = "video:shot.01.motion";
+    const seeded: string[] = [];
+    for (const root of [projectDir, second]) {
+      const sm = await StateManager.load(root);
+      seeded.push(sm.reserveVariantId(address));
+      await sm.save();
+    }
+
+    const { stdout } = await run(["clean", "--all-videos", "--yes"], workspace);
+
+    const [, rest] = stdout.split(`Video: ${path.basename(projectDir)}\n`);
+    const [first, last] = rest!.split("Video: second\n");
+    expect(first).toContain("Removed 1 variant(s).");
+    expect(last).toContain("Removed 1 variant(s).");
+    for (const [i, root] of [projectDir, second].entries()) {
+      const after = await StateManager.load(root);
+      expect(after.tryGetAssetState(address)?.variants?.[seeded[i]!]).toBeUndefined();
+    }
+  });
+});

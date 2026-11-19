@@ -55,7 +55,9 @@ import {
 } from "./clean-orphans.js";
 import { type CascadeFailedJob, cascadeFailPendingJobs } from "../../core/job-cascade.js";
 import { contactSheetDir } from "../../core/contact-sheet.js";
-import { requireVideoRoot } from "../context.js";
+import { requireVideoRoot, requireWorkspaceRoot } from "../context.js";
+import { listVideos, VIDEOS_DIR } from "../../core/roots.js";
+import { declareScope } from "../scope.js";
 import { currentPoolVariant } from "../patch-orchestrator.js";
 
 const KONTE_DIR = ".konte";
@@ -282,8 +284,7 @@ function countByCategory(entries: { category: CleanCategory }[]): Record<CleanCa
   return counts;
 }
 
-async function executeClean(opts: CleanOptions): Promise<void> {
-  const videoRoot = requireVideoRoot();
+async function executeClean(videoRoot: string, opts: CleanOptions): Promise<void> {
   const manager = await StateManager.load(videoRoot);
   // Lineage is judged on the recorded state: an absent child still holds its parent. Only
   // --delete-undecided makes an absent variant a candidate — left out, it would be a state row
@@ -840,11 +841,12 @@ function breakdownRows(
 }
 
 export function registerCleanCommand(program: Command): void {
-  program
+  const clean = program
     .command("clean [address-scope]")
     .description("Remove failed, dismissed and orphaned takes, and what they leave behind")
     .option("--delete-undecided", "Also delete undecided variants that hold generated media")
     .option("--dry-run", "Preview what would be deleted without actually deleting")
+    .option("--all-videos", "Clean every video in the workspace")
     .option("--no", NO_FLAG_DESCRIPTION)
     .addHelpText(
       "after",
@@ -871,7 +873,7 @@ Removes, freeing their generated files, jobs, logs and caches:
     runs only.
 
 What will be deleted is itemized by class, printed under -y too. Deletion is confirmed
-first (-y to proceed, --no to abort).
+first (-y to proceed, --no to abort). --all-videos confirms each video.
 
 The optional address-scope argument narrows what is cleaned:
   omitted                  Clean across every stage
@@ -881,9 +883,30 @@ Examples:
   konte clean                            Clean everywhere
   konte clean video:shot.01              Clean only under shot 01
   konte clean --dry-run                  Preview what would be deleted
-  konte clean --delete-undecided         Also discard undecided takes that hold media`,
+  konte clean --delete-undecided         Also discard undecided takes that hold media
+  konte clean --all-videos -y            Clean every video in the workspace`,
     )
-    .action(async (addressScope: string | undefined, opts) => {
-      await executeClean({ addressScope, ...opts });
-    });
+    .action(
+      async (
+        addressScope: string | undefined,
+        { allVideos, ...opts }: Omit<CleanOptions, "addressScope"> & { allVideos?: boolean },
+      ) => {
+        if (!allVideos) {
+          await executeClean(requireVideoRoot(), { addressScope, ...opts });
+          return;
+        }
+        if (addressScope) assertValidAddressScope(addressScope);
+        const workspaceRoot = requireWorkspaceRoot();
+        const names = await listVideos(workspaceRoot);
+        if (names.length === 0) {
+          console.log(`This workspace has no videos.`);
+          return;
+        }
+        for (const [i, name] of names.entries()) {
+          console.log(`${i > 0 ? "\n" : ""}Video: ${name}`);
+          await executeClean(path.join(workspaceRoot, VIDEOS_DIR, name), { addressScope, ...opts });
+        }
+      },
+    );
+  declareScope(clean, { scope: "workspace" });
 }
