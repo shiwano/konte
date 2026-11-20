@@ -1,6 +1,7 @@
 import { constants } from "node:os";
 import { resolveBackend } from "../backends/resolve-backend.js";
 import { errorMessage } from "../core/errors.js";
+import { printCapped } from "./format-list.js";
 import type { JobManager } from "../core/job-manager.js";
 import { submitReadyPendingJobs } from "../core/pending-jobs.js";
 import type { VideoRoots } from "../core/roots.js";
@@ -25,6 +26,57 @@ export function nextAfterSpend(rows: readonly { status: string }[]): string {
   return rows.some((row) => !SETTLED.has(row.status))
     ? "run `konte job run`"
     : "run `konte status`";
+}
+
+/**
+ * A spend command's report, the outcome and its step on the last line. The takes, the failures
+ * and a list marked `full` print in full; `verbose` is set by a command that takes `-v`, and folds
+ * every other list past the cap. A failure exits 1.
+ */
+export function printSpendReport(report: {
+  rows?: readonly string[];
+  failures: readonly string[];
+  lists?: ReadonlyArray<{ heading: string; lines: readonly string[]; full?: boolean }>;
+  parts: readonly (string | null)[];
+  next: string;
+  verbose?: boolean;
+}): void {
+  const { rows = [], failures, lists = [], parts, next, verbose } = report;
+  const print = (lines: readonly string[], full = false) => {
+    if (verbose === undefined || full) for (const line of lines) console.log(`  ${line}`);
+    else printCapped(lines, (line) => line, { verbose });
+  };
+  if (rows.length > 0) console.log("");
+  for (const row of rows) console.log(`  ${row}`);
+  for (const { heading, lines, full } of [
+    { heading: "Failed:", lines: failures, full: true },
+    ...lists,
+  ]) {
+    if (lines.length === 0) continue;
+    console.log(`\n${heading}`);
+    print(lines, full);
+  }
+  console.log(`\n${parts.filter((part) => part !== null).join(", ")} — ${next}`);
+  if (failures.length > 0) process.exitCode = 1;
+}
+
+/** What a spend prints for the board stems it re-mixed before its gate, and the ones it could not. */
+export function printRemixedBoardStems(
+  result: {
+    accepted: ReadonlyArray<{ address: string }>;
+    failed?: ReadonlyArray<{ address: string; reason: string }>;
+  },
+  opts: { plan?: boolean } = {},
+): void {
+  if (result.accepted.length > 0) {
+    console.log(
+      `${opts.plan ? "Would re-mix" : "Re-mixed"} ${result.accepted.length} board stem(s) the ` +
+        `video develops past their review: ${result.accepted.map((s) => s.address).join(", ")}`,
+    );
+  }
+  for (const { address, reason } of result.failed ?? []) {
+    console.log(`Could not re-mix ${address}: ${reason}`);
+  }
 }
 
 /**

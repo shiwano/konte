@@ -35,19 +35,29 @@ import { findingFixInstruction, patchSpendRequest } from "../../core/spend-gate.
 import { errorMessage } from "../../core/errors.js";
 import {
   type AcceptedStaleAsset,
-  type AssetResult,
   buildGeneratePlan,
+  classifyGenerateAsset,
   formatAcceptedStaleNotice,
   formatGeneratePlan,
-  formatUndecidedUpstreamVariantsNotice,
+  stageLevels,
+} from "../generate-plan.js";
+import {
+  type AssetResult,
   type LevelResult,
-  prepareSpend,
-  printSpendNotices,
   registerJobsBatch,
   type SkipJudge,
-} from "../generate-orchestrator.js";
-import { formatSubmitFailure, submitRegisteredJobs } from "../spend-submit.js";
-import { printRemixedBoardStems } from "../generation-selection.js";
+} from "../job-registration.js";
+import {
+  formatUndecidedUpstreamVariantsNotice,
+  prepareSpend,
+  printSpendNotices,
+} from "../spend-plan.js";
+import {
+  formatSubmitFailure,
+  printRemixedBoardStems,
+  printSpendReport,
+  submitRegisteredJobs,
+} from "../spend-submit.js";
 import {
   type SkipReason,
   assetSkipReason,
@@ -62,7 +72,7 @@ export function registerGenerateCommand(program: Command): void {
     .command("generate <stage>")
     .description("Generate all assets in dependency order for a stage (e.g. animatic, video)")
     .option("--plan", "Dry-run: show what would be generated without creating jobs")
-    .option("-v, --verbose", "List every failed asset instead of capping")
+    .option("-v, --verbose", "List every waiting take and held upstream instead of capping")
     .action(async (scope: string, opts: { plan?: boolean; verbose?: boolean }) => {
       const { stage } = parseStageScope(scope);
       const roots = requireVideoRoots();
@@ -299,12 +309,7 @@ export function registerGenerateCommand(program: Command): void {
 
       printSpendNotices(spend);
 
-      // Number the levels shown to the user sequentially. The graph spans both
-      // stages, so the global level index is sparse per stage (an animatic-only
-      // level is empty for video and vice versa) — displaying it would skip numbers.
-      const stageLevels = levels
-        .map((allAddresses) => allAddresses.filter((a) => stageAddresses.has(a)))
-        .filter((addresses) => addresses.length > 0);
+      const levelsOfStage = stageLevels(levels, stageAddresses);
 
       // One job-directory scan for the whole run; every job this run creates is added as it
       // is created, so pending-reason descriptions and later levels never re-read the directory
@@ -331,11 +336,11 @@ export function registerGenerateCommand(program: Command): void {
         }
       };
 
-      for (let levelIdx = 0; levelIdx < stageLevels.length; levelIdx++) {
-        const addresses = stageLevels[levelIdx]!;
+      for (let levelIdx = 0; levelIdx < levelsOfStage.length; levelIdx++) {
+        const addresses = levelsOfStage[levelIdx]!;
 
         console.log(
-          `${levelIdx === 0 ? "\n" : ""}Level ${levelIdx + 1}/${stageLevels.length}: ${addresses.length} asset(s)`,
+          `${levelIdx === 0 ? "\n" : ""}Level ${levelIdx + 1}/${levelsOfStage.length}: ${addresses.length} asset(s)`,
         );
 
         const assetResults: (AssetResult | null)[] = [];
@@ -354,17 +359,9 @@ export function registerGenerateCommand(program: Command): void {
 
         for (const address of addresses) {
           const assetDef = assetEntryOf(address);
+          const deps = graph.dependencies.get(address) ?? [];
 
-          if (assetDef.kind === "file") {
-            // file assets need no generation; both stages report them as synced.
-            assetResults.push({ address, status: "synced", jobs: [] });
-            continue;
-          }
-
-          const hasDependencyFailure = (graph.dependencies.get(address) ?? []).some((dep) =>
-            failedAddresses.has(dep),
-          );
-          if (hasDependencyFailure) {
+          if (deps.some((dep) => failedAddresses.has(dep))) {
             failedAddresses.add(address);
             assetResults.push({
               address,
@@ -375,17 +372,30 @@ export function registerGenerateCommand(program: Command): void {
             continue;
           }
 
-          const deps = graph.dependencies.get(address) ?? [];
-          const definitionHash = computeDefinitionHash(assetDef);
           const inputRebuilt = deps.some((d) => rebuiltAddresses.has(d));
-          // Readiness first, then the gate — see buildGeneratePlan for why that order.
-          const skip: SkipJudge = (m, live, a) =>
-            assetSkipReason(m, live, a, definitionHash, inputRebuilt);
-          const skipReason = skip(manager, liveJobs, address);
-          if (skipReason) {
-            assetResults.push({ address, status: "skipped", skipReason, jobs: [] });
+          const verdict = classifyGenerateAsset({
+            manager,
+            liveJobs,
+            address,
+            assetDef,
+            inputRebuilt,
+          });
+          if (verdict.action === "synced") {
+            assetResults.push({ address, status: "synced", jobs: [] });
             continue;
           }
+          if (verdict.action === "skip") {
+            assetResults.push({
+              address,
+              status: "skipped",
+              skipReason: verdict.skipReason,
+              jobs: [],
+            });
+            continue;
+          }
+          const { definitionHash } = verdict;
+          const skip: SkipJudge = (m, live, a) =>
+            assetSkipReason(m, live, a, definitionHash, inputRebuilt);
           const slot = assetResults.push(null) - 1;
           // Rebuilt by this run or, when the lock skips it, by the concurrent one that made it skip.
           rebuiltAddresses.add(address);
@@ -573,29 +583,7 @@ export function registerGenerateCommand(program: Command): void {
       if (variantsNotice) console.warn(`\n${variantsNotice}`);
       const staleNotice = formatAcceptedStaleNotice(acceptedStale);
       if (staleNotice) console.warn(`\n${staleNotice}`);
-      // Started and skipped work folds into the Summary counts below; only what the caller
-      // may have to act on needs naming, so surface those (capped).
-      const failed = [
-        ...levelResults.flatMap((lr) =>
-          lr.assets
-            .filter((a) => a.status === "failed")
-            .map((a) => `${a.address}  ${a.error ?? "failed"}`),
-        ),
-        ...submitFailures.map(formatSubmitFailure),
-      ];
-      if (failed.length > 0) {
-        console.log("\nFailed:");
-        printCapped(failed, (line) => line, { verbose: opts.verbose });
-      }
-      // "waiting" is the only count that can hide a genuinely stuck run, so name what each
-      // blocked take is waiting on.
-      if (waitingCount > 0) {
-        console.log("\nWaiting on:");
-        const blocked = pendingDetails
-          .filter((p) => !p.submittable)
-          .map((p) => `${p.address}  ${p.waitingOn.join(", ")}`);
-        printCapped(blocked, (line) => line, { verbose: opts.verbose });
-      }
+      printHeld();
       // A bare "N skipped" reads as a silent no-op, so say what each skip was: nothing to do
       // (accepted / already ready / in flight) vs. a take only `reroll` can replace.
       const skipParts = [
@@ -607,33 +595,53 @@ export function registerGenerateCommand(program: Command): void {
         skipCounts.active > 0 ? `${skipCounts.active} in flight` : null,
       ].filter((p) => p !== null);
       const skipBreakdown = skipParts.length > 0 ? ` (${skipParts.join(", ")})` : "";
-      printHeld();
-      if (patchApplications.length > 0) {
-        console.log("\nPatches applied:");
-        for (const p of patchApplications) {
-          console.log(`  ${p.address}: ${p.status} → ${p.variantId} (patch of ${p.source})`);
-        }
-      }
-      if (patchFailures.length > 0) {
-        console.log("\nPatches failed:");
-        for (const f of patchFailures) console.log(`  ${f.source}  ${f.error}`);
-      }
-      // The outcome and the one command that answers it share the last line, so a caller piping
-      // through `tail -1` keeps both.
       // A run that only held work is a refusal.
       const heldOnly = !hasWork && heldCount > 0;
-      const next = hasWork
-        ? "run `konte job run`"
-        : heldOnly
-          ? `clear what holds each above, then run \`konte generate ${stage}\` again`
-          : "nothing to wait on; run `konte status`";
-      console.log(
-        `\n${summary.started} started, ${summary.waiting} waiting, ${summary.synced} synced, ${summary.failed} failed, ${summary.skipped} skipped${skipBreakdown}${heldCount > 0 ? `, ${heldCount} held` : ""} — ${next}`,
-      );
-
-      if (summary.failed > 0 || patchFailures.length > 0 || heldOnly) {
-        process.exitCode = 1;
-      }
+      printSpendReport({
+        failures: [
+          ...levelResults.flatMap((lr) =>
+            lr.assets
+              .filter((a) => a.status === "failed")
+              .map((a) => `${a.address}  ${a.error ?? "failed"}`),
+          ),
+          ...submitFailures.map(formatSubmitFailure),
+        ],
+        lists: [
+          {
+            heading: "Waiting on:",
+            lines: pendingDetails
+              .filter((p) => !p.submittable)
+              .map((p) => `${p.address}  ${p.waitingOn.join(", ")}`),
+          },
+          {
+            heading: "Patches applied:",
+            full: true,
+            lines: patchApplications.map(
+              (p) => `${p.address}: ${p.status} → ${p.variantId} (patch of ${p.source})`,
+            ),
+          },
+          {
+            heading: "Patches failed:",
+            full: true,
+            lines: patchFailures.map((f) => `${f.source}  ${f.error}`),
+          },
+        ],
+        parts: [
+          `${summary.started} started`,
+          `${summary.waiting} waiting`,
+          `${summary.synced} synced`,
+          `${summary.failed} failed`,
+          `${summary.skipped} skipped${skipBreakdown}`,
+          heldCount > 0 ? `${heldCount} held` : null,
+        ],
+        next: hasWork
+          ? "run `konte job run`"
+          : heldOnly
+            ? `clear what holds each above, then run \`konte generate ${stage}\` again`
+            : "nothing to wait on; run `konte status`",
+        verbose: opts.verbose ?? false,
+      });
+      if (patchFailures.length > 0 || heldOnly) process.exitCode = 1;
     });
 }
 

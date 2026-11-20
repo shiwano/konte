@@ -24,12 +24,8 @@ import type { ShotRenderPlan } from "../../core/render-plan.js";
 import type { StateManager } from "../../core/state/index.js";
 import { variantDir } from "../../core/variant-dir.js";
 import type { AssetDefinition, VideoDefinition } from "../../core/types/index.js";
-import {
-  prepareSpend,
-  printSpendNotices,
-  registerJobsBatch,
-  skipWhileActive,
-} from "../generate-orchestrator.js";
+import { prepareSpend, printSpendNotices } from "../spend-plan.js";
+import { registerJobsBatch, skipWhileActive } from "../job-registration.js";
 import type { VideoRoots } from "../../core/roots.js";
 
 // Result of planning the video's delivery upscales (export command side).

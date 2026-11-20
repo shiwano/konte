@@ -22,12 +22,8 @@ import type {
   KonteConfig,
   VariantState,
 } from "../core/types/index.js";
-import {
-  type AssetResult,
-  prepareSpend,
-  registerJobs,
-  type SpendPlan,
-} from "./generate-orchestrator.js";
+import { type AssetResult, registerJobs } from "./job-registration.js";
+import { prepareSpend, type SpendPlan } from "./spend-plan.js";
 
 // A patch's steps exist outside any stage, so its spend items are built from the chain itself.
 export function preparePatchSpend(

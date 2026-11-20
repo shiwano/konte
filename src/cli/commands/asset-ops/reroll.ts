@@ -1,5 +1,4 @@
 import { consumedBoardStems, remakeSettledLeaves } from "../../../core/board-leaves.js";
-import { printRemixedBoardStems } from "../../generation-selection.js";
 import type { Command } from "commander";
 import {
   type AssetStage,
@@ -38,18 +37,23 @@ import { selectDefinition } from "../../../core/select-definition.js";
 import { openVideoSession } from "../../../core/video-session.js";
 import { spendGate } from "../../finding-gates.js";
 import { loadCheckContext } from "../../../core/check-context.js";
-import { capList, printCapped } from "../../format-list.js";
+import { capList } from "../../format-list.js";
 import { confirmAction, printAborted, NO_FLAG_DESCRIPTION } from "../../confirm.js";
 import { parsePositiveInt } from "../../parse-option.js";
 import {
   formatUndecidedUpstreamVariantsNotice,
   prepareSpend,
   printSpendNotices,
-  registerJobs,
-} from "../../generate-orchestrator.js";
+} from "../../spend-plan.js";
+import { registerJobs } from "../../job-registration.js";
 import { requireVideoRoots } from "../../context.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
-import { nextAfterSpend, submitRegisteredJobs } from "../../spend-submit.js";
+import {
+  nextAfterSpend,
+  printRemixedBoardStems,
+  printSpendReport,
+  submitRegisteredJobs,
+} from "../../spend-submit.js";
 import { computeDefinitionHash } from "../../../core/definition-hash.js";
 import { applyPatches } from "../../patch-orchestrator.js";
 import { gatePatchApply } from "../patch/apply.js";
@@ -592,27 +596,19 @@ Examples:
 
         const variantsNotice = formatUndecidedUpstreamVariantsNotice(undecidedUpstreamVariants);
         if (variantsNotice) console.warn(`\n${variantsNotice}`);
-        if (jobRows.length > 0) console.log("");
-        for (const row of jobRows) {
-          console.log(`  ${row.address}: ${row.status} → ${row.variantId}`);
-        }
-        if (failures.length > 0) {
-          console.log("\nFailed:");
-          printCapped(failures, (f) => `${f.address}  ${f.error}`, { verbose: opts.verbose });
-        }
-        // The outcome and the one command that answers it share the last line, so a caller
-        // piping through `tail -1` keeps both.
         const assetCount = new Set(jobRows.map((r) => r.address)).size;
-        const parts = [
-          `${jobRows.length} take(s) across ${assetCount} asset(s)`,
-          spend.downloads.models.length > 0 || spend.downloads.nodes.length > 0
-            ? `${spend.downloads.models.length} model(s), ${spend.downloads.nodes.length} custom node(s) to install first`
-            : null,
-          failures.length > 0 ? `${failures.length} failed` : null,
-        ].filter((part) => part !== null);
-        console.log(`\n${parts.join(", ")} — ${nextAfterSpend(jobRows)}`);
-
-        if (failures.length > 0) process.exitCode = 1;
+        printSpendReport({
+          rows: jobRows.map((row) => `${row.address}: ${row.status} → ${row.variantId}`),
+          failures: failures.map((f) => `${f.address}  ${f.error}`),
+          parts: [
+            `${jobRows.length} take(s) across ${assetCount} asset(s)`,
+            spend.downloads.models.length > 0 || spend.downloads.nodes.length > 0
+              ? `${spend.downloads.models.length} model(s), ${spend.downloads.nodes.length} custom node(s) to install first`
+              : null,
+            failures.length > 0 ? `${failures.length} failed` : null,
+          ],
+          next: nextAfterSpend(jobRows),
+        });
       },
     );
 }
@@ -710,16 +706,13 @@ async function rerollPatchSteps(
     failures.push({ address: `${f.address} (${f.variantId})`, error: f.error });
   }
 
-  if (rows.length > 0) console.log("");
-  for (const row of rows) console.log(`  ${row.address}: ${row.status} → ${row.variantId}`);
-  if (failures.length > 0) {
-    console.log("\nFailed:");
-    for (const f of failures) console.log(`  ${f.address}  ${f.error}`);
-  }
-  const parts = [
-    `${rows.length} correction(s) from ${steps.length} patch step(s)`,
-    failures.length > 0 ? `${failures.length} failed` : null,
-  ].filter((part) => part !== null);
-  console.log(`\n${parts.join(", ")} — ${nextAfterSpend(rows)}`);
-  if (failures.length > 0) process.exitCode = 1;
+  printSpendReport({
+    rows: rows.map((row) => `${row.address}: ${row.status} → ${row.variantId}`),
+    failures: failures.map((f) => `${f.address}  ${f.error}`),
+    parts: [
+      `${rows.length} correction(s) from ${steps.length} patch step(s)`,
+      failures.length > 0 ? `${failures.length} failed` : null,
+    ],
+    next: nextAfterSpend(rows),
+  });
 }

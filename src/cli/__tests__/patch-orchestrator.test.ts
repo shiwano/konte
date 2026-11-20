@@ -8,7 +8,7 @@ import type { PatchOutputOrigin } from "../../core/patch-output.js";
 import type { VideoRoots } from "../../core/roots.js";
 import { StateManager } from "../../core/state/index.js";
 import type { AssetDefinition } from "../../core/types/index.js";
-import { prepareSpend, type SpendPlan } from "../generate-orchestrator.js";
+import { prepareSpend, type SpendPlan } from "../spend-plan.js";
 import { applyPatch } from "../patch-orchestrator.js";
 
 const SOURCE_ADDRESS = "animatic:shot.01.first";

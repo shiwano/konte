@@ -6,20 +6,29 @@ import type {
   GenerationRequest,
   SubmitResult,
   WaitForCompletionResult,
-} from "../backend.js";
-import { defineComfyAsset } from "../dsl/comfy-asset.js";
-import { asset, defineVideo } from "../dsl/index.js";
-import { Composition } from "../dsl/composition/composition.js";
-import { emptyAnimatic, emptyReference, shot, videoTimeline } from "./helpers/shot.js";
-import { testDirection } from "./helpers/direction.js";
-import { ensureComfyModelJobs } from "../../cli/generate-orchestrator.js";
-import { comfyModelJobId, JobManager } from "../job-manager.js";
-import { submitReadyPendingJobs } from "../pending-jobs.js";
-import { StateManager } from "../state/index.js";
-import { makeWorkspace, type Workspace } from "./helpers/workspace.js";
-import type { VideoRoots } from "../roots.js";
-import type { AssetDefinition, ComfyModelDeclaration, VideoDefinition } from "../types/index.js";
-import { ASSET_SITES } from "../dsl/adapter.js";
+} from "../../core/backend.js";
+import { defineComfyAsset } from "../../core/dsl/comfy-asset.js";
+import { asset, defineVideo } from "../../core/dsl/index.js";
+import { Composition } from "../../core/dsl/composition/composition.js";
+import {
+  emptyAnimatic,
+  emptyReference,
+  shot,
+  videoTimeline,
+} from "../../core/__tests__/helpers/shot.js";
+import { testDirection } from "../../core/__tests__/helpers/direction.js";
+import { ensureComfyModelJobs } from "../spend-plan.js";
+import { comfyModelJobId, JobManager } from "../../core/job-manager.js";
+import { submitReadyPendingJobs } from "../../core/pending-jobs.js";
+import { StateManager } from "../../core/state/index.js";
+import { makeWorkspace, type Workspace } from "../../core/__tests__/helpers/workspace.js";
+import type { VideoRoots } from "../../core/roots.js";
+import type {
+  AssetDefinition,
+  ComfyModelDeclaration,
+  VideoDefinition,
+} from "../../core/types/index.js";
+import { ASSET_SITES } from "../../core/dsl/adapter.js";
 
 function el(): React.ReactElement {
   return { type: Composition, props: { children: [] } } as unknown as React.ReactElement;

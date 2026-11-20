@@ -1,6 +1,5 @@
 import { consumedBoardStems, remakeSettledLeaves } from "../../../core/board-leaves.js";
 import { liveGenerationVariantIds } from "../../../core/generation-selection.js";
-import { printRemixedBoardStems } from "../../generation-selection.js";
 import type { Command } from "commander";
 import { loadKonteConfig } from "../../../core/config.js";
 import { JobManager } from "../../../core/job-manager.js";
@@ -25,9 +24,14 @@ import type { VideoRoots } from "../../../core/roots.js";
 import type { KonteConfig } from "../../../core/types/index.js";
 import { applyPatches, preparePatchSpend } from "../../patch-orchestrator.js";
 import { patchSpendRequest } from "../../../core/spend-gate.js";
-import { printSpendNotices, type SpendPlan } from "../../generate-orchestrator.js";
+import { printSpendNotices, type SpendPlan } from "../../spend-plan.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
-import { nextAfterSpend, submitRegisteredJobs } from "../../spend-submit.js";
+import {
+  nextAfterSpend,
+  printRemixedBoardStems,
+  printSpendReport,
+  submitRegisteredJobs,
+} from "../../spend-submit.js";
 
 export function registerPatchApplyCommand(parent: Command): void {
   parent
@@ -108,21 +112,17 @@ Examples:
         failures.push({ source: `${f.address} (${f.variantId})`, error: f.error });
       }
 
-      if (applied.length > 0) console.log("");
-      for (const row of applied) {
-        console.log(`  ${row.address}: ${row.status} → ${row.variantId} (patch of ${row.source})`);
-      }
-      if (failures.length > 0) {
-        console.log("\nFailed:");
-        for (const f of failures) console.log(`  ${f.source}  ${f.error}`);
-      }
-      const parts = [
-        `${applied.length} correction(s) from ${targets.length} patch(es)`,
-        failures.length > 0 ? `${failures.length} failed` : null,
-      ].filter((part) => part !== null);
-      console.log(`\n${parts.join(", ")} — ${nextAfterSpend(applied)}`);
-
-      if (failures.length > 0) process.exitCode = 1;
+      printSpendReport({
+        rows: applied.map(
+          (row) => `${row.address}: ${row.status} → ${row.variantId} (patch of ${row.source})`,
+        ),
+        failures: failures.map((f) => `${f.source}  ${f.error}`),
+        parts: [
+          `${applied.length} correction(s) from ${targets.length} patch(es)`,
+          failures.length > 0 ? `${failures.length} failed` : null,
+        ],
+        next: nextAfterSpend(applied),
+      });
     });
 }
 
