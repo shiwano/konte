@@ -351,9 +351,7 @@ function clipDuckUnder(
       volume,
       loudness: loudnessBySrc?.[src],
     });
-    return duck
-      ? bedVolumeLane({ span: end - start, volume, steps: duck.steps, depth: duck.depth })
-      : null;
+    return duck ? bedVolumeLane({ span: end - start, steps: duck.steps, depth: duck.depth }) : null;
   };
 }
 
@@ -1447,7 +1445,6 @@ function soundtrackAudioTags(
       // The lane carries the duck and the declared fades (see bedVolumeLane).
       const automation = bedVolumeLane({
         span,
-        volume,
         steps,
         depth: settings?.depth ?? 1,
         fadeIn: st.options.fadeIn,

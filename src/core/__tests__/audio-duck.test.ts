@@ -303,22 +303,22 @@ describe("bedVolumeLane", () => {
     triggers: [{ start: 5, end: 7 }],
     settings,
   });
-  const lane = bedVolumeLane({ span: 20, volume: 0.4, steps, depth: settings.depth })!;
+  const lane = bedVolumeLane({ span: 20, steps, depth: settings.depth })!;
   const points = lane.lanes[0].points;
 
   it("draws the dip as its corners and samples along each ramp, in the bed's own time", () => {
     expect(lane.version).toBe(1);
     expect(lane.lanes[0].target).toBe("volume");
     const at = (t: number) => points.find((p) => p.t === t)?.v;
-    expect(at(0)).toBe(0.4);
-    expect(at(4.9)).toBe(0.4);
-    expect(at(5)).toBe(0.12);
-    expect(at(7.2)).toBe(0.12);
-    expect(at(7.7)).toBe(0.4);
-    expect(at(20)).toBe(0.4);
+    expect(at(0)).toBe(1);
+    expect(at(4.9)).toBe(1);
+    expect(at(5)).toBe(0.3);
+    expect(at(7.2)).toBe(0.3);
+    expect(at(7.7)).toBe(1);
+    expect(at(20)).toBe(1);
     expect(points.filter((p) => p.t > 7.2 && p.t < 7.7)).toHaveLength(8);
     for (const p of points) {
-      expect(p.v).toBeCloseTo(duckGainAt(p.t, steps, 0.4, settings.depth), 5);
+      expect(p.v).toBeCloseTo(duckGainAt(p.t, steps, 1, settings.depth), 5);
     }
   });
 
@@ -336,7 +336,7 @@ describe("bedVolumeLane", () => {
       triggers: [{ start: 0.05, end: 2 }],
       settings,
     });
-    const edge = bedVolumeLane({ span: 20, volume: 1, steps: clipped, depth: 0.3 })!;
+    const edge = bedVolumeLane({ span: 20, steps: clipped, depth: 0.3 })!;
     const first = edge.lanes[0].points[0]!;
     expect(first.t).toBe(0);
     expect(first.v).toBeLessThan(1);
@@ -346,7 +346,6 @@ describe("bedVolumeLane", () => {
   it("carries the declared fades, which the preview has no other reader for", () => {
     const faded = bedVolumeLane({
       span: 10,
-      volume: 1,
       steps: [],
       depth: 1,
       fadeIn: 2,
@@ -363,7 +362,6 @@ describe("bedVolumeLane", () => {
   it("cuts one lap's stretch out of the bed's lane, on that lap's own clock", () => {
     const lap = bedVolumeLane({
       span: 10,
-      volume: 1,
       steps: [],
       depth: 1,
       fadeIn: 2,
@@ -378,7 +376,7 @@ describe("bedVolumeLane", () => {
   });
 
   it("is nothing at all for a bed with neither a duck nor a fade", () => {
-    expect(bedVolumeLane({ span: 20, volume: 1, steps: [], depth: 1 })).toBeNull();
+    expect(bedVolumeLane({ span: 20, steps: [], depth: 1 })).toBeNull();
   });
 
   // A lane holds 512 points and a dip costs four, so a very talkative reel has to merge until it
@@ -390,7 +388,7 @@ describe("bedVolumeLane", () => {
     // Only as far as the ceiling asks: widening the gap by doubling used to collapse a talkative
     // reel to a single dip, ducking it end to end.
     expect(many.length).toBeGreaterThan(100);
-    const big = bedVolumeLane({ span: 1200, volume: 1, steps: many, depth: 0.3 })!;
+    const big = bedVolumeLane({ span: 1200, steps: many, depth: 0.3 })!;
     expect(big.lanes[0].points.length).toBeLessThanOrEqual(512);
   });
 });

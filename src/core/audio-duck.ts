@@ -237,7 +237,7 @@ function f(n: number): string {
   return String(Math.round(n * 1e6) / 1e6);
 }
 
-/** A `data-automation` volume lane: the bed's gain as breakpoints a player interpolates. */
+/** A `data-automation` volume lane: the bed's gain shape as breakpoints a player interpolates. */
 export interface BedAutomation {
   version: 1;
   lanes: [{ target: "volume"; points: Array<{ t: number; v: number }> }];
@@ -258,9 +258,10 @@ export function duckGainAt(
 
 /**
  * A bed's whole gain shape as HyperFrames' volume lane: the duck, and the declared fades, which the
- * preview has no other reader for. The lane owns the element's gain, its `t` is clip-local, and it
- * interpolates linearly, so the points are the envelope's own corners plus samples along each ramp's
- * curve — as many as the lane's ceiling leaves room for, none on a reel that spends it on corners.
+ * preview has no other reader for. HyperFrames scales the lane by the element's `data-volume`, so
+ * the lane is relative to unity; its `t` is clip-local, and it interpolates linearly, so the points
+ * are the envelope's own corners plus samples along each ramp's curve — as many as the lane's
+ * ceiling leaves room for, none on a reel that spends it on corners.
  *
  * A ramp running off either end of the bed is evaluated AT the end: ffmpeg starts the bed part-way
  * down when a line opens over its first moments.
@@ -271,14 +272,13 @@ export function duckGainAt(
  */
 export function bedVolumeLane(opts: {
   span: number;
-  volume: number;
   steps: readonly DuckStep[];
   depth: number;
   fadeIn?: number;
   fadeOut?: number;
   window?: { from: number; to: number };
 }): BedAutomation | null {
-  const { span, volume, steps, depth } = opts;
+  const { span, steps, depth } = opts;
   const fadeIn = opts.fadeIn && opts.fadeIn > 0 ? Math.min(opts.fadeIn, span) : 0;
   const fadeOut = opts.fadeOut && opts.fadeOut > 0 ? Math.min(opts.fadeOut, span) : 0;
   if (steps.length === 0 && !fadeIn && !fadeOut) return null;
@@ -322,7 +322,7 @@ export function bedVolumeLane(opts: {
     .sort((x, y) => x - y)
     .map((t) => ({
       t: round(t - from),
-      v: round(duckGainAt(t, steps, volume, depth) * fadeAt(t)),
+      v: round(duckGainAt(t, steps, 1, depth) * fadeAt(t)),
     }));
   return { version: 1, lanes: [{ target: "volume", points }] };
 }

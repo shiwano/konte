@@ -4,6 +4,13 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  gainedVolumePoints,
+  parseAutomation,
+  sampleAutomationLane,
+  VOLUME_TARGET,
+} from "@hyperframes/core/audio-automation";
+import { clampAudioGain } from "@hyperframes/core/audio-gain";
+import {
   buildFullCompositionHtml,
   buildShotClips,
   buildShotCompositionHtml,
@@ -320,6 +327,23 @@ const automationOf = (html: string): { t: number; v: number }[] | null => {
   return JSON.parse(json).lanes[0].points;
 };
 
+const audioTag = (html: string, track: "embedded" | "soundtrack"): string => {
+  const tag = html.match(new RegExp(`<audio[^>]*data-konte-track="${track}"[^>]*>`))?.[0];
+  if (!tag) throw new Error(`no ${track} <audio> in the reel`);
+  return tag;
+};
+
+// The gain HyperFrames' preview transport plays a konte `<audio>` at, clip-local `t` seconds in:
+// `data-volume` as clip gain over the volume lane, read through its own helpers.
+function playedGain(tag: string, t: number): number {
+  const volume = Number(tag.match(/data-volume="([^"]*)"/)?.[1] ?? 1);
+  const raw = tag.match(/data-automation="([^"]*)"/)?.[1];
+  if (!raw) return clampAudioGain(volume);
+  const automation = parseAutomation(raw.replace(/&quot;/g, '"').replace(/&amp;/g, "&"));
+  const lane = automation.lanes.find((l) => l.target === VOLUME_TARGET)!;
+  return sampleAutomationLane({ ...lane, points: gainedVolumePoints(lane, volume) }, t);
+}
+
 function setupAccepted(manager: StateManager, address: string, file: string): string {
   const variantId = manager.reserveVariantId(address);
   manager.getAssetState(address).variants![variantId]!.file = file;
@@ -460,16 +484,18 @@ describe("buildShotCompositionHtml", () => {
       assetBaseUrl: ASSET_BASE,
     });
 
-    // Down by 1s, held to 2.2s, back by 2.6s — at the default depth, 0.35 of the clip's 0.4. The
-    // points between trace each ramp's curve.
+    // Down by 1s, held to 2.2s, back by 2.6s — at the default depth, 0.35 of the clip's
+    // `data-volume`, which HyperFrames multiplies the lane by. The points between trace each ramp's
+    // curve.
+    expect(result.html).toMatch(/<audio[^>]*data-konte-track="embedded"[^>]*data-volume="0.4"/);
     const corners = [0, 0.85, 1, 2.2, 2.6, 3];
     expect(automationOf(result.html)?.filter((p) => corners.includes(p.t))).toEqual([
-      { t: 0, v: 0.4 },
-      { t: 0.85, v: 0.4 },
-      { t: 1, v: 0.14 },
-      { t: 2.2, v: 0.14 },
-      { t: 2.6, v: 0.4 },
-      { t: 3, v: 0.4 },
+      { t: 0, v: 1 },
+      { t: 0.85, v: 1 },
+      { t: 1, v: 0.35 },
+      { t: 2.2, v: 0.35 },
+      { t: 2.6, v: 1 },
+      { t: 3, v: 1 },
     ]);
   });
 
@@ -644,6 +670,70 @@ describe("buildFullCompositionHtml", () => {
     expect(times[0]).toBe(0);
     expect(times).toEqual(expect.arrayContaining([0.85, 1, 2.2, 2.6, 3]));
     expect(times.at(-1)).toBe(3);
+  });
+
+  // The mux plays the clip at its 0.4, ducked to 0.35 of that under the narration at 1→2.2s.
+  it("plays a ducked mirror at the gain the mux does, by HyperFrames' own reading", async () => {
+    setupAccepted(manager, "video:shot.01.motion", "assets/shot.01.motion/output.mp4");
+    setupAccepted(manager, "video:shot.02.motion", "assets/shot.02.motion/output.mp4");
+    setupAccepted(manager, "video:shot.02.narration", "assets/shot.02.narration/output.wav");
+
+    const result = await buildFullCompositionHtml({
+      timeLines: NO_LINES,
+      video: narratedVideo,
+      manager,
+      assetBaseUrl: ASSET_BASE,
+    });
+
+    const tag = audioTag(result.html, "embedded");
+    expect(playedGain(tag, 0.5)).toBeCloseTo(0.4, 6);
+    expect(playedGain(tag, 1.5)).toBeCloseTo(0.4 * 0.35, 6);
+    expect(playedGain(tag, 2.8)).toBeCloseTo(0.4, 6);
+  });
+
+  it("plays a faded bed at the gain the mux does, boost included", async () => {
+    const video = defineVideo(
+      testDirection({
+        fps: 30,
+        size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } },
+      }),
+      {
+        timeline: () => {
+          const bgm = asset("bgm", audioComfy, { prompt: "music" });
+          return videoTimeline(
+            [
+              shot("01", {
+                duration: 4,
+                build: () => {
+                  const motion = asset("motion", animateComfy, { prompt: "a" });
+                  return (
+                    <Composition>
+                      <Video src={motion} />
+                    </Composition>
+                  );
+                },
+              }),
+            ],
+            [soundtrack("bed", bgm, { duck: false, volume: 2, fadeIn: 1, fadeOut: 1 })],
+          );
+        },
+      },
+    );
+    setupAccepted(manager, "video:timeline.bgm", "assets/timeline.bgm/b.mp3");
+    setupAccepted(manager, "video:shot.01.motion", "assets/shot.01.motion/m.mp4");
+
+    const result = await buildFullCompositionHtml({
+      timeLines: NO_LINES,
+      video,
+      manager,
+      assetBaseUrl: ASSET_BASE,
+    });
+
+    const tag = audioTag(result.html, "soundtrack");
+    expect(playedGain(tag, 0)).toBeCloseTo(0, 6);
+    expect(playedGain(tag, 0.5)).toBeCloseTo(1, 6);
+    expect(playedGain(tag, 2)).toBeCloseTo(2, 6);
+    expect(playedGain(tag, 3.5)).toBeCloseTo(1, 6);
   });
 
   it("injects timeline soundtracks as a full-span audio group", async () => {
