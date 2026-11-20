@@ -170,8 +170,9 @@ export const DIRECTION_FINDING_REMEDY: Record<DirectionFindingCode, string> = {
   "panel-unlinked":
     "the shot cuts from the shot before (`<from>-<id>`) along one camera axis, so the frame " +
     "carries across. Pass the panel named to one of the opening keyframe's image inputs and name " +
-    "it `[Shot 1]` in the prompt, or waive the seam by its key where the cut is meant to re-open " +
-    "the frame",
+    "it `[Shot 1]` in the prompt. Where story time moves between the two, declare " +
+    '`join: "jump-back" | "jump-forward"`; waive the seam by its key only where time runs on and ' +
+    "nothing of the frame before is meant to carry",
   "return-unlinked":
     "the shot returns across a cutaway to the setup of an earlier shot (`<from>-<id>`), so it " +
     "opens where that shot left the subject. Pass the panel named to one of the opening " +
