@@ -1,3 +1,5 @@
+import { reviewModeOf } from "../../../core/review-mode.js";
+import { downstreamVideoOf, type ReviewContext } from "./submit.js";
 import { recordBoardStemsForVideo, remakeSettledLeaves } from "../../../core/board-leaves.js";
 import { variantDefinitionSnapshot } from "../../../core/definition-snapshot.js";
 import { overlayLineTimer } from "../../../core/line-timing.js";
@@ -70,7 +72,6 @@ import { loadCheckContext } from "../../../core/check-context.js";
 import { waiverCoverageOf } from "../../../core/checks.js";
 import type {
   AnimaticDefinition,
-  Handoff,
   ReferenceDefinition,
   StageDefinition,
   VideoDefinition,
@@ -295,24 +296,9 @@ function shotWaiverIndex(
   return byId;
 }
 
-// What a reel review session holds besides the reel itself, shared by its state and submit handlers.
-export interface ReelReviewContext {
-  videoRoot: string;
-  handoff: Handoff | null;
-  direction: Direction | null;
-  // The board. On the animatic stage it IS the reel; on the video stage it is the upstream, standing
-  // in for a shot whose picture is not made yet.
-  animatic: AnimaticDefinition | null;
-  // The shared pool. A reel plays `reference:` addresses too (a bed, a sheet a panel stands on), and
-  // this is the only definition that answers for their declaration.
-  reference: ReferenceDefinition | null;
-  // The video, when the reel is the board.
-  downstreamVideo: StageDefinition | null;
-}
-
 // What every part of one reel state response reads, loaded once.
 interface ReelStateScope {
-  ctx: ReelReviewContext;
+  ctx: ReviewContext;
   video: StageDefinition;
   stage: StageDefinition["stage"];
   counterpart: StageDefinition | null;
@@ -325,14 +311,14 @@ interface ReelStateScope {
 type ReelAsset = ReturnType<ReturnType<typeof reelAssetBuilder>>;
 
 export async function handleGetReelState(
-  ctx: ReelReviewContext,
+  ctx: ReviewContext,
   video: StageDefinition,
   assetBaseUrl: string,
 ): Promise<Response> {
   const { videoRoot, animatic, handoff } = ctx;
   const stage = video.stage;
-  const counterpart = stage === "video" ? animatic : ctx.downstreamVideo;
-  await remixTakenOverBoardStems(videoRoot, video, animatic);
+  const downstreamVideo = downstreamVideoOf(ctx);
+  const counterpart = stage === "video" ? animatic : downstreamVideo;
   const manager = await StateManager.load(videoRoot);
   const scope: ReelStateScope = {
     ctx,
@@ -353,7 +339,7 @@ export async function handleGetReelState(
         definitions: {
           reference: ctx.reference,
           animatic,
-          video: (stage === "video" ? video : ctx.downstreamVideo) as VideoDefinition | null,
+          video: (stage === "video" ? video : downstreamVideo) as VideoDefinition | null,
         },
         direction: ctx.direction,
         manager,
@@ -427,7 +413,7 @@ export async function handleGetReelState(
   const thumbnail = thumbnailState(scope, buildAsset);
 
   return jsonResponse({
-    mode: stage === "animatic" ? "animatic-preview" : "video-preview",
+    mode: reviewModeOf(stage),
     fps: plan.fps,
     shots,
     totalDuration,
@@ -437,7 +423,7 @@ export async function handleGetReelState(
     ...(timelineStem ? { timelineStem } : {}),
     ...(overlay ? { overlay } : {}),
     ...(thumbnail ? { thumbnail } : {}),
-    keep: reelKeepGraph(manager, video, animatic, ctx.reference, ctx.downstreamVideo),
+    keep: reelKeepGraph(manager, video, animatic, ctx.reference, downstreamVideo),
     ...(handoff?.summary ? { handoffSummary: handoff.summary } : {}),
     unroutedHandoffNotes: unroutedReelHandoffNotes(
       handoff,
@@ -458,7 +444,7 @@ async function withHeardTakes<S extends { shotId: string; startTime: number }>(
   const definitions = {
     reference: ctx.reference,
     animatic: ctx.animatic,
-    video: (video.stage === "video" ? video : ctx.downstreamVideo) as VideoDefinition | null,
+    video: (video.stage === "video" ? video : downstreamVideoOf(ctx)) as VideoDefinition | null,
   };
   return Promise.all(
     shots.map(async (shot) => {
@@ -485,7 +471,7 @@ async function withHeardTakes<S extends { shotId: string; startTime: number }>(
 
 // The board stems the video has taken over, re-mixed so a shot that plays one can be drawn, and
 // those its accept would settle, re-mixed as a take for it to hear.
-async function remixTakenOverBoardStems(
+export async function remixTakenOverBoardStems(
   videoRoot: string,
   video: StageDefinition,
   animatic: AnimaticDefinition | null,

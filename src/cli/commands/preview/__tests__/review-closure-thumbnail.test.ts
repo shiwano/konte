@@ -4,8 +4,7 @@ import { unacceptedThumbnailRefs } from "../../../../core/render-plan.js";
 import { formatReviewRecord, loadAllReviewRecords } from "../../../../core/review-record.js";
 import { StateManager } from "../../../../core/state/index.js";
 import { loadPreviewDefinitions } from "../load-definitions.js";
-import { handleReelSubmit } from "../reel-submit.js";
-import { reloadVideoDefinition } from "../../../../core/loader.js";
+import { handleSubmit } from "../submit.js";
 import { useTempWorkspace } from "../../../__tests__/cli-fixtures.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -50,7 +49,7 @@ describe("video review closure with a thumbnail", () => {
     await fs.writeFile(path.join(videoRoot, "video.tsx"), frameThumbnailVideoTsx(1.5));
     const { video } = await loadPreviewDefinitions({
       videoRoot,
-      mode: "video-preview",
+      stage: "video",
       reload: true,
     });
     expect(unacceptedThumbnailRefs(video!, await StateManager.load(videoRoot))).toEqual([FRAME]);
@@ -88,7 +87,7 @@ describe("video review closure with a thumbnail", () => {
     ]);
     const picked = await StateManager.load(videoRoot);
     expect(picked.getAcceptedVariant(COVER)).toBe(rival);
-    const { video } = await loadPreviewDefinitions({ videoRoot, mode: "video-preview" });
+    const { video } = await loadPreviewDefinitions({ videoRoot, stage: "video" });
     expect(unacceptedThumbnailRefs(video!, picked)).toEqual([STILL]);
 
     await generateAll(videoRoot);
@@ -142,21 +141,22 @@ describe("video review closure with a thumbnail", () => {
     manager.setUnaccepted(COVER, cover);
     await manager.save();
 
-    const defs = await loadPreviewDefinitions({ videoRoot, mode: "video-preview" });
-    const res = await handleReelSubmit(
+    const defs = await loadPreviewDefinitions({ videoRoot, stage: "video" });
+    const res = await handleSubmit(
       {
         videoRoot,
         handoff: null,
         direction: defs.direction,
         animatic: defs.animatic,
         reference: null,
-        downstreamVideo: null,
+        stage: "video",
+        video: null,
       },
-      async () => reloadVideoDefinition(path.join(videoRoot, "video.tsx")),
-      new Request("http://127.0.0.1/api/video/submit", {
+      new Request("http://127.0.0.1/api/submit", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          stage: "video",
           decisions: {},
           displayedVariants: { [STILL]: still },
           thumbnailDecision: "accepted",
@@ -192,7 +192,7 @@ describe("video review closure with a thumbnail", () => {
     });
     expect(formatReviewRecord(record)).toContain(`${COVER} (${cover})`);
 
-    const { video } = await loadPreviewDefinitions({ videoRoot, mode: "video-preview" });
+    const { video } = await loadPreviewDefinitions({ videoRoot, stage: "video" });
     expect(unacceptedThumbnailRefs(video!, manager)).toEqual([]);
     manager.setUnaccepted("video:shot.01.motion", motion);
     manager.setUnaccepted(COVER, cover);

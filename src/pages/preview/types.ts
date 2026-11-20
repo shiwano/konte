@@ -239,6 +239,13 @@ export interface ShotWaiverInfo {
   needsReview: boolean;
 }
 
+// What the preview server pushes over its socket. `session-ended` is the page host's own frame.
+export type PreviewSocketMessage =
+  | { type: "reload" }
+  | { type: "state-changed" }
+  | { type: "error"; payload: { error: string } }
+  | { type: "session-ended" };
+
 export interface VideoPreviewState {
   // One page for both composition stages; the mode says which reel it is playing.
   mode: "video-preview" | "animatic-preview";

@@ -40,7 +40,7 @@ describe("printReviewOutcome — text", () => {
   it("names the generate a Regenerate answer leaves, stage by stage", () => {
     const out = capture(() =>
       printReviewOutcome(
-        "animatic-preview",
+        "animatic",
         {
           stage: "animatic",
           filePath: "review/animatic/records/20260809T101500123.json",
@@ -59,7 +59,7 @@ describe("printReviewOutcome — text", () => {
   });
 
   it("says a session closed without submitting", () => {
-    const out = capture(() => printReviewOutcome("video-preview", null, false));
+    const out = capture(() => printReviewOutcome("video", null, false));
 
     expect(out).toBe(
       "Video Review: not submitted (closed without submitting)\n" +
@@ -69,7 +69,7 @@ describe("printReviewOutcome — text", () => {
   });
 
   it("leads with submitted, then the command that reads the record", () => {
-    const out = capture(() => printReviewOutcome("video-preview", submitted, false));
+    const out = capture(() => printReviewOutcome("video", submitted, false));
 
     expect(out).toBe(
       "Video Review: submitted\n" +
@@ -79,7 +79,7 @@ describe("printReviewOutcome — text", () => {
 
   it("says so when the record was recovered rather than reported", () => {
     const out = capture(() =>
-      printReviewOutcome("video-preview", { ...submitted, recovered: true }, false),
+      printReviewOutcome("video", { ...submitted, recovered: true }, false),
     );
 
     expect(out).toBe(
@@ -90,7 +90,7 @@ describe("printReviewOutcome — text", () => {
 
   it("distinguishes a submit that settled nothing from a close", () => {
     const out = capture(() =>
-      printReviewOutcome("animatic-preview", { stage: "animatic", filePath: null }, false),
+      printReviewOutcome("animatic", { stage: "animatic", filePath: null }, false),
     );
 
     expect(out).toBe("Animatic Review: submitted, but nothing to record (no changes)");
@@ -99,9 +99,7 @@ describe("printReviewOutcome — text", () => {
 
 describe("printReviewOutcome — recovered", () => {
   it("flags a recovered record, so a reader can tell it apart from a reported submit", () => {
-    const out = capture(() =>
-      printReviewOutcome("video-preview", { ...submitted, recovered: true }),
-    );
+    const out = capture(() => printReviewOutcome("video", { ...submitted, recovered: true }));
 
     expect(out).toContain(
       "Video Review: submitted (recovered — the submit did not report before exit)",
@@ -110,7 +108,7 @@ describe("printReviewOutcome — recovered", () => {
 
   it("names the generate a Regenerate answer leaves as the next step", () => {
     const out = capture(() =>
-      printReviewOutcome("video-preview", { ...submitted, regenerate: ["video:shot.14.motion"] }),
+      printReviewOutcome("video", { ...submitted, regenerate: ["video:shot.14.motion"] }),
     );
 
     expect(out).toContain("konte generate video");
@@ -141,7 +139,7 @@ describe("mergeReviewOutcome", () => {
 
 describe("printReviewOutcome — cut short", () => {
   it("leads with the unfinished submit and still names what was recorded", () => {
-    const out = capture(() => printReviewOutcome("video-preview", submitted, true));
+    const out = capture(() => printReviewOutcome("video", submitted, true));
 
     expect(out).toBe(
       "Video Review: a submit was still running when the session ended\n" +
@@ -152,7 +150,7 @@ describe("printReviewOutcome — cut short", () => {
   });
 
   it("does not claim a close when a submit was cut short", () => {
-    const out = capture(() => printReviewOutcome("video-preview", null, true));
+    const out = capture(() => printReviewOutcome("video", null, true));
 
     expect(out).toBe(
       "Video Review: a submit was still running when the session ended\n" +
@@ -174,7 +172,7 @@ describe("recoverOutcome", () => {
       regenerate: ["animatic:shot.14.first"],
     });
 
-    expect(await recoverOutcome(videoRoot, "animatic-preview", sessionStart)).toMatchObject({
+    expect(await recoverOutcome(videoRoot, "animatic", sessionStart)).toMatchObject({
       recovered: true,
       regenerate: ["animatic:shot.14.first"],
     });

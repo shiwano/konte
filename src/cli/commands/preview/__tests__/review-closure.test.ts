@@ -79,7 +79,7 @@ describe("video review closure", () => {
     const videoRoot = await project();
     await acceptAll(videoRoot, "animatic");
     await generateAll(videoRoot);
-    const defs = await loadPreviewDefinitions({ videoRoot, mode: "video-preview" });
+    const defs = await loadPreviewDefinitions({ videoRoot, stage: "video" });
 
     const reel = async (standInShotIds?: string[]): Promise<string> =>
       (
@@ -205,7 +205,7 @@ describe("video review closure", () => {
 
     const defs = await loadPreviewDefinitions({
       videoRoot,
-      mode: "video-preview",
+      stage: "video",
     });
     const remixed = await remakeSettledLeaves({
       videoRoot,
@@ -233,7 +233,7 @@ describe("video review closure", () => {
 
     const defs = await loadPreviewDefinitions({
       videoRoot,
-      mode: "video-preview",
+      stage: "video",
     });
     const graph = buildDependencyGraph(defs.video!, defs.animatic!, null);
     expect([...consumedBoardStems(graph, ["video:shot.02.motion"])]).toEqual([stem]);
@@ -265,7 +265,7 @@ describe("video review closure", () => {
 
     const defs = await loadPreviewDefinitions({
       videoRoot,
-      mode: "video-preview",
+      stage: "video",
     });
     const manager = await StateManager.load(videoRoot);
     const planned = planSupersededStemRemakes(manager, defs.animatic!, defs.video!);
@@ -291,7 +291,7 @@ describe("video review closure", () => {
 
     const defs = await loadPreviewDefinitions({
       videoRoot,
-      mode: "video-preview",
+      stage: "video",
     });
     const remixed = await remakeSettledLeaves({
       videoRoot,
@@ -319,7 +319,7 @@ describe("video review closure", () => {
     await acceptAll(videoRoot);
     const { direction } = await loadPreviewDefinitions({
       videoRoot,
-      mode: "video-preview",
+      stage: "video",
     });
     const after = await StateManager.load(videoRoot);
     expect(directionAcceptanceView(direction!, after.getDirectionAcceptance()).complete).toBe(true);
@@ -404,7 +404,7 @@ describe("video review closure", () => {
     await generateAll(videoRoot);
     const defs = await loadPreviewDefinitions({
       videoRoot,
-      mode: "video-preview",
+      stage: "video",
     });
     const res = await handleGetReelState(
       {
@@ -413,7 +413,8 @@ describe("video review closure", () => {
         direction: defs.direction,
         animatic: defs.animatic,
         reference: null,
-        downstreamVideo: null,
+        stage: "video",
+        video: null,
       },
       defs.video!,
       "http://127.0.0.1/assets",
@@ -439,7 +440,7 @@ describe("video review closure", () => {
       const videoRoot = await project(undefined, videoTsx);
       const defs = await loadPreviewDefinitions({
         videoRoot,
-        mode: "video-preview",
+        stage: "video",
       });
       const manager = await StateManager.load(videoRoot);
       const { addresses } = await buildAssetStatus({

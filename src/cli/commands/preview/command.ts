@@ -89,7 +89,7 @@ Examples:
           }
           const handoff =
             (await writeHandoff(videoRoot, { stage, direction }, note, summary)) ?? handoffOpt;
-          await launchPreview({ ...launchOpts, handoff, mode: "direction-preview" });
+          await launchPreview({ ...launchOpts, handoff, stage });
           return;
         }
 
@@ -98,7 +98,7 @@ Examples:
           const reference = await loadReference(videoRoot);
           const handoff =
             (await writeHandoff(videoRoot, { stage, reference }, note, summary)) ?? handoffOpt;
-          await launchPreview({ ...launchOpts, handoff, mode: "reference-preview" });
+          await launchPreview({ ...launchOpts, handoff, stage });
           return;
         }
 
@@ -111,11 +111,7 @@ Examples:
         const handoff =
           (await writeHandoff(videoRoot, { stage, video, animatic }, note, summary)) ?? handoffOpt;
 
-        await launchPreview({
-          ...launchOpts,
-          handoff,
-          mode: stage === "animatic" ? "animatic-preview" : "video-preview",
-        });
+        await launchPreview({ ...launchOpts, handoff, stage });
       },
     );
 }

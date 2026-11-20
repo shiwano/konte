@@ -22,7 +22,7 @@ import {
   defineVideo,
 } from "../../../../core/dsl/index.js";
 import { StateManager } from "../../../../core/state/index.js";
-import type { StageDefinition } from "../../../../core/types/index.js";
+import type { StageDefinition, VideoDefinition } from "../../../../core/types/index.js";
 import { directionDefaults } from "../../../../core/__tests__/helpers/direction.js";
 import { writeSilentWav } from "../../../../core/__tests__/helpers/wav.js";
 import { buildAssetStatus, needsReviewItems } from "../../../../core/status-report.js";
@@ -165,7 +165,8 @@ async function boardReel(animatic: StageDefinition, video: StageDefinition | nul
       direction: null,
       animatic: null,
       reference: null,
-      downstreamVideo: video,
+      stage: "animatic",
+      video: video as VideoDefinition | null,
     },
     animatic,
     "/assets",
@@ -188,7 +189,8 @@ async function cutShot(animatic: StageDefinition, video: StageDefinition) {
       direction: null,
       animatic: animatic as never,
       reference: null,
-      downstreamVideo: null,
+      stage: "video",
+      video: null,
     },
     video,
     "/assets",

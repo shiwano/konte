@@ -7,7 +7,6 @@ import { startTunnel, type Tunnel } from "../../page-host/tunnel.js";
 import { parseNumberOption } from "../../parse-option.js";
 import { createPreviewServer, type PreviewServerOptions } from "./server.js";
 import { requireVideoRoots } from "../../context.js";
-import { stageEntryPath } from "../../../core/roots.js";
 
 const DEFAULT_PREVIEW_PORT = 4649;
 
@@ -17,11 +16,10 @@ export async function launchPreview(opts: {
   autoClose: boolean;
   handoff?: string;
   tunnel?: boolean;
-  mode: PreviewServerOptions["mode"];
+  stage: PreviewServerOptions["stage"];
 }): Promise<void> {
   const roots = requireVideoRoots();
   const videoRoot = roots.video;
-  const videoPath = stageEntryPath(videoRoot, "video");
   const requestedPort = parseNumberOption("--port", opts.port, {
     integer: true,
     min: 0,
@@ -31,15 +29,6 @@ export async function launchPreview(opts: {
   // The handoff is selected inside the server: a handoff file is scoped to one stage and only the
   // latest matching one should surface. An explicit --handoff path is honored as-is.
   const explicitHandoffPath = opts.handoff ? path.resolve(videoRoot, opts.handoff) : undefined;
-
-  const stage =
-    opts.mode === "animatic-preview"
-      ? "animatic"
-      : opts.mode === "reference-preview"
-        ? "reference"
-        : opts.mode === "direction-preview"
-          ? "direction"
-          : undefined;
 
   // konte.config.json is a workspace file — the preview settings are shared by every video.
   const config = await loadKonteConfig(roots.workspace);
@@ -78,11 +67,9 @@ export async function launchPreview(opts: {
 
   const serverOpts: PreviewServerOptions = {
     videoRoot,
-    videoPath,
     port: requestedPort ?? DEFAULT_PREVIEW_PORT,
     allowPortFallback: requestedPort == null,
-    mode: opts.mode,
-    stage,
+    stage: opts.stage,
     autoClose: opts.autoClose,
     explicitHandoffPath,
     access,

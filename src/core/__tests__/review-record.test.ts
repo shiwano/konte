@@ -413,7 +413,7 @@ describe("formatReviewRecord", () => {
 });
 
 describe("loadLatestReviewRecord", () => {
-  it("loads the latest record matching the mode", async () => {
+  it("loads the latest record matching the stage", async () => {
     const dir = path.join(tmpDir, "review", "records");
     await fs.mkdir(dir, { recursive: true });
 
@@ -440,18 +440,18 @@ describe("loadLatestReviewRecord", () => {
     await fs.writeFile(path.join(dir, "20260516T120000000.json"), JSON.stringify(newer));
     await fs.writeFile(path.join(dir, "20260517T150000000.json"), JSON.stringify(other));
 
-    const result = await loadLatestReviewRecord(tmpDir, "video-preview");
+    const result = await loadLatestReviewRecord(tmpDir, "video");
     expect(result).not.toBeNull();
     expect(result!.createdAt).toBe("2026-05-16T12:00:00.000Z");
     expect(result!.decisions).toEqual({ "02": "none" });
   });
 
   it("returns null when no reviews directory exists", async () => {
-    const result = await loadLatestReviewRecord(tmpDir, "video-preview");
+    const result = await loadLatestReviewRecord(tmpDir, "video");
     expect(result).toBeNull();
   });
 
-  it("returns null when no matching mode found", async () => {
+  it("returns null when no matching stage found", async () => {
     const dir = path.join(tmpDir, "review", "records");
     await fs.mkdir(dir, { recursive: true });
 
@@ -463,11 +463,11 @@ describe("loadLatestReviewRecord", () => {
     };
     await fs.writeFile(path.join(dir, "20260516T120000000.json"), JSON.stringify(record));
 
-    const result = await loadLatestReviewRecord(tmpDir, "video-preview");
+    const result = await loadLatestReviewRecord(tmpDir, "video");
     expect(result).toBeNull();
   });
 
-  it("returns the most recent record regardless of mode when mode omitted", async () => {
+  it("returns the most recent record regardless of stage when stage omitted", async () => {
     const dir = path.join(tmpDir, "review", "records");
     await fs.mkdir(dir, { recursive: true });
 

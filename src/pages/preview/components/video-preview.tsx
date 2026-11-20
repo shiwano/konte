@@ -1,6 +1,7 @@
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatShotAddress } from "../../../core/address.js";
+import { reviewStageOf } from "../../../core/review-mode.js";
 import { submitReview } from "../api.js";
 import { formatPlayerTime } from "../format-time.js";
 import { type Playhead, usePlayheadTime } from "../review/playhead.js";
@@ -185,7 +186,7 @@ export function VideoPreview({ state }: { state: VideoPreviewState }): React.Rea
 
   // Which reel this page is playing. One page serves both composition stages, so every address it
   // mints and the endpoint it submits to are the mode's.
-  const reelStage = state.mode === "animatic-preview" ? "animatic" : "video";
+  const reelStage = reviewStageOf(state.mode);
 
   const shotFeedbackAddress = useCallback(
     (shotId: string) => formatShotAddress(reelStage, shotId),

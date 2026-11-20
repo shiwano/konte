@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
+import type { Stage } from "../../../core/address.js";
 import { ReviewRecordSchema, findReviewRecordSince } from "../../../core/review-record.js";
-import type { PreviewServerOptions } from "./server.js";
 
 /**
  * Where one submitted review landed. Every submit handler reports one; the preview prints it once
@@ -8,7 +8,7 @@ import type { PreviewServerOptions } from "./server.js";
  * has to answer "was a review submitted, and where is it".
  */
 export interface ReviewOutcome {
-  stage: "video" | "animatic" | "reference" | "direction";
+  stage: Stage;
   // null when the submit landed but settled nothing — an empty review is still a submit.
   filePath: string | null;
   // The submit never reported; the record was found on disk afterwards. Said out loud because the
@@ -30,15 +30,12 @@ function regenerateCommands(outcome: ReviewOutcome | null): string[] {
 
 export type ReportOutcome = (outcome: ReviewOutcome) => void;
 
-function reviewTitle(mode: PreviewServerOptions["mode"]): string {
-  return mode === "reference-preview"
-    ? "Reference Review"
-    : mode === "animatic-preview"
-      ? "Animatic Review"
-      : mode === "direction-preview"
-        ? "Direction Review"
-        : "Video Review";
-}
+const REVIEW_TITLES: Record<Stage, string> = {
+  video: "Video Review",
+  animatic: "Animatic Review",
+  reference: "Reference Review",
+  direction: "Direction Review",
+};
 
 // A submit that touched nothing. Still an outcome, and not the same as a close.
 export function emptyOutcome(stage: ReviewOutcome["stage"]): ReviewOutcome {
@@ -57,11 +54,11 @@ export function mergeReviewOutcome(prev: ReviewOutcome | null, next: ReviewOutco
 // The preview's whole report, printed once when it exits and nowhere else. Says how the session
 // ended and where the record is; what the review decided is the record's alone.
 export function printReviewOutcome(
-  mode: PreviewServerOptions["mode"],
+  stage: Stage,
   outcome: ReviewOutcome | null,
   drainTimedOut = false,
 ): void {
-  const title = reviewTitle(mode);
+  const title = REVIEW_TITLES[stage];
   // The one line that outranks the outcome: a submit the session gave up waiting for may have
   // written half of what it meant to, so what is reported below is a floor, not the whole of it.
   if (drainTimedOut) {
@@ -72,7 +69,7 @@ export function printReviewOutcome(
     if (!drainTimedOut) {
       console.log(`${title}: not submitted (closed without submitting)`);
       console.log("  nothing was recorded — ask the human before reopening");
-      console.log(`  konte preview ${stageOfMode(mode)}`);
+      console.log(`  konte preview ${stage}`);
     }
     return;
   }
@@ -98,10 +95,9 @@ export function printReviewOutcome(
  */
 export async function recoverOutcome(
   videoRoot: string,
-  mode: PreviewServerOptions["mode"],
+  stage: Stage,
   sessionStart: string,
 ): Promise<ReviewOutcome | null> {
-  const stage = stageOfMode(mode);
   try {
     const filePath = await findReviewRecordSince(videoRoot, stage, sessionStart);
     if (!filePath) return null;
@@ -111,14 +107,4 @@ export async function recoverOutcome(
   } catch {
     return null;
   }
-}
-
-function stageOfMode(mode: PreviewServerOptions["mode"]): ReviewOutcome["stage"] {
-  return mode === "reference-preview"
-    ? "reference"
-    : mode === "animatic-preview"
-      ? "animatic"
-      : mode === "direction-preview"
-        ? "direction"
-        : "video";
 }

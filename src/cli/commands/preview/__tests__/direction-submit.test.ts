@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { handleDirectionSubmit } from "../direction-review.js";
+import { handleSubmit } from "../submit.js";
 import {
   loadDirectionIfPresent,
   loadStageDefinitions,
@@ -34,18 +34,17 @@ export default defineDirection({
 });
 `;
 
-const submit = async (videoRoot: string, direction: Direction, body: Record<string, unknown>) =>
-  handleDirectionSubmit(
-    videoRoot,
-    null,
-    direction,
-    await loadStageDefinitions(videoRoot, { tolerant: true }),
-    new Request("http://127.0.0.1/api/direction/submit", {
+const submit = async (videoRoot: string, direction: Direction, body: Record<string, unknown>) => {
+  const { reference, animatic, video } = await loadStageDefinitions(videoRoot, { tolerant: true });
+  return handleSubmit(
+    { videoRoot, stage: "direction", handoff: null, direction, reference, animatic, video },
+    new Request("http://127.0.0.1/api/submit", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ addedFeedback: [], feedbackPatches: [], ...body }),
+      body: JSON.stringify({ stage: "direction", addedFeedback: [], feedbackPatches: [], ...body }),
     }),
   );
+};
 
 describe("direction submit", () => {
   it("drops only the accept of a section a finding holds, and saves the rest of the review", async () => {

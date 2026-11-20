@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { makeWorkspace, type Workspace } from "../../../../core/__tests__/helpers/workspace.js";
 import {
+  createStateReader,
   handleAssetRequest,
   handlePrerollAssetRequest,
   handleStudySheetRequest,
@@ -40,27 +41,37 @@ async function symlink(target: string, link: string): Promise<void> {
 async function setVariantFile(file: string): Promise<void> {
   await fs.writeFile(
     path.join(videoRoot, "konte.state.json"),
-    JSON.stringify({ schemaVersion: 1, assets: { [ADDR]: { variants: { [VID]: { file } } } } }),
+    JSON.stringify({
+      schemaVersion: 1,
+      assets: {
+        [ADDR]: {
+          variants: { [VID]: { status: "none", file, createdAt: "2026-01-01T00:00:00.000Z" } },
+        },
+      },
+    }),
   );
 }
 
 describe("/api/assets", () => {
-  const request = (filename: string) =>
-    handleAssetRequest(videoRoot, `video/shot.01.motion/${VID}/${encodeURIComponent(filename)}`);
+  const request = async (filename: string) =>
+    await handleAssetRequest(
+      videoRoot,
+      `video/shot.01.motion/${VID}/${encodeURIComponent(filename)}`,
+    );
 
   it("serves a variant's file inside the video", async () => {
     const rel = `assets/video/shot.01/motion/${VID}/out.mp4`;
     await writeFile(path.join(videoRoot, rel), "motion");
     await setVariantFile(rel);
 
-    const res = request("out.mp4");
+    const res = await request("out.mp4");
     expect(res.status).toBe(200);
     expect(await res.text()).toBe("motion");
   });
 
   it("refuses a variant file whose path escapes the video", async () => {
     await setVariantFile("../../konte.credentials.json");
-    expect(request("konte.credentials.json").status).toBe(403);
+    expect((await request("konte.credentials.json")).status).toBe(403);
   });
 
   it("refuses a variant file that is a symlink out of the video", async () => {
@@ -68,13 +79,56 @@ describe("/api/assets", () => {
     await symlink(credentials, path.join(videoRoot, rel));
     await setVariantFile(rel);
 
-    expect(request("out.mp4").status).toBe(403);
+    expect((await request("out.mp4")).status).toBe(403);
+  });
+
+  it("re-reads a state written after the last request", async () => {
+    const rel = `assets/video/shot.01/motion/${VID}/out.mp4`;
+    await writeFile(path.join(videoRoot, rel), "motion");
+    await setVariantFile("assets/elsewhere.mp4");
+    const read = createStateReader(videoRoot);
+    const ask = () => handleAssetRequest(videoRoot, `video/shot.01.motion/${VID}/out.mp4`, read);
+    expect((await ask()).status).toBe(403);
+
+    await setVariantFile(rel);
+    expect((await ask()).status).toBe(200);
+  });
+
+  it("re-reads a state renamed over with the same size and mtime", async () => {
+    const rel = `assets/video/shot.01/motion/${VID}/out.mp4`;
+    await writeFile(path.join(videoRoot, rel), "motion");
+    const stateFile = path.join(videoRoot, "konte.state.json");
+    const mtime = new Date("2026-01-01T00:00:00.000Z");
+    const writeState = async (file: string, variantId: string) => {
+      await fs.writeFile(
+        file,
+        JSON.stringify({
+          schemaVersion: 1,
+          assets: {
+            [ADDR]: {
+              variants: {
+                [variantId]: { status: "none", file: rel, createdAt: mtime.toISOString() },
+              },
+            },
+          },
+        }),
+      );
+      await fs.utimes(file, mtime, mtime);
+    };
+    await writeState(stateFile, "v-xyz");
+    const read = createStateReader(videoRoot);
+    const ask = () => handleAssetRequest(videoRoot, `video/shot.01.motion/${VID}/out.mp4`, read);
+    expect((await ask()).status).toBe(404);
+
+    await writeState(`${stateFile}.tmp`, VID);
+    await fs.rename(`${stateFile}.tmp`, stateFile);
+    expect((await ask()).status).toBe(200);
   });
 
   it("refuses a sibling directory sharing the video root's prefix", async () => {
     await writeFile(`${videoRoot}-evil/out.mp4`);
     await setVariantFile(`../${path.basename(videoRoot)}-evil/out.mp4`);
-    expect(request("out.mp4").status).toBe(403);
+    expect((await request("out.mp4")).status).toBe(403);
   });
 });
 
@@ -107,6 +161,12 @@ describe("/api/thumbnail-assets", () => {
   it("reports a missing file inside the cache as not found", () => {
     expect(handleThumbnailAssetRequest(videoRoot, ".konte/cache/thumbnails/gone.jpg").status).toBe(
       404,
+    );
+  });
+
+  it("rejects a malformed escape", () => {
+    expect(handleThumbnailAssetRequest(videoRoot, ".konte/cache/thumbnails/%zz.jpg").status).toBe(
+      400,
     );
   });
 });
@@ -149,6 +209,10 @@ describe("study sheets", () => {
 
   it("refuses a `..` escape to the workspace's credentials", () => {
     expect(handleStudySheetRequest(ws.root, "..%2F..%2Fkonte.credentials.json").status).toBe(403);
+  });
+
+  it("rejects a malformed escape", () => {
+    expect(handleStudySheetRequest(ws.root, "%zz.png").status).toBe(400);
   });
 
   it("refuses a symlink in the studies pointing out of them", async () => {

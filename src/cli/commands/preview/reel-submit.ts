@@ -26,6 +26,7 @@ import {
   parseAddressStream,
   parseShotAddress,
   shotStemAssetNames,
+  type ShotStage,
 } from "../../../core/address.js";
 import { resolveCompositionRef } from "../../../core/composition-refs.js";
 import {
@@ -51,12 +52,8 @@ import { shotAcceptTargets } from "../../../core/shot-accept-targets.js";
 import { Semaphore } from "../../../core/semaphore.js";
 import { computeAcceptedStaleness, formatStaleCause } from "../../../core/staleness.js";
 import { errorMessage } from "../../../core/errors.js";
-import { errorResponse, jsonResponse, parseJsonBody } from "../../page-host/http.js";
-import {
-  ReelSubmitSchema,
-  type ReelSubmitBody,
-  type ReelSubmitResponse,
-} from "../../../core/types/review-submit.js";
+import { errorResponse, jsonResponse } from "../../page-host/http.js";
+import { type ReelSubmitBody, type ReelSubmitResponse } from "../../../core/types/review-submit.js";
 import { buildReelReviewPlan } from "../../../core/review-acceptability.js";
 import type {
   AnimaticDefinition,
@@ -64,7 +61,7 @@ import type {
   VideoDefinition,
 } from "../../../core/types/index.js";
 import { type RenderPlan, shotSpans } from "../../../core/render-plan.js";
-import { type ReviewRecord, saveReviewRecord } from "../../../core/review-record.js";
+import type { ReviewRecord } from "../../../core/review-record.js";
 import {
   type CommentSubjectAddresses,
   FeedbackManager,
@@ -77,12 +74,13 @@ import {
   applyKeepDecisions,
   applyRegenerateDecisions,
   handoffRecordFields,
-  storeOverallComment,
+  persistReview,
   withShotLocalTime,
   type FeedbackMutationResult,
 } from "./review-shared.js";
-import type { ReportOutcome } from "./review-outcome.js";
-import type { ReelReviewContext } from "./reel-review.js";
+import { reviewModeOf } from "../../../core/review-mode.js";
+import { reloadStageDefinition } from "./load-definitions.js";
+import { downstreamVideoOf, type ReviewContext } from "./submit.js";
 import { reviewHeldFindings } from "../../finding-gates.js";
 import { loadCheckContext } from "../../../core/check-context.js";
 import { collectFindings, waiverCoverageOf } from "../../../core/checks.js";
@@ -475,7 +473,7 @@ type SkippedDecision = NonNullable<ReviewRecord["skippedDecisions"]>[number];
 // A submit that passed validation: the reel it lands on, the plan it was reviewed under, and what the
 // page reported it displayed.
 interface ReelSubmit {
-  ctx: ReelReviewContext;
+  ctx: ReviewContext;
   body: ReelSubmitBody;
   video: StageDefinition;
   stage: StageDefinition["stage"];
@@ -523,21 +521,19 @@ interface ShotVerdicts {
 const heldReason = (findings: readonly Finding[]) =>
   `held — ${findings.map(formatFindingLine).join("; ")}`;
 
-// Handles a reel review's submit (`/api/animatic/submit`, `/api/video/submit`). Both composition
-// stages are reviewed the same way — one verdict per shot over a playing reel — so one handler
-// serves both, told which by the definition it is handed.
+// Handles a reel review's submit. Both composition stages are reviewed the same way — one verdict
+// per shot over a playing reel — so one handler serves both, told which by the session's stage.
 export async function handleReelSubmit(
-  ctx: ReelReviewContext,
-  reload: () => Promise<StageDefinition>,
-  req: Request,
-  reportOutcome?: ReportOutcome,
+  ctx: ReviewContext,
+  reelStage: ShotStage,
+  body: ReelSubmitBody,
 ): Promise<Response> {
   // Stamped before anything is written, so every comment this review carries predates the
   // accepts it was submitted with (see applyFeedbackMutations). The record carries it too: a
   // comment's own review is the one submitted at its createdAt.
   const reviewedAt = new Date().toISOString();
-  const submit = await prepareReelSubmit(ctx, reload, req);
-  if (submit instanceof Response) return submit;
+  const submit = await prepareReelSubmit(ctx, reelStage, body);
+  if ("refused" in submit) return submit.refused;
 
   const record = buildReelRecord(submit, reviewedAt);
   const ledger: ReelSubmitLedger = {
@@ -594,20 +590,14 @@ export async function handleReelSubmit(
 
   // Accept-only reviews carry no feedback, but the accept is a real review outcome —
   // persist the record so `review record show` reflects it.
-  const filePath = await saveReviewRecord(ctx.videoRoot, record, {
+  const filePath = await persistReview(
+    ctx,
+    record,
     // A review that only skipped is still a review worth keeping — it is the record of accepts the
     // reviewer made and did not get. Without this, a submit whose every accept failed writes no
     // file at all and `skippedDecisions` is reported to a terminal and then lost.
-    force: acceptedAssets.length > 0 || unacceptedAssets.length > 0 || skippedDecisions.length > 0,
-  });
-
-  if (filePath) await storeOverallComment(ctx.videoRoot, submit.stage, record);
-
-  reportOutcome?.({
-    stage: submit.stage,
-    filePath,
-    ...(regenerate.length > 0 ? { regenerate } : {}),
-  });
+    acceptedAssets.length > 0 || unacceptedAssets.length > 0 || skippedDecisions.length > 0,
+  );
 
   return jsonResponse({
     saved: filePath !== null,
@@ -623,23 +613,15 @@ export async function handleReelSubmit(
 // Everything that refuses the whole submit, ahead of every accept, feedback write and record — so
 // nothing lands half-applied.
 async function prepareReelSubmit(
-  ctx: ReelReviewContext,
-  reload: () => Promise<StageDefinition>,
-  req: Request,
-): Promise<ReelSubmit | Response> {
-  const raw = await parseJsonBody<unknown>(req);
-  if (raw === null) {
-    return errorResponse("Invalid request body", "INVALID_REQUEST", 400);
-  }
-  const parsed = ReelSubmitSchema.safeParse(raw);
-  if (!parsed.success) {
-    return errorResponse("Invalid review payload", "INVALID_REQUEST", 400);
-  }
-  const body = parsed.data;
-
-  const { videoRoot, animatic, downstreamVideo } = ctx;
+  ctx: ReviewContext,
+  reelStage: ShotStage,
+  body: ReelSubmitBody,
+): Promise<ReelSubmit | { refused: Response }> {
+  const { videoRoot, animatic } = ctx;
+  const downstreamVideo = downstreamVideoOf(ctx);
   const manager = await StateManager.load(videoRoot);
-  const video = await reload();
+  // Re-read from disk, so the plan it applies is the one the page was rendered from.
+  const video = await reloadStageDefinition(videoRoot, reelStage);
   const stage = video.stage;
 
   // The same plan handleGetReelState renders under (one builder, no options here).
@@ -651,23 +633,27 @@ async function prepareReelSubmit(
   try {
     plan = buildReelReviewPlan(manager, video, animatic);
   } catch (error) {
-    return errorResponse(
-      `Failed to build the review plan — no part of this review was applied: ${errorMessage(
-        error,
-      )}`,
-      "RENDER_PLAN_FAILED",
-      500,
-    );
+    return {
+      refused: errorResponse(
+        `Failed to build the review plan — no part of this review was applied: ${errorMessage(
+          error,
+        )}`,
+        "RENDER_PLAN_FAILED",
+        500,
+      ),
+    };
   }
 
   const subjectOf = reelSubjectResolver(video, animatic, body.displayedStandInShotIds);
   const unknownTargets = assertCommentTargets(subjectOf, body.addedFeedback ?? []);
   if (unknownTargets.length > 0) {
-    return errorResponse(
-      `This stage holds no target for ${unknownTargets.join(", ")} — no part of this review was applied.`,
-      "INVALID_REQUEST",
-      400,
-    );
+    return {
+      refused: errorResponse(
+        `This stage holds no target for ${unknownTargets.join(", ")} — no part of this review was applied.`,
+        "INVALID_REQUEST",
+        400,
+      ),
+    };
   }
 
   // A shot whose accept a finding holds is not signed off. A dep a cascade reaches that one holds is left for its own accept.
@@ -745,7 +731,7 @@ function buildReelRecord(submit: ReelSubmit, reviewedAt: string): ReviewRecord {
   const { body, video, stage, plan, manager } = submit;
   const timing = shotSpans(plan.shots, plan.fps);
   return {
-    mode: stage === "animatic" ? "animatic-preview" : "video-preview",
+    mode: reviewModeOf(stage),
     stage,
     createdAt: reviewedAt,
     context: {

@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { loadPreviewDefinitions } from "../load-definitions.js";
-import { handleReferenceSubmit } from "../reference-review.js";
+import { handleSubmit } from "../submit.js";
 import { formatReviewRecord, loadLatestReviewRecord } from "../../../../core/review-record.js";
 import { FeedbackManager } from "../../../../core/feedback/manager.js";
 import { StateManager } from "../../../../core/state/index.js";
@@ -77,18 +77,14 @@ async function project(): Promise<{ videoRoot: string; variantId: string }> {
 async function submit(videoRoot: string, body: Record<string, unknown>): Promise<Response> {
   const defs = await loadPreviewDefinitions({
     videoRoot,
-    mode: "reference-preview",
+    stage: "reference",
   });
-  return handleReferenceSubmit(
-    videoRoot,
-    null,
-    defs.reference!,
-    defs.direction,
-    defs.animatic,
-    new Request("http://127.0.0.1/api/reference/submit", {
+  return handleSubmit(
+    { videoRoot, stage: "reference", handoff: null, ...defs, video: null },
+    new Request("http://127.0.0.1/api/submit", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ addedFeedback: [], feedbackPatches: [], ...body }),
+      body: JSON.stringify({ stage: "reference", addedFeedback: [], feedbackPatches: [], ...body }),
     }),
   );
 }
@@ -137,7 +133,7 @@ describe("handleReferenceSubmit — lyric lines placed on the song", () => {
       songLines: [{ variantId, key: "1.2", span: { startSec: 2.54, endSec: 4 } }],
     });
     expect(((await res.json()) as { saved: boolean }).saved).toBe(true);
-    const record = await loadLatestReviewRecord(videoRoot, "reference-preview");
+    const record = await loadLatestReviewRecord(videoRoot, "reference");
     expect(record?.songLines).toEqual([
       { address: SONG, variantId, key: "1.2", span: { startSec: 2.54, endSec: 4 } },
     ]);
@@ -157,7 +153,7 @@ describe("handleReferenceSubmit — lyric lines placed on the song", () => {
     ]);
     const sm = await StateManager.load(videoRoot);
     expect(sm.getAssetState(SONG).variants![variantId]!.song?.lines).toBeUndefined();
-    const record = await loadLatestReviewRecord(videoRoot, "reference-preview");
+    const record = await loadLatestReviewRecord(videoRoot, "reference");
     expect(record?.songLines).toBeUndefined();
     expect(record?.skippedDecisions).toEqual([
       expect.objectContaining({ address: SONG, reason: expect.stringMatching(/^line 3\.1:/) }),

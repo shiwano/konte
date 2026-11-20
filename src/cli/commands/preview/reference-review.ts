@@ -38,7 +38,7 @@ import type {
   AnimaticDefinition,
   VideoDefinition,
 } from "../../../core/types/index.js";
-import { type ReviewRecord, saveReviewRecord } from "../../../core/review-record.js";
+import type { ReviewRecord } from "../../../core/review-record.js";
 import { FeedbackManager } from "../../../core/feedback/index.js";
 import { displayedReferenceVariant } from "../../../core/review-acceptability.js";
 import { StateManager } from "../../../core/state/index.js";
@@ -52,17 +52,19 @@ import {
   variantMediaUrl,
   buildVariantCandidates,
   buildAddressFeedback,
-  parseAddressReviewBody,
   addressReviewTouchesNothing,
   applyAddressReview,
   handoffRecordFields,
-  storeOverallComment,
+  persistReview,
 } from "./review-shared.js";
 import type {
+  AddressReviewSubmitBody,
   AddressReviewSubmitResponse,
   SongLineBody,
 } from "../../../core/types/review-submit.js";
-import { type ReportOutcome, emptyOutcome } from "./review-outcome.js";
+import { reviewModeOf } from "../../../core/review-mode.js";
+import { emptyOutcome } from "./review-outcome.js";
+import type { ReviewContext } from "./submit.js";
 import { loadCheckContext } from "../../../core/check-context.js";
 import { collectFindings } from "../../../core/checks.js";
 import { createAssetInfoBuilder } from "./asset-info.js";
@@ -151,15 +153,12 @@ function referenceRosterEntries(
 }
 
 export async function handleGetReferenceState(
-  videoRoot: string,
+  ctx: ReviewContext,
   reference: ReferenceDefinition,
   assetBaseUrl: string,
-  handoff: Handoff | null,
-  direction: Direction | null,
-  // The stages downstream of the pool, for the Keep-or-regenerate prompt. Either may be absent.
-  animatic: AnimaticDefinition | null = null,
-  video: VideoDefinition | null = null,
 ): Promise<Response> {
+  // The stages downstream of the pool are for the Keep-or-regenerate prompt. Either may be absent.
+  const { videoRoot, handoff, direction, animatic, video } = ctx;
   const manager = await StateManager.load(videoRoot);
   const feedbackMgr = await FeedbackManager.load(videoRoot, "reference");
   const patchCatalog = await loadPatchCatalog(videoRoot, manager.getState());
@@ -269,24 +268,18 @@ function referenceKeepGraph(
   }
 }
 
-// Reference review submit (`/api/reference/submit`). Flat analogue of
-// handleAnimaticSubmit: accept/un-accept per address and apply feedback, but with no
+// Reference review submit: accept/un-accept per address and apply feedback, with no
 // shots/compositions. The review record nests under `review/reference/records/` (project root).
 export async function handleReferenceSubmit(
-  videoRoot: string,
-  handoff: Handoff | null,
+  ctx: ReviewContext,
   reference: ReferenceDefinition,
-  direction: Direction | null,
-  animatic: AnimaticDefinition | null,
-  req: Request,
-  reportOutcome?: ReportOutcome,
+  body: AddressReviewSubmitBody,
 ): Promise<Response> {
+  const { videoRoot, handoff, direction, animatic, reportOutcome } = ctx;
   // Stamped before anything is written, so every comment this review carries predates the
   // accepts it was submitted with (see applyFeedbackMutations). The record carries it too: a
   // comment's own review is the one submitted at its createdAt.
   const reviewedAt = new Date().toISOString();
-  const body = await parseAddressReviewBody(req);
-  if (!body) return errorResponse("Invalid review payload", "INVALID_REQUEST", 400);
   const exposed = new Set(listExposedReferenceAddresses(reference));
   const unknownTargets = body.addedFeedback
     .map((fb) => fb.address)
@@ -347,7 +340,7 @@ export async function handleReferenceSubmit(
   }
 
   const record: ReviewRecord = {
-    mode: "reference-preview",
+    mode: reviewModeOf("reference"),
     stage: "reference",
     createdAt: reviewedAt,
     context: { shots: [], timeline },
@@ -362,16 +355,7 @@ export async function handleReferenceSubmit(
     ...handoffRecordFields(handoff),
   };
 
-  const filePath = await saveReviewRecord(videoRoot, record, {
-    force: outcome.skippedDecisions.length > 0,
-  });
-  if (filePath) await storeOverallComment(videoRoot, "reference", record);
-
-  reportOutcome?.({
-    stage: "reference",
-    filePath,
-    ...(outcome.regenerate.length > 0 ? { regenerate: outcome.regenerate } : {}),
-  });
+  const filePath = await persistReview(ctx, record, outcome.skippedDecisions.length > 0);
 
   return jsonResponse({
     saved: filePath !== null,

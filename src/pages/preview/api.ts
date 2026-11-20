@@ -1,3 +1,4 @@
+import { SUBMIT_PATH } from "../../core/review-mode.js";
 import type {
   AddressReviewSubmitBody,
   AddressReviewSubmitResponse,
@@ -42,7 +43,7 @@ export function submitReview(
   stage: "animatic" | "video",
   body: ReelSubmitBody,
 ): Promise<ReelSubmitResponse> {
-  return requestJson<ReelSubmitResponse>(`/api/${stage}/submit`, jsonBody("POST", body)).then(
+  return requestJson<ReelSubmitResponse>(SUBMIT_PATH, jsonBody("POST", { stage, ...body })).then(
     rejectSkippedDecisions,
   );
 }
@@ -85,8 +86,8 @@ export function submitDirectionReview(
   payload: DirectionSubmitBody,
 ): Promise<DirectionSubmitResponse> {
   return requestJson<DirectionSubmitResponse>(
-    "/api/direction/submit",
-    jsonBody("POST", payload),
+    SUBMIT_PATH,
+    jsonBody("POST", { stage: "direction", ...payload }),
   ).then(rejectSkippedDecisions);
 }
 
@@ -94,7 +95,7 @@ export function submitReferenceReview(
   payload: AddressReviewSubmitBody,
 ): Promise<AddressReviewSubmitResponse> {
   return requestJson<AddressReviewSubmitResponse>(
-    "/api/reference/submit",
-    jsonBody("POST", payload),
+    SUBMIT_PATH,
+    jsonBody("POST", { stage: "reference", ...payload }),
   ).then(rejectSkippedDecisions);
 }

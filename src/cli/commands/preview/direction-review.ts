@@ -23,7 +23,7 @@ import {
   formatDirectionWaiverAddress,
   isDirectionBriefListField,
 } from "../../../core/address.js";
-import { errorResponse, jsonResponse, parseJsonBody } from "../../page-host/http.js";
+import { errorResponse, jsonResponse } from "../../page-host/http.js";
 import { resolveLens, setupView } from "../../../core/direction.js";
 import { directionWaiverKey } from "../../../core/direction-findings.js";
 import { ROLE_FUNCTION_LABEL, PLEASURE_GLOSS } from "../../../core/lenses.js";
@@ -66,15 +66,12 @@ import type {
 } from "../../../pages/preview/types.js";
 import { scriptLinesToView } from "../../../core/types/script.js";
 import type { Handoff } from "../../../core/types/index.js";
-import {
-  type ReviewDecisionEntry,
-  type ReviewRecord,
-  saveReviewRecord,
-} from "../../../core/review-record.js";
-import {
-  DirectionSubmitSchema,
-  type DirectionSubmitResponse,
+import type { ReviewDecisionEntry, ReviewRecord } from "../../../core/review-record.js";
+import type {
+  DirectionSubmitBody,
+  DirectionSubmitResponse,
 } from "../../../core/types/review-submit.js";
+import { reviewModeOf } from "../../../core/review-mode.js";
 import { FeedbackManager } from "../../../core/feedback/index.js";
 import { StateManager } from "../../../core/state/index.js";
 import {
@@ -84,11 +81,12 @@ import {
   staleFlagsBeforeDecisions,
   recordFeedbackFor,
   handoffRecordFields,
-  storeOverallComment,
+  persistReview,
 } from "./review-shared.js";
-import { type ReportOutcome, emptyOutcome } from "./review-outcome.js";
+import { emptyOutcome } from "./review-outcome.js";
+import type { ReviewContext } from "./submit.js";
 import { reviewHeldError, reviewHeldFindings } from "../../finding-gates.js";
-import { loadCheckContext, type StageDefs } from "../../../core/check-context.js";
+import { loadCheckContext } from "../../../core/check-context.js";
 import { collectFindings, directionCheckOf, waiverCoverageOf } from "../../../core/checks.js";
 import { sourceViewOf, spanLabelOf } from "../../../core/source-direction.js";
 
@@ -140,11 +138,10 @@ async function referenceView(videoRoot: string, ref: BriefReference): Promise<Br
 // from `checkDirection`, and whether the current direction is still the accepted one.
 // Feedback attaches to a synthetic address per reviewable part (`direction:<part>`).
 export async function handleGetDirectionState(
-  videoRoot: string,
+  ctx: ReviewContext,
   direction: Direction,
-  definitions: StageDefs,
-  handoff: Handoff | null,
 ): Promise<Response> {
+  const { videoRoot, handoff, reference, animatic, video } = ctx;
   const manager = await StateManager.load(videoRoot);
   const feedbackMgr = await FeedbackManager.load(videoRoot, "direction");
   const state = manager.getState();
@@ -153,7 +150,7 @@ export async function handleGetDirectionState(
     await loadCheckContext({
       cueTakes: "played",
       videoRoot,
-      definitions,
+      definitions: { reference, animatic, video },
       direction,
       manager,
       graph: null,
@@ -532,35 +529,29 @@ export async function handleGetDirectionState(
   } satisfies DirectionPreviewState);
 }
 
-// Direction review submit (`/api/direction/submit`). Two orthogonal outcomes: per-part feedback
+// Direction review submit. Two orthogonal outcomes: per-part feedback
 // (routed to the `direction/static` stream) and a single direction Accept (stored in state, keyed
 // to the live `directionHash`). The review record — saved only when there is feedback — nests
 // under `review/direction/static/records/`; acceptance is durable in state regardless.
 
 export async function handleDirectionSubmit(
-  videoRoot: string,
-  handoff: Handoff | null,
+  review: ReviewContext,
   direction: Direction,
-  definitions: StageDefs,
-  req: Request,
-  reportOutcome?: ReportOutcome,
+  body: DirectionSubmitBody,
 ): Promise<Response> {
+  const { videoRoot, handoff, reference, animatic, video, reportOutcome } = review;
   // Stamped before anything is written, so every comment this review carries predates the
   // accepts it was submitted with (see applyFeedbackMutations). The record carries it too: a
   // comment's own review is the one submitted at its createdAt.
   const reviewedAt = new Date().toISOString();
-  const raw = await parseJsonBody<unknown>(req);
-  if (raw === null) {
-    return errorResponse("Invalid request body", "INVALID_REQUEST", 400);
-  }
-  const parsed = DirectionSubmitSchema.safeParse(raw);
-  if (!parsed.success) {
-    return errorResponse("Invalid review payload", "INVALID_REQUEST", 400);
-  }
-  const body = parsed.data;
 
   const currentHash = directionHash(direction);
-  const ctx = await loadCheckContext({ cueTakes: "played", videoRoot, definitions, direction });
+  const ctx = await loadCheckContext({
+    cueTakes: "played",
+    videoRoot,
+    definitions: { reference, animatic, video },
+    direction,
+  });
   const waiverCoverage = waiverCoverageOf(ctx);
   const { accept } = body;
   const sectionDecisions: DirectionSectionDecisions =
@@ -727,7 +718,7 @@ export async function handleDirectionSubmit(
   });
 
   const record: ReviewRecord = {
-    mode: "direction-preview",
+    mode: reviewModeOf("direction"),
     stage: "direction",
     createdAt: reviewedAt,
     context: { shots: [], directionParts: Object.fromEntries(subjectHashes) },
@@ -751,12 +742,7 @@ export async function handleDirectionSubmit(
     ...handoffRecordFields(handoff),
   };
   if (skippedDecisions.length > 0) record.skippedDecisions = skippedDecisions;
-  const filePath = await saveReviewRecord(videoRoot, record, {
-    force: skippedDecisions.length > 0,
-  });
-  if (filePath) await storeOverallComment(videoRoot, "direction", record);
-
-  reportOutcome?.({ stage: "direction", filePath });
+  const filePath = await persistReview(review, record, skippedDecisions.length > 0);
 
   return jsonResponse({
     saved: filePath !== null,

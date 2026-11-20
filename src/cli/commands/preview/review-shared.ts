@@ -5,7 +5,6 @@ import {
   addressToUrlPath,
   formatShotAddress,
   patchSourceVariantIdOf,
-  type Stage,
 } from "../../../core/address.js";
 import {
   isVariantStale,
@@ -18,7 +17,6 @@ import { generatedOrigin, isReviewLeaf } from "../../../core/variant-lineage.js"
 import { variantOwningFile } from "../../../core/variant-dir.js";
 import { mediaVisualSize } from "../../../core/variant-media.js";
 import { errorMessage } from "../../../core/errors.js";
-import { parseJsonBody } from "../../page-host/http.js";
 import { resolveLens } from "../../../core/direction.js";
 import { ROLE_FUNCTION_LABEL } from "../../../core/lenses.js";
 import type { Direction, DirectionNode, Framing } from "../../../core/dsl/direction.js";
@@ -27,13 +25,18 @@ import type { AssetInfo, ShotInfo, SongReadingInfo } from "../../../pages/previe
 import { scriptLinesToView, type ScriptLineView } from "../../../core/types/script.js";
 import type { Handoff, AnimaticDefinition } from "../../../core/types/index.js";
 import {
-  AddressReviewSubmitSchema,
   type AddressReviewSubmitBody,
   type FeedbackPatchBody,
   type KeepEntryBody,
   type RegenerateEntryBody,
 } from "../../../core/types/review-submit.js";
-import type { ReviewDecisionEntry, ReviewRecord } from "../../../core/review-record.js";
+import {
+  type ReviewDecisionEntry,
+  type ReviewRecord,
+  reviewStage,
+  saveReviewRecord,
+} from "../../../core/review-record.js";
+import type { ReviewContext } from "./submit.js";
 import {
   feedbackStaleness,
   FeedbackManager,
@@ -367,18 +370,32 @@ export function applyFeedbackMutations(
   return { added };
 }
 
-// A review's overall comment, stored as feedback on the bare stage beside the record that carries
-// it.
-export async function storeOverallComment(
-  videoRoot: string,
-  stage: Stage,
+/**
+ * Saves a submit's record, stores its overall comment as feedback on the bare stage beside it, and
+ * reports where it landed. `force` keeps a record `hasFeedback` would drop. Returns the record's
+ * path, or null when there was nothing to save.
+ */
+export async function persistReview(
+  ctx: ReviewContext,
   record: ReviewRecord,
-): Promise<void> {
-  if (!record.overallComment) return;
-  const text = record.overallComment;
-  await FeedbackManager.withLock(videoRoot, stage, async (mgr) => {
-    applyFeedbackMutations(mgr, [{ address: stage, text, annotation: null }], [], record.createdAt);
-  });
+  force: boolean,
+): Promise<string | null> {
+  const stage = reviewStage(record);
+  const filePath = await saveReviewRecord(ctx.videoRoot, record, { force });
+  if (filePath && record.overallComment) {
+    const text = record.overallComment;
+    await FeedbackManager.withLock(ctx.videoRoot, stage, async (mgr) => {
+      applyFeedbackMutations(
+        mgr,
+        [{ address: stage, text, annotation: null }],
+        [],
+        record.createdAt,
+      );
+    });
+  }
+  const regenerate = record.regenerate ?? [];
+  ctx.reportOutcome?.({ stage, filePath, ...(regenerate.length > 0 ? { regenerate } : {}) });
+  return filePath;
 }
 
 /**
@@ -920,14 +937,6 @@ export function applyRegenerateDecisions(
     out.push(entry.address);
   }
   return out;
-}
-
-// Parse and validate an address-keyed submit body; null when it is not one.
-export async function parseAddressReviewBody(
-  req: Request,
-): Promise<AddressReviewSubmitBody | null> {
-  const parsed = AddressReviewSubmitSchema.safeParse(await parseJsonBody<unknown>(req));
-  return parsed.success ? parsed.data : null;
 }
 
 export function addressReviewTouchesNothing(body: AddressReviewSubmitBody): boolean {

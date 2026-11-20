@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { addressFromCacheSegments, parseAddress } from "../../../core/address.js";
+import { addressFromCacheSegments, parseAddress, type Stage } from "../../../core/address.js";
 import { sha256Hex } from "../../../core/content-hash.js";
 import { KonteError, errorMessage } from "../../../core/errors.js";
 import { HYPERFRAME_RUNTIME } from "../../../core/generated/hyperframes-assets.js";
@@ -18,8 +18,8 @@ import {
   NativeResponse,
 } from "../../page-host/http.js";
 import { findLatestHandoff, loadHandoff } from "../../../core/loader.js";
-import { loadPreviewDefinitions, reloadStageDefinition } from "./load-definitions.js";
-import { KonteStateSchema, type Handoff } from "../../../core/types/index.js";
+import { loadPreviewDefinitions } from "./load-definitions.js";
+import { KonteStateSchema, type Handoff, type KonteState } from "../../../core/types/index.js";
 import { songReadingsOf } from "../../../core/song-variant.js";
 import { REVIEW_DIR, reviewShowedHandoff } from "../../../core/review-record.js";
 import { StateManager } from "../../../core/state/index.js";
@@ -36,31 +36,27 @@ import {
   printReviewOutcome,
   recoverOutcome,
 } from "./review-outcome.js";
-import {
-  STUDY_SHEET_BASE,
-  handleDirectionSubmit,
-  handleGetDirectionState,
-} from "./direction-review.js";
+import { STUDY_SHEET_BASE, handleGetDirectionState } from "./direction-review.js";
 import { studiesDir } from "../../../core/study-clip.js";
 import { workspaceRootOrNull } from "../../../core/workspace-context.js";
-import { handleGetReferenceState, handleReferenceSubmit } from "./reference-review.js";
+import { handleGetReferenceState } from "./reference-review.js";
 import {
   assertReelBuilds,
   handleGetReelState,
   handleGetFullComposition,
+  remixTakenOverBoardStems,
   warmReelPreroll,
-  type ReelReviewContext,
 } from "./reel-review.js";
-import { handleReelSubmit } from "./reel-submit.js";
+import { handleSubmit, type ReviewContext } from "./submit.js";
+import { SUBMIT_PATH } from "../../../core/review-mode.js";
+import type { PreviewSocketMessage } from "../../../pages/preview/types.js";
 
 export interface PreviewServerOptions {
   videoRoot: string;
-  videoPath: string;
   port: number;
   // Retry on an ephemeral port when `port` is taken (set when the port was not explicitly asked for).
   allowPortFallback?: boolean;
-  mode: "video-preview" | "animatic-preview" | "reference-preview" | "direction-preview";
-  stage?: "animatic" | "video" | "reference" | "direction";
+  stage: Stage;
   autoClose?: boolean;
   // An explicit --handoff path; when set it overrides the auto-selection of the
   // latest handoff file matching the stage.
@@ -75,37 +71,31 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
   shutdown: Promise<PageShutdownResult>;
   triggerShutdown: () => void;
 }> {
-  const { videoRoot, videoPath, port, mode } = opts;
+  const { videoRoot, port, stage } = opts;
   const autoClose = opts.autoClose ?? true;
   const access = opts.access ?? LOOPBACK_ONLY;
+  const isReel = stage === "animatic" || stage === "video";
 
   // Reassigned by the watcher below, which re-reads the same set on a definition edit.
   let { reference, animatic, direction, video } = await loadPreviewDefinitions({
     videoRoot,
-    mode,
+    stage,
   });
-  // The stage the reel pages play: each mode loads its own entry fatally, so it is there whenever
+  // The stage the reel pages play: each review loads its own entry fatally, so it is there whenever
   // a reel route can be reached.
   const currentReel = (): StageDefinition => {
-    const reel = mode === "animatic-preview" ? animatic : video;
-    if (!reel) throw new KonteError("ADDRESS_NOT_FOUND", `No reel is loaded in ${mode}`);
+    const reel = stage === "animatic" ? animatic : video;
+    if (!reel)
+      throw new KonteError("ADDRESS_NOT_FOUND", `No reel is loaded in the ${stage} review`);
     return reel;
   };
-  if ((mode === "animatic-preview" || mode === "video-preview") && animatic) {
+  if (isReel && animatic) {
     await assertReelBuilds(currentReel(), videoRoot, animatic);
   }
 
   // Select the handoff file for this stage: a handoff file is scoped to one stage, so the
   // auto-selection surfaces only the latest file matching this session, unless a submitted review
   // already showed it. An explicit --handoff path bypasses the matching.
-  const stage: "animatic" | "video" | "reference" | "direction" =
-    mode === "animatic-preview"
-      ? "animatic"
-      : mode === "reference-preview"
-        ? "reference"
-        : mode === "direction-preview"
-          ? "direction"
-          : "video";
   let handoff: Handoff | null = null;
   let handoffPath: string | null = null;
   if (opts.explicitHandoffPath) {
@@ -120,18 +110,10 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
       handoff = found.handoff;
     }
   }
-  const reelContext = (): ReelReviewContext => ({
-    videoRoot,
-    handoff,
-    direction,
-    animatic,
-    reference,
-    downstreamVideo: mode === "animatic-preview" ? video : null,
-  });
   // Sync file assets under the state lock so the seconds-long media hashing cannot
   // clobber a concurrent watcher write. Route handlers reload their own snapshot.
   await StateManager.withLock(videoRoot, async (m) => {
-    if (mode === "reference-preview" || mode === "direction-preview") {
+    if (!isReel) {
       // Direction review is media-less; syncing the reference pool is enough to resolve the characters.
       await syncFileAssets({ reference }, m, { measure: true });
     } else {
@@ -142,19 +124,17 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
     // unbuilt and wave the page through with the movement still unwritten. Scoped to the stage
     // being opened, unlike the accept gate: another stage's unwritten movement is not this page's
     // to answer for, and the accept it would reach is gated on submit.
-    if (stage) {
-      await reviewGate(
-        await loadCheckContext({
-          cueTakes: "played",
-          videoRoot,
-          definitions: { reference, animatic, video },
-          direction,
-          manager: m,
-        }),
-        [{ op: "preview", stage }],
-        `Cannot open the ${stage} review`,
-      );
-    }
+    await reviewGate(
+      await loadCheckContext({
+        cueTakes: "played",
+        videoRoot,
+        definitions: { reference, animatic, video },
+        direction,
+        manager: m,
+      }),
+      [{ op: "preview", stage }],
+      `Cannot open the ${stage} review`,
+    );
   });
 
   const wsClients = new Set<import("bun").ServerWebSocket<undefined>>();
@@ -164,17 +144,27 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
     outcome = mergeReviewOutcome(outcome, o);
   };
   const sessionStart = new Date().toISOString();
-  // Whether any submit reached this server. The recovery below reads a record this process may not
+  // Whether any submit body was taken here. The recovery below reads a record this process may not
   // have written — a second preview on the same stage writes into the same stream — so it is only
   // consulted once a submit has actually been taken here.
   let submitSeen = false;
+  const reviewContext = (): ReviewContext => ({
+    videoRoot,
+    stage,
+    handoff,
+    direction,
+    reference,
+    animatic,
+    video,
+    reportOutcome,
+  });
 
   const lifecycle = createPageLifecycle({
     autoClose,
     onShutdown: async ({ drainTimedOut }) => {
       printReviewOutcome(
-        mode,
-        outcome ?? (submitSeen ? await recoverOutcome(videoRoot, mode, sessionStart) : null),
+        stage,
+        outcome ?? (submitSeen ? await recoverOutcome(videoRoot, stage, sessionStart) : null),
         drainTimedOut,
       );
     },
@@ -186,11 +176,12 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
   // Relative, so every media URL resolves against the origin the page was opened at: an absolute
   // loopback base would point a phone at its own machine.
   const assetBaseUrl = "/api/assets";
+  const readState = createStateReader(videoRoot);
 
   // The browser has a bundle to load before it asks for the reel, so the ffmpeg pass each new take
   // needs is spent during that wait rather than added to it. Video stage only — a `<Video>` on the
   // board is a load error, so an animatic reel has no clip to run up.
-  if (mode === "video-preview") {
+  if (stage === "video") {
     void warmReelPreroll(currentReel(), videoRoot, assetBaseUrl, animatic);
   }
 
@@ -235,28 +226,15 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
 
         try {
           if (pathname === "/api/state") {
-            if (mode === "direction-preview" && direction) {
-              return await handleGetDirectionState(
-                videoRoot,
-                direction,
-                { reference, animatic, video },
-                handoff,
-              );
+            if (stage === "direction" && direction) {
+              return await handleGetDirectionState(reviewContext(), direction);
             }
-            if (mode === "reference-preview" && reference) {
-              return await handleGetReferenceState(
-                videoRoot,
-                reference,
-                assetBaseUrl,
-                handoff,
-                direction,
-                animatic,
-                video,
-              );
+            if (stage === "reference" && reference) {
+              return await handleGetReferenceState(reviewContext(), reference, assetBaseUrl);
             }
             // Both composition stages are one page and one handler; the reel it plays is the
             // stage the session was opened on.
-            return await handleGetReelState(reelContext(), currentReel(), assetBaseUrl);
+            return await handleGetReelState(reviewContext(), currentReel(), assetBaseUrl);
           }
 
           if (pathname === "/api/compositions/full" && req.method === "GET") {
@@ -291,84 +269,26 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
             );
           }
 
-          // Refused rather than half-done: the reviewer is told their review did not land, which
-          // beats a write the ending session cannot see through. The page's own socket is gone by
-          // the time this can hit — nothing but a stray keep-alive request gets here.
-          if (pathname.endsWith("/submit") && lifecycle.isShuttingDown()) {
-            return errorResponse(
-              "Preview is shutting down — the review was not submitted",
-              "PAGE_SHUTTING_DOWN",
-              503,
-            );
-          }
-
-          // A rejected submit (bad body, no definition loaded) reports no outcome, so the session
-          // still exits as "not submitted" rather than claiming a review that never landed.
-          // Each runs as tracked work: a submit is the one handler whose result the exit line
-          // reports, and a window closed on its spinner must not outrun it.
-          if (
-            (pathname === "/api/video/submit" || pathname === "/api/animatic/submit") &&
-            req.method === "POST"
-          ) {
-            submitSeen = true;
-            const reelStage = pathname === "/api/animatic/submit" ? "animatic" : "video";
-            // A submit may only land on the reel this session is serving. The shot ids coincide,
-            // so a page and a server that disagree about the stage would accept the OTHER stage's
-            // shots — a review signing off takes nobody saw.
-            if (reelStage !== stage) {
-              submitSeen = false;
+          if (pathname === SUBMIT_PATH && req.method === "POST") {
+            // Refused rather than half-done: the reviewer is told their review did not land, which
+            // beats a write the ending session cannot see through. The page's own socket is gone by
+            // the time this can hit — nothing but a stray keep-alive request gets here.
+            if (lifecycle.isShuttingDown()) {
               return errorResponse(
-                `This page is reviewing the ${stage} reel; a ${reelStage} submit belongs to \`konte preview ${reelStage}\``,
-                "INVALID_ADDRESS",
-                400,
+                "Preview is shutting down — the review was not submitted",
+                "PAGE_SHUTTING_DOWN",
+                503,
               );
             }
+            // A refused body reports no outcome, so the session still exits as "not submitted".
+            // Tracked work: a submit is the one handler whose result the exit line reports, and a
+            // window closed on its spinner must not outrun it. The context is bound now: the
+            // watcher may reassign a definition on a reload while the body is still arriving.
+            const ctx = reviewContext();
             return await lifecycle.track(() =>
-              handleReelSubmit(
-                reelContext(),
-                () => reloadStageDefinition(videoRoot, videoPath, reelStage),
-                req,
-                reportOutcome,
-              ),
-            );
-          }
-
-          if (pathname === "/api/reference/submit" && req.method === "POST") {
-            submitSeen = true;
-            // Bound before the closure: the watcher may reassign `reference` on a reload, and a
-            // deferred read of it would defeat the guard above.
-            const referenceDef = reference;
-            if (!referenceDef) {
-              return errorResponse("No reference definition loaded", "ADDRESS_NOT_FOUND", 400);
-            }
-            return await lifecycle.track(() =>
-              handleReferenceSubmit(
-                videoRoot,
-                handoff,
-                referenceDef,
-                direction,
-                animatic,
-                req,
-                reportOutcome,
-              ),
-            );
-          }
-
-          if (pathname === "/api/direction/submit" && req.method === "POST") {
-            submitSeen = true;
-            const directionDef = direction;
-            if (!directionDef) {
-              return errorResponse("No direction definition loaded", "ADDRESS_NOT_FOUND", 400);
-            }
-            return await lifecycle.track(() =>
-              handleDirectionSubmit(
-                videoRoot,
-                handoff,
-                directionDef,
-                { reference, animatic, video },
-                req,
-                reportOutcome,
-              ),
+              handleSubmit(ctx, req, () => {
+                submitSeen = true;
+              }),
             );
           }
 
@@ -382,8 +302,10 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
           }
 
           if (pathname.startsWith("/api/thumbnail-assets/")) {
-            const rawPath = pathname.slice("/api/thumbnail-assets/".length);
-            return handleThumbnailAssetRequest(videoRoot, decodeURIComponent(rawPath));
+            return handleThumbnailAssetRequest(
+              videoRoot,
+              pathname.slice("/api/thumbnail-assets/".length),
+            );
           }
 
           if (pathname.startsWith(`${PREROLL_ASSET_BASE}/`)) {
@@ -396,7 +318,11 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
 
           if (pathname.startsWith("/api/assets/")) {
             server.timeout(req, 0);
-            return handleAssetRequest(videoRoot, pathname.slice("/api/assets/".length));
+            return await handleAssetRequest(
+              videoRoot,
+              pathname.slice("/api/assets/".length),
+              readState,
+            );
           }
 
           return serveSpa(pathname);
@@ -420,7 +346,7 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
   const server = listenWithPortFallback(serve, port, opts.allowPortFallback ?? false);
   lifecycle.attach(server);
 
-  function broadcastWs(msg: Record<string, unknown>) {
+  function broadcastWs(msg: PreviewSocketMessage) {
     const payload = JSON.stringify(msg);
     for (const ws of wsClients) {
       try {
@@ -453,7 +379,7 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
     // review is media-less, so no state write can change what it shows — its own
     // feedback/accept writes would be the only thing the prompt ever announced.
     if (normalized === "konte.state.json") {
-      if (mode === "direction-preview") return;
+      if (stage === "direction") return;
       if (stateDebounceTimer) clearTimeout(stateDebounceTimer);
       stateDebounceTimer = setTimeout(async () => {
         const signature = await readStateSignature(videoRoot);
@@ -465,6 +391,8 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
           await reloadDefinitions();
           return;
         }
+        // A remix writes state, whose own event finds nothing left to remix.
+        await remixBoardStems();
         broadcastWs({ type: "state-changed" });
       }, STATE_DEBOUNCE_MS);
       return;
@@ -483,14 +411,28 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => void reloadDefinitions(), DEBOUNCE_MS);
   });
+  // After the watch is up, so a take a worker settles while the session starts is not missed.
+  await remixBoardStems();
+
+  // A shot playing a board stem the video has taken over is drawn from its remix, so the remix lands
+  // before the page is told to read state again.
+  async function remixBoardStems(): Promise<void> {
+    if (stage !== "video" || !video) return;
+    try {
+      await remixTakenOverBoardStems(videoRoot, video, animatic);
+    } catch (err) {
+      console.error(`Could not re-mix the board stems: ${errorMessage(err)}`);
+    }
+  }
 
   async function reloadDefinitions(): Promise<void> {
     try {
       ({ reference, animatic, direction, video } = await loadPreviewDefinitions({
         videoRoot,
-        mode,
+        stage,
         reload: true,
       }));
+      await remixBoardStems();
       if (handoffPath) {
         try {
           handoff = await loadHandoff(handoffPath);
@@ -537,6 +479,15 @@ export async function readStateSignature(videoRoot: string): Promise<string | nu
   }
 }
 
+// A request path's percent-encoding undone, or null when it is malformed (a stray `%`).
+function decodePath(raw: string): string | null {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * URL layout: `<stage>/<suffix>/<variantId>/<filename>` — the address split at its
  * `:` delimiter into path-safe segments (see addressToUrlPath), reconstructed here.
@@ -547,11 +498,11 @@ export async function readStateSignature(videoRoot: string): Promise<string | nu
 export function parseAssetUrlPath(
   rawPath: string,
 ): { address: string; variantId: string; filename: string } | null {
-  let parts: string[];
-  try {
-    parts = rawPath.split("/").map((p) => decodeURIComponent(p));
-  } catch {
-    return null;
+  const parts: string[] = [];
+  for (const segment of rawPath.split("/")) {
+    const part = decodePath(segment);
+    if (part === null) return null;
+    parts.push(part);
   }
   if (parts.length < 4) return null;
   return {
@@ -561,28 +512,45 @@ export function parseAssetUrlPath(
   };
 }
 
-export function handleAssetRequest(videoRoot: string, rawPath: string): Response {
+/**
+ * The state an asset request resolves its variant in, read through the schema and re-read only once
+ * the file has changed.
+ */
+export function createStateReader(videoRoot: string): () => Promise<KonteState> {
+  const file = path.join(videoRoot, "konte.state.json");
+  let cached: { key: string; state: KonteState } | null = null;
+  return async () => {
+    const { ino, ctimeMs, mtimeMs, size } = await fs.promises.stat(file);
+    const key = `${ino}:${ctimeMs}:${mtimeMs}:${size}`;
+    if (cached?.key === key) return cached.state;
+    const state = KonteStateSchema.parse(JSON.parse(await fs.promises.readFile(file, "utf-8")));
+    cached = { key, state };
+    return state;
+  };
+}
+
+export async function handleAssetRequest(
+  videoRoot: string,
+  rawPath: string,
+  readState: () => Promise<KonteState> = createStateReader(videoRoot),
+): Promise<Response> {
   const parsed = parseAssetUrlPath(rawPath);
   if (!parsed) {
     return errorResponse("Invalid asset path", "INVALID_REQUEST", 400);
   }
   const { address, variantId, filename } = parsed;
 
-  let variant: { file?: string } | undefined;
+  let state: KonteState;
   try {
-    const stateFile = path.join(videoRoot, "konte.state.json");
-    const raw = fs.readFileSync(stateFile, "utf-8");
-    const parsed = JSON.parse(raw) as {
-      assets: Record<string, { variants?: Record<string, { file?: string }> }>;
-    };
-    const assetState = parsed.assets[address];
-    if (!assetState) {
-      return errorResponse("Asset not found", "ASSET_NOT_FOUND", 404);
-    }
-    variant = assetState.variants?.[variantId];
+    state = await readState();
   } catch {
     return errorResponse("Cannot load state", "INTERNAL_ERROR", 500);
   }
+  const assetState = state.assets[address];
+  if (!assetState) {
+    return errorResponse("Asset not found", "ASSET_NOT_FOUND", 404);
+  }
+  const variant = assetState.variants?.[variantId];
 
   if (!variant?.file) {
     return errorResponse("Variant file not found", "VARIANT_NOT_FOUND", 404);
@@ -600,12 +568,8 @@ export function handleAssetRequest(videoRoot: string, rawPath: string): Response
 // path from the request either way.
 export function handlePrerollAssetRequest(videoRoot: string, rawPath: string): Response {
   const dir = prerollCacheDir(videoRoot);
-  let name: string;
-  try {
-    name = decodeURIComponent(rawPath);
-  } catch {
-    return errorResponse("Invalid preroll path", "INVALID_REQUEST", 400);
-  }
+  const name = decodePath(rawPath);
+  if (name === null) return errorResponse("Invalid preroll path", "INVALID_REQUEST", 400);
   return serveContainedFile(path.resolve(dir, name), dir);
 }
 
@@ -613,12 +577,16 @@ export function handleThumbnailAssetRequest(videoRoot: string, rawPath: string):
   // Confine reads to .konte/cache/thumbnails/ — the only place legitimate thumbnail URLs
   // point. A bare project-root check would still serve e.g. the workspace credentials.
   const thumbnailsDir = path.join(videoRoot, ".konte", "cache", "thumbnails");
-  return serveContainedFile(path.resolve(videoRoot, rawPath), thumbnailsDir);
+  const rel = decodePath(rawPath);
+  if (rel === null) return errorResponse("Invalid thumbnail path", "INVALID_REQUEST", 400);
+  return serveContainedFile(path.resolve(videoRoot, rel), thumbnailsDir);
 }
 
 export function handleStudySheetRequest(workspaceRoot: string, rawPath: string): Response {
   const studies = studiesDir(workspaceRoot);
-  return serveContainedFile(path.resolve(studies, decodeURIComponent(rawPath)), studies);
+  const name = decodePath(rawPath);
+  if (name === null) return errorResponse("Invalid study sheet path", "INVALID_REQUEST", 400);
+  return serveContainedFile(path.resolve(studies, name), studies);
 }
 
 // Serve a file, refusing one that resolves (symlinks followed) outside `root`.

@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { loadPreviewDefinitions } from "../load-definitions.js";
-import { handleReferenceSubmit } from "../reference-review.js";
+import { handleSubmit } from "../submit.js";
 import { StateManager } from "../../../../core/state/index.js";
 import { ctx, initWorkspace, useTempWorkspace } from "../../../__tests__/cli-fixtures.js";
 
@@ -97,11 +97,11 @@ async function project(moves = ""): Promise<{ videoRoot: string; variantId: stri
   return { videoRoot, variantId };
 }
 
-function submitRequest(body: unknown): Request {
-  return new Request("http://127.0.0.1/api/reference/submit", {
+function submitRequest(body: object): Request {
+  return new Request("http://127.0.0.1/api/submit", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ stage: "reference", ...body }),
   });
 }
 
@@ -120,7 +120,7 @@ describe("reference preview — definitions loaded", () => {
     const { videoRoot } = await project();
     const defs = await loadPreviewDefinitions({
       videoRoot,
-      mode: "reference-preview",
+      stage: "reference",
     });
     expect(defs.reference).not.toBeNull();
     expect(defs.animatic).not.toBeNull();
@@ -131,7 +131,7 @@ describe("reference preview — definitions loaded", () => {
     await fs.writeFile(path.join(videoRoot, "animatic.tsx"), "throw new Error('broken');\n");
     const defs = await loadPreviewDefinitions({
       videoRoot,
-      mode: "reference-preview",
+      stage: "reference",
     });
     expect(defs.reference).not.toBeNull();
     expect(defs.animatic).toBeNull();
@@ -144,7 +144,7 @@ describe("animatic preview — definitions loaded", () => {
     await fs.writeFile(path.join(videoRoot, "video.tsx"), 'export default "unterminated;\n');
     const defs = await loadPreviewDefinitions({
       videoRoot,
-      mode: "animatic-preview",
+      stage: "animatic",
     });
     expect(defs.animatic).not.toBeNull();
     expect(defs.video).toBeNull();
@@ -156,15 +156,11 @@ describe("handleReferenceSubmit — review prerequisites", () => {
     const { videoRoot, variantId } = await project();
     const defs = await loadPreviewDefinitions({
       videoRoot,
-      mode: "reference-preview",
+      stage: "reference",
     });
 
-    const res = await handleReferenceSubmit(
-      videoRoot,
-      null,
-      defs.reference!,
-      defs.direction,
-      defs.animatic,
+    const res = await handleSubmit(
+      { videoRoot, stage: "reference", handoff: null, ...defs, video: null },
       submitRequest({
         addedFeedback: [{ address: PANEL, text: "warmer light", annotation: null }],
         feedbackPatches: [],
@@ -199,15 +195,11 @@ describe("handleReferenceSubmit — review prerequisites", () => {
     );
     const defs = await loadPreviewDefinitions({
       videoRoot,
-      mode: "reference-preview",
+      stage: "reference",
     });
 
-    const res = await handleReferenceSubmit(
-      videoRoot,
-      null,
-      defs.reference!,
-      defs.direction,
-      defs.animatic,
+    const res = await handleSubmit(
+      { videoRoot, stage: "reference", handoff: null, ...defs, video: null },
       submitRequest({
         addedFeedback: [],
         feedbackPatches: [],

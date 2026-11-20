@@ -261,6 +261,7 @@
                   "**/core/**",
                   "!**/core/address.js",
                   "!**/core/format-duration.js",
+                  "!**/core/review-mode.js",
                   "!**/core/shot-acceptable.js",
                   "!**/core/song-grid.js",
                   "!**/core/types/config.js"

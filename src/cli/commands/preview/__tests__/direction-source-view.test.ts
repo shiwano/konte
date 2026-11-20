@@ -63,10 +63,16 @@ async function stateOf(withSource: boolean): Promise<DirectionPreviewState> {
   await fs.writeFile(path.join(video, "direction.ts"), directionTs(withSource));
   const direction = (await loadDirectionIfPresent(video))!;
   const res = await handleGetDirectionState(
-    video,
+    {
+      videoRoot: video,
+      stage: "direction",
+      handoff: null,
+      direction,
+      reference: null,
+      animatic: null,
+      video: null,
+    },
     direction,
-    { reference: null, animatic: null, video: null },
-    null,
   );
   return (await res.json()) as DirectionPreviewState;
 }

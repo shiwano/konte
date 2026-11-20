@@ -2,9 +2,8 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { loadPreviewDefinitions } from "../load-definitions.js";
-import { handleReelSubmit } from "../reel-submit.js";
+import { handleSubmit } from "../submit.js";
 import { JobManager } from "../../../../core/job-manager.js";
-import { reloadVideoDefinition } from "../../../../core/loader.js";
 import { StateManager } from "../../../../core/state/index.js";
 import { ctx, initWorkspace, useTempWorkspace } from "../../../__tests__/cli-fixtures.js";
 
@@ -197,22 +196,21 @@ async function submit(
   videoRoot: string,
   body: Record<string, unknown>,
 ): Promise<{ res: Response; payload: Record<string, unknown> }> {
-  const videoPath = path.join(videoRoot, "video.tsx");
-  const defs = await loadPreviewDefinitions({ videoRoot, mode: "video-preview" });
-  const res = await handleReelSubmit(
+  const defs = await loadPreviewDefinitions({ videoRoot, stage: "video" });
+  const res = await handleSubmit(
     {
       videoRoot,
       handoff: null,
       direction: defs.direction,
       animatic: defs.animatic,
       reference: null,
-      downstreamVideo: null,
+      stage: "video",
+      video: null,
     },
-    () => reloadVideoDefinition(videoPath),
-    new Request("http://127.0.0.1/api/video/submit", {
+    new Request("http://127.0.0.1/api/submit", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ stage: "video", ...body }),
     }),
   );
   return { res, payload: (await res.json()) as Record<string, unknown> };

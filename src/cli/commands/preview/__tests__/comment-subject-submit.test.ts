@@ -3,8 +3,7 @@ import * as path from "node:path";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { loadPreviewDefinitions } from "../load-definitions.js";
 import { handleGetReelState } from "../reel-review.js";
-import { handleReelSubmit } from "../reel-submit.js";
-import { reloadVideoDefinition } from "../../../../core/loader.js";
+import { handleSubmit } from "../submit.js";
 import { StateManager } from "../../../../core/state/index.js";
 import { feedbackStaleness } from "../../../../core/feedback/index.js";
 import { reviewTimes } from "../../../../core/review-record.js";
@@ -143,22 +142,21 @@ async function submit(
   videoRoot: string,
   body: Record<string, unknown>,
 ): Promise<{ res: Response; payload: Record<string, unknown> }> {
-  const videoPath = path.join(videoRoot, "video.tsx");
-  const defs = await loadPreviewDefinitions({ videoRoot, mode: "video-preview" });
-  const res = await handleReelSubmit(
+  const defs = await loadPreviewDefinitions({ videoRoot, stage: "video" });
+  const res = await handleSubmit(
     {
       videoRoot,
       handoff: null,
       direction: defs.direction,
       animatic: defs.animatic,
       reference: null,
-      downstreamVideo: null,
+      stage: "video",
+      video: null,
     },
-    () => reloadVideoDefinition(videoPath),
-    new Request("http://127.0.0.1/api/video/submit", {
+    new Request("http://127.0.0.1/api/submit", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ stage: "video", ...body }),
     }),
   );
   return { res, payload: (await res.json()) as Record<string, unknown> };
@@ -213,7 +211,7 @@ describe("handleReelSubmit — the subject a comment is persisted with", () => {
   // address and the submit dropped it for want of a value.
   it("is told by the GET which take each composition ref was drawn from", async () => {
     const { videoRoot, panelId } = await project();
-    const defs = await loadPreviewDefinitions({ videoRoot, mode: "video-preview" });
+    const defs = await loadPreviewDefinitions({ videoRoot, stage: "video" });
     const res = await handleGetReelState(
       {
         videoRoot,
@@ -221,7 +219,8 @@ describe("handleReelSubmit — the subject a comment is persisted with", () => {
         direction: defs.direction,
         animatic: defs.animatic,
         reference: defs.reference,
-        downstreamVideo: null,
+        stage: "video",
+        video: null,
       },
       defs.video!,
       "http://127.0.0.1/assets",

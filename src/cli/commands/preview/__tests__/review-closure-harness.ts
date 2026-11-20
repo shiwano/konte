@@ -3,16 +3,15 @@ import * as path from "node:path";
 import { expect } from "vitest";
 
 import { loadPreviewDefinitions } from "../load-definitions.js";
-import { handleGetReelState } from "../reel-review.js";
-import { handleReelSubmit } from "../reel-submit.js";
+import { handleGetReelState, remixTakenOverBoardStems } from "../reel-review.js";
+import { handleSubmit, type ReviewContext } from "../submit.js";
 import { buildAssetStatus, needsReviewItems } from "../../../../core/status-report.js";
 import { type DefinitionLike, getAssetEntry, listAddresses } from "../../../../core/address.js";
 import { compositionInputFingerprints } from "../../../../core/composition-resource.js";
 import { computeDefinitionHash } from "../../../../core/definition-hash.js";
 import { extractRefs } from "../../../../core/graph.js";
 import { stableStringify } from "../../../../core/stable-stringify.js";
-import type { AssetDefinition } from "../../../../core/types/index.js";
-import { reloadVideoDefinition } from "../../../../core/loader.js";
+import type { AssetDefinition, StageDefinition } from "../../../../core/types/index.js";
 import { StateManager } from "../../../../core/state/index.js";
 import { applyDirectionSectionDecisions } from "../../../../core/direction-acceptance.js";
 import { DIRECTION_SECTIONS } from "../../../../core/address.js";
@@ -250,7 +249,7 @@ export async function generateAll(videoRoot: string): Promise<void> {
   // fresh too, the way the preview watcher's reload does.
   const defs = await loadPreviewDefinitions({
     videoRoot,
-    mode: "video-preview",
+    stage: "video",
     reload: true,
   });
   const manager = await StateManager.load(videoRoot);
@@ -339,17 +338,17 @@ export async function acceptAll(
   // A case about a decision that does not land reads the skips itself.
   opts: { allowSkipped?: boolean } = {},
 ): Promise<Record<string, unknown>> {
-  const videoPath = path.join(videoRoot, "video.tsx");
-  const defs = await loadPreviewDefinitions({ videoRoot, mode: "video-preview" });
+  const defs = await loadPreviewDefinitions({ videoRoot, stage: "video" });
   const reel = stage === "animatic" ? defs.animatic! : defs.video!;
-  const stateRes = await handleGetReelState(
+  const stateRes = await reelState(
     {
       videoRoot,
       handoff: null,
       direction: defs.direction,
       animatic: defs.animatic,
       reference: null,
-      downstreamVideo: null,
+      stage,
+      video: null,
     },
     reel,
     "http://127.0.0.1/assets",
@@ -392,20 +391,21 @@ export async function acceptAll(
     for (const row of [page.thumbnail.cover, ...page.thumbnail.assets]) choose(row);
   const thumbnailDecision = page.thumbnail?.needsReview ? "accepted" : undefined;
 
-  const res = await handleReelSubmit(
+  const res = await handleSubmit(
     {
       videoRoot,
       handoff: null,
       direction: defs.direction,
       animatic: defs.animatic,
       reference: null,
-      downstreamVideo: null,
+      stage,
+      video: null,
     },
-    async () => (stage === "animatic" ? defs.animatic! : reloadVideoDefinition(videoPath)),
-    new Request(`http://127.0.0.1/api/${stage}/submit`, {
+    new Request("http://127.0.0.1/api/submit", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
+        stage,
         decisions,
         displayedVariants,
         displayedCandidates,
@@ -440,16 +440,16 @@ export async function submitDecision(
   standInShotIds?: string[],
   stage: "animatic" | "video" = "video",
 ): Promise<Array<{ address: string; reason: string }>> {
-  const videoPath = path.join(videoRoot, "video.tsx");
-  const defs = await loadPreviewDefinitions({ videoRoot, mode: "video-preview" });
-  const stateRes = await handleGetReelState(
+  const defs = await loadPreviewDefinitions({ videoRoot, stage: "video" });
+  const stateRes = await reelState(
     {
       videoRoot,
       handoff: null,
       direction: defs.direction,
       animatic: defs.animatic,
       reference: null,
-      downstreamVideo: null,
+      stage,
+      video: null,
     },
     stage === "animatic" ? defs.animatic! : defs.video!,
     "http://127.0.0.1/assets",
@@ -457,20 +457,21 @@ export async function submitDecision(
   const page = (await stateRes.json()) as {
     shots: Array<{ shotId: string; showingStandIn?: boolean }>;
   };
-  const res = await handleReelSubmit(
+  const res = await handleSubmit(
     {
       videoRoot,
       handoff: null,
       direction: defs.direction,
       animatic: defs.animatic,
       reference: null,
-      downstreamVideo: null,
+      stage,
+      video: null,
     },
-    async () => (stage === "animatic" ? defs.animatic! : reloadVideoDefinition(videoPath)),
-    new Request(`http://127.0.0.1/api/${stage}/submit`, {
+    new Request("http://127.0.0.1/api/submit", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
+        stage,
         decisions: { [shotId]: decision },
         ...(displayedVariants ? { displayedVariants } : {}),
         ...(displayedCandidates ? { displayedCandidates } : {}),
@@ -494,9 +495,9 @@ export async function settledShotIds(
 ): Promise<string[]> {
   const defs = await loadPreviewDefinitions({
     videoRoot,
-    mode: "video-preview",
+    stage: "video",
   });
-  const res = await handleGetReelState(
+  const res = await reelState(
     // The board page is told the video, as the preview server tells it.
     {
       videoRoot,
@@ -504,7 +505,8 @@ export async function settledShotIds(
       direction: defs.direction,
       animatic: defs.animatic,
       reference: null,
-      downstreamVideo: stage === "animatic" ? defs.video : null,
+      stage,
+      video: stage === "animatic" ? defs.video : null,
     },
     stage === "animatic" ? defs.animatic! : defs.video!,
     "http://127.0.0.1/assets",
@@ -523,16 +525,17 @@ export async function reelPage(
 ): Promise<Array<{ shotId: string; notReady: boolean; needsVerdict?: boolean }>> {
   const defs = await loadPreviewDefinitions({
     videoRoot,
-    mode: "video-preview",
+    stage: "video",
   });
-  const res = await handleGetReelState(
+  const res = await reelState(
     {
       videoRoot,
       handoff: null,
       direction: defs.direction,
       animatic: defs.animatic,
       reference: null,
-      downstreamVideo: null,
+      stage,
+      video: null,
     },
     stage === "animatic" ? defs.animatic! : defs.video!,
     "http://127.0.0.1/assets",
@@ -545,7 +548,7 @@ export async function outstanding(
 ): Promise<{ needsReview: string[]; problems: string[]; remixes: string[] }> {
   const defs = await loadPreviewDefinitions({
     videoRoot,
-    mode: "video-preview",
+    stage: "video",
   });
   const manager = await StateManager.load(videoRoot);
   const { report } = await buildAssetStatus({
@@ -580,7 +583,7 @@ export async function project(animaticLine = "here we go", videoTsx = VIDEO_TSX)
 export async function waiveAfterWhole(videoRoot: string, shotId: string): Promise<void> {
   const defs = await loadPreviewDefinitions({
     videoRoot,
-    mode: "video-preview",
+    stage: "video",
   });
   const manager = await StateManager.load(videoRoot);
   manager.setDirectionAcceptance(
@@ -602,4 +605,14 @@ export async function waiveAfterWhole(videoRoot: string, shotId: string): Promis
     ),
   );
   await generateAll(videoRoot);
+}
+
+// The page's state read as the preview server serves it, the board stems re-mixed first.
+async function reelState(
+  ctx: ReviewContext,
+  reel: StageDefinition,
+  assetBaseUrl: string,
+): Promise<Response> {
+  if (reel.stage === "video") await remixTakenOverBoardStems(ctx.videoRoot, reel, ctx.animatic);
+  return handleGetReelState(ctx, reel, assetBaseUrl);
 }

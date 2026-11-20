@@ -414,14 +414,14 @@ export async function writeHandoff(
     const { direction } = subject;
     allAddresses = collectAllDirectionAddresses(direction);
     changedAddresses = async () => {
-      const record = await loadLatestReviewRecord(videoRoot, "direction-preview");
+      const record = await loadLatestReviewRecord(videoRoot, "direction");
       return record ? collectChangedDirectionAddresses(direction, record) : null;
     };
   } else if (subject.stage === "reference") {
     const { reference } = subject;
     allAddresses = collectAllReferenceAddresses(reference);
     changedAddresses = async () => {
-      const record = await loadLatestReviewRecord(videoRoot, "reference-preview");
+      const record = await loadLatestReviewRecord(videoRoot, "reference");
       if (!record) return null;
       await applyResolutionDefinitions({ videoRoot });
       const manager = await StateManager.load(videoRoot);
@@ -442,10 +442,7 @@ export async function writeHandoff(
       !!thumbnailOf(reel),
     );
     changedAddresses = async () => {
-      const record = await loadLatestReviewRecord(
-        videoRoot,
-        reelStage === "animatic" ? "animatic-preview" : "video-preview",
-      );
+      const record = await loadLatestReviewRecord(videoRoot, reelStage);
       if (!record) return null;
       // Resolves addresses, so it must name what the pages showed.
       await applyResolutionDefinitions({ videoRoot });

@@ -19,6 +19,7 @@ import { KonteError } from "./errors.js";
 import { isWithinRootRealAsync } from "./path-containment.js";
 import { type FeedbackAnnotation, NormalizedCoordSchema } from "./types/feedback.js";
 import { formatSeconds, formatSecondsRange } from "./format-duration.js";
+import { REVIEW_MODES, REVIEW_STAGES, reviewStageOf } from "./review-mode.js";
 
 const ReviewDecisionEntrySchema = z.object({
   address: z.string(),
@@ -63,8 +64,8 @@ const ReviewDecisionsSchema = z
   .nullish();
 
 export const ReviewRecordSchema = z.object({
-  mode: z.enum(["video-preview", "animatic-preview", "reference-preview", "direction-preview"]),
-  stage: z.enum(["animatic", "video", "reference", "direction"]).optional(),
+  mode: z.enum(REVIEW_MODES),
+  stage: z.enum(REVIEW_STAGES).optional(),
   // ISO 8601 (e.g. "2026-05-16T12:00:00.000Z"). The compact file id is derived
   // from this via `toReviewFileId`.
   createdAt: z.string(),
@@ -377,14 +378,14 @@ function parseReviewRecord(content: string): ReviewRecord {
 
 export async function loadLatestReviewRecord(
   videoRoot: string,
-  mode?: string,
+  stage?: Stage,
 ): Promise<ReviewRecord | null> {
   const dir = path.join(videoRoot, REVIEW_DIR);
 
   for (const { filePath } of await listReviewFiles(dir)) {
     try {
       const record = parseReviewRecord(await fs.readFile(filePath, "utf-8"));
-      if (mode !== undefined && record.mode !== mode) continue;
+      if (stage !== undefined && reviewStage(record) !== stage) continue;
       return record;
     } catch {
       continue;
@@ -499,14 +500,8 @@ export function countReviewAssets(record: ReviewRecord): number {
   return shotAssets + Object.keys(record.context.timeline ?? {}).length;
 }
 
-export function reviewStage(
-  record: ReviewRecord,
-): "animatic" | "video" | "reference" | "direction" {
-  if (record.stage) return record.stage;
-  if (record.mode === "animatic-preview") return "animatic";
-  if (record.mode === "reference-preview") return "reference";
-  if (record.mode === "direction-preview") return "direction";
-  return "video";
+export function reviewStage(record: ReviewRecord): Stage {
+  return record.stage ?? reviewStageOf(record.mode);
 }
 
 // Single renderer for a review's content, used by `review record show`. Every mode

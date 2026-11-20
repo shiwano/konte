@@ -1,4 +1,5 @@
 import { request } from "../shared/http.js";
+import type { PreviewSocketMessage } from "./types.js";
 
 const RECONNECT_DELAY_MS = 1000;
 
@@ -60,7 +61,7 @@ export function connectKeepAlive(): void {
     });
     ws.addEventListener("message", (event) => {
       try {
-        const data = JSON.parse(event.data as string) as { type: string; payload?: unknown };
+        const data = JSON.parse(event.data as string) as PreviewSocketMessage;
         if (data.type === "reload") {
           window.dispatchEvent(new CustomEvent("konte:reload"));
         } else if (data.type === "state-changed") {
@@ -68,10 +69,9 @@ export function connectKeepAlive(): void {
         } else if (data.type === "session-ended") {
           endSession();
         } else if (data.type === "error") {
-          const payload = data.payload as { error: string } | undefined;
           window.dispatchEvent(
             new CustomEvent("konte:error", {
-              detail: { error: payload?.error ?? "Unknown error" },
+              detail: { error: data.payload?.error ?? "Unknown error" },
             }),
           );
         }
