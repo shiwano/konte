@@ -678,8 +678,14 @@ describe("withShotLocalTime", () => {
 });
 
 describe("unacceptReelShots", () => {
-  // Only `stage` and `shots[].id` are read here — enough for the release to format its addresses.
-  const video = { stage: "video", shots: [] } as unknown as VideoDefinition;
+  // Only `stage` and each shot's id and stem refs are read here.
+  const video = {
+    stage: "video",
+    shots: [
+      { id: "01", stemRefs: ["video:shot.01.sfx"] },
+      { id: "02", stemRefs: ["video:shot.02.sfx"] },
+    ],
+  } as unknown as VideoDefinition;
 
   function setupAccepted(mgr: StateManager, address: string): void {
     const variantId = mgr.reserveVariantId(address);
@@ -697,8 +703,8 @@ describe("unacceptReelShots", () => {
 
     // Only the keys (asset names) and shotFn presence matter; values are ignored.
     const shots = [
-      { shotId: "01", resolvedVariants: { motion: "v-x" }, shotFn: () => null },
-      { shotId: "02", resolvedVariants: { motion: "v-y" }, shotFn: () => null },
+      { shotId: "01", pending: false, resolvedVariants: { motion: "v-x" }, shotFn: () => null },
+      { shotId: "02", pending: false, resolvedVariants: { motion: "v-y" }, shotFn: () => null },
     ];
 
     const result = unacceptReelShots(mgr, video, shots, new Set(["01"]));
@@ -719,7 +725,9 @@ describe("unacceptReelShots", () => {
     setupAccepted(mgr, "video:shot.01#composition");
     setupAccepted(mgr, "video:shot.01#stem");
 
-    const shots = [{ shotId: "01", resolvedVariants: { motion: "v-x" }, shotFn: () => null }];
+    const shots = [
+      { shotId: "01", pending: false, resolvedVariants: { motion: "v-x" }, shotFn: () => null },
+    ];
 
     expect(unacceptReelShots(mgr, video, shots, new Set(["01"])).sort()).toEqual([
       "video:shot.01#composition",
@@ -733,7 +741,9 @@ describe("unacceptReelShots", () => {
     setupAccepted(mgr, "video:shot.01.motion");
     setupAccepted(mgr, "video:shot.01#composition");
 
-    const shots = [{ shotId: "01", resolvedVariants: { motion: "v-x" }, shotFn: () => null }];
+    const shots = [
+      { shotId: "01", pending: false, resolvedVariants: { motion: "v-x" }, shotFn: () => null },
+    ];
 
     expect(unacceptReelShots(mgr, video, shots, new Set(["01"]))).toHaveLength(2);
     // Second pass: nothing is accepted anymore, so no addresses come back — this is

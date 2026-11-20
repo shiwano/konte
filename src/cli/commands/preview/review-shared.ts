@@ -1,9 +1,6 @@
 import * as path from "node:path";
-import {
-  cascadeAcceptConsumedDeps,
-  holdsHumanVerdict,
-  keepAcceptedInputs,
-} from "../../../core/accept-cascade.js";
+import { holdsHumanVerdict, keepAcceptedInputs } from "../../../core/accept-cascade.js";
+import { commitAccept } from "../../../core/accept-commit.js";
 import {
   addressToUrlPath,
   formatShotAddress,
@@ -54,18 +51,6 @@ import type { PatchChainVariants } from "./asset-info.js";
 import { readVariantThumbnails } from "../../../core/variant-thumbnails.js";
 import { inferMediaType } from "../../../core/media-type.js";
 import { auditionGain, type LevelKind } from "../../../core/audio-level.js";
-
-// Read before the accept lands: `setAccepted` overwrites the dismissal it records.
-export function noteOverturned(
-  mgr: StateManager,
-  address: string,
-  variantId: string,
-  overturned: NonNullable<ReviewRecord["overturned"]>,
-): void {
-  if (mgr.tryGetAssetState(address)?.variants?.[variantId]?.status !== "dismissed") return;
-  const displaced = mgr.getAcceptedVariant(address);
-  overturned.push({ address, variantId, ...(displaced ? { displaced } : {}) });
-}
 
 type VariantCandidate = {
   variantId: string;
@@ -758,6 +743,7 @@ export async function applyAddressReview(
         reviewHeldFindings(findings, [{ op: "accept", address, variantId }]).length > 0;
 
       for (const override of body.decisions ?? []) {
+        let committing = false;
         try {
           const refusal =
             override.status === "accepted"
@@ -778,29 +764,19 @@ export async function applyAddressReview(
               ]),
             );
             if (held) throw held;
-            const previousAccepted = mgr.getAcceptedVariant(override.address);
-            noteOverturned(mgr, override.address, override.variantId, overturned);
-            // Always (re)accept: it settles the rivals the reviewer chose against; cascade/report
-            // only when the accepted id actually changed.
-            mgr.setAccepted(override.address, override.variantId, {
-              dismiss: override.candidateVariantIds ?? [],
-            });
-            // Only past `setAccepted`: a decision that threw accepted nothing.
+            committing = true;
+            await commitAccept(
+              mgr,
+              jobManager,
+              {
+                address: override.address,
+                variantId: override.variantId,
+                dismiss: override.candidateVariantIds ?? [],
+                cascade: { animatic: hooks.animatic, held: isHeld },
+              },
+              { acceptedAssets, cascadeAccepted, overturned },
+            );
             appliedAccepts.add(override.address);
-            if (previousAccepted !== override.variantId) {
-              acceptedAssets.push(override.address);
-              const cascaded = await cascadeAcceptConsumedDeps(
-                mgr,
-                jobManager,
-                override.address,
-                override.variantId,
-                { animatic: hooks.animatic, held: isHeld },
-              );
-              acceptedAssets.push(...cascaded);
-              cascadeAccepted.push(
-                ...cascaded.map((address) => ({ address, via: override.address })),
-              );
-            }
           } else if (override.status === "none") {
             // Only an accept is cleared. A stale page can name a variant that is no longer the
             // accepted one — ignored, never turned back into a candidate.
@@ -815,7 +791,9 @@ export async function applyAddressReview(
           // swallowed — but only where the verdict really did not land: the cascade runs after the
           // accept is written, and a cascade that throws leaves an accept the record reports as
           // made. Reporting it skipped as well would contradict the record it ships with.
-          if (!appliedAccepts.has(override.address)) {
+          if (committing && mgr.getAcceptedVariant(override.address) === override.variantId) {
+            appliedAccepts.add(override.address);
+          } else if (!appliedAccepts.has(override.address)) {
             skippedDecisions.push({ address: override.address, reason: errorMessage(err) });
           }
         }

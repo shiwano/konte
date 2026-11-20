@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { loadPreviewDefinitions } from "../load-definitions.js";
 import { handleReelSubmit } from "../reel-submit.js";
+import { JobManager } from "../../../../core/job-manager.js";
 import { reloadVideoDefinition } from "../../../../core/loader.js";
 import { StateManager } from "../../../../core/state/index.js";
 import { ctx, initWorkspace, useTempWorkspace } from "../../../__tests__/cli-fixtures.js";
@@ -823,5 +824,119 @@ describe("handleReelSubmit — an accept over a dismissal", () => {
       overturned?: unknown[];
     };
     expect(record.overturned).toBeUndefined();
+  });
+});
+
+// A logo only shot 01's composition places: no per-shot generation accept reaches it.
+const VIDEO_SHOT_LOGO_TSX = VIDEO_OVERLAY_TSX.replace(
+  "return <Composition><Video src={motion} /></Composition>;\n      }).nextShot",
+  "return <Composition><Video src={motion} /><Image src={logo} /></Composition>;\n      }).nextShot",
+).replace("      overlay: () => <Composition><Image src={logo} fill /></Composition>,\n", "");
+
+type CascadeRecord = { cascadeAccepted?: Array<{ address: string; via: string }> };
+
+describe("handleReelSubmit — the record names what each shot accept cascaded through", () => {
+  it("names the picture a consumed take was accepted through", async () => {
+    const { videoRoot, variantId } = await project(VIDEO_WITH_STILL_TSX);
+    const sm = await StateManager.load(videoRoot);
+    const first = "video:shot.01.first";
+    const firstId = sm.reserveVariantId(first);
+    sm.getAssetState(first).variants![firstId]!.file = "assets/first.png";
+    await sm.save();
+    await new JobManager(videoRoot).createJob({
+      address: SHOT_01_MOTION,
+      variantId,
+      resolvedDeps: { [first]: "assets/first.png" },
+      backendKind: "comfy",
+    });
+
+    const { payload } = await submit(videoRoot, {
+      stage: "video",
+      decisions: { "01": "accepted" },
+      displayedVariants: { [SHOT_01_MOTION]: variantId },
+      displayedStandInShotIds: [],
+    });
+
+    expect((await StateManager.load(videoRoot)).getAcceptedVariant(first)).toBe(firstId);
+    const record = JSON.parse(
+      await fs.readFile(payload.filePath as string, "utf-8"),
+    ) as CascadeRecord;
+    expect(record.cascadeAccepted).toContainEqual({ address: first, via: SHOT_01_MOTION });
+  });
+
+  it("names the composition a take it places was accepted through", async () => {
+    const { videoRoot, variantId } = await project(VIDEO_SHOT_LOGO_TSX);
+    const sm = await StateManager.load(videoRoot);
+    const logo = "video:timeline.logo";
+    const logoId = sm.reserveVariantId(logo);
+    sm.getAssetState(logo).variants![logoId]!.file = "assets/logo.png";
+    await sm.save();
+
+    const { payload } = await submit(videoRoot, {
+      stage: "video",
+      decisions: { "01": "accepted" },
+      displayedVariants: { [SHOT_01_MOTION]: variantId, [logo]: logoId },
+      displayedStandInShotIds: [],
+    });
+
+    expect((await StateManager.load(videoRoot)).getAcceptedVariant(logo)).toBe(logoId);
+    const record = JSON.parse(
+      await fs.readFile(payload.filePath as string, "utf-8"),
+    ) as CascadeRecord;
+    expect(record.cascadeAccepted).toContainEqual({
+      address: logo,
+      via: "video:shot.01#composition",
+    });
+  });
+});
+
+describe("handleReelSubmit — re-accepting an unchanged overlay", () => {
+  it("is reported as accepted and saves the review", async () => {
+    const { videoRoot } = await project(VIDEO_OVERLAY_TSX);
+    const logo = "video:timeline.logo";
+    const sm = await StateManager.load(videoRoot);
+    const seen = sm.reserveVariantId(logo);
+    sm.getAssetState(logo).variants![seen]!.file = "assets/logo.png";
+    await sm.save();
+    const body = {
+      stage: "video",
+      overlayDecision: "accepted",
+      displayedVariants: { [logo]: seen },
+      displayedStandInShotIds: [],
+    };
+    await submit(videoRoot, body);
+    const overlayId = (await StateManager.load(videoRoot)).getAcceptedVariant(
+      "video:timeline#overlay",
+    );
+    expect(overlayId).not.toBeNull();
+
+    const { payload } = await submit(videoRoot, body);
+
+    expect((await StateManager.load(videoRoot)).getAcceptedVariant("video:timeline#overlay")).toBe(
+      overlayId,
+    );
+    expect(payload.acceptedAssets).toContain("video:timeline#overlay");
+    expect(payload.filePath).not.toBeNull();
+  });
+});
+
+describe("handleReelSubmit — 'none' on an undeveloped shot", () => {
+  it("leaves a stem still accepted under it alone", async () => {
+    const { videoRoot, variantId } = await project(VIDEO_PENDING_02_TSX);
+    const stem = "video:shot.02#stem";
+    const sm = await StateManager.load(videoRoot);
+    const stemId = sm.reserveVariantId(stem);
+    sm.getAssetState(stem).variants![stemId]!.file = "assets/stem.json";
+    sm.setAccepted(stem, stemId);
+    await sm.save();
+
+    await submit(videoRoot, {
+      stage: "video",
+      decisions: { "02": "none" },
+      displayedVariants: { [SHOT_01_MOTION]: variantId },
+      displayedStandInShotIds: [],
+    });
+
+    expect((await StateManager.load(videoRoot)).getAcceptedVariant(stem)).toBe(stemId);
   });
 });

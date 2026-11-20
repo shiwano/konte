@@ -1,19 +1,14 @@
 import type { Command } from "commander";
 import type { StageDefinitions } from "../../../core/definition-hashes.js";
 import { KonteError } from "../../../core/errors.js";
-import { StateManager } from "../../../core/state/index.js";
+import type { StateManager } from "../../../core/state/index.js";
 import { isReviewLeaf } from "../../../core/variant-lineage.js";
-import { printAborted, NO_FLAG_DESCRIPTION } from "../../confirm.js";
+import { NO_FLAG_DESCRIPTION } from "../../confirm.js";
 import { requireVideoRoot } from "../../context.js";
 import { openVideoSession } from "../../../core/video-session.js";
 import { resolveVariantArg } from "./resolve-variant-arg.js";
 import { assertDismissable } from "./reviewable.js";
-import {
-  assertConsentedStale,
-  consentToStale,
-  printAddresses,
-  staleFrom,
-} from "./stale-consent.js";
+import { commitWithStaleConsent, printAddresses, staleFrom } from "./stale-consent.js";
 
 interface DismissOptions {
   off?: boolean;
@@ -115,44 +110,43 @@ Examples:
       // The memo is taken AFTER the flips — this reports what changed because of them.
       const previewStale = staleFrom(previewManager, moved, graph.dependents);
 
-      if (!(await consentToStale(previewStale, opts))) {
-        printAborted();
-        return;
-      }
-
-      // Exactly which assets the user consented to restale: the set the prompt above showed them.
-      // `--yes` is blanket consent, so it needs no set.
-      const consentedStale = opts.yes ? null : new Set(previewStale);
-
-      const { showing, staleMarked } = await StateManager.withLock(videoRoot, async (manager) => {
-        const landed = rivalsOfKept(manager, kept).filter(
-          ({ address, variantId }) => !resolved.has(`${address}|${variantId}`),
-        );
-        if (landed.length > 0) {
-          throw new KonteError(
-            "CONFIRMATION_REQUIRED",
-            `State changed since preview: ${landed.map((r) => r.variantId).join(", ")} landed beside the kept take, which was not confirmed. Re-run to review.`,
+      const outcome = await commitWithStaleConsent(
+        videoRoot,
+        previewStale,
+        opts,
+        async (manager) => {
+          const landed = rivalsOfKept(manager, kept).filter(
+            ({ address, variantId }) => !resolved.has(`${address}|${variantId}`),
           );
-        }
-        const committed = items.filter(
-          ({ address, variantId }) => manager.setDismissed(address, variantId, dismissed) === true,
-        );
-        // Re-derived from inside the lock, so what is reported is what the committed state says.
-        const staleMarked = staleFrom(manager, committed, graph.dependents);
-        assertConsentedStale(staleMarked, consentedStale);
-        // What each address names now the verdicts are in, read from the committed state.
-        const cache = manager.stalenessCache();
-        const showing = new Map(
-          items.map(({ address }) => [
-            address,
-            {
-              now: manager.selectVariant(address, { includeStale: true }, cache)?.variantId ?? null,
-              undecided: manager.readyUndecidedVariants(address, cache),
-            },
-          ]),
-        );
-        return { showing, staleMarked };
-      });
+          if (landed.length > 0) {
+            throw new KonteError(
+              "CONFIRMATION_REQUIRED",
+              `State changed since preview: ${landed.map((r) => r.variantId).join(", ")} landed beside the kept take, which was not confirmed. Re-run to review.`,
+            );
+          }
+          const committed = items.filter(
+            ({ address, variantId }) =>
+              manager.setDismissed(address, variantId, dismissed) === true,
+          );
+          // Re-derived from inside the lock, so what is reported is what the committed state says.
+          const staleMarked = staleFrom(manager, committed, graph.dependents);
+          // What each address names now the verdicts are in, read from the committed state.
+          const cache = manager.stalenessCache();
+          const showing = new Map(
+            items.map(({ address }) => [
+              address,
+              {
+                now:
+                  manager.selectVariant(address, { includeStale: true }, cache)?.variantId ?? null,
+                undecided: manager.readyUndecidedVariants(address, cache),
+              },
+            ]),
+          );
+          return { showing, staleMarked };
+        },
+      );
+      if (!outcome) return;
+      const { showing, staleMarked } = outcome;
 
       if (items.length === 0) {
         console.log("Nothing to dismiss: no undecided take beside the kept one");

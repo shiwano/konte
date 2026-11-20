@@ -1,12 +1,12 @@
 import * as fs from "node:fs/promises";
 import type { Command } from "commander";
 import {
-  cascadeAcceptConsumedDeps,
   cascadeDirectionReferenceAccepts,
   cascadeDirectionShotAccepts,
   holdsHumanVerdict,
   keepAcceptedInputs,
 } from "../../../core/accept-cascade.js";
+import { type AcceptCascadeOpts, commitAccept } from "../../../core/accept-commit.js";
 import {
   applyDirectionPartDecisions,
   directionPartAcceptable,
@@ -77,12 +77,7 @@ import { formatDirectionRemainder } from "../../print-status.js";
 import { assertSongLinesPlaced } from "../../../core/direction.js";
 import { closeSignedOffFeedback } from "./close-feedback.js";
 import { resolveVariantArg } from "./resolve-variant-arg.js";
-import {
-  assertConsentedStale,
-  consentToStale,
-  printAddresses,
-  staleFrom,
-} from "./stale-consent.js";
+import { commitWithStaleConsent, printAddresses, staleFrom } from "./stale-consent.js";
 import { requireVideoRoot } from "../../context.js";
 import type { StageDefinitions } from "../../../core/definition-hashes.js";
 import {
@@ -674,25 +669,19 @@ async function removeRenderedLeaves(
   );
 }
 
-type AcceptCascadeOpts = Parameters<typeof cascadeAcceptConsumedDeps>[4];
-
 async function applyAccept(
   manager: StateManager,
   jobManager: JobManager,
   { address, variantId }: VariantTarget,
-  cascadeOpts: AcceptCascadeOpts,
+  cascade: AcceptCascadeOpts,
   dismiss: readonly string[] = [],
 ): Promise<{ previous: string | null; cascaded: string[]; keptAgainst: string[] }> {
-  const previous = manager.getAcceptedVariant(address);
-  manager.setAccepted(address, variantId, { dismiss });
-  // A leaf's cascade signs off what the leaf DISPLAYS, resolved now — so re-accepting the same
-  // variant is not a no-op there: it is how a take swapped under an already-accepted leaf (a panel
-  // rerolled under an accepted animatic) gets signed off. A generation variant's cascade replays
-  // what its job consumed, so for one there is nothing new to sign and the shortcut stands.
-  const cascaded =
-    previous !== variantId || isMaterializedLeafAddress(address)
-      ? await cascadeAcceptConsumedDeps(manager, jobManager, address, variantId, cascadeOpts)
-      : [];
+  const { previous, cascaded } = await commitAccept(manager, jobManager, {
+    address,
+    variantId,
+    dismiss,
+    cascade,
+  });
   const keptAgainst = keepAcceptedInputs(manager, address, variantId);
   return { previous, cascaded, keptAgainst };
 }
@@ -943,23 +932,19 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
     // Asked off the computed set alone — a re-accept that moved nothing computes an empty one, while a
     // leaf's re-accept can still cascade, and a cascade that propagates stale needs consent whether or
     // not the accept it rode in on changed.
-    if (!(await consentToStale(previewStaleMarked, opts))) {
-      printAborted();
-      return;
-    }
-
-    // Exactly which assets the user consented to restale: the set the prompt above showed them.
-    // `--yes` is blanket consent, so it needs no set.
-    const consentedStale = opts.yes ? null : new Set(previewStaleMarked);
-    const since = Date.now();
+    let since = 0;
     const renderedByAddress = new Map(rendered.map((leaf) => [leaf.address, leaf]));
     const superseded: RenderedLeaf[] = [];
 
     // Re-derive previous-accepted, cascade, and stale set from inside the lock (like clean does), so
     // the committed figures — and the reported previousAccepted — reflect the real locked state, not
     // the pre-lock preview snapshot a concurrent accept could have invalidated.
-    const { results, released, staleMarked, directionParts, staleAccepted } =
-      await StateManager.withLock(videoRoot, async (manager) => {
+    const outcome = await commitWithStaleConsent(
+      videoRoot,
+      previewStaleMarked,
+      opts,
+      async (manager) => {
+        since = Date.now();
         const results = [];
         const released = release(manager);
         const roots: string[] = released.map((r) => r.address);
@@ -1036,7 +1021,6 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
           roots.map((address) => ({ address })),
           graph.dependents,
         );
-        assertConsentedStale(staleMarked, consentedStale);
         // A human's accept stands against the upstream this one moved.
         const staleAccepted = staleMarked.filter((a) => {
           const id = manager.getAcceptedVariant(a);
@@ -1066,7 +1050,10 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
           ),
         ];
         return { results, released, staleMarked, directionParts, staleAccepted };
-      });
+      },
+    );
+    if (!outcome) return;
+    const { results, released, staleMarked, directionParts, staleAccepted } = outcome;
     committed = true;
     await removeRenderedLeaves(videoRoot, superseded);
 
@@ -1204,20 +1191,13 @@ async function runUnaccept(rawTargets: string[], opts: AcceptOptions): Promise<v
   // The memo is taken AFTER the unaccept — this reports what changed because of it.
   const previewStale = staleFrom(previewManager, items, graph.dependents);
 
-  if (!(await consentToStale(previewStale, opts))) {
-    printAborted();
-    return;
-  }
-
-  const consentedStale = opts.yes ? null : new Set(previewStale);
-
-  const staleMarked = await StateManager.withLock(videoRoot, async (manager) => {
+  const outcome = await commitWithStaleConsent(videoRoot, previewStale, opts, async (manager) => {
     for (const { address, variantId } of items) manager.setUnaccepted(address, variantId);
     // Re-derived from inside the lock, so what is reported is what the committed state says.
-    const staleMarked = staleFrom(manager, items, graph.dependents);
-    assertConsentedStale(staleMarked, consentedStale);
-    return staleMarked;
+    return { staleMarked: staleFrom(manager, items, graph.dependents) };
   });
+  if (!outcome) return;
+  const { staleMarked } = outcome;
 
   for (const { address, variantId } of items) {
     console.log(`Unaccepted: ${address} → ${variantId}`);

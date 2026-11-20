@@ -1,12 +1,12 @@
 import { KonteError } from "../../../core/errors.js";
 import { collectStaleDependents } from "../../../core/staleness.js";
-import type { StateManager } from "../../../core/state/index.js";
+import { StateManager } from "../../../core/state/index.js";
 import type { buildDependencyGraph } from "../../../core/graph.js";
-import { confirmAction } from "../../confirm.js";
+import { confirmAction, printAborted } from "../../confirm.js";
 import { printCapped } from "../../format-list.js";
 
 // Stale propagation needs consent whatever the output format.
-export async function consentToStale(
+async function consentToStale(
   staleMarked: readonly string[],
   opts: { verbose?: boolean; yes?: boolean; no?: boolean },
 ): Promise<boolean> {
@@ -47,7 +47,7 @@ export function staleFrom(
 
 // The stale addresses a commit produced that the prompt never showed — a concurrent decision landed
 // between the preview and the lock. Throwing on these skips `save()`, so nothing is committed.
-export function assertConsentedStale(
+function assertConsentedStale(
   staleMarked: readonly string[],
   consented: ReadonlySet<string> | null,
 ): void {
@@ -58,4 +58,28 @@ export function assertConsentedStale(
     "CONFIRMATION_REQUIRED",
     `State changed since preview (a concurrent decision): this now marks ${unconsented.length} additional asset(s) stale, which was not confirmed. Re-run to review.`,
   );
+}
+
+/**
+ * Asks consent to `previewStale` — the stale set the verdicts computed on an unsaved copy — then
+ * runs `commit` under the state lock, where it applies them again and re-derives the set. Returns
+ * null when consent is refused.
+ */
+export async function commitWithStaleConsent<T extends { staleMarked: readonly string[] }>(
+  videoRoot: string,
+  previewStale: readonly string[],
+  opts: { verbose?: boolean; yes?: boolean; no?: boolean },
+  commit: (manager: StateManager) => Promise<T>,
+): Promise<T | null> {
+  if (!(await consentToStale(previewStale, opts))) {
+    printAborted();
+    return null;
+  }
+  // Exactly the set the prompt showed; `--yes` is blanket consent.
+  const consented = opts.yes ? null : new Set(previewStale);
+  return StateManager.withLock(videoRoot, async (manager) => {
+    const result = await commit(manager);
+    assertConsentedStale(result.staleMarked, consented);
+    return result;
+  });
 }

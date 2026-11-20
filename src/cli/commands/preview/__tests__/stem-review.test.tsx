@@ -16,8 +16,9 @@ import type { CompositionClip } from "../../../../core/composition-builder.js";
 import type { VideoDefinition } from "../../../../core/types/index.js";
 import {
   acceptDisplayedStemSources,
-  overlayVerdict,
-  timelineStemVerdict,
+  leafVerdict,
+  overlayLeaf,
+  timelineStemLeaf,
   unlandedLeafReason,
   unlandedShotLeaves,
   unreleasedShotLeaves,
@@ -803,7 +804,7 @@ describe("prepareShotStem / commitShotStem — the board's mix", () => {
 
 // The beds' verdict, settled the same way a shot's is. Both halves matter: an accept that failed to
 // materialize must not be recorded, and neither must a verdict on beds that no longer exist.
-describe("timelineStemVerdict", () => {
+describe("leafVerdict on the timeline stem", () => {
   const bgm = "reference:bgm";
   const stemAddr = "video:timeline#stem";
   const withBeds = {
@@ -826,7 +827,7 @@ describe("timelineStemVerdict", () => {
   }
 
   it("records nothing when the review had no verdict on the beds", () => {
-    expect(timelineStemVerdict(manager, withBeds, undefined)).toEqual({
+    expect(leafVerdict(manager, withBeds, timelineStemLeaf(withBeds), undefined)).toEqual({
       landed: undefined,
       skipped: null,
     });
@@ -835,7 +836,7 @@ describe("timelineStemVerdict", () => {
   it("records an accept that materialized", () => {
     addReadyVariant(bgm, "bgm.mp3");
     acceptStem();
-    expect(timelineStemVerdict(manager, withBeds, "accepted")).toEqual({
+    expect(leafVerdict(manager, withBeds, timelineStemLeaf(withBeds), "accepted")).toEqual({
       landed: "accepted",
       skipped: null,
     });
@@ -843,7 +844,7 @@ describe("timelineStemVerdict", () => {
 
   it("reports an accept that did not materialize, and records no verdict", () => {
     addReadyVariant(bgm, "bgm.mp3"); // the bed resolves, but the stem was never accepted
-    const verdict = timelineStemVerdict(manager, withBeds, "accepted");
+    const verdict = leafVerdict(manager, withBeds, timelineStemLeaf(withBeds), "accepted");
     expect(verdict.landed).toBeUndefined();
     expect(verdict.skipped?.address).toBe(stemAddr);
   });
@@ -851,7 +852,7 @@ describe("timelineStemVerdict", () => {
   // The beds are the timeline stem's inputs, and a bed lives in another stage — so the generate the
   // reason names is the bed's, not the reviewed stage's.
   it("names the bed that held the stem back, and the stage it is generated in", () => {
-    const verdict = timelineStemVerdict(manager, withBeds, "accepted");
+    const verdict = leafVerdict(manager, withBeds, timelineStemLeaf(withBeds), "accepted");
     expect(verdict.skipped?.reason).toBe(
       [
         "the timeline audio stem could not be materialized; these inputs have no take a spend may use:",
@@ -863,7 +864,7 @@ describe("timelineStemVerdict", () => {
 
   it("records a release that took", () => {
     addReadyVariant(bgm, "bgm.mp3");
-    expect(timelineStemVerdict(manager, withBeds, "none")).toEqual({
+    expect(leafVerdict(manager, withBeds, timelineStemLeaf(withBeds), "none")).toEqual({
       landed: "none",
       skipped: null,
     });
@@ -872,7 +873,7 @@ describe("timelineStemVerdict", () => {
   it("reports a release that did not take", () => {
     addReadyVariant(bgm, "bgm.mp3");
     acceptStem();
-    const verdict = timelineStemVerdict(manager, withBeds, "none");
+    const verdict = leafVerdict(manager, withBeds, timelineStemLeaf(withBeds), "none");
     expect(verdict.landed).toBeUndefined();
     expect(verdict.skipped?.reason).toContain("still accepted");
   });
@@ -882,11 +883,11 @@ describe("timelineStemVerdict", () => {
   it("drops either verdict when the beds were removed while the review was open", () => {
     addReadyVariant(bgm, "bgm.mp3");
     acceptStem();
-    expect(timelineStemVerdict(manager, withoutBeds, "accepted")).toEqual({
+    expect(leafVerdict(manager, withoutBeds, timelineStemLeaf(withoutBeds), "accepted")).toEqual({
       landed: undefined,
       skipped: null,
     });
-    expect(timelineStemVerdict(manager, withoutBeds, "none")).toEqual({
+    expect(leafVerdict(manager, withoutBeds, timelineStemLeaf(withoutBeds), "none")).toEqual({
       landed: undefined,
       skipped: null,
     });
@@ -974,7 +975,7 @@ describe("unreleasedShotLeaves", () => {
   });
 });
 
-describe("overlayVerdict", () => {
+describe("leafVerdict on the overlay", () => {
   const address = "video:timeline#overlay";
   const withTitle = defineVideo(
     defineDirection({
@@ -1003,20 +1004,20 @@ describe("overlayVerdict", () => {
       definitionHashForAddress(withTitle, address) ?? undefined,
     );
     manager.setAccepted(address, vid);
-    expect(overlayVerdict(manager, withTitle, "accepted")).toEqual({
+    expect(leafVerdict(manager, withTitle, overlayLeaf(withTitle), "accepted")).toEqual({
       landed: "accepted",
       skipped: null,
     });
   });
 
   it("reports an accept that did not land", () => {
-    const verdict = overlayVerdict(manager, withTitle, "accepted");
+    const verdict = leafVerdict(manager, withTitle, overlayLeaf(withTitle), "accepted");
     expect(verdict.landed).toBeUndefined();
     expect(verdict.skipped?.address).toBe(address);
   });
 
   it("drops a verdict on an overlay removed while the review was open", () => {
-    expect(overlayVerdict(manager, withoutTitle, "accepted")).toEqual({
+    expect(leafVerdict(manager, withoutTitle, overlayLeaf(withoutTitle), "accepted")).toEqual({
       landed: undefined,
       skipped: null,
     });

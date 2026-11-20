@@ -1,7 +1,5 @@
-import {
-  cascadeAcceptConsumedDeps,
-  cascadeDirectionShotAccepts,
-} from "../../../core/accept-cascade.js";
+import { cascadeDirectionShotAccepts } from "../../../core/accept-cascade.js";
+import { type AcceptLedger, commitAccept } from "../../../core/accept-commit.js";
 import { remakeSettledLeaves } from "../../../core/board-leaves.js";
 import { shotById } from "../../../core/shot-index.js";
 import {
@@ -49,7 +47,6 @@ import {
   type PreparedShotStem,
   type UnresolvedLeafRef,
 } from "../../../core/composition-resource.js";
-import { variantMediaKind } from "../../../core/media-type.js";
 import { shotAcceptTargets } from "../../../core/shot-accept-targets.js";
 import { Semaphore } from "../../../core/semaphore.js";
 import { computeAcceptedStaleness, formatStaleCause } from "../../../core/staleness.js";
@@ -80,7 +77,6 @@ import {
   applyKeepDecisions,
   applyRegenerateDecisions,
   handoffRecordFields,
-  noteOverturned,
   storeOverallComment,
   withShotLocalTime,
   type FeedbackMutationResult,
@@ -215,26 +211,42 @@ export function unreleasedShotLeaves(
   );
 }
 
+// A stage-level leaf the reel decides on its own toggle, or null when the definition has none.
+export interface TimelineLeaf {
+  address: string;
+  what: string;
+}
+
+export function timelineStemLeaf(video: StageDefinition): TimelineLeaf | null {
+  if ((video.timelineSoundtracks?.length ?? 0) === 0) return null;
+  return { address: formatTimelineStemAddress(video.stage), what: "the timeline audio stem" };
+}
+
+export function overlayLeaf(video: StageDefinition): TimelineLeaf | null {
+  if (!video.overlay) return null;
+  return { address: formatTimelineOverlayAddress(video.stage), what: "the overlay" };
+}
+
 /**
- * The beds' verdict as it actually settled, read back from state — the timeline twin of
- * `unlandedShotLeaves`/`unreleasedShotLeaves`, and gated the same way its own accept block is.
+ * A timeline leaf decision read back from state, as `unlandedShotLeaves`/`unreleasedShotLeaves` read
+ * a shot's, and gated the same way its own accept block is.
  *
- * `landed` is what the record may claim. It is dropped outright when the beds no longer exist: the
- * accept block is gated on them too, so nothing was applied either way, and a verdict on something
- * removed from video.tsx mid-review is not an outcome — the same rule a removed animatic gets.
- * `skipped` is set only when the beds ARE there and the verdict still failed to take.
+ * `landed` is what the record may claim. It is dropped outright when the leaf no longer exists: the
+ * accept block is gated on it too, so nothing was applied either way, and a verdict on something
+ * removed from the definition mid-review is not an outcome — the same rule a removed animatic gets.
+ * `skipped` is set only when the leaf IS there and the verdict still failed to take.
  */
-export function timelineStemVerdict(
+export function leafVerdict(
   manager: StateManager,
   video: StageDefinition,
+  leaf: TimelineLeaf | null,
   decision: "accepted" | "none" | undefined,
 ): {
   landed: "accepted" | "none" | undefined;
   skipped: { address: string; reason: string } | null;
 } {
-  if (!decision) return { landed: undefined, skipped: null };
-  if ((video.timelineSoundtracks?.length ?? 0) === 0) return { landed: undefined, skipped: null };
-  const address = formatTimelineStemAddress(video.stage);
+  if (!decision || !leaf) return { landed: undefined, skipped: null };
+  const { address, what } = leaf;
   const settled =
     decision === "accepted"
       ? leafSignedOff(manager, video, address)
@@ -246,47 +258,24 @@ export function timelineStemVerdict(
       address,
       reason:
         decision === "accepted"
-          ? unlandedLeafReason(manager, video, { address, what: "the timeline audio stem" })
-          : "the timeline audio stem is still accepted — the release did not take",
+          ? unlandedLeafReason(manager, video, leaf)
+          : `${what} is still accepted — the release did not take`,
     },
   };
 }
 
-/**
- * The overlay decision's read-back, as `timelineStemVerdict` reads the beds'. An overlay removed
- * from the definition mid-review is no outcome.
- */
-export function overlayVerdict(
-  manager: StateManager,
-  video: StageDefinition,
-  decision: "accepted" | "none",
-): {
-  landed: "accepted" | "none" | undefined;
-  skipped: { address: string; reason: string } | null;
-} {
-  if (!video.overlay) return { landed: undefined, skipped: null };
-  const address = formatTimelineOverlayAddress(video.stage);
-  const settled =
-    decision === "accepted"
-      ? leafSignedOff(manager, video, address)
-      : manager.getAcceptedVariant(address) === null;
-  if (settled) return { landed: decision, skipped: null };
-  return {
-    landed: undefined,
-    skipped: {
-      address,
-      reason:
-        decision === "accepted"
-          ? unlandedLeafReason(manager, video, { address, what: "the overlay" })
-          : "the overlay is still accepted — the release did not take",
-    },
-  };
+function releaseAccept(mgr: StateManager, address: string, ledger: ReelSubmitLedger): void {
+  const acceptedId = mgr.getAcceptedVariant(address);
+  if (!acceptedId) return;
+  mgr.setUnaccepted(address, acceptedId);
+  ledger.unacceptedAssets.push(address);
 }
 
 // Accept the audio-source takes the reviewer saw (from the `displayed` snapshot) before a stem is
 // materialized, so the stem fingerprints the chosen take rather than whatever currently resolves.
 // Each pre-accepted source is cascaded so its own consumed deps are accepted too, under the
-// `forceAllowAudio` root an audio source needs. Returns the addresses newly accepted.
+// `forceAllowAudio` root an audio source needs; both are recorded via `record.via(source)`. Returns
+// the addresses newly accepted.
 export async function acceptDisplayedStemSources(
   manager: StateManager,
   jobManager: JobManager,
@@ -304,31 +293,32 @@ export async function acceptDisplayedStemSources(
     animatic?: AnimaticDefinition | null;
     held?: (address: string, variantId?: string) => boolean;
   },
-  overturned?: NonNullable<ReviewRecord["overturned"]>,
+  record?: { ledger: AcceptLedger; via: (source: string) => string },
 ): Promise<string[]> {
   const accepted: string[] = [];
-  for (const depPath of sourcePaths) {
-    // A dep path is the upstream asset's address directly.
-    const srcAddr = depPath;
+  for (const srcAddr of sourcePaths) {
     const sel = displayed[srcAddr];
     if (!sel || opts.held?.(srcAddr, sel)) continue;
     if (manager.getAcceptedVariant(srcAddr) === sel) {
       manager.dismissVariants(srcAddr, candidates[srcAddr] ?? [], sel);
       continue;
     }
-    {
-      if (overturned) noteOverturned(manager, srcAddr, sel, overturned);
-      manager.setAccepted(srcAddr, sel, { dismiss: candidates[srcAddr] ?? [] });
-      accepted.push(srcAddr);
-      // forceAllowAudio: the source is audio being signed off via the stem, so its own audio
-      // sub-deps should cascade too (a source-rooted walk would otherwise skip them).
-      accepted.push(
-        ...(await cascadeAcceptConsumedDeps(manager, jobManager, srcAddr, sel, {
-          ...opts,
-          forceAllowAudio: true,
-        })),
-      );
-    }
+    const via = record?.via(srcAddr);
+    const { cascaded } = await commitAccept(
+      manager,
+      jobManager,
+      {
+        address: srcAddr,
+        variantId: sel,
+        dismiss: candidates[srcAddr] ?? [],
+        // forceAllowAudio: the source is audio being signed off via the stem, so its own audio
+        // sub-deps should cascade too (a source-rooted walk would otherwise skip them).
+        cascade: { ...opts, forceAllowAudio: true },
+        ...(via ? { via, cascadeVia: via } : {}),
+      },
+      record?.ledger,
+    );
+    accepted.push(srcAddr, ...cascaded);
   }
   return accepted;
 }
@@ -342,28 +332,18 @@ export function unacceptReelShots(
   video: StageDefinition,
   shots: Array<{
     shotId: string;
+    pending: boolean;
     resolvedVariants: Record<string, string>;
     shotFn: unknown;
   }>,
   unacceptShotIds: Set<string>,
 ): string[] {
-  const stage = video.stage;
   const unaccepted: string[] = [];
   for (const shot of shots) {
     if (!unacceptShotIds.has(shot.shotId)) continue;
-    const addresses = Object.entries(shot.resolvedVariants)
-      // Audio sources are accepted (cascaded) via the shot's stem, not per-asset here.
-      .filter(([assetName, variantId]) => {
-        const addr = formatAddress(stage, shot.shotId, assetName);
-        return variantMediaKind(mgr, addr, variantId) !== "audio";
-      })
-      .map(([assetName]) => formatAddress(stage, shot.shotId, assetName));
-    if (shot.shotFn) addresses.push(formatCompositionAddress(stage, shot.shotId));
-    // Release the shot's audio stems symmetrically — a no-op for one the shot has none of.
-    for (const name of shotStemAssetNames(stage)) {
-      addresses.push(formatAddress(stage, shot.shotId, name));
-    }
-    for (const address of addresses) {
+    // Audio sources are accepted (cascaded) via the shot's stem, not released here.
+    const { pictureAssets, leaves } = shotAcceptTargets(mgr, video, shot);
+    for (const address of [...pictureAssets, ...leaves.map((leaf) => leaf.address)]) {
       try {
         const acceptedId = mgr.getAcceptedVariant(address);
         if (acceptedId) {
@@ -901,22 +881,12 @@ async function acceptShotPictures(
   await StateManager.withLock(submit.ctx.videoRoot, async (mgr) => {
     for (const { address, variantId, dismiss } of toAccept) {
       try {
-        const previousAccepted = mgr.getAcceptedVariant(address);
-        noteOverturned(mgr, address, variantId, ledger.overturned);
-        // Always (re)accept: re-accepting the same variant is how the reviewer settles the rivals
-        // they chose against. Cascade/report only when the accepted id actually changed.
-        mgr.setAccepted(address, variantId, { dismiss });
-        if (previousAccepted !== variantId) {
-          ledger.acceptedAssets.push(address);
-          const cascaded = await cascadeAcceptConsumedDeps(
-            mgr,
-            submit.jobManager,
-            address,
-            variantId,
-            submit.cascade,
-          );
-          ledger.acceptedAssets.push(...cascaded);
-        }
+        await commitAccept(
+          mgr,
+          submit.jobManager,
+          { address, variantId, dismiss, cascade: submit.cascade },
+          ledger,
+        );
       } catch {
         // skip individual failures
       }
@@ -940,11 +910,7 @@ async function acceptShotStemSources(
   return StateManager.withLock(submit.ctx.videoRoot, async (mgr) => {
     for (const shot of acceptedShots) {
       for (const removedStem of removedShotStemAddresses(mgr.getState(), video, shot.shotId)) {
-        const removedStemVariantId = mgr.getAcceptedVariant(removedStem);
-        if (removedStemVariantId) {
-          mgr.setUnaccepted(removedStem, removedStemVariantId);
-          ledger.unacceptedAssets.push(removedStem);
-        }
+        releaseAccept(mgr, removedStem, ledger);
       }
       const targets = shotAcceptTargets(mgr, video, shot);
       if (targets.stemSources.length === 0) continue;
@@ -954,17 +920,15 @@ async function acceptShotStemSources(
         stems.find((stem) => isHeardStemAddress(stem.address) && stem.refs.includes(source))
           ?.address ?? formatShotStemAddress(stage, shot.shotId);
       try {
-        const sources = await acceptDisplayedStemSources(
+        await acceptDisplayedStemSources(
           mgr,
           submit.jobManager,
           targets.stemSources,
           submit.displayed,
           submit.candidates,
           submit.cascade,
-          ledger.overturned,
+          { ledger, via },
         );
-        ledger.acceptedAssets.push(...sources);
-        ledger.cascadeAccepted.push(...sources.map((address) => ({ address, via: via(address) })));
       } catch {
         // skip individual stem-source failures
       }
@@ -1024,22 +988,14 @@ async function materializeShotStems(
             prepared: p,
           });
           if (!variantId) continue;
-          mgr.setAccepted(stemAddress, variantId);
-          ledger.acceptedAssets.push(stemAddress);
           // The stem is materialized and accepted by the shot accept, not reviewed on its own —
-          // so it has no decision line. Record it (via the shot) so the recap names it; its audio
+          // so it has no decision line. Recorded via the shot so the recap names it; its audio
           // sources are recorded via the stem in turn.
-          ledger.cascadeAccepted.push({ address: stemAddress, via });
-          const cascaded = await cascadeAcceptConsumedDeps(
+          await commitAccept(
             mgr,
             submit.jobManager,
-            stemAddress,
-            variantId,
-            submit.cascade,
-          );
-          ledger.acceptedAssets.push(...cascaded);
-          ledger.cascadeAccepted.push(
-            ...cascaded.map((address) => ({ address, via: stemAddress })),
+            { address: stemAddress, variantId, cascade: submit.cascade, via },
+            ledger,
           );
         } catch (err) {
           ledger.leafFailures.set(stemAddress, errorMessage(err));
@@ -1071,27 +1027,22 @@ async function materializeShotCompositions(
       try {
         const variantId = await materializeCompositionVariant({ manager: mgr, video, shotId });
         if (variantId) {
-          const compAddress = formatCompositionAddress(stage, shotId);
-          mgr.setAccepted(compAddress, variantId);
-          ledger.acceptedAssets.push(compAddress);
           // The composition is materialized and accepted by the shot accept, never as a
-          // reviewable per-shot asset — so it has no decision line. Record it here so the
-          // review recap names what the shot accept signed off.
-          ledger.cascadeAccepted.push({
-            address: compAddress,
-            via: formatShotAddress(stage, shotId),
-          });
-          // Accept the assets the composition consumed — including timeline assets
-          // used only in the shotFn (logos, overlays), which no per-shot
-          // generation accept would otherwise reach.
-          const cascaded = await cascadeAcceptConsumedDeps(
+          // reviewable per-shot asset — so it has no decision line. Recorded via the shot so the
+          // review recap names what the shot accept signed off. Its cascade reaches the timeline
+          // assets used only in the shotFn (logos, overlays), which no per-shot generation accept
+          // would otherwise reach.
+          await commitAccept(
             mgr,
             submit.jobManager,
-            compAddress,
-            variantId,
-            submit.cascade,
+            {
+              address: formatCompositionAddress(stage, shotId),
+              variantId,
+              cascade: submit.cascade,
+              via: formatShotAddress(stage, shotId),
+            },
+            ledger,
           );
-          ledger.acceptedAssets.push(...cascaded);
         }
       } catch (err) {
         // One shot's failure must not sink the review; the read-back reports it.
@@ -1204,9 +1155,10 @@ async function applyTimelineStemDecision(
   submit: ReelSubmit,
   ledger: ReelSubmitLedger,
 ): Promise<"accepted" | "none" | undefined> {
-  const { video, stage } = submit;
+  const { video } = submit;
   const decision = submit.body.timelineStemDecision;
-  const timelineStemAddress = formatTimelineStemAddress(stage);
+  const leaf = timelineStemLeaf(video);
+  const timelineStemAddress = formatTimelineStemAddress(video.stage);
   const held =
     decision === "accepted"
       ? submit.heldFor([timelineStemAddress, ...timelineStemRefs(video)])
@@ -1215,51 +1167,29 @@ async function applyTimelineStemDecision(
     ledger.skippedDecisions.push({ address: timelineStemAddress, reason: heldReason(held) });
     return undefined;
   }
-  if (decision && (video.timelineSoundtracks?.length ?? 0) > 0) {
+  if (decision && leaf) {
     await StateManager.withLock(submit.ctx.videoRoot, async (mgr) => {
       try {
-        if (decision === "accepted") {
-          // Honor the bed take the reviewer selected: accept each soundtrack source's displayed
-          // variant before materializing, so the stem fingerprints the chosen take.
-          const sources = await acceptDisplayedStemSources(
-            mgr,
-            submit.jobManager,
-            timelineStemRefs(video),
-            submit.displayed,
-            submit.candidates,
-            submit.cascade,
-            ledger.overturned,
-          );
-          ledger.acceptedAssets.push(...sources);
-          ledger.cascadeAccepted.push(
-            ...sources.map((address) => ({ address, via: timelineStemAddress })),
-          );
-          const variantId = await materializeTimelineStem({ manager: mgr, video });
-          if (variantId) {
-            const previous = mgr.getAcceptedVariant(timelineStemAddress);
-            mgr.setAccepted(timelineStemAddress, variantId);
-            if (previous !== variantId) {
-              ledger.acceptedAssets.push(timelineStemAddress);
-              const cascaded = await cascadeAcceptConsumedDeps(
-                mgr,
-                submit.jobManager,
-                timelineStemAddress,
-                variantId,
-                submit.cascade,
-              );
-              ledger.acceptedAssets.push(...cascaded);
-              ledger.cascadeAccepted.push(
-                ...cascaded.map((address) => ({ address, via: timelineStemAddress })),
-              );
-            }
-          }
-        } else {
-          const acceptedId = mgr.getAcceptedVariant(timelineStemAddress);
-          if (acceptedId) {
-            mgr.setUnaccepted(timelineStemAddress, acceptedId);
-            ledger.unacceptedAssets.push(timelineStemAddress);
-          }
-        }
+        if (decision === "none") return releaseAccept(mgr, leaf.address, ledger);
+        // Honor the bed take the reviewer selected: accept each soundtrack source's displayed
+        // variant before materializing, so the stem fingerprints the chosen take.
+        await acceptDisplayedStemSources(
+          mgr,
+          submit.jobManager,
+          timelineStemRefs(video),
+          submit.displayed,
+          submit.candidates,
+          submit.cascade,
+          { ledger, via: () => leaf.address },
+        );
+        const variantId = await materializeTimelineStem({ manager: mgr, video });
+        if (!variantId) return;
+        await commitAccept(
+          mgr,
+          submit.jobManager,
+          { address: leaf.address, variantId, cascade: submit.cascade },
+          ledger,
+        );
       } catch {
         // skip timeline-stem failure
       }
@@ -1268,9 +1198,10 @@ async function applyTimelineStemDecision(
 
   // The beds' post-condition, the same read-back as the shots': the block above swallows its own
   // failure, so neither verdict may be written down without confirming it in state.
-  const verdict = timelineStemVerdict(
+  const verdict = leafVerdict(
     decision ? await StateManager.load(submit.ctx.videoRoot) : submit.manager,
     video,
+    leaf,
     decision,
   );
   if (verdict.skipped) ledger.skippedDecisions.push(verdict.skipped);
@@ -1324,46 +1255,31 @@ async function applyOverlayDecision(
         for (const ref of timelineRefs) {
           const sel = displayed[ref];
           if (!sel) continue;
-          const previousRef = mgr.getAcceptedVariant(ref);
-          noteOverturned(mgr, ref, sel, ledger.overturned);
-          mgr.setAccepted(ref, sel, { dismiss: candidates[ref] ?? [] });
-          if (previousRef === sel) continue;
-          ledger.acceptedAssets.push(ref);
-          const cascadedRef = await cascadeAcceptConsumedDeps(
+          await commitAccept(
             mgr,
             submit.jobManager,
-            ref,
-            sel,
-            submit.cascade,
-          );
-          ledger.acceptedAssets.push(...cascadedRef);
-          ledger.cascadeAccepted.push(
-            ...[ref, ...cascadedRef].map((dep) => ({ address: dep, via: overlayAddress })),
+            {
+              address: ref,
+              variantId: sel,
+              dismiss: candidates[ref] ?? [],
+              cascade: submit.cascade,
+              via: overlayAddress,
+              cascadeVia: overlayAddress,
+            },
+            ledger,
           );
         }
         if (!leafReadyForReview(mgr, video, overlayAddress)) return;
         const variantId = await materializeOverlayVariant({ manager: mgr, video });
         if (!variantId) return;
-        const previous = mgr.getAcceptedVariant(overlayAddress);
-        mgr.setAccepted(overlayAddress, variantId);
-        if (previous !== variantId) ledger.acceptedAssets.push(overlayAddress);
-        const cascaded = await cascadeAcceptConsumedDeps(
+        await commitAccept(
           mgr,
           submit.jobManager,
-          overlayAddress,
-          variantId,
-          submit.cascade,
-        );
-        ledger.acceptedAssets.push(...cascaded);
-        ledger.cascadeAccepted.push(
-          ...cascaded.map((dep) => ({ address: dep, via: overlayAddress })),
+          { address: overlayAddress, variantId, cascade: submit.cascade },
+          ledger,
         );
       } else {
-        const acceptedId = mgr.getAcceptedVariant(overlayAddress);
-        if (acceptedId) {
-          mgr.setUnaccepted(overlayAddress, acceptedId);
-          ledger.unacceptedAssets.push(overlayAddress);
-        }
+        releaseAccept(mgr, overlayAddress, ledger);
       }
     } catch {
       // an overlay that will not render is reported by its read-back below
@@ -1378,9 +1294,10 @@ async function applyOverlayDecision(
     });
     return undefined;
   }
-  const verdict = overlayVerdict(
+  const verdict = leafVerdict(
     await StateManager.load(submit.ctx.videoRoot),
     video,
+    overlayLeaf(video),
     overlayDecision,
   );
   if (verdict.skipped) ledger.skippedDecisions.push(verdict.skipped);
@@ -1431,12 +1348,7 @@ async function applyThumbnailDecision(
   if (held.length > 0) return skip(heldReason(held));
   const videoRoot = submit.ctx.videoRoot;
   if (decision === "none") {
-    await StateManager.withLock(videoRoot, async (mgr) => {
-      const acceptedId = mgr.getAcceptedVariant(address);
-      if (!acceptedId) return;
-      mgr.setUnaccepted(address, acceptedId);
-      ledger.unacceptedAssets.push(address);
-    });
+    await StateManager.withLock(videoRoot, async (mgr) => releaseAccept(mgr, address, ledger));
     const after = await StateManager.load(videoRoot);
     if (after.getAcceptedVariant(address) === null) return decision;
     return skip("the thumbnail is still accepted — the release did not take");
@@ -1462,13 +1374,20 @@ async function applyThumbnailDecision(
       return made !== undefined && mgr.tryGetAssetState(ref)?.variants?.[sel]?.outputHash !== made;
     });
     const switched = switchedPicks.map(([ref, sel]) => `${ref} (${sel})`);
+    // A pick's own upstream is reached by the cover's cascade below.
     for (const [ref, sel] of switched.length > 0 ? switchedPicks : picks) {
-      const previous = mgr.getAcceptedVariant(ref);
-      noteOverturned(mgr, ref, sel, ledger.overturned);
-      mgr.setAccepted(ref, sel, { dismiss: candidates[ref] ?? [] });
-      if (previous === sel) continue;
-      ledger.acceptedAssets.push(ref);
-      ledger.cascadeAccepted.push({ address: ref, via: address });
+      await commitAccept(
+        mgr,
+        submit.jobManager,
+        {
+          address: ref,
+          variantId: sel,
+          dismiss: candidates[ref] ?? [],
+          cascade: null,
+          via: address,
+        },
+        ledger,
+      );
     }
     if (switched.length > 0) return { switched };
     if (address !== THUMBNAIL_FRAME_ADDRESS && thumbnail.frame) {
@@ -1477,23 +1396,25 @@ async function applyThumbnailDecision(
         mgr.tryGetAssetState(THUMBNAIL_FRAME_ADDRESS)?.variants ?? {},
       ).find(([, v]) => made !== undefined && v.outputHash === made)?.[0];
       if (frame && mgr.getAcceptedVariant(THUMBNAIL_FRAME_ADDRESS) !== frame) {
-        mgr.setAccepted(THUMBNAIL_FRAME_ADDRESS, frame);
-        ledger.acceptedAssets.push(THUMBNAIL_FRAME_ADDRESS);
-        ledger.cascadeAccepted.push({ address: THUMBNAIL_FRAME_ADDRESS, via: address });
+        await commitAccept(
+          mgr,
+          submit.jobManager,
+          { address: THUMBNAIL_FRAME_ADDRESS, variantId: frame, cascade: null, via: address },
+          ledger,
+        );
       }
     }
-    const previous = mgr.getAcceptedVariant(address);
-    mgr.setAccepted(address, shown, { dismiss: candidates[address] ?? [] });
-    if (previous !== shown) ledger.acceptedAssets.push(address);
-    const cascaded = await cascadeAcceptConsumedDeps(
+    await commitAccept(
       mgr,
       submit.jobManager,
-      address,
-      shown,
-      submit.cascade,
+      {
+        address,
+        variantId: shown,
+        dismiss: candidates[address] ?? [],
+        cascade: submit.cascade,
+      },
+      ledger,
     );
-    ledger.acceptedAssets.push(...cascaded);
-    ledger.cascadeAccepted.push(...cascaded.map((dep) => ({ address: dep, via: address })));
     return {};
   });
   if (outcome.refused) return skip(outcome.refused);
