@@ -1,9 +1,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { parseAddressStream, type Stage } from "../address.js";
-import { writeFileAtomic } from "../atomic-write.js";
-import { KonteError, errorMessage } from "../errors.js";
-import { withFileLock } from "../file-lock.js";
+import { KonteError } from "../errors.js";
+import { LockedJsonFile } from "../locked-json-file.js";
 import {
   FEEDBACK_SCHEMA_VERSION,
   type FeedbackEntry,
@@ -14,16 +13,17 @@ import {
 const REVIEW_DIR = "review";
 const FEEDBACK_FILE = "feedback.json";
 
-function streamDir(videoRoot: string, stage: Stage): string {
-  return path.join(videoRoot, REVIEW_DIR, stage);
-}
-
-function streamFilePath(videoRoot: string, stage: Stage): string {
-  return path.join(streamDir(videoRoot, stage), FEEDBACK_FILE);
-}
-
-function emptyStream(): FeedbackStream {
-  return { schemaVersion: FEEDBACK_SCHEMA_VERSION, feedback: {} };
+// The lock sits at the video root so taking it creates no stream directory.
+function streamFile(videoRoot: string, stage: Stage): LockedJsonFile<FeedbackStream> {
+  return new LockedJsonFile({
+    filePath: path.join(videoRoot, REVIEW_DIR, stage, FEEDBACK_FILE),
+    lockPath: path.join(videoRoot, `${REVIEW_DIR}.${stage}.feedback.lock`),
+    schema: FeedbackStreamSchema,
+    label: "feedback file",
+    onMissing: () => ({ schemaVersion: FEEDBACK_SCHEMA_VERSION, feedback: {} }),
+    readErrorCode: "FEEDBACK_READ_FAILED",
+    writeErrorCode: "FEEDBACK_WRITE_FAILED",
+  });
 }
 
 export interface FeedbackLocation {
@@ -33,24 +33,25 @@ export interface FeedbackLocation {
 }
 
 /**
- * A single stage's review stream's feedback, persisted at
- * `review/<stage>/feedback.json`. Mirrors StateManager (atomic writes, file
- * lock, temp recovery) but scoped to one stream — a missing file is a valid *empty*
- * stream (feedback is additive), so no init is required.
+ * A single stage's review stream's feedback, persisted at `review/<stage>/feedback.json`. A missing
+ * file is an empty stream, and one left empty is never written.
  */
 export class FeedbackManager {
   readonly videoRoot: string;
   readonly stage: Stage;
   private stream: FeedbackStream;
+  private savedSerialized: string | null;
 
-  private constructor(videoRoot: string, stage: Stage, stream: FeedbackStream) {
+  private constructor(
+    videoRoot: string,
+    stage: Stage,
+    stream: FeedbackStream,
+    savedSerialized: string | null,
+  ) {
     this.videoRoot = videoRoot;
     this.stage = stage;
     this.stream = stream;
-  }
-
-  private get filePath(): string {
-    return streamFilePath(this.videoRoot, this.stage);
+    this.savedSerialized = savedSerialized;
   }
 
   static async withLock<T>(
@@ -58,16 +59,7 @@ export class FeedbackManager {
     stage: Stage,
     fn: (manager: FeedbackManager) => Promise<T>,
   ): Promise<T> {
-    // The lock file lives inside the stream dir (opened with `wx`), which may not
-    // exist yet on the first write — unlike state, whose lock sits at the project root.
-    await fs.mkdir(streamDir(videoRoot, stage), { recursive: true });
-    const lockPath = `${streamFilePath(videoRoot, stage)}.lock`;
-    return withFileLock(lockPath, async () => {
-      // Under the lock, no live writer competes for the stream, so it is safe to adopt a
-      // crashed writer's leftover temp. Readers (bare `load`) never do this — otherwise a
-      // reader could steal an in-flight `writeFileAtomic` temp out from under a live writer,
-      // since a missing feedback file is the normal (empty) case here.
-      await FeedbackManager.recoverFromTemp(videoRoot, stage);
+    return streamFile(videoRoot, stage).withLock(async () => {
       const manager = await FeedbackManager.load(videoRoot, stage);
       const result = await fn(manager);
       await manager.save();
@@ -76,87 +68,8 @@ export class FeedbackManager {
   }
 
   static async load(videoRoot: string, stage: Stage): Promise<FeedbackManager> {
-    const filePath = streamFilePath(videoRoot, stage);
-
-    let raw: string;
-    try {
-      raw = await fs.readFile(filePath, "utf-8");
-    } catch (err) {
-      // Absent file → empty stream (feedback is additive, so no init is required). Any other
-      // read error (permissions, a directory in the way, transient IO) must surface, not be
-      // silently swallowed as "no feedback" — otherwise a later save would erase recoverable data.
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-        return new FeedbackManager(videoRoot, stage, emptyStream());
-      }
-      throw new KonteError(
-        "VALIDATION_FAILED",
-        `Failed to read feedback file "${filePath}": ${errorMessage(err)}`,
-      );
-    }
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      throw new KonteError("VALIDATION_FAILED", `Invalid JSON in feedback file "${filePath}"`);
-    }
-
-    const result = FeedbackStreamSchema.safeParse(parsed);
-    if (!result.success) {
-      throw new KonteError(
-        "VALIDATION_FAILED",
-        `Feedback validation failed: ${result.error.message}`,
-      );
-    }
-
-    return new FeedbackManager(videoRoot, stage, result.data);
-  }
-
-  // Adopt a crashed writer's leftover temp as the committed file (idempotent), then `load`
-  // reads it back normally. MUST be called while holding the stream lock — see `withLock`.
-  private static async recoverFromTemp(videoRoot: string, stage: Stage): Promise<void> {
-    const filePath = streamFilePath(videoRoot, stage);
-    // Nothing to recover if the committed file is already present.
-    try {
-      await fs.access(filePath);
-      return;
-    } catch {
-      // fall through — the file is missing, look for an adoptable temp
-    }
-
-    const dir = streamDir(videoRoot, stage);
-    const tempPrefix = `.${FEEDBACK_FILE}.`;
-    let entries: string[];
-    try {
-      entries = await fs.readdir(dir);
-    } catch {
-      return;
-    }
-    const temps = entries.filter((e) => e.startsWith(tempPrefix) && e.endsWith(".tmp"));
-
-    for (const name of temps) {
-      const tmpPath = path.join(dir, name);
-      try {
-        const result = FeedbackStreamSchema.safeParse(
-          JSON.parse(await fs.readFile(tmpPath, "utf-8")),
-        );
-        if (result.success) {
-          await fs.rename(tmpPath, filePath);
-          for (const other of temps) {
-            if (other !== name) {
-              await fs.unlink(path.join(dir, other)).catch(() => {});
-            }
-          }
-          return;
-        }
-      } catch {
-        // try the next candidate
-      }
-    }
-
-    for (const name of temps) {
-      await fs.unlink(path.join(dir, name)).catch(() => {});
-    }
+    const { value, saved } = await streamFile(videoRoot, stage).read();
+    return new FeedbackManager(videoRoot, stage, value, saved);
   }
 
   getFeedback(address: string): FeedbackEntry[] {
@@ -217,19 +130,16 @@ export class FeedbackManager {
    * Moves the comments on each `moves` key to its value, renames the address in the takes every
    * comment was written against and in the live hashes it recorded, passing each of those through
    * `carryHash`.
-   * Returns whether anything changed.
    */
   renameAddresses(
     moves: ReadonlyMap<string, string>,
     carryHash: (address: string, recorded: string) => string,
-  ): boolean {
-    let changed = false;
+  ): void {
     for (const [from, to] of moves) {
       const entries = this.stream.feedback[from];
       if (!entries) continue;
       (this.stream.feedback[to] ??= []).push(...entries);
       delete this.stream.feedback[from];
-      changed = true;
     }
     for (const entries of Object.values(this.stream.feedback)) {
       for (const entry of entries) {
@@ -238,31 +148,23 @@ export class FeedbackManager {
           if (variantId === undefined) continue;
           delete entry.displayedVariants[from];
           entry.displayedVariants[to] = variantId;
-          changed = true;
         }
         if (!entry.displayedDefinitionHashes) continue;
-        const hashes = Object.entries(entry.displayedDefinitionHashes).map(([key, hash]) => {
-          const address = moves.get(key) ?? key;
-          return [address, hash === null ? null : carryHash(address, hash)] as const;
-        });
-        if (hashes.some(([address, hash]) => entry.displayedDefinitionHashes![address] !== hash)) {
-          entry.displayedDefinitionHashes = Object.fromEntries(hashes);
-          changed = true;
-        }
+        entry.displayedDefinitionHashes = Object.fromEntries(
+          Object.entries(entry.displayedDefinitionHashes).map(([key, hash]) => {
+            const address = moves.get(key) ?? key;
+            return [address, hash === null ? null : carryHash(address, hash)];
+          }),
+        );
       }
     }
-    return changed;
   }
 
   async save(): Promise<void> {
-    try {
-      await writeFileAtomic(this.filePath, JSON.stringify(this.stream, null, 2));
-    } catch (err) {
-      throw new KonteError(
-        "FEEDBACK_WRITE_FAILED",
-        `Failed to write feedback file: ${errorMessage(err)}`,
-      );
-    }
+    this.savedSerialized = await streamFile(this.videoRoot, this.stage).write(
+      this.stream,
+      this.savedSerialized,
+    );
   }
 }
 

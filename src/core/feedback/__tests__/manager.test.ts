@@ -2,7 +2,11 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { FeedbackAnnotationSchema, type FeedbackEntry } from "../../types/index.js";
+import {
+  FEEDBACK_SCHEMA_VERSION,
+  FeedbackAnnotationSchema,
+  type FeedbackEntry,
+} from "../../types/index.js";
 import { FeedbackManager, findFeedback, listAllFeedback } from "../index.js";
 
 const FIRST = "animatic:shot.01.first";
@@ -115,13 +119,54 @@ describe("FeedbackManager persistence", () => {
     expect(mgr.list()).toEqual([]);
   });
 
+  it("a withLock that changes nothing creates no stream file or directory", async () => {
+    await FeedbackManager.withLock(tmpDir, "animatic", async () => {});
+    await expect(fs.access(path.join(tmpDir, "review"))).rejects.toThrow();
+  });
+
+  it("does not rewrite a stream a withLock leaves unchanged", async () => {
+    await FeedbackManager.withLock(tmpDir, "animatic", async (mgr) => {
+      mgr.addFeedback(FIRST, entry("fb-keep0001"));
+    });
+    const filePath = path.join(tmpDir, "review", "animatic", "feedback.json");
+    const before = (await fs.stat(filePath)).mtimeMs;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    await FeedbackManager.withLock(tmpDir, "animatic", async (mgr) => {
+      mgr.renameAddresses(
+        new Map([["animatic:shot.09.first", "animatic:shot.10.first"]]),
+        (_, h) => h,
+      );
+    });
+
+    expect((await fs.stat(filePath)).mtimeMs).toBe(before);
+  });
+
+  it("recovers a leftover temp under withLock", async () => {
+    const dir = path.join(tmpDir, "review", "animatic");
+    await fs.mkdir(dir, { recursive: true });
+    const stream = {
+      schemaVersion: FEEDBACK_SCHEMA_VERSION,
+      feedback: { [FIRST]: [entry("fb-tmp00001")] },
+    };
+    await fs.writeFile(path.join(dir, ".feedback.json.abc123.tmp"), JSON.stringify(stream));
+
+    expect((await FeedbackManager.load(tmpDir, "animatic")).list()).toEqual([]);
+    const ids = await FeedbackManager.withLock(tmpDir, "animatic", async (mgr) =>
+      mgr.list().map((x) => x.entry.id),
+    );
+    expect(ids).toEqual(["fb-tmp00001"]);
+  });
+
   it("load surfaces a non-ENOENT read error instead of silently returning empty", async () => {
     // A directory where the feedback file should be triggers EISDIR, not ENOENT — a read
     // failure that must not be swallowed as "no feedback" (a later save would erase it).
     await fs.mkdir(path.join(tmpDir, "review", "animatic", "feedback.json"), {
       recursive: true,
     });
-    await expect(FeedbackManager.load(tmpDir, "animatic")).rejects.toThrow();
+    await expect(FeedbackManager.load(tmpDir, "animatic")).rejects.toMatchObject({
+      code: "FEEDBACK_READ_FAILED",
+    });
   });
 });
 

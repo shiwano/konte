@@ -7,9 +7,9 @@ import {
 } from "../assets-gitignore.js";
 import { acceptedVariantId } from "../accepted-variant.js";
 import { isStageScope } from "../address.js";
-import { writeFileAtomic } from "../atomic-write.js";
 import { KonteError, errorMessage } from "../errors.js";
 import { withFileLock } from "../file-lock.js";
+import { LockedJsonFile } from "../locked-json-file.js";
 import {
   computeAcceptedStaleness,
   computeVariantStaleness,
@@ -38,6 +38,20 @@ import {
 } from "../types/index.js";
 
 const STATE_FILE = "konte.state.json";
+
+function stateFile(videoRoot: string): LockedJsonFile<KonteState> {
+  return new LockedJsonFile({
+    filePath: path.join(videoRoot, STATE_FILE),
+    lockPath: path.join(videoRoot, `${STATE_FILE}.lock`),
+    schema: KonteStateSchema,
+    label: "state file",
+    onMissing: (filePath) => {
+      throw new KonteError("STATE_NOT_FOUND", `State file not found at "${filePath}"`);
+    },
+    readErrorCode: "STATE_READ_FAILED",
+    writeErrorCode: "STATE_WRITE_FAILED",
+  });
+}
 
 /**
  * The reservation stamp for a new variant: now, or one millisecond past the newest take already at
@@ -91,13 +105,8 @@ export class StateManager {
     this.savedSerialized = savedSerialized;
   }
 
-  private get statePath(): string {
-    return path.join(this.videoRoot, STATE_FILE);
-  }
-
   static async init(videoRoot: string): Promise<StateManager> {
-    const statePath = path.join(videoRoot, STATE_FILE);
-    const lockPath = path.join(videoRoot, `${STATE_FILE}.lock`);
+    const { filePath: statePath, lockPath } = stateFile(videoRoot).spec;
 
     // Exists-check and create under the same lock every other state writer takes: a bare check
     // then write would let a concurrent init (or a writer racing a fresh project) pass the check
@@ -129,12 +138,7 @@ export class StateManager {
     videoRoot: string,
     fn: (manager: StateManager) => Promise<T>,
   ): Promise<T> {
-    const lockPath = path.join(videoRoot, `${STATE_FILE}.lock`);
-    return withFileLock(lockPath, async () => {
-      // Under the lock, no live writer competes for the state file, so it is safe to adopt
-      // a crashed writer's leftover temp. Readers (bare `load`) never do this — otherwise a
-      // reader could steal an in-flight `writeFileAtomic` temp out from under a live writer.
-      await StateManager.recoverFromTemp(videoRoot);
+    return stateFile(videoRoot).withLock(async () => {
       const manager = await StateManager.load(videoRoot);
       const result = await fn(manager);
       await manager.save();
@@ -143,38 +147,12 @@ export class StateManager {
   }
 
   static async writersSettled(videoRoot: string): Promise<void> {
-    await withFileLock(path.join(videoRoot, `${STATE_FILE}.lock`), async () => {});
+    await withFileLock(stateFile(videoRoot).spec.lockPath, async () => {});
   }
 
   static async load(videoRoot: string): Promise<StateManager> {
-    const statePath = path.join(videoRoot, STATE_FILE);
-
-    let raw: string;
-    try {
-      raw = await fs.readFile(statePath, "utf-8");
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-        throw new KonteError("STATE_NOT_FOUND", `State file not found at "${statePath}"`);
-      }
-      throw new KonteError(
-        "STATE_READ_FAILED",
-        `Failed to read state file "${statePath}": ${errorMessage(err)}`,
-      );
-    }
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      throw new KonteError("VALIDATION_FAILED", `Invalid JSON in state file "${statePath}"`);
-    }
-
-    const result = KonteStateSchema.safeParse(parsed);
-    if (!result.success) {
-      throw new KonteError("VALIDATION_FAILED", `State validation failed: ${result.error.message}`);
-    }
-
-    const manager = new StateManager(videoRoot, result.data, JSON.stringify(result.data, null, 1));
+    const { value, saved } = await stateFile(videoRoot).read();
+    const manager = new StateManager(videoRoot, value, saved);
     await manager.withholdAbsentVariants();
     return manager;
   }
@@ -245,53 +223,6 @@ export class StateManager {
       assets[address] = { ...asset, variants };
     }
     return { ...this.state, assets };
-  }
-
-  // Adopt a crashed writer's leftover temp as the committed state file (idempotent), then
-  // `load` reads it back normally. MUST be called while holding the state lock — see `withLock`.
-  // writeFileAtomic leaves a uniquely-named temp alongside the main file on a crash before the
-  // first atomic rename committed.
-  private static async recoverFromTemp(videoRoot: string): Promise<void> {
-    const statePath = path.join(videoRoot, STATE_FILE);
-    // Nothing to recover if the committed file is already present.
-    try {
-      await fs.access(statePath);
-      return;
-    } catch {
-      // fall through — the file is missing, look for an adoptable temp
-    }
-
-    const tempPrefix = `.${STATE_FILE}.`;
-    let entries: string[];
-    try {
-      entries = await fs.readdir(videoRoot);
-    } catch {
-      return;
-    }
-    const temps = entries.filter((e) => e.startsWith(tempPrefix) && e.endsWith(".tmp"));
-
-    for (const name of temps) {
-      const tmpPath = path.join(videoRoot, name);
-      try {
-        const result = KonteStateSchema.safeParse(JSON.parse(await fs.readFile(tmpPath, "utf-8")));
-        if (result.success) {
-          await fs.rename(tmpPath, statePath);
-          for (const other of temps) {
-            if (other !== name) {
-              await fs.unlink(path.join(videoRoot, other)).catch(() => {});
-            }
-          }
-          return;
-        }
-      } catch {
-        // try the next candidate
-      }
-    }
-
-    // none were valid — drop the junk so it does not accumulate
-    for (const name of temps) {
-      await fs.unlink(path.join(videoRoot, name)).catch(() => {});
-    }
   }
 
   getState(): KonteState {
@@ -818,18 +749,7 @@ export class StateManager {
   // save in any process; an unchanged one is not rewritten.
   async save(): Promise<void> {
     const recorded = this.getRecordedState();
-    const serialized = JSON.stringify(recorded, null, 1);
-    if (serialized !== this.savedSerialized) {
-      try {
-        await writeFileAtomic(this.statePath, serialized);
-      } catch (err) {
-        throw new KonteError(
-          "STATE_WRITE_FAILED",
-          `Failed to write state file: ${errorMessage(err)}`,
-        );
-      }
-      this.savedSerialized = serialized;
-    }
+    this.savedSerialized = await stateFile(this.videoRoot).write(recorded, this.savedSerialized);
     try {
       await syncAssetsGitignore(this.videoRoot, recorded);
     } catch (err) {

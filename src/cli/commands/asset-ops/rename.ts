@@ -169,8 +169,6 @@ Examples:
         carryDefinitionHashes(videoRoot, manager.getRecordedState(), carry, moves),
       );
       for (const stage of FEEDBACK_STAGES) {
-        const peek = await FeedbackManager.load(videoRoot, stage);
-        if (!peek.renameAddresses(moves, carry)) continue;
         await FeedbackManager.withLock(videoRoot, stage, async (manager) => {
           manager.renameAddresses(moves, carry);
         });
