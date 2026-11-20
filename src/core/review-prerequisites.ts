@@ -1,6 +1,6 @@
 import { type Stage, tryParseAddress } from "./address.js";
 import { STAGE_ENTRY_FILE } from "./roots.js";
-import { selectResolvedVariant } from "./staleness.js";
+import { StalenessView } from "./staleness.js";
 import type { KonteState } from "./types/index.js";
 import type { AnimaticDefinition } from "./types/animatic.js";
 
@@ -86,7 +86,9 @@ function collectPanelMovement(
           p.camera === undefined ? "camera" : null,
         ].filter((n) => n !== null);
         if (missing.length === 0) continue;
-        const resolved = selectResolvedVariant(state, p.address, { includeStale: true });
+        const resolved = new StalenessView(state, undefined).resolve(p.address, {
+          includeStale: true,
+        });
         if (!resolved) continue;
         unmet.push({
           stage: "animatic",

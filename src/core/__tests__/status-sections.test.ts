@@ -9,8 +9,22 @@ import {
   detectOrphans,
 } from "../status-sections.js";
 import { JobIndex } from "../job-index.js";
-import { createStalenessCache, selectResolvedVariant } from "../staleness.js";
+import { type PatchHashes, StalenessView } from "../staleness.js";
 import type { JobRecord, KonteState } from "../types/index.js";
+
+// A view judging `address` against `hash`, with `patchHashes` for the patch axis.
+function viewOf(
+  state: KonteState,
+  address: string,
+  hash: string | null,
+  patchHashes?: PatchHashes,
+): StalenessView {
+  return new StalenessView(state, {
+    definitionHash: (a) => (a === address ? hash : null),
+    isDeterministic: () => false,
+    patchHashes,
+  });
+}
 
 function makeState(assets: KonteState["assets"]): KonteState {
   return { schemaVersion: 1, assets };
@@ -92,7 +106,12 @@ describe("buildAddressInfo", () => {
     });
     const jobs = new Map<string, JobRecord>();
 
-    const info = buildAddressInfo("video:shot.01.motion", state, jobs, "fal");
+    const info = buildAddressInfo(
+      "video:shot.01.motion",
+      new StalenessView(state, undefined),
+      jobs,
+      "fal",
+    );
     expect(info.address).toBe("video:shot.01.motion");
     expect(info.assetKind).toBe("fal");
     expect(info.hasAccepted).toBe(false);
@@ -133,7 +152,7 @@ describe("buildAddressInfo", () => {
       });
 
     it("reports the correction as awaiting review, and drops the source from the ready count", () => {
-      const info = buildAddressInfo(ADDR, patched("h1"), new Map(), "fal", "d1");
+      const info = buildAddressInfo(ADDR, viewOf(patched("h1"), ADDR, "d1"), new Map(), "fal");
       expect(info.patchedAwaitingReview).not.toBeNull();
       expect(info.readyCount).toBe(1);
     });
@@ -143,7 +162,7 @@ describe("buildAddressInfo", () => {
     it("clears once the correction is dismissed", () => {
       const state = patched("h1");
       state.assets[ADDR]!.variants!["v-fix"]!.status = "dismissed";
-      const info = buildAddressInfo(ADDR, state, new Map(), "fal", "d1");
+      const info = buildAddressInfo(ADDR, viewOf(state, ADDR, "d1"), new Map(), "fal");
       expect(info.patchedAwaitingReview).toBeNull();
       expect(info.undecidedVariantId).toBeNull();
       expect(info.readyCount).toBe(0);
@@ -165,7 +184,7 @@ describe("buildAddressInfo", () => {
           },
         },
       };
-      const info = buildAddressInfo(ADDR, state, new Map(), "fal", "d1");
+      const info = buildAddressInfo(ADDR, viewOf(state, ADDR, "d1"), new Map(), "fal");
       expect(info.patchedAwaitingReview).toBeNull();
     });
 
@@ -187,10 +206,9 @@ describe("buildAddressInfo", () => {
       };
       const info = buildAddressInfo(
         ADDR,
-        state,
+        viewOf(state, ADDR, "d1", new Map()),
         new Map(),
         "fal",
-        "d1",
         new JobIndex(),
         new Set(),
         false,
@@ -211,10 +229,9 @@ describe("buildAddressInfo", () => {
     it("does not report an output whose patch script has since changed", () => {
       const info = buildAddressInfo(
         ADDR,
-        patched("h1"),
+        viewOf(patched("h1"), ADDR, "d1", new Map([["v-src", "h2"]])),
         new Map(),
         "fal",
-        "d1",
         new JobIndex(),
         new Set(),
         false,
@@ -241,7 +258,12 @@ describe("buildAddressInfo", () => {
         },
       },
     });
-    const info = buildAddressInfo("video:shot.01.motion", state, new Map(), "fal");
+    const info = buildAddressInfo(
+      "video:shot.01.motion",
+      new StalenessView(state, undefined),
+      new Map(),
+      "fal",
+    );
     expect(info.hasAccepted).toBe(true);
   });
 
@@ -271,9 +293,14 @@ describe("buildAddressInfo", () => {
         },
       },
     });
-    const info = buildAddressInfo("video:shot.01.motion", state, new Map(), "fal");
+    const info = buildAddressInfo(
+      "video:shot.01.motion",
+      new StalenessView(state, undefined),
+      new Map(),
+      "fal",
+    );
     expect(info.readyVariantIds[0]).toBe(
-      selectResolvedVariant(state, "video:shot.01.motion")?.variantId,
+      new StalenessView(state, undefined).resolve("video:shot.01.motion")?.variantId,
     );
     expect(info.readyVariantIds[0]).toBe("v-reserved-second");
   });
@@ -303,7 +330,12 @@ describe("buildAddressInfo", () => {
         },
       },
     });
-    const info = buildAddressInfo("video:shot.01.motion", state, new Map(), "fal");
+    const info = buildAddressInfo(
+      "video:shot.01.motion",
+      new StalenessView(state, undefined),
+      new Map(),
+      "fal",
+    );
     expect(info.undecidedVariantId).not.toBeNull();
   });
 
@@ -334,10 +366,9 @@ describe("buildAddressInfo", () => {
     });
     const info = buildAddressInfo(
       "video:shot.01.motion",
-      state,
+      viewOf(state, "video:shot.01.motion", "current-definition"),
       new Map(),
       "fal",
-      "current-definition",
     );
     expect(info.undecidedVariantId).toBeNull();
   });
@@ -371,7 +402,12 @@ describe("buildAddressInfo", () => {
         },
       },
     });
-    const info = buildAddressInfo("video:shot.01.motion", state, new Map(), "fal");
+    const info = buildAddressInfo(
+      "video:shot.01.motion",
+      new StalenessView(state, undefined),
+      new Map(),
+      "fal",
+    );
     expect(info.undecidedVariantId).toBeNull();
   });
 
@@ -395,7 +431,12 @@ describe("buildAddressInfo", () => {
       ["v-abc12345", makeJob({ variantId: "v-abc12345", status: "running", progress: 45 })],
     ]);
 
-    const info = buildAddressInfo("video:shot.01.motion", state, jobs, "fal");
+    const info = buildAddressInfo(
+      "video:shot.01.motion",
+      new StalenessView(state, undefined),
+      jobs,
+      "fal",
+    );
     expect(info.generatingJobs).toEqual([
       { variantId: "v-abc12345", status: "running", progress: 45 },
     ]);
@@ -428,7 +469,12 @@ describe("buildAddressInfo", () => {
       ],
     ]);
 
-    const info = buildAddressInfo("video:shot.01.motion", state, jobs, "fal");
+    const info = buildAddressInfo(
+      "video:shot.01.motion",
+      new StalenessView(state, undefined),
+      jobs,
+      "fal",
+    );
     // waitingOn now lists the resolved, still-unsatisfied dependency address
     // (the animatic panel has no file), consistent with `generate`'s output.
     expect(info.blockedJobs).toEqual([
@@ -453,7 +499,12 @@ describe("buildAddressInfo", () => {
       },
     });
 
-    const info = buildAddressInfo("video:shot.01.motion", state, new Map(), "fal");
+    const info = buildAddressInfo(
+      "video:shot.01.motion",
+      new StalenessView(state, undefined),
+      new Map(),
+      "fal",
+    );
     expect(info.problemVariants).toEqual(["v-abc12345"]);
   });
 
@@ -477,7 +528,12 @@ describe("buildAddressInfo", () => {
       ["v-abc12345", makeJob({ variantId: "v-abc12345", status: "failed", error: "boom" })],
     ]);
 
-    const info = buildAddressInfo("video:shot.01.motion", state, jobs, "fal");
+    const info = buildAddressInfo(
+      "video:shot.01.motion",
+      new StalenessView(state, undefined),
+      jobs,
+      "fal",
+    );
     expect(info.failedJobs).toEqual([{ variantId: "v-abc12345", error: "boom" }]);
     expect(info.problemVariants).toEqual([]);
   });
@@ -530,7 +586,12 @@ describe("buildAddressInfo", () => {
       },
     });
 
-    const info = buildAddressInfo("video:shot.01.motion", state, new Map(), "fal");
+    const info = buildAddressInfo(
+      "video:shot.01.motion",
+      new StalenessView(state, undefined),
+      new Map(),
+      "fal",
+    );
     expect(info.staleVariants).toHaveLength(1);
     expect(info.staleVariants[0]!.variantId).toBe("v-acc00000");
     expect(info.staleVariants[0]!.inputStale).toBe(true);
@@ -571,7 +632,12 @@ describe("buildAddressInfo", () => {
       },
     });
 
-    const info = buildAddressInfo("video:shot.01.motion", state, new Map(), "fal");
+    const info = buildAddressInfo(
+      "video:shot.01.motion",
+      new StalenessView(state, undefined),
+      new Map(),
+      "fal",
+    );
     expect(info.staleVariants).toHaveLength(1);
     expect(info.staleVariants[0]!.changedInputs).toEqual([
       { address: "video:shot.01.bg", recorded: "old-hash", current: "current-hash" },
@@ -580,7 +646,12 @@ describe("buildAddressInfo", () => {
 
   it("handles missing target gracefully", () => {
     const state = makeState({});
-    const info = buildAddressInfo("video:shot.01.motion", state, new Map(), "fal");
+    const info = buildAddressInfo(
+      "video:shot.01.motion",
+      new StalenessView(state, undefined),
+      new Map(),
+      "fal",
+    );
     expect(info.hasAccepted).toBe(false);
     expect(info.readyCount).toBe(0);
   });
@@ -611,10 +682,9 @@ describe("buildAddressInfo", () => {
     ) =>
       buildAddressInfo(
         "video:shot.03#composition",
-        state,
+        viewOf(state, "video:shot.03#composition", definitionHash),
         new Map(),
         "composition",
-        definitionHash,
         new JobIndex(),
         deadVariantIds,
         leafReadyForReview,
@@ -985,7 +1055,12 @@ describe("computeStatusSections", () => {
           },
         },
       });
-      const info = buildAddressInfo("video:shot.01.motion", state, new Map(), "fal", "live-hash");
+      const info = buildAddressInfo(
+        "video:shot.01.motion",
+        viewOf(state, "video:shot.01.motion", "live-hash"),
+        new Map(),
+        "fal",
+      );
       expect(info.staleUnacceptedVariants).toEqual([]);
       expect(info.dismissedCount).toBe(1);
       const sections = computeStatusSections([info]);
@@ -1887,16 +1962,17 @@ describe("an accepted take whose upstream alone changed", () => {
     const build = (deterministic: boolean) =>
       buildAddressInfo(
         "animatic:shot.14.first",
-        state,
+        new StalenessView(state, {
+          definitionHash: () => null,
+          isDeterministic: () => deterministic,
+        }),
         new Map(),
         "fal",
-        null,
         new JobIndex([]),
         undefined,
         false,
         null,
         undefined,
-        createStalenessCache({ definitionHash: () => null, isDeterministic: () => deterministic }),
         true,
         false,
       );
@@ -1922,16 +1998,14 @@ describe("an accepted take whose upstream alone changed", () => {
     });
     const info = buildAddressInfo(
       delivery,
-      state,
+      new StalenessView(state, { definitionHash: () => null, isDeterministic: () => true }),
       new Map(),
-      null,
       null,
       new JobIndex([]),
       undefined,
       false,
       null,
       undefined,
-      createStalenessCache({ definitionHash: () => null, isDeterministic: () => true }),
     );
     expect(info.staleVariants).not.toEqual([]);
     expect(computeStatusSections([info]).find((s) => s.title === "Stale")).toBeUndefined();

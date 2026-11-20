@@ -181,8 +181,7 @@ function reelProgressByStage(
         ),
     ).length;
     const leafNeedsReview = (address: string) =>
-      materializedLeafReviewStatus(manager, address, definitionHashForAddress(def, address))
-        .needsReview;
+      materializedLeafReviewStatus(manager, address).needsReview;
     const stemAddress = formatTimelineStemAddress(def.stage);
     out[stage as Stage] = {
       shots: shots.length,
@@ -252,7 +251,7 @@ async function buildStatusReport(
   // This whole report is one read-only pass over one loaded state, so every address's
   // staleness walks share one memo instead of re-exploring the same upstream cones. Taken from the
   // manager, so it carries the definitions resolution is judged by.
-  const stalenessCache = manager.stalenessCache();
+  const stalenessView = manager.stalenessView();
 
   // Patch scripts are the second definition source in a video (after the stage files), so status
   // loads them for the same reason it loads those: an edited patch ages out the take it produced,
@@ -269,7 +268,7 @@ async function buildStatusReport(
     state,
     patchCatalog,
     await liveGenerationVariantIds(jobManager.videoRoot, everyJob, state),
-    stalenessCache,
+    stalenessView,
   );
 
   // Status is asset/variant-oriented. Provisioning and export jobs carry no asset
@@ -450,16 +449,14 @@ async function buildStatusReport(
 
     const info = buildAddressInfo(
       addr,
-      state,
+      stalenessView,
       jobsByVariantId,
       assetKind,
-      definitionHash,
       jobIndex,
       deadByAddress.get(addr),
       leafReady,
       missingFilePath,
       patchHashes,
-      stalenessCache,
       reviewTarget,
       reviewUnreachable,
     );
@@ -1054,7 +1051,7 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
   const reviewTimes = await readReviewTimes(videoRoot);
   // One memo for the rest of this pass: a comment's subject and a take Next steps calls
   // awaiting review are both takes the review pages display, read by their resolution.
-  const readCache = manager.stalenessCache();
+  const readView = manager.stalenessView();
   for (const { address, entry } of await listAllFeedback(videoRoot)) {
     if (feedbackAddresses.has(address)) continue;
     // Only a verdict of "stale" answers a comment. "unknown" is the reader saying it could
@@ -1062,7 +1059,7 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
     const staleness = feedbackStaleness(entry, address, state, {
       definitionHashes,
       subjectHashes,
-      cache: readCache,
+      view: readView,
       reviewTimes,
     });
     if (staleness === "stale") continue;
@@ -1090,7 +1087,7 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
 
   const suggestedActions = suggestForStatus({
     state,
-    stalenessCache: readCache,
+    stalenessView: readView,
     feedbackAddresses: [...feedbackAddresses],
     findings: findingReport.findings.filter((f) => f.code !== "empty-direction"),
     spendHeldStages,

@@ -79,7 +79,7 @@ export async function unvouchedFindings(opts: {
   stage?: AssetStage;
 }): Promise<VariantFindings[]> {
   const state = opts.manager.getState();
-  const cache = opts.manager.stalenessCache();
+  const view = opts.manager.stalenessView();
   const found: VariantFindings[] = [];
   const addresses = (opts.stage ? [opts.stage] : ASSET_STAGES).flatMap((stage) => {
     const def = opts.definitions[stage];
@@ -88,7 +88,7 @@ export async function unvouchedFindings(opts: {
   for (const address of addresses) {
     if (!state.assets[address]) continue;
     const said = linesSaidAt(opts.definitions, opts.direction, address);
-    for (const variantId of opts.manager.readyUndecidedVariants(address, cache)) {
+    for (const variantId of view.readyUndecided(address)) {
       const variant = state.assets[address]!.variants![variantId]!;
       if (variant.vouchedAt) continue;
       const findings = await checkVariant({

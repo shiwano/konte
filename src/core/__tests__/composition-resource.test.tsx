@@ -19,7 +19,6 @@ import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { defineVideo, asset } from "../dsl/index.js";
 import { shot, videoTimeline } from "./helpers/shot.js";
 import { testDirection } from "./helpers/direction.js";
-import { isAcceptedStale } from "../staleness.js";
 import { StateManager } from "../state/index.js";
 import type { ShotDefinition, VideoDefinition } from "../types/index.js";
 import { ASSET_SITES } from "../dsl/adapter.js";
@@ -414,14 +413,18 @@ describe("composition accept end-to-end (UC1)", () => {
     manager.setAccepted(compAddress, compId!);
 
     const defHash = compositionDefinitionHashForAddress(testVideo, compAddress);
+    manager.useResolutionDefinitions({
+      definitionHash: (address) => (address === compAddress ? defHash : null),
+      isDeterministic: () => false,
+    });
     // Freshly accepted: not stale.
-    expect(isAcceptedStale(manager, compAddress, defHash)).toBe(false);
+    expect(manager.stalenessView().isAcceptedStale(compAddress)).toBe(false);
 
     // motion is regenerated and a new variant accepted with a different output.
     setupAccepted("video:shot.01.motion", "assets/m/v2.mp4", "motion-2");
 
     // The accepted composition is now stale → it needs re-review (UC1).
-    expect(isAcceptedStale(manager, compAddress, defHash)).toBe(true);
+    expect(manager.stalenessView().isAcceptedStale(compAddress)).toBe(true);
 
     // Re-accepting mints a fresh composition variant against motion-2.
     const compId2 = await materializeCompositionVariant({
@@ -431,7 +434,7 @@ describe("composition accept end-to-end (UC1)", () => {
     });
     expect(compId2).not.toBe(compId);
     manager.setAccepted(compAddress, compId2!);
-    expect(isAcceptedStale(manager, compAddress, defHash)).toBe(false);
+    expect(manager.stalenessView().isAcceptedStale(compAddress)).toBe(false);
   });
 });
 

@@ -17,12 +17,7 @@ import { JobIndex } from "../../core/job-index.js";
 import { type PendingReason, describePendingJob } from "../../core/pending-jobs.js";
 import { type PatchRun, applyPatches, preparePatchSpend } from "../patch-orchestrator.js";
 import { selectDefinition } from "../../core/select-definition.js";
-import { computeDefinitionHash } from "../../core/definition-hash.js";
-import {
-  collectUndecidedUpstreamVariants,
-  computeAcceptedStaleness,
-  formatStaleCause,
-} from "../../core/staleness.js";
+import { formatStaleCause } from "../../core/staleness.js";
 import { StateManager } from "../../core/state/index.js";
 import { type StaleRefreshStep, staleRefreshStep } from "../stale-refresh-step.js";
 import type { AssetDefinition } from "../../core/types/index.js";
@@ -127,13 +122,8 @@ export function registerGenerateCommand(program: Command): void {
         source: StateManager = manager,
       ): AcceptedStaleAsset[] =>
         addresses.flatMap((address) => {
-          const staleness = computeAcceptedStaleness(
-            source.getState(),
-            address,
-            computeDefinitionHash(assetEntryOf(address)),
-            // The verdict being explained is `assetSkipReason`'s — read it the same way.
-            source.stalenessCache(),
-          );
+          // The verdict being explained is `assetSkipReason`'s — read it the same way.
+          const staleness = source.stalenessView().acceptedStaleness(address);
           if (!staleness.definitionStale) return [];
           const cause = formatStaleCause(staleness);
           const fork = plateFork(
@@ -149,7 +139,7 @@ export function registerGenerateCommand(program: Command): void {
                 variantId,
                 patchHashes: source.patchHashes(),
                 animatic,
-                cache: source.stalenessCache(),
+                view: source.stalenessView(),
               })
             : ({ kind: "reroll" } as const);
           return [
@@ -183,7 +173,7 @@ export function registerGenerateCommand(program: Command): void {
         manager.getState(),
         patchCatalog,
         liveJobs,
-        manager.stalenessCache(),
+        manager.stalenessView(),
       ).filter((p) => getStage(p.sourceAddress) === stage);
       // Before any job is created: a finding or an unaccepted upstream holding the whole stage refuses
       // the run; one holding only some assets or patches leaves them out.
@@ -393,9 +383,7 @@ export function registerGenerateCommand(program: Command): void {
             });
             continue;
           }
-          const { definitionHash } = verdict;
-          const skip: SkipJudge = (m, live, a) =>
-            assetSkipReason(m, live, a, definitionHash, inputRebuilt);
+          const skip: SkipJudge = (m, live, a) => assetSkipReason(m, live, a, inputRebuilt);
           const slot = assetResults.push(null) - 1;
           // Rebuilt by this run or, when the lock skips it, by the concurrent one that made it skip.
           rebuiltAddresses.add(address);
@@ -423,8 +411,7 @@ export function registerGenerateCommand(program: Command): void {
         const pending = registered.some((r) => r.jobs.length > 0)
           ? await StateManager.load(videoRoot)
           : manager;
-        const pendingState = pending.getState();
-        const pendingCache = pending.stalenessCache();
+        const pendingView = pending.stalenessView();
         for (const [i, w] of work.entries()) {
           const result = registered[i]!;
           assetResults[w.slot] = result;
@@ -438,10 +425,7 @@ export function registerGenerateCommand(program: Command): void {
               continue;
             }
             for (const id of rec.dependsOnJobs) await refreshKnownJob(id);
-            pendingReasons.set(
-              j.variantId,
-              describePendingJob(rec, pendingState, jobIndex, pendingCache),
-            );
+            pendingReasons.set(j.variantId, describePendingJob(rec, jobIndex, pendingView));
           }
         }
 
@@ -499,11 +483,9 @@ export function registerGenerateCommand(program: Command): void {
       // instead (the spend gate).
       // The skips were decided under the state lock; read them against the state as it is now.
       const settled = await StateManager.load(videoRoot);
-      const undecidedUpstreamVariants = collectUndecidedUpstreamVariants(
-        settled.getState(),
-        [...generatedDepPaths],
-        settled.stalenessCache(),
-      );
+      const undecidedUpstreamVariants = settled
+        .stalenessView()
+        .undecidedUpstreams([...generatedDepPaths]);
 
       const acceptedStale = describeAcceptedStale(
         levelResults.flatMap((lr) =>

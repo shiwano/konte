@@ -28,7 +28,6 @@ import {
 } from "./finding.js";
 import { collectTransitiveDependents, type DependencyGraph, extractRefs } from "./graph.js";
 import { songAddressOf } from "./song-variant.js";
-import { collectUndecidedUpstreamVariants } from "./staleness.js";
 import type { StateManager } from "./state/index.js";
 
 // Sign-off a spend may build on: strict resolution's own verdict, which is what the spend then
@@ -130,11 +129,7 @@ function unacceptedUpstreamDeps(opts: {
     }
     if (acceptedForSpend(opts.manager, dep)) {
       if (opts.redone?.has(dep)) continue;
-      const [variant] = collectUndecidedUpstreamVariants(
-        opts.manager.getState(),
-        [dep],
-        opts.manager.stalenessCache(),
-      );
+      const [variant] = opts.manager.stalenessView().undecidedUpstreams([dep]);
       if (variant) {
         blocking.set(dep, {
           kind: "undecided",

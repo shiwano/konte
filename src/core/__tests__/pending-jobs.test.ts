@@ -5,7 +5,7 @@ import { describePendingJob, resolveJobDeps } from "../pending-jobs.js";
 import { resolveRefs } from "../ref-resolver.js";
 import type { StateManager } from "../state/index.js";
 import type { GenerationJob, JobRecord, KonteState, VariantState } from "../types/index.js";
-import { createStalenessCache } from "../staleness.js";
+import { StalenessView } from "../staleness.js";
 
 function genJob(overrides: Partial<GenerationJob> & { variantId: string }): GenerationJob {
   return {
@@ -92,13 +92,15 @@ describe("describePendingJob", () => {
   it("is submittable when every asset dependency already has a file", () => {
     const job = genJob({ variantId: "v-a", dependsOnAssets: ["video:timeline.character"] });
     const state = stateWithFiles(["video:timeline.character"]);
-    expect(describePendingJob(job, state, new JobIndex([]))).toEqual({ submittable: true });
+    expect(describePendingJob(job, new JobIndex([]), new StalenessView(state, undefined))).toEqual({
+      submittable: true,
+    });
   });
 
   it("waits on the resolved address of an unsatisfied asset dependency", () => {
     const job = genJob({ variantId: "v-b", dependsOnAssets: ["video:timeline.character"] });
     const state = stateWithFiles([]); // dependency has no file
-    expect(describePendingJob(job, state, new JobIndex([]))).toEqual({
+    expect(describePendingJob(job, new JobIndex([]), new StalenessView(state, undefined))).toEqual({
       submittable: false,
       waitingOn: ["video:timeline.character"],
     });
@@ -112,7 +114,9 @@ describe("describePendingJob", () => {
       address: "video:timeline.character",
       status: "running",
     });
-    expect(describePendingJob(job, state, new JobIndex([upstream]))).toEqual({
+    expect(
+      describePendingJob(job, new JobIndex([upstream]), new StalenessView(state, undefined)),
+    ).toEqual({
       submittable: false,
       waitingOn: ["video:timeline.character"],
     });
@@ -121,7 +125,10 @@ describe("describePendingJob", () => {
   it("waits on a not-ready model download, collapsed to a count", () => {
     const job = genJob({ variantId: "v-c", dependsOnJobs: ["cmd-1"] });
     const jobs = [modelJob("cmd-1", "running")];
-    expect(describePendingJob(job, stateWithFiles([]), new JobIndex(jobs))).toEqual({
+    const empty = stateWithFiles([]);
+    expect(
+      describePendingJob(job, new JobIndex(jobs), new StalenessView(empty, undefined)),
+    ).toEqual({
       submittable: false,
       waitingOn: ["1 model"],
     });
@@ -130,7 +137,10 @@ describe("describePendingJob", () => {
   it("is submittable once the model download is ready", () => {
     const job = genJob({ variantId: "v-d", dependsOnJobs: ["cmd-1"] });
     const jobs = [modelJob("cmd-1", "completed")];
-    expect(describePendingJob(job, stateWithFiles([]), new JobIndex(jobs))).toEqual({
+    const empty = stateWithFiles([]);
+    expect(
+      describePendingJob(job, new JobIndex(jobs), new StalenessView(empty, undefined)),
+    ).toEqual({
       submittable: true,
     });
   });
@@ -142,7 +152,10 @@ describe("describePendingJob", () => {
       dependsOnJobs: ["cmd-1", "cmd-2"],
     });
     const jobs = [modelJob("cmd-1", "pending"), modelJob("cmd-2", "pending")];
-    expect(describePendingJob(job, stateWithFiles([]), new JobIndex(jobs))).toEqual({
+    const empty = stateWithFiles([]);
+    expect(
+      describePendingJob(job, new JobIndex(jobs), new StalenessView(empty, undefined)),
+    ).toEqual({
       submittable: false,
       waitingOn: ["video:timeline.character", "2 models"],
     });
@@ -167,8 +180,8 @@ describe("resolveJobDeps", () => {
     // No definitions registered — the input axis alone, which is what these cases exercise.
     return {
       getState: () => state,
-      stalenessCache: () => createStalenessCache(),
-    } as StateManager;
+      stalenessView: () => new StalenessView(state, undefined),
+    } as unknown as StateManager;
   }
 
   function stateWithMotion(): KonteState {

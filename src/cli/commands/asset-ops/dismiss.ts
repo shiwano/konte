@@ -131,14 +131,14 @@ Examples:
           // Re-derived from inside the lock, so what is reported is what the committed state says.
           const staleMarked = staleFrom(manager, committed, graph.dependents);
           // What each address names now the verdicts are in, read from the committed state.
-          const cache = manager.stalenessCache();
+          const view = manager.stalenessView();
           const showing = new Map(
             items.map(({ address }) => [
               address,
               {
                 now:
-                  manager.selectVariant(address, { includeStale: true }, cache)?.variantId ?? null,
-                undecided: manager.readyUndecidedVariants(address, cache),
+                  manager.selectVariant(address, { includeStale: true }, view)?.variantId ?? null,
+                undecided: view.readyUndecided(address),
               },
             ]),
           );

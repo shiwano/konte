@@ -1,20 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  collectUndecidedUpstreamVariants,
-  collectStaleDependents,
-  collectStaleVariants,
-  computeAcceptedStaleness,
-  computeVariantStaleness,
-  createStalenessCache,
-  formatStaleReason,
-  isVariantStale,
-  keptViaMarker,
-  newestReadyUndecidedVariant,
-  undecidedVariantBesideAccepted,
-  readyUndecidedVariants,
-  resolvedStaleness,
-  selectResolvedVariant,
-} from "../staleness.js";
+import { formatStaleReason, keptViaMarker, type PatchHashes, StalenessView } from "../staleness.js";
 import type { KonteState, VariantState } from "../types/index.js";
 import { variantDir } from "../variant-dir.js";
 
@@ -31,11 +16,25 @@ function variant(overrides: Partial<VariantState> = {}): VariantState {
   };
 }
 
+// A view whose definitions carry `hashes` (address → current definition hash) and `patchHashes`.
+function viewOf(
+  state: KonteState,
+  hashes?: Record<string, string>,
+  patchHashes?: PatchHashes,
+): StalenessView {
+  if (!hashes && !patchHashes) return new StalenessView(state, undefined);
+  return new StalenessView(state, {
+    definitionHash: (address) => hashes?.[address] ?? null,
+    isDeterministic: () => false,
+    patchHashes,
+  });
+}
+
 function makeState(assets: KonteState["assets"]): KonteState {
   return { schemaVersion: 3, assets };
 }
 
-describe("computeVariantStaleness", () => {
+describe("StalenessView.staleness", () => {
   // (a) timeline.latent catch-22 regression: a deterministic upstream is accepted, but its
   // bytes are identical, so recorded == current => downstream stays NOT stale.
   it("does not mark a downstream stale when the accepted upstream output is byte-identical", () => {
@@ -58,7 +57,7 @@ describe("computeVariantStaleness", () => {
       },
     });
     const downstream = state.assets["video:shot.01.motion"]!.variants!["v-m"]!;
-    const s = computeVariantStaleness(state, "video:shot.01.motion", downstream, null);
+    const s = viewOf(state).staleness("video:shot.01.motion", downstream);
     expect(s.inputStale).toBe(false);
     expect(s.definitionStale).toBe(false);
   });
@@ -83,7 +82,7 @@ describe("computeVariantStaleness", () => {
       },
     });
     const downstream = state.assets["video:shot.01.motion"]!.variants!["v-m"]!;
-    const s = computeVariantStaleness(state, "video:shot.01.motion", downstream, null);
+    const s = viewOf(state).staleness("video:shot.01.motion", downstream);
     expect(s.inputStale).toBe(true);
     expect(s.changedInputs).toEqual([
       { address: "video:shot.01.first", recorded: "old-hash", current: "new-hash" },
@@ -100,7 +99,10 @@ describe("computeVariantStaleness", () => {
       },
     });
     const v = state.assets["video:shot.01.motion"]!.variants!["v-m"]!;
-    const s = computeVariantStaleness(state, "video:shot.01.motion", v, "def-new");
+    const s = viewOf(state, { ["video:shot.01.motion"]: "def-new" }).staleness(
+      "video:shot.01.motion",
+      v,
+    );
     expect(s.definitionStale).toBe(true);
     expect(s.inputStale).toBe(false);
   });
@@ -125,7 +127,10 @@ describe("computeVariantStaleness", () => {
       },
     });
     const v = state.assets["video:shot.01.motion"]!.variants!["v-m"]!;
-    const s = computeVariantStaleness(state, "video:shot.01.motion", v, "def-new");
+    const s = viewOf(state, { ["video:shot.01.motion"]: "def-new" }).staleness(
+      "video:shot.01.motion",
+      v,
+    );
     expect(s.inputStale).toBe(true);
     expect(s.definitionStale).toBe(true);
   });
@@ -143,7 +148,7 @@ describe("computeVariantStaleness", () => {
       },
     });
     const v = state.assets["video:shot.01.motion"]!.variants!["v-m"]!;
-    expect(isVariantStale(state, "video:shot.01.motion", v, null)).toBe(false);
+    expect(viewOf(state).isStale("video:shot.01.motion", v)).toBe(false);
   });
 
   it("treats an upstream that resolves to nothing as not stale", () => {
@@ -162,7 +167,7 @@ describe("computeVariantStaleness", () => {
       },
     });
     const v = state.assets["video:shot.01.motion"]!.variants!["v-m"]!;
-    expect(isVariantStale(state, "video:shot.01.motion", v, null)).toBe(false);
+    expect(viewOf(state).isStale("video:shot.01.motion", v)).toBe(false);
   });
 
   // Where nothing is accepted, resolution falls through to the newest non-stale take — so what
@@ -199,7 +204,7 @@ describe("computeVariantStaleness", () => {
     it("stales a downstream when a patch lands on it", () => {
       const state = patchedUpstream();
       const v = state.assets["animatic:shot.12.first"]!.variants!["v-first"]!;
-      const s = computeVariantStaleness(state, "animatic:shot.12.first", v, null);
+      const s = viewOf(state).staleness("animatic:shot.12.first", v);
       expect(s.inputStale).toBe(true);
       expect(s.changedInputs).toEqual([
         { address: "animatic:shot.12.last", recorded: "before", current: "after" },
@@ -211,18 +216,18 @@ describe("computeVariantStaleness", () => {
       const state = patchedUpstream();
       delete state.assets["animatic:shot.12.last"]!.variants!["v-fix"]!.derivedFrom;
       const v = state.assets["animatic:shot.12.first"]!.variants!["v-first"]!;
-      expect(isVariantStale(state, "animatic:shot.12.first", v, null)).toBe(true);
+      expect(viewOf(state).isStale("animatic:shot.12.first", v)).toBe(true);
     });
 
     it("leaves a downstream alone while an accepted take pins the resolution", () => {
       const state = patchedUpstream();
       state.assets["animatic:shot.12.last"]!.variants!["v-src"]!.status = "accepted";
       const v = state.assets["animatic:shot.12.first"]!.variants!["v-first"]!;
-      expect(isVariantStale(state, "animatic:shot.12.first", v, null)).toBe(false);
+      expect(viewOf(state).isStale("animatic:shot.12.first", v)).toBe(false);
 
       state.assets["animatic:shot.12.last"]!.variants!["v-src"]!.status = "none";
       state.assets["animatic:shot.12.last"]!.variants!["v-fix"]!.status = "accepted";
-      expect(isVariantStale(state, "animatic:shot.12.first", v, null)).toBe(true);
+      expect(viewOf(state).isStale("animatic:shot.12.first", v)).toBe(true);
     });
 
     // A stale upstream resolves to nothing, so its own downstream is not determinable until it
@@ -239,7 +244,7 @@ describe("computeVariantStaleness", () => {
       };
       state.assets["animatic:shot.12.first"]!.variants!["v-first"]!.outputHash = "first-hash";
       const v13 = state.assets["animatic:shot.13.first"]!.variants!["v-13"]!;
-      expect(isVariantStale(state, "animatic:shot.13.first", v13, null)).toBe(false);
+      expect(viewOf(state).isStale("animatic:shot.13.first", v13)).toBe(false);
 
       // Rebuilding the middle level moves the wave one hop on.
       state.assets["animatic:shot.12.first"]!.variants!["v-rebuilt"] = variant({
@@ -248,10 +253,10 @@ describe("computeVariantStaleness", () => {
         createdAt: "2026-01-01T00:00:03.000Z",
         inputFingerprints: { "animatic:shot.12.last": "after" },
       });
-      expect(isVariantStale(state, "animatic:shot.13.first", v13, null)).toBe(true);
+      expect(viewOf(state).isStale("animatic:shot.13.first", v13)).toBe(true);
     });
 
-    it("leaves a dependent out of collectStaleDependents over a dismissed or older take", () => {
+    it("leaves a dependent out of staleDependents over a dismissed or older take", () => {
       const state = patchedUpstream();
       const first = state.assets["animatic:shot.12.first"]!.variants!;
       first["v-first"]!.status = "dismissed";
@@ -268,7 +273,7 @@ describe("computeVariantStaleness", () => {
       const dependents = new Map<string, readonly string[]>([
         ["animatic:shot.12.last", ["animatic:shot.12.first"]],
       ]);
-      expect(collectStaleDependents(state, "animatic:shot.12.last", dependents)).toEqual([]);
+      expect(viewOf(state).staleDependents("animatic:shot.12.last", dependents)).toEqual([]);
     });
 
     it("reports a dependent whose older take is the one that resolved", () => {
@@ -284,21 +289,21 @@ describe("computeVariantStaleness", () => {
       const dependents = new Map<string, readonly string[]>([
         ["animatic:shot.12.last", ["animatic:shot.12.first"]],
       ]);
-      const cache = createStalenessCache({
+      const cache = new StalenessView(state, {
         definitionHash: () => "def1",
         isDeterministic: () => false,
       });
-      expect(collectStaleDependents(state, "animatic:shot.12.last", dependents, cache)).toEqual([
+      expect(cache.staleDependents("animatic:shot.12.last", dependents)).toEqual([
         "animatic:shot.12.first",
       ]);
     });
 
-    it("reports the same stale dependents to collectStaleDependents", () => {
+    it("reports the same stale dependents to staleDependents", () => {
       const state = patchedUpstream();
       const dependents = new Map<string, readonly string[]>([
         ["animatic:shot.12.last", ["animatic:shot.12.first"]],
       ]);
-      expect(collectStaleDependents(state, "animatic:shot.12.last", dependents)).toEqual([
+      expect(viewOf(state).staleDependents("animatic:shot.12.last", dependents)).toEqual([
         "animatic:shot.12.first",
       ]);
     });
@@ -330,9 +335,9 @@ describe("computeVariantStaleness", () => {
           },
         },
       });
-      const resolved = selectResolvedVariant(state, ADDR);
+      const resolved = viewOf(state).resolve(ADDR);
       const downstream = state.assets["animatic:shot.02.first"]!.variants!["v-d"]!;
-      const s = computeVariantStaleness(state, "animatic:shot.02.first", downstream, null);
+      const s = viewOf(state).staleness("animatic:shot.02.first", downstream);
       const comparedAgainst = s.changedInputs[0]?.current ?? "old";
       expect(comparedAgainst).toBe(state.assets[ADDR]!.variants![resolved!.variantId]!.outputHash);
     });
@@ -362,7 +367,7 @@ describe("computeVariantStaleness", () => {
       const state = patched();
       const hashes = new Map([["v-src", "patch2"]]);
       expect(
-        computeVariantStaleness(state, ADDR, fixOf(state), "def1", hashes).definitionStale,
+        viewOf(state, { [ADDR]: "def1" }, hashes).staleness(ADDR, fixOf(state)).definitionStale,
       ).toBe(true);
     });
 
@@ -370,14 +375,14 @@ describe("computeVariantStaleness", () => {
       const state = patched();
       const hashes = new Map([["v-src", "patch1"]]);
       expect(
-        computeVariantStaleness(state, ADDR, fixOf(state), "def1", hashes).definitionStale,
+        viewOf(state, { [ADDR]: "def1" }, hashes).staleness(ADDR, fixOf(state)).definitionStale,
       ).toBe(false);
     });
 
     // Callers without the patch catalog (the render/ref path) must not see phantom staleness.
     it("is inert when no hashes are supplied", () => {
       const state = patched();
-      expect(computeVariantStaleness(state, ADDR, fixOf(state), "def1").definitionStale).toBe(
+      expect(viewOf(state, { [ADDR]: "def1" }).staleness(ADDR, fixOf(state)).definitionStale).toBe(
         false,
       );
     });
@@ -386,17 +391,17 @@ describe("computeVariantStaleness", () => {
     it("ignores a source with no current script", () => {
       const state = patched();
       expect(
-        computeVariantStaleness(state, ADDR, fixOf(state), "def1", new Map()).definitionStale,
+        viewOf(state, { [ADDR]: "def1" }, new Map()).staleness(ADDR, fixOf(state)).definitionStale,
       ).toBe(false);
     });
 
     it("keeps resolving the correction whose script was edited, not the take it corrected", () => {
-      const cache = createStalenessCache({
+      const cache = new StalenessView(patched(), {
         definitionHash: () => "def1",
         patchHashes: new Map([["v-src", "patch2"]]),
         isDeterministic: () => false,
       });
-      expect(selectResolvedVariant(patched(), ADDR, undefined, cache)?.variantId).toBe("v-fix");
+      expect(cache.resolve(ADDR)?.variantId).toBe("v-fix");
     });
 
     // The inherited definitionHash is what makes an asset edit stale source and correction alike.
@@ -404,8 +409,8 @@ describe("computeVariantStaleness", () => {
       const state = patched();
       const hashes = new Map([["v-src", "patch1"]]);
       const src = state.assets[ADDR]!.variants!["v-src"]!;
-      expect(isVariantStale(state, ADDR, src, "def2", hashes)).toBe(true);
-      expect(isVariantStale(state, ADDR, fixOf(state), "def2", hashes)).toBe(true);
+      expect(viewOf(state, { [ADDR]: "def2" }, hashes).isStale(ADDR, src)).toBe(true);
+      expect(viewOf(state, { [ADDR]: "def2" }, hashes).isStale(ADDR, fixOf(state))).toBe(true);
     });
 
     describe("a correction of the accepted take", () => {
@@ -427,12 +432,9 @@ describe("computeVariantStaleness", () => {
 
       it("is not stale on what it inherited while the source's accept stands", () => {
         const state = keptLineage();
-        const s = computeVariantStaleness(
-          state,
+        const s = viewOf(state, { [ADDR]: "def2" }, new Map([["v-src", "patch1"]])).staleness(
           ADDR,
           fixOf(state),
-          "def2",
-          new Map([["v-src", "patch1"]]),
         );
         expect(s.definitionStale).toBe(false);
         expect(s.inputStale).toBe(false);
@@ -440,12 +442,9 @@ describe("computeVariantStaleness", () => {
 
       it("still goes stale when its own script moves", () => {
         const state = keptLineage();
-        const s = computeVariantStaleness(
-          state,
+        const s = viewOf(state, { [ADDR]: "def2" }, new Map([["v-src", "patch2"]])).staleness(
           ADDR,
           fixOf(state),
-          "def2",
-          new Map([["v-src", "patch2"]]),
         );
         expect(s.patchStale).toBe(true);
       });
@@ -456,7 +455,7 @@ describe("computeVariantStaleness", () => {
         state.assets["reference:sheet"] = {
           variants: { "v-s": variant({ status: "accepted", file: "s.png", outputHash: "sheet2" }) },
         };
-        const s = computeVariantStaleness(state, ADDR, fixOf(state), "def2");
+        const s = viewOf(state, { [ADDR]: "def2" }).staleness(ADDR, fixOf(state));
         expect(s.changedInputs.map((c) => c.address)).toEqual(["reference:sheet"]);
       });
 
@@ -473,7 +472,7 @@ describe("computeVariantStaleness", () => {
           },
         };
         fixOf(state).file = file;
-        const s = computeVariantStaleness(state, ADDR, fixOf(state), "def2");
+        const s = viewOf(state, { [ADDR]: "def2" }).staleness(ADDR, fixOf(state));
         expect(s.changedInputs.map((c) => c.address)).toEqual([UP]);
         expect(s.definitionStale).toBe(false);
       });
@@ -481,7 +480,7 @@ describe("computeVariantStaleness", () => {
       it("goes stale on both axes once the source is no longer accepted", () => {
         const state = keptLineage();
         state.assets[ADDR]!.variants!["v-src"]!.status = "none";
-        const s = computeVariantStaleness(state, ADDR, fixOf(state), "def2");
+        const s = viewOf(state, { [ADDR]: "def2" }).staleness(ADDR, fixOf(state));
         expect(s.definitionStale).toBe(true);
         expect(s.inputStale).toBe(true);
       });
@@ -496,8 +495,8 @@ describe("computeVariantStaleness", () => {
 describe("a deterministic take a human accepted", () => {
   const STEM = "animatic:shot.19#stem";
   const VO = "animatic:shot.19.vo";
-  const deterministic = () =>
-    createStalenessCache({
+  const deterministic = (state: KonteState) =>
+    new StalenessView(state, {
       definitionHash: () => null,
       isDeterministic: (address) => address === STEM,
     });
@@ -524,41 +523,35 @@ describe("a deterministic take a human accepted", () => {
   }
 
   it("does not resolve once the line under it has moved", () => {
-    expect(selectResolvedVariant(stateWithStem({}), STEM, undefined, deterministic())).toBeNull();
+    expect(deterministic(stateWithStem({})).resolve(STEM)).toBeNull();
   });
 
   it("is withheld from strict resolution too", () => {
-    expect(
-      selectResolvedVariant(stateWithStem({}), STEM, { requireAccepted: true }, deterministic()),
-    ).toBeNull();
+    expect(deterministic(stateWithStem({})).resolve(STEM, { requireAccepted: true })).toBeNull();
   });
 
   it("still resolves while it is fresh", () => {
     expect(
-      selectResolvedVariant(
-        stateWithStem({ inputFingerprints: { [VO]: "vo-new" } }),
-        STEM,
-        undefined,
-        deterministic(),
-      ),
+      deterministic(stateWithStem({ inputFingerprints: { [VO]: "vo-new" } })).resolve(STEM),
     ).toEqual({ variantId: "v-stem", isAccepted: true });
   });
 
   it("stays available to the review surfaces through the stale fallback", () => {
-    expect(
-      selectResolvedVariant(stateWithStem({}), STEM, { includeStale: true }, deterministic()),
-    ).toEqual({ variantId: "v-stem", isAccepted: false });
+    expect(deterministic(stateWithStem({})).resolve(STEM, { includeStale: true })).toEqual({
+      variantId: "v-stem",
+      isAccepted: false,
+    });
   });
 
   // A correction hung off a take at the address is refreshed by re-applying the patch — `generate`
   // leaves it `accepted-stale` — so its accept is a decision to protect, deterministic address or not.
   it("keeps resolving a patch output's accept, whose refresh is the patch pass's", () => {
     const state = stateWithStem({ derivedFrom: "v-source" });
-    expect(selectResolvedVariant(state, STEM, undefined, deterministic())).toEqual({
+    expect(deterministic(state).resolve(STEM)).toEqual({
       variantId: "v-stem",
       isAccepted: true,
     });
-    expect(selectResolvedVariant(state, STEM, { requireAccepted: true }, deterministic())).toEqual({
+    expect(deterministic(state).resolve(STEM, { requireAccepted: true })).toEqual({
       variantId: "v-stem",
       isAccepted: true,
     });
@@ -567,28 +560,28 @@ describe("a deterministic take a human accepted", () => {
   // Without definitions the walk cannot tell a mix from a picture, and an accept is a decision to
   // protect.
   it("keeps resolving for a walk given no definitions", () => {
-    expect(selectResolvedVariant(stateWithStem({}), STEM)).toEqual({
+    expect(viewOf(stateWithStem({})).resolve(STEM)).toEqual({
       variantId: "v-stem",
       isAccepted: true,
     });
   });
 });
 
-describe("computeAcceptedStaleness", () => {
+describe("StalenessView.acceptedStaleness", () => {
   it("returns null variantId when nothing is accepted", () => {
     const state = makeState({
       "video:shot.01.motion": {
         variants: { "v-m": variant({ status: "none", file: "m.mp4" }) },
       },
     });
-    const s = computeAcceptedStaleness(state, "video:shot.01.motion", null);
+    const s = viewOf(state).acceptedStaleness("video:shot.01.motion");
     expect(s.variantId).toBeNull();
     expect(s.inputStale).toBe(false);
     expect(s.definitionStale).toBe(false);
   });
 });
 
-describe("collectStaleVariants", () => {
+describe("StalenessView.staleVariants", () => {
   function stateWithUpstreamChange(): KonteState {
     return makeState({
       "video:shot.01.first": {
@@ -618,7 +611,7 @@ describe("collectStaleVariants", () => {
 
   it("returns only the accepted stale variant with its reason", () => {
     const state = stateWithUpstreamChange();
-    const result = collectStaleVariants(state, "video:shot.01.motion", null);
+    const result = viewOf(state).staleVariants("video:shot.01.motion", "accepted");
     expect(result).toHaveLength(1);
     expect(result[0]!.variantId).toBe("v-acc");
     expect(result[0]!.inputStale).toBe(true);
@@ -633,7 +626,7 @@ describe("collectStaleVariants", () => {
         variants: { "v-acc": variant({ status: "accepted", file: "m.mp4" }) },
       },
     });
-    expect(collectStaleVariants(state, "video:shot.01.motion", null)).toEqual([]);
+    expect(viewOf(state).staleVariants("video:shot.01.motion", "accepted")).toEqual([]);
   });
 });
 
@@ -653,7 +646,7 @@ describe("resolvedStaleness", () => {
         },
       },
     });
-    expect(resolvedStaleness(state, "video:shot.01.motion", null)).toMatchObject({
+    expect(viewOf(state).resolvedStaleness("video:shot.01.motion")).toMatchObject({
       variantId: "v-none",
       inputStale: true,
     });
@@ -679,7 +672,7 @@ describe("resolvedStaleness", () => {
         },
       },
     });
-    expect(resolvedStaleness(state, "video:shot.01.motion", null)).toMatchObject({
+    expect(viewOf(state).resolvedStaleness("video:shot.01.motion")).toMatchObject({
       variantId: "v-acc",
       inputStale: false,
       definitionStale: false,
@@ -692,7 +685,7 @@ describe("resolvedStaleness", () => {
         variants: { "v-d": variant({ status: "dismissed", file: "m.mp4" }) },
       },
     });
-    expect(resolvedStaleness(state, "video:shot.01.motion", null)).toBeNull();
+    expect(viewOf(state).resolvedStaleness("video:shot.01.motion")).toBeNull();
   });
 });
 
@@ -755,7 +748,7 @@ describe("a dismissed take", () => {
   // Resolution falls back past it: feeding a downstream generate the take the reviewer refused is
   // the one thing dismissing has to prevent.
   it("does not resolve, leaving the take beneath it", () => {
-    expect(selectResolvedVariant(withDismissedNewest(), ADDR)).toEqual({
+    expect(viewOf(withDismissedNewest()).resolve(ADDR)).toEqual({
       variantId: "v-old",
       isAccepted: false,
     });
@@ -764,13 +757,13 @@ describe("a dismissed take", () => {
   it("leaves the address unresolvable when it is the only take", () => {
     const state = withDismissedNewest();
     delete state.assets[ADDR]!.variants!["v-old"];
-    expect(selectResolvedVariant(state, ADDR)).toBeNull();
-    expect(selectResolvedVariant(state, ADDR, { includeStale: true })).toBeNull();
+    expect(viewOf(state).resolve(ADDR)).toBeNull();
+    expect(viewOf(state).resolve(ADDR, { includeStale: true })).toBeNull();
   });
 });
 
 // The candidate set an accept decides among — and so exactly the set it dismisses the rest of.
-describe("readyUndecidedVariants", () => {
+describe("StalenessView.readyUndecided", () => {
   const ADDR = "animatic:shot.02.frame";
 
   function pool(): KonteState {
@@ -787,11 +780,11 @@ describe("readyUndecidedVariants", () => {
   }
 
   it("lists the undecided takes holding a file, and nothing else", () => {
-    expect(readyUndecidedVariants(pool(), ADDR, "d1")).toEqual(["v-open"]);
+    expect(viewOf(pool(), { [ADDR]: "d1" }).readyUndecided(ADDR)).toEqual(["v-open"]);
   });
 
   it("drops a take the current definition has aged out", () => {
-    expect(readyUndecidedVariants(pool(), ADDR, "d2")).toEqual([]);
+    expect(viewOf(pool(), { [ADDR]: "d2" }).readyUndecided(ADDR)).toEqual([]);
   });
 
   // A correction whose script was edited is work to re-apply, so an accept elsewhere at the
@@ -804,9 +797,9 @@ describe("readyUndecidedVariants", () => {
       derivedFrom: "v-accepted",
       patchHash: "p1",
     });
-    expect(readyUndecidedVariants(state, ADDR, "d1")).toEqual(["v-open"]);
+    expect(viewOf(state, { [ADDR]: "d1" }).readyUndecided(ADDR)).toEqual(["v-open"]);
     expect(
-      readyUndecidedVariants(state, ADDR, "d1", undefined, new Map([["v-accepted", "p2"]])),
+      viewOf(state, { [ADDR]: "d1" }, new Map([["v-accepted", "p2"]])).readyUndecided(ADDR),
     ).toEqual([]);
   });
 
@@ -817,11 +810,11 @@ describe("readyUndecidedVariants", () => {
       definitionHash: "d1",
       derivedFrom: "v-open",
     });
-    expect(readyUndecidedVariants(state, ADDR, "d1")).toEqual(["v-fix"]);
+    expect(viewOf(state, { [ADDR]: "d1" }).readyUndecided(ADDR)).toEqual(["v-fix"]);
   });
 });
 
-describe("undecidedVariantBesideAccepted", () => {
+describe("StalenessView.undecidedBesideAccepted", () => {
   function frameWithReroll(): KonteState {
     return makeState({
       "animatic:shot.02.frame": {
@@ -843,7 +836,7 @@ describe("undecidedVariantBesideAccepted", () => {
   }
 
   it("returns the ready sibling awaiting a verdict", () => {
-    expect(undecidedVariantBesideAccepted(frameWithReroll(), "animatic:shot.02.frame")).toBe(
+    expect(viewOf(frameWithReroll()).undecidedBesideAccepted("animatic:shot.02.frame")).toBe(
       "v-new",
     );
   });
@@ -854,7 +847,7 @@ describe("undecidedVariantBesideAccepted", () => {
         variants: { "v-a": variant({ file: "a.png", readyAt: "2026-01-01T00:00:02.000Z" }) },
       },
     });
-    expect(undecidedVariantBesideAccepted(state, "animatic:shot.02.frame")).toBeNull();
+    expect(viewOf(state).undecidedBesideAccepted("animatic:shot.02.frame")).toBeNull();
   });
 
   // A patched take is a "before", not a rival of the correction that replaced it.
@@ -865,7 +858,7 @@ describe("undecidedVariantBesideAccepted", () => {
       derivedFrom: "v-new",
       readyAt: "2026-01-01T00:00:03.000Z",
     });
-    expect(undecidedVariantBesideAccepted(state, "animatic:shot.02.frame")).toBe("v-fix");
+    expect(viewOf(state).undecidedBesideAccepted("animatic:shot.02.frame")).toBe("v-fix");
   });
 
   // A correction of the ACCEPTED take is a candidate like any other: its verdict is carried by
@@ -878,13 +871,13 @@ describe("undecidedVariantBesideAccepted", () => {
       derivedFrom: "v-old",
       readyAt: "2026-01-01T00:00:03.000Z",
     });
-    expect(undecidedVariantBesideAccepted(state, "animatic:shot.02.frame")).toBe("v-fix");
+    expect(viewOf(state).undecidedBesideAccepted("animatic:shot.02.frame")).toBe("v-fix");
   });
 
   it("returns null once the sibling was dismissed", () => {
     const state = frameWithReroll();
     state.assets["animatic:shot.02.frame"]!.variants!["v-new"]!.status = "dismissed";
-    expect(undecidedVariantBesideAccepted(state, "animatic:shot.02.frame")).toBeNull();
+    expect(viewOf(state).undecidedBesideAccepted("animatic:shot.02.frame")).toBeNull();
   });
 
   // Nothing compares when a take landed against when the accept was made.
@@ -892,22 +885,20 @@ describe("undecidedVariantBesideAccepted", () => {
     const state = frameWithReroll();
     state.assets["animatic:shot.02.frame"]!.variants!["v-new"]!.readyAt =
       "2026-01-01T00:00:00.000Z";
-    expect(undecidedVariantBesideAccepted(state, "animatic:shot.02.frame")).toBe("v-new");
+    expect(viewOf(state).undecidedBesideAccepted("animatic:shot.02.frame")).toBe("v-new");
   });
 
   it("ignores a newer sibling excluded by id (e.g. a dead composition leftover)", () => {
     expect(
-      undecidedVariantBesideAccepted(
-        frameWithReroll(),
+      viewOf(frameWithReroll()).undecidedBesideAccepted(
         "animatic:shot.02.frame",
-        null,
         new Set(["v-new"]),
       ),
     ).toBeNull();
   });
 });
 
-describe("collectUndecidedUpstreamVariants", () => {
+describe("StalenessView.undecidedUpstreams", () => {
   // The WORK.md scenario: an animatic frame was rerolled (new take unreviewed) while the
   // old take stays accepted; a video motion depends on it, so this run resolves the old one.
   it("flags an upstream frame with a newer unreviewed take for a cross-stage video dep", () => {
@@ -928,7 +919,7 @@ describe("collectUndecidedUpstreamVariants", () => {
         },
       },
     });
-    expect(collectUndecidedUpstreamVariants(state, ["animatic:shot.02.frame"])).toEqual([
+    expect(viewOf(state).undecidedUpstreams(["animatic:shot.02.frame"])).toEqual([
       {
         depPath: "animatic:shot.02.frame",
         address: "animatic:shot.02.frame",
@@ -951,7 +942,7 @@ describe("collectUndecidedUpstreamVariants", () => {
         },
       },
     });
-    expect(collectUndecidedUpstreamVariants(state, ["animatic:shot.02.frame"])).toEqual([]);
+    expect(viewOf(state).undecidedUpstreams(["animatic:shot.02.frame"])).toEqual([]);
   });
 });
 
@@ -995,11 +986,11 @@ describe("staleness memoization", () => {
     }
     const state = makeState(assets);
     const last = addrOf(N - 1);
-    expect(selectResolvedVariant(state, last)).toEqual({
+    expect(viewOf(state).resolve(last)).toEqual({
       variantId: `v-${N - 1}-fresh`,
       isAccepted: false,
     });
-    expect(resolvedStaleness(state, last, null)).toMatchObject({ inputStale: false });
+    expect(viewOf(state).resolvedStaleness(last)).toMatchObject({ inputStale: false });
   });
 
   // Cyclic fingerprints (recorded under older definitions) make inner resolutions
@@ -1035,13 +1026,11 @@ describe("staleness memoization", () => {
       [B, A],
     ]) {
       const state = cyclic();
-      const cache = createStalenessCache();
+      const cache = viewOf(state);
       for (const addr of order) {
-        expect(selectResolvedVariant(state, addr, undefined, cache)).toEqual(
-          selectResolvedVariant(state, addr),
-        );
-        expect(selectResolvedVariant(state, addr, { includeStale: true }, cache)).toEqual(
-          selectResolvedVariant(state, addr, { includeStale: true }),
+        expect(cache.resolve(addr)).toEqual(viewOf(state).resolve(addr));
+        expect(cache.resolve(addr, { includeStale: true })).toEqual(
+          viewOf(state).resolve(addr, { includeStale: true }),
         );
       }
     }
@@ -1066,24 +1055,22 @@ describe("staleness memoization", () => {
         },
       },
     });
-    const cache = createStalenessCache();
+    const cache = viewOf(state);
     const v = state.assets["video:shot.01.motion"]!.variants!["v-m"]!;
-    expect(isVariantStale(state, "video:shot.01.motion", v, null, undefined, cache)).toBe(true);
-    expect(
-      collectStaleVariants(state, "video:shot.01.motion", null, undefined, cache),
-    ).toHaveLength(1);
-    expect(resolvedStaleness(state, "video:shot.01.motion", null, undefined, cache)).toMatchObject({
+    expect(cache.isStale("video:shot.01.motion", v)).toBe(true);
+    expect(cache.staleVariants("video:shot.01.motion", "accepted")).toHaveLength(1);
+    expect(cache.resolvedStaleness("video:shot.01.motion")).toMatchObject({
       variantId: "v-m",
       inputStale: true,
     });
-    expect(selectResolvedVariant(state, "video:shot.01.first", undefined, cache)).toEqual({
+    expect(cache.resolve("video:shot.01.first")).toEqual({
       variantId: "v-up",
       isAccepted: true,
     });
   });
 });
 
-describe("collectStaleDependents (composition / UC1)", () => {
+describe("StalenessView.staleDependents (composition / UC1)", () => {
   it("marks a shot's composition stale when an upstream asset's accepted output changes", () => {
     // audio's accepted output is now audio-2, but the composition was rendered
     // against audio-1 — so the composition is input-stale and must surface.
@@ -1107,7 +1094,7 @@ describe("collectStaleDependents (composition / UC1)", () => {
       ["video:shot.01.audio", ["video:shot.01#composition"]],
     ]);
 
-    expect(collectStaleDependents(state, "video:shot.01.audio", dependents)).toEqual([
+    expect(viewOf(state).staleDependents("video:shot.01.audio", dependents)).toEqual([
       "video:shot.01#composition",
     ]);
   });
@@ -1133,7 +1120,7 @@ describe("collectStaleDependents (composition / UC1)", () => {
       ["video:shot.01.audio", ["video:shot.01#composition"]],
     ]);
 
-    expect(collectStaleDependents(state, "video:shot.01.audio", dependents)).toEqual([]);
+    expect(viewOf(state).staleDependents("video:shot.01.audio", dependents)).toEqual([]);
   });
 
   it("propagates across stages to a video motion that builds on an animatic frame", () => {
@@ -1157,7 +1144,7 @@ describe("collectStaleDependents (composition / UC1)", () => {
       ["animatic:shot.01.first", ["video:shot.01.motion"]],
     ]);
 
-    expect(collectStaleDependents(state, "animatic:shot.01.first", dependents)).toEqual([
+    expect(viewOf(state).staleDependents("animatic:shot.01.first", dependents)).toEqual([
       "video:shot.01.motion",
     ]);
   });
@@ -1198,45 +1185,44 @@ describe("resolution against the current definition", () => {
   it("resolves to the newest take when the walk is given no definitions", () => {
     // The state layer holds no definition hash of its own, so without one supplied the newest
     // take wins.
-    expect(selectResolvedVariant(stateWithTwoVariants(), ADDR)?.variantId).toBe("v-new");
+    expect(viewOf(stateWithTwoVariants()).resolve(ADDR)?.variantId).toBe("v-new");
   });
 
   it("hands the address back to the older take whose definition still matches", () => {
-    const resolved = selectResolvedVariant(
-      stateWithTwoVariants(),
-      ADDR,
-      undefined,
-      createStalenessCache(definitions),
-    );
+    const resolved = new StalenessView(stateWithTwoVariants(), definitions).resolve(ADDR);
     expect(resolved).toEqual({ variantId: "v-old", isAccepted: false });
   });
 
   it("keeps an accepted take resolving even once its definition has moved", () => {
     // An accept is a decision to protect, on this axis as on the input one — the way back to the
     // matching take is a new accept.
-    const resolved = selectResolvedVariant(
+    const resolved = new StalenessView(
       stateWithTwoVariants({ status: "accepted" }),
-      ADDR,
-      undefined,
-      createStalenessCache(definitions),
-    );
+      definitions,
+    ).resolve(ADDR);
     expect(resolved).toEqual({ variantId: "v-new", isAccepted: true });
   });
 
   it("offers the matching take as the no-spend way out of a stale one", () => {
     const state = stateWithTwoVariants({ status: "accepted" });
-    expect(newestReadyUndecidedVariant(state, ADDR, "CURRENT", new Set(["v-new"]))).toBe("v-old");
+    expect(
+      viewOf(state, { [ADDR]: "CURRENT" }).newestReadyUndecided(ADDR, new Set(["v-new"])),
+    ).toBe("v-old");
   });
 
   it("offers nothing when no take at the address matches the current definition", () => {
     const state = stateWithTwoVariants({ status: "accepted" });
-    expect(newestReadyUndecidedVariant(state, ADDR, "REWRITTEN", new Set(["v-new"]))).toBeNull();
+    expect(
+      viewOf(state, { [ADDR]: "REWRITTEN" }).newestReadyUndecided(ADDR, new Set(["v-new"])),
+    ).toBeNull();
   });
 
   it("never offers a take the reviewer decided against", () => {
     const state = stateWithTwoVariants({ status: "accepted" });
     state.assets[ADDR]!.variants!["v-old"]!.status = "dismissed";
-    expect(newestReadyUndecidedVariant(state, ADDR, "CURRENT", new Set(["v-new"]))).toBeNull();
+    expect(
+      viewOf(state, { [ADDR]: "CURRENT" }).newestReadyUndecided(ADDR, new Set(["v-new"])),
+    ).toBeNull();
   });
 });
 
@@ -1256,33 +1242,27 @@ describe("keptInputs", () => {
 
   it("reads an accepted take as current against the upstream it was kept against", () => {
     const state = makeState(upstream("newer"));
-    const s = computeVariantStaleness(
-      state,
+    const s = viewOf(state).staleness(
       "animatic:shot.01.last",
       consumer("accepted", { "animatic:shot.01.first": "newer" }),
-      null,
     );
     expect(s.inputStale).toBe(false);
   });
 
   it("reads an accepted kept take as current once the upstream is back to what it was made from", () => {
     const state = makeState(upstream("made"));
-    const s = computeVariantStaleness(
-      state,
+    const s = viewOf(state).staleness(
       "animatic:shot.01.last",
       consumer("accepted", { "animatic:shot.01.first": "newer" }),
-      null,
     );
     expect(s.inputStale).toBe(false);
   });
 
   it("reports a kept take stale once the upstream moves past the kept one", () => {
     const state = makeState(upstream("newest"));
-    const s = computeVariantStaleness(
-      state,
+    const s = viewOf(state).staleness(
       "animatic:shot.01.last",
       consumer("accepted", { "animatic:shot.01.first": "newer" }),
-      null,
     );
     expect(s.changedInputs).toEqual([
       { address: "animatic:shot.01.first", recorded: "newer", current: "newest" },
@@ -1291,11 +1271,9 @@ describe("keptInputs", () => {
 
   it("ignores the keep once the take is no longer accepted", () => {
     const state = makeState(upstream("newer"));
-    const s = computeVariantStaleness(
-      state,
+    const s = viewOf(state).staleness(
       "animatic:shot.01.last",
       consumer("none", { "animatic:shot.01.first": "newer" }),
-      null,
     );
     expect(s.inputStale).toBe(true);
   });
@@ -1330,15 +1308,14 @@ describe("keptInputs through a re-made intermediate", () => {
   });
 
   it("reads current once the intermediate is re-made from the kept upstream take", () => {
-    expect(
-      computeVariantStaleness(state("frame-new"), "video:shot.01.motion", motion, null).inputStale,
-    ).toBe(false);
+    expect(viewOf(state("frame-new")).staleness("video:shot.01.motion", motion).inputStale).toBe(
+      false,
+    );
   });
 
   it("reads stale when the intermediate was made from another upstream take", () => {
-    expect(
-      computeVariantStaleness(state("frame-other"), "video:shot.01.motion", motion, null)
-        .inputStale,
-    ).toBe(true);
+    expect(viewOf(state("frame-other")).staleness("video:shot.01.motion", motion).inputStale).toBe(
+      true,
+    );
   });
 });

@@ -9,7 +9,7 @@ import { resolutionNotices, sweepNotices } from "../resolution-notice.js";
 const ADDRESS = "video:shot.12.motion";
 
 const currentVariant = {
-  stalenessCache: () => ({}),
+  stalenessView: () => ({}),
   variantStaleness: () => ({ inputStale: false, definitionStale: false }),
 } as unknown as StateManager;
 

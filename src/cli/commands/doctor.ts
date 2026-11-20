@@ -34,6 +34,7 @@ import {
   listUnusedAddresses,
 } from "../../core/graph.js";
 import { JobManager } from "../../core/job-manager.js";
+import { applyResolutionDefinitions } from "../../core/definition-hashes.js";
 import { loadStageDefinitions, loadDirectionIfPresent } from "../../core/stage-definitions.js";
 import { readAssetsGitignore } from "../../core/assets-gitignore.js";
 import { buildOrphanContext, listStrayVariantDirs } from "../../core/orphans.js";
@@ -272,6 +273,7 @@ async function runVideoChecks(
     checks.push(stageCheck("reference", reference, loaded.errors.reference));
     usedKinds = collectUsedKinds(video, animatic, reference);
     defs = { video, animatic, reference };
+    await applyResolutionDefinitions({ videoRoot, definitions: defs, state: manager?.getState() });
 
     if (video) {
       checks.push(await checkWorkflowFiles(roots, video, animatic, reference));

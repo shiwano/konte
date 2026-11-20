@@ -8,7 +8,7 @@ import { asset, audioFile, defineReference, videoFile } from "../dsl/index.js";
 import { KonteError } from "../errors.js";
 import { syncFileAssets } from "../file-sync.js";
 import { StateManager } from "../state/index.js";
-import { isVariantStale } from "../staleness.js";
+import { StalenessView } from "../staleness.js";
 import { plainDirection } from "./helpers/direction.js";
 import { ASSET_SITES } from "../dsl/adapter.js";
 
@@ -201,12 +201,16 @@ describe("syncFileAssets (reference stage)", () => {
     motionVariant.inputFingerprints = { "reference:bg": sha256("original") };
     manager.setAccepted(motionAddr, motionVid);
 
-    expect(isVariantStale(manager.getState(), motionAddr, motionVariant, null)).toBe(false);
+    expect(
+      new StalenessView(manager.getState(), undefined).isStale(motionAddr, motionVariant),
+    ).toBe(false);
 
     await writeAsset(tmpDir, "assets/files/bg.mp4", "changed");
     await syncFileAssets({ reference }, manager);
 
-    expect(isVariantStale(manager.getState(), motionAddr, motionVariant, null)).toBe(true);
+    expect(
+      new StalenessView(manager.getState(), undefined).isStale(motionAddr, motionVariant),
+    ).toBe(true);
   });
 
   it("keeps dependents fresh when file path changes but bytes are identical", async () => {
@@ -230,13 +234,17 @@ describe("syncFileAssets (reference stage)", () => {
     motionVariant.inputFingerprints = { "reference:bg": sha256("original") };
     manager.setAccepted(motionAddr, motionVid);
 
-    expect(isVariantStale(manager.getState(), motionAddr, motionVariant, null)).toBe(false);
+    expect(
+      new StalenessView(manager.getState(), undefined).isStale(motionAddr, motionVariant),
+    ).toBe(false);
 
     // Same bytes at a new path: content-addressed staleness keeps the dependent fresh.
     await writeAsset(tmpDir, "assets/files/bg_v2.mp4", "original");
     await syncFileAssets({ reference: makeReference("assets/files/bg_v2.mp4") }, manager);
 
-    expect(isVariantStale(manager.getState(), motionAddr, motionVariant, null)).toBe(false);
+    expect(
+      new StalenessView(manager.getState(), undefined).isStale(motionAddr, motionVariant),
+    ).toBe(false);
   });
 
   it("does not change outputHash when file content is unchanged", async () => {
@@ -259,11 +267,15 @@ describe("syncFileAssets (reference stage)", () => {
     motionVariant.inputFingerprints = { "reference:bg": sha256("same-content") };
     manager.setAccepted(motionAddr, motionVid);
 
-    expect(isVariantStale(manager.getState(), motionAddr, motionVariant, null)).toBe(false);
+    expect(
+      new StalenessView(manager.getState(), undefined).isStale(motionAddr, motionVariant),
+    ).toBe(false);
 
     const changed = await syncFileAssets({ reference }, manager);
     expect(changed).toHaveLength(0);
-    expect(isVariantStale(manager.getState(), motionAddr, motionVariant, null)).toBe(false);
+    expect(
+      new StalenessView(manager.getState(), undefined).isStale(motionAddr, motionVariant),
+    ).toBe(false);
 
     const state = manager.getState();
     const p = state.assets["reference:bg"]!;

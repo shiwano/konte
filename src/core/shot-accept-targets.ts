@@ -21,12 +21,10 @@ import {
   tryParseAddress,
 } from "./address.js";
 import {
-  definitionHashForAddress,
   leafSettledAcross,
   materializedLeafReviewStatus,
   removedShotStemAddresses,
 } from "./composition-resource.js";
-import { newestReadyUndecidedVariant } from "./staleness.js";
 import { parsePlaceholder } from "./dsl/shot-context.js";
 import { extractRefs, thumbnailOf } from "./graph.js";
 import { variantMediaKind } from "./media-type.js";
@@ -154,8 +152,7 @@ export function shotNeedsVerdict(
   if (assetAddresses.length === 0 && targets.leaves.length === 0) return true;
   const leafSettled = (address: string) =>
     leafSettledAcross(manager, video, counterpart, address) ||
-    !materializedLeafReviewStatus(manager, address, definitionHashForAddress(video, address))
-      .needsReview;
+    !materializedLeafReviewStatus(manager, address).needsReview;
   if (targets.leaves.some(({ address }) => !leafSettled(address))) return true;
   return assetAddresses.some((address) => !assetSettled(manager, video, address));
 }
@@ -166,33 +163,16 @@ function assetSettled(manager: StateManager, video: StageDefinition, address: st
   // cross-stage source (a shared `reference:` SFX a shot plays, a board frame under a video shot) is
   // judged on its own stage's page.
   if (getStage(address) !== video.stage) return true;
-  return !hasUndecidedVariant(manager, video, address);
+  return !hasUndecidedVariant(manager, address);
 }
 
-function hasUndecidedVariant(
-  manager: StateManager,
-  video: StageDefinition,
-  address: string,
-): boolean {
-  let definitionHash: string | null = null;
+function hasUndecidedVariant(manager: StateManager, address: string): boolean {
   try {
-    definitionHash = definitionHashForAddress(video, address);
+    return manager.stalenessView().newestReadyUndecided(address) !== null;
   } catch {
     // An address the definition no longer carries. Nothing to flip a shot for.
     return false;
   }
-  return (
-    newestReadyUndecidedVariant(
-      manager.getState(),
-      address,
-      definitionHash,
-      undefined,
-      // The registered patch axis, so a take whose correction moved reads stale here exactly as it
-      // does on the page and in `status`.
-      manager.patchHashes(),
-      manager.stalenessCache(),
-    ) !== null
-  );
 }
 
 /**

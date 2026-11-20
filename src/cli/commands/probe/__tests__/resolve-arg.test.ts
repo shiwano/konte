@@ -1,10 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { KonteError } from "../../../../core/errors.js";
+import type { StalenessView } from "../../../../core/staleness.js";
 import type { StateManager } from "../../../../core/state/index.js";
 import { resolveProbeTargets } from "../resolve-arg.js";
 
 function fakeManager(overrides: Partial<StateManager>): StateManager {
-  return { readyUndecidedVariants: () => [], ...overrides } as unknown as StateManager;
+  return {
+    stalenessView: () => ({ readyUndecided: () => [] }),
+    ...overrides,
+  } as unknown as StateManager;
 }
 
 describe("resolveProbeTargets", () => {
@@ -39,8 +43,11 @@ describe("resolveProbeTargets", () => {
     const resolveReference = vi
       .fn()
       .mockReturnValue({ variantId: "v-shown", file: "/x.mp4", isAccepted: false });
-    const readyUndecidedVariants = vi.fn().mockReturnValue(["v-shown", "v-rival"]);
-    const manager = fakeManager({ resolveReference, readyUndecidedVariants });
+    const readyUndecided = vi.fn().mockReturnValue(["v-shown", "v-rival"]);
+    const manager = fakeManager({
+      resolveReference,
+      stalenessView: () => ({ readyUndecided }) as unknown as StalenessView,
+    });
     const result = resolveProbeTargets(manager, ["video:shot.01.motion"], {
       mediaKinds: ["video"],
     });

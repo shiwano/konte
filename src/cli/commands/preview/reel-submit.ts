@@ -31,7 +31,6 @@ import {
 import { resolveCompositionRef } from "../../../core/composition-refs.js";
 import {
   commitShotStem,
-  definitionHashForAddress,
   discardPreparedStem,
   leafReadyForReview,
   leafSignedOff,
@@ -50,7 +49,7 @@ import {
 } from "../../../core/composition-resource.js";
 import { shotAcceptTargets } from "../../../core/shot-accept-targets.js";
 import { Semaphore } from "../../../core/semaphore.js";
-import { computeAcceptedStaleness, formatStaleCause } from "../../../core/staleness.js";
+import { formatStaleCause } from "../../../core/staleness.js";
 import { errorMessage } from "../../../core/errors.js";
 import { errorResponse, jsonResponse } from "../../page-host/http.js";
 import { type ReelSubmitBody, type ReelSubmitResponse } from "../../../core/types/review-submit.js";
@@ -67,6 +66,7 @@ import {
   FeedbackManager,
   commentSubjectAddresses,
 } from "../../../core/feedback/index.js";
+import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
 import { StateManager } from "../../../core/state/index.js";
 import { JobManager } from "../../../core/job-manager.js";
 import {
@@ -151,12 +151,7 @@ export function unlandedLeafReason(
   }
   // Every ref resolves, so what is left is the leaf's own baseline: an accept from an earlier
   // review that this one failed to refresh.
-  const accepted = computeAcceptedStaleness(
-    manager.getState(),
-    address,
-    definitionHashForAddress(video, address),
-    manager.stalenessCache(),
-  );
+  const accepted = manager.stalenessView().acceptedStaleness(address);
   if (accepted.variantId !== null) {
     return [
       `${what} still needs review — the accepted take is ${formatStaleCause(accepted) || "stale"}`,
@@ -620,9 +615,18 @@ async function prepareReelSubmit(
   const { videoRoot, animatic } = ctx;
   const downstreamVideo = downstreamVideoOf(ctx);
   const manager = await StateManager.load(videoRoot);
-  // Re-read from disk, so the plan it applies is the one the page was rendered from.
+  // Re-read from disk, so the plan it applies is the one the page was rendered from — and registered,
+  // so what the submit accepts is read back under the definition it was made from.
   const video = await reloadStageDefinition(videoRoot, reelStage);
   const stage = video.stage;
+  await applyResolutionDefinitions({
+    videoRoot,
+    definitions:
+      reelStage === "animatic"
+        ? { reference: ctx.reference, animatic: video as AnimaticDefinition, video: ctx.video }
+        : { reference: ctx.reference, animatic, video: video as VideoDefinition },
+    state: manager.getState(),
+  });
 
   // The same plan handleGetReelState renders under (one builder, no options here).
   //

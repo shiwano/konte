@@ -17,10 +17,8 @@ import {
   summarizeDirectionAcceptance,
 } from "../../../core/direction-acceptance.js";
 import {
-  type DefinitionLike,
   formatShotAddress,
   formatTimelineStemAddress,
-  getAssetStage,
   listCompositionAddresses,
   listStemAddresses,
   isMaterializedLeafAddress,
@@ -39,7 +37,6 @@ import {
 } from "../../../core/address.js";
 import {
   commitLeafForAddress,
-  definitionHashForAddress,
   discardPreparedLeaf,
   findMatchingCompositionVariant,
   leafReadyForReview,
@@ -62,12 +59,10 @@ import {
 } from "../../../core/review-acceptability.js";
 import { KonteError } from "../../../core/errors.js";
 import type { LoadedDefinitions } from "../../../core/select-definition.js";
-import { loadPatchCatalog, patchHashesOf } from "../../../core/patch.js";
 import { JobManager } from "../../../core/job-manager.js";
 import { reviewGate, reviewHeldError, reviewHeldFindings } from "../../finding-gates.js";
 import { loadCheckContext } from "../../../core/check-context.js";
 import { collectFindings, waiverCoverageOf } from "../../../core/checks.js";
-import { readyUndecidedVariants } from "../../../core/staleness.js";
 import { StateManager } from "../../../core/state/index.js";
 import { variantDir } from "../../../core/variant-dir.js";
 import { confirmAction, printAborted, NO_FLAG_DESCRIPTION } from "../../confirm.js";
@@ -432,7 +427,7 @@ function leafCauses(
 // Which take is meant there is the human's call: the review shows the newest take awaiting a
 // verdict beside an accept, while the batch would act on the accept.
 function variantsBesideAccept(manager: StateManager, address: string): string[] {
-  return manager.getAcceptedVariant(address) ? manager.readyUndecidedVariants(address) : [];
+  return manager.getAcceptedVariant(address) ? manager.stalenessView().readyUndecided(address) : [];
 }
 
 function upstreamVariantsBesideAccept(
@@ -691,7 +686,7 @@ function replacementForStaleAccept(manager: StateManager, hit: VariantTarget): V
   const variant = manager.getState().assets[hit.address]?.variants?.[hit.variantId];
   if (variant?.status !== "accepted") return hit;
   if (!manager.variantStaleness(hit.address, hit.variantId)?.definitionStale) return hit;
-  const rivals = manager.readyUndecidedVariants(hit.address);
+  const rivals = manager.stalenessView().readyUndecided(hit.address);
   if (rivals.length === 0) return hit;
   if (rivals.length > 1) {
     throw new KonteError(
@@ -834,18 +829,6 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
     assertSongLinesPlaced(videoRoot, direction, loaded.getState(), entry.address, entry.variantId);
   }
 
-  // A patch script is the second definition source a take can go stale against, so the candidate
-  // set below needs it as it needs the definition hash. A catalog that will not load is swallowed:
-  // accept spends nothing.
-  const patchHashes = await loadPatchCatalog(videoRoot, loaded.getState())
-    .then(patchHashesOf)
-    .catch(() => undefined);
-  // The address's live definition, so a take the next `generate` will replace is not counted among
-  // the candidates this accept decides against.
-  const definitionHashOf = (address: string): string | null => {
-    const stageDef = definitions[getAssetStage(address)] as DefinitionLike | null;
-    return stageDef ? definitionHashForAddress(stageDef, address) : null;
-  };
   const cascadeOpts = {
     ...(video ? { video } : {}),
     animatic,
@@ -986,15 +969,7 @@ async function runAccept(rawTargets: string[], opts: AcceptOptions): Promise<voi
           // verdict, plus the accept this one moves off — naming another id IS the decision against it.
           // Read inside the lock, so what is dismissed is what stands right now.
           const dismissed = [
-            ...readyUndecidedVariants(
-              manager.getState(),
-              address,
-              definitionHashOf(address),
-              undefined,
-              patchHashes,
-              // The rivals settled are the ones the reviewer was shown — read by their resolution.
-              manager.stalenessCache(),
-            ),
+            ...manager.stalenessView().readyUndecided(address),
             ...(previousAccepted ? [previousAccepted] : []),
           ].filter((id) => id !== variantId);
           const { cascaded: cascadeAccepted, keptAgainst } = await applyAccept(

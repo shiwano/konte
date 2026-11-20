@@ -1,4 +1,3 @@
-import { computeDefinitionHash } from "../core/definition-hash.js";
 import {
   type SkipReason,
   assetSkipReason,
@@ -94,7 +93,7 @@ export function stageLevels(
 export type GenerateVerdict =
   | { action: "synced" }
   | { action: "skip"; skipReason: SkipReason }
-  | { action: "build"; definitionHash: string };
+  | { action: "build" };
 
 /**
  * What `generate` does with one asset before registering it, for the plan and the run alike.
@@ -109,9 +108,8 @@ export function classifyGenerateAsset(opts: {
 }): GenerateVerdict {
   const { manager, liveJobs, address, assetDef, inputRebuilt } = opts;
   if (assetDef.kind === "file") return { action: "synced" };
-  const definitionHash = computeDefinitionHash(assetDef);
-  const skipReason = assetSkipReason(manager, liveJobs, address, definitionHash, inputRebuilt);
-  return skipReason ? { action: "skip", skipReason } : { action: "build", definitionHash };
+  const skipReason = assetSkipReason(manager, liveJobs, address, inputRebuilt);
+  return skipReason ? { action: "skip", skipReason } : { action: "build" };
 }
 
 // Dry-run counterpart to the generate loop, with no side effects. Submit-time failure cascades
@@ -152,11 +150,11 @@ export function buildGeneratePlan(params: {
   // syncs them into `state` before planning, so an absent one has no variant to find.
   const notYetBuilt = new Set<string>();
   // One memo for the whole plan — it writes nothing to state.
-  const planCache = manager.stalenessCache();
+  const planView = manager.stalenessView();
   const depBlocks = (dep: string) =>
     notYetBuilt.has(dep) ||
     inFlightVariantIds(state, dep, liveJobs).length > 0 ||
-    !assetResolves(state, dep, planCache);
+    !assetResolves(planView, dep);
 
   const levelsOfStage = stageLevels(levels, stageAddresses);
   for (let levelIdx = 0; levelIdx < levelsOfStage.length; levelIdx++) {

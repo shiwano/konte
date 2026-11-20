@@ -44,7 +44,7 @@ export function findStrandedTakes(opts: {
 }): StrandedTake[] {
   const { manager, graph } = opts;
   const state = manager.getState();
-  const cache = manager.stalenessCache();
+  const view = manager.stalenessView();
   const jobsByAddress = new Map<string, GenerationJob[]>();
   for (const job of opts.jobs) {
     if (job.kind !== "generation") continue;
@@ -80,7 +80,7 @@ export function findStrandedTakes(opts: {
         (d) => defined.has(d) && !unused.has(d) && getStage(d) === stage,
       );
       if (dependents.length === 0) continue;
-      for (const variantId of manager.readyUndecidedVariants(dep, cache)) {
+      for (const variantId of view.readyUndecided(dep)) {
         const file = state.assets[dep]?.variants?.[variantId]?.file;
         if (!file) continue;
         const built = dependents.flatMap((d) =>

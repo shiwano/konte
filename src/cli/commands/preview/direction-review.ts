@@ -676,7 +676,7 @@ export async function handleDirectionSubmit(
       // Before the section decisions below: an accept stamped over a comment ages it, and a record
       // computed after would hide the very comment its accept was made against.
       const staleBefore = staleFlagsBeforeDecisions(fbMgr, mgr.getState(), {
-        cache: mgr.stalenessCache(),
+        view: mgr.stalenessView(),
         subjectHashes,
       });
       // A revoke of a box holding no sign-off changes nothing, so it is no outcome to record.

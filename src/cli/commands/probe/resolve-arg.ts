@@ -64,7 +64,10 @@ function resolveOne(
         `No ready variant for "${arg}" — pass a specific variant id (see \`konte inspect ${arg}\`)`,
       );
     }
-    const rivals = manager.readyUndecidedVariants(arg).filter((id) => id !== resolved.variantId);
+    const rivals = manager
+      .stalenessView()
+      .readyUndecided(arg)
+      .filter((id) => id !== resolved.variantId);
     return {
       variantIds: [resolved.variantId, ...rivals],
       multi: rivals.length > 0,

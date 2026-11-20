@@ -11,17 +11,11 @@ import { KonteError, errorMessage } from "../errors.js";
 import { withFileLock } from "../file-lock.js";
 import { LockedJsonFile } from "../locked-json-file.js";
 import {
-  computeAcceptedStaleness,
-  computeVariantStaleness,
-  createStalenessCache,
   keptViaMarker,
-  newestReadyUndecidedVariant,
   parseKeptVia,
   type PatchHashes,
-  readyUndecidedVariants,
   type ResolutionDefinitions,
-  selectResolvedVariant,
-  type StalenessCache,
+  StalenessView,
   type VariantStaleness,
 } from "../staleness.js";
 import { resolutionDefinitionsFor } from "./resolution-definitions.js";
@@ -355,70 +349,41 @@ export class StateManager {
   }
 
   /**
-   * Whether the take accepted at `address` was drawn from `currentDefinitionHash`, or from one that
-   * moved only under its adapter.
+   * A staleness view of this manager's state under its definitions, for a read-only pass. Drop it
+   * on any write. `patchHashes` replaces the registered ones for a pass that has just loaded the
+   * patch catalog itself — a patch's hash spans the workspace adapters, which no reload watches.
    */
-  acceptedAsDefined(address: string, currentDefinitionHash: string | null): boolean {
-    const accepted = computeAcceptedStaleness(
-      this.getState(),
-      address,
-      currentDefinitionHash,
-      this.stalenessCache(),
+  stalenessView(opts?: { patchHashes: PatchHashes }): StalenessView {
+    const definitions = this.definitions();
+    return new StalenessView(
+      this.state,
+      opts && definitions ? { ...definitions, patchHashes: opts.patchHashes } : definitions,
     );
-    if (accepted.variantId === null) return false;
-    if (!accepted.definitionStale) return true;
-    return this.registeredAdapterDrift(address, accepted.variantId);
   }
 
-  /**
-   * A staleness cache carrying this manager's definitions, for a read-only pass that resolves more
-   * than one address. Drop it on any write.
-   */
-  stalenessCache(): StalenessCache {
-    return createStalenessCache(this.definitions());
+  /** See `StalenessView.acceptedAsDefined`. */
+  acceptedAsDefined(address: string): boolean {
+    return this.stalenessView().acceptedAsDefined(address);
   }
 
-  /**
-   * The definitions a call is answered under: a passed-in memo's own, else this manager's. Mixing a
-   * memo's answers with a fresh lookup measures one take against two snapshots — which is reachable
-   * in a long-lived process, where a reload re-registers mid-flight.
-   */
-  private definitionsFor(cache?: StalenessCache): ResolutionDefinitions | undefined {
-    return cache ? cache.definitions : this.definitions();
-  }
-
-  /**
-   * The variant an address resolves to, under this manager's definitions — `selectResolvedVariant`
-   * with the definition axis wired in. Callers holding a manager go through here.
-   */
+  /** The variant an address resolves to (see `StalenessView.resolve`). */
   selectVariant(
     address: string,
     options?: { includeStale?: boolean; requireAccepted?: boolean },
-    cache?: StalenessCache,
+    view?: StalenessView,
   ): { variantId: string; isAccepted: boolean } | null {
-    return selectResolvedVariant(this.state, address, options, cache ?? this.stalenessCache());
+    return (view ?? this.stalenessView()).resolve(address, options);
   }
 
-  /**
-   * How the take at `address` stands against the current definition and its inputs, under the
-   * installed definitions — null when either is unknown.
-   */
+  /** How the take `variantId` at `address` stands — null when there is no such take. */
   variantStaleness(
     address: string,
     variantId: string,
-    cache?: StalenessCache,
+    view?: StalenessView,
   ): VariantStaleness | null {
     const variant = this.state.assets[address]?.variants?.[variantId];
     if (!variant) return null;
-    const definitions = this.definitionsFor(cache);
-    return computeVariantStaleness(
-      this.state,
-      address,
-      variant,
-      definitions?.definitionHash(address) ?? null,
-      definitions?.patchHashes,
-      cache ?? this.stalenessCache(),
-    );
+    return (view ?? this.stalenessView()).staleness(address, variant);
   }
 
   /**
@@ -429,47 +394,12 @@ export class StateManager {
     return this.definitions()?.patchHashes;
   }
 
-  /**
-   * The take already at `address` that matches the current definition and inputs, if any — what a
-   * stale take is refreshed BY when the material is already on disk (see `newestReadyUndecidedVariant`).
-   */
-  matchingReadyVariant(
-    address: string,
-    excludeVariantId?: string,
-    cache?: StalenessCache,
-  ): string | null {
-    const definitions = this.definitionsFor(cache);
-    return newestReadyUndecidedVariant(
-      this.state,
-      address,
-      definitions?.definitionHash(address) ?? null,
-      excludeVariantId === undefined ? undefined : new Set([excludeVariantId]),
-      definitions?.patchHashes,
-      cache ?? this.stalenessCache(),
-    );
-  }
-
-  /** Every take at `address` awaiting a verdict (see `readyUndecidedVariants`), newest ready first. */
-  readyUndecidedVariants(address: string, cache?: StalenessCache): string[] {
-    const definitions = this.definitionsFor(cache);
-    const variants = this.state.assets[address]?.variants ?? {};
-    const readyOf = (id: string) => variants[id]!.readyAt ?? variants[id]!.createdAt;
-    return readyUndecidedVariants(
-      this.state,
-      address,
-      definitions?.definitionHash(address) ?? null,
-      undefined,
-      definitions?.patchHashes,
-      cache ?? this.stalenessCache(),
-    ).sort((a, b) => (readyOf(a) < readyOf(b) ? 1 : readyOf(a) > readyOf(b) ? -1 : 0));
-  }
-
   resolveReference(
     address: string,
     options?: { includeStale?: boolean; requireAccepted?: boolean },
-    cache?: StalenessCache,
+    view?: StalenessView,
   ): ResolvedReference | null {
-    const selected = this.selectVariant(address, options, cache);
+    const selected = this.selectVariant(address, options, view);
     if (!selected) return null;
     const v = this.state.assets[address]?.variants?.[selected.variantId];
     if (!v?.file) return null;

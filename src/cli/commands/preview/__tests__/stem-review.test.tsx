@@ -58,10 +58,17 @@ function addReadyVariant(address: string, file: string, definitionHash?: string)
 // fix that stops a shot reading "done" while its audio (stem) was never signed off.
 describe("materializedLeafReviewStatus", () => {
   const addr = "video:shot.01#stem";
+  const reviewStatusUnder = (hash: string) => {
+    manager.useResolutionDefinitions({
+      definitionHash: (a) => (a === addr ? hash : null),
+      isDeterministic: () => false,
+    });
+    return materializedLeafReviewStatus(manager, addr);
+  };
 
   it("needs review when the leaf has no accepted variant", () => {
     addReadyVariant(addr, "stem.json", "h1"); // materialized but never accepted
-    expect(materializedLeafReviewStatus(manager, addr, "h1")).toEqual({
+    expect(reviewStatusUnder("h1")).toEqual({
       variantId: null,
       needsReview: true,
     });
@@ -70,7 +77,7 @@ describe("materializedLeafReviewStatus", () => {
   it("does not need review when accepted and fresh", () => {
     const vid = addReadyVariant(addr, "stem.json", "h1");
     manager.setAccepted(addr, vid);
-    expect(materializedLeafReviewStatus(manager, addr, "h1")).toEqual({
+    expect(reviewStatusUnder("h1")).toEqual({
       variantId: vid,
       needsReview: false,
     });
@@ -80,7 +87,7 @@ describe("materializedLeafReviewStatus", () => {
     const vid = addReadyVariant(addr, "stem.json", "h1");
     manager.setAccepted(addr, vid);
     // Current definition hash differs from the accepted variant's — definition-stale.
-    expect(materializedLeafReviewStatus(manager, addr, "h2").needsReview).toBe(true);
+    expect(reviewStatusUnder("h2").needsReview).toBe(true);
   });
 });
 
@@ -411,6 +418,10 @@ describe("unlandedShotLeaves", () => {
     readyRefs();
     acceptLeaf("video:shot.01#composition", "a-hash-from-an-older-definition");
     acceptLeaf("video:shot.01#stem", definitionHashForAddress(withAudio, "video:shot.01#stem"));
+    manager.useResolutionDefinitions({
+      definitionHash: (a) => definitionHashForAddress(withAudio, a),
+      isDeterministic: () => false,
+    });
     expect(unlandedShotLeaves(manager, withAudio, planShot).map((l) => l.address)).toEqual([
       "video:shot.01#composition",
     ]);
@@ -468,13 +479,12 @@ describe("unlandedShotLeaves", () => {
       expect(unlandedShotLeaves(manager, silent, planShot).map((l) => l.address)).toEqual([
         stemAddress,
       ]);
-      expect(
-        materializedLeafReviewStatus(
-          manager,
-          stemAddress,
-          definitionHashForAddress(silent, stemAddress),
-        ).needsReview,
-      ).toBe(true);
+      const hash = definitionHashForAddress(silent, stemAddress);
+      manager.useResolutionDefinitions({
+        definitionHash: (a) => (a === stemAddress ? hash : null),
+        isDeterministic: () => false,
+      });
+      expect(materializedLeafReviewStatus(manager, stemAddress).needsReview).toBe(true);
     });
 
     it("settles once that stem is released", () => {
@@ -569,6 +579,10 @@ describe("unlandedShotLeaves", () => {
     it("points at the leaf's own re-accept when its refs all resolve", () => {
       readyRefs();
       acceptLeaf("video:shot.01#composition", "a-hash-from-an-older-definition");
+      manager.useResolutionDefinitions({
+        definitionHash: (a) => definitionHashForAddress(withAudio, a),
+        isDeterministic: () => false,
+      });
 
       expect(unlandedLeafReason(manager, withAudio, composition)).toBe(
         [

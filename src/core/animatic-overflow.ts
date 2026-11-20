@@ -5,7 +5,7 @@ import { harvestShotAudioStructure, type StemAudioEntry } from "./composition-bu
 import { shortHash } from "./content-hash.js";
 import { DURATION_GRID } from "./direction.js";
 import { OVERFLOW_FLOOR } from "./dsl/clip-length-collect.js";
-import { selectResolvedVariant, type StalenessCache } from "./staleness.js";
+import type { StalenessView } from "./staleness.js";
 import type { StateManager } from "./state/index.js";
 import type {
   AnimaticDefinition,
@@ -70,28 +70,25 @@ export type CueTakes = "played" | "resolved" | { shown: Readonly<Record<string, 
 function cueTake(
   manager: StateManager,
   src: string,
-  cache: StalenessCache,
+  view: StalenessView,
   takes: CueTakes,
 ): string | null {
   const variants = manager.getState().assets[src]?.variants ?? {};
   const picked = typeof takes === "object" ? takes.shown[src] : undefined;
   if (picked && variants[picked]?.file) return picked;
-  // The review page's default beside an accept: the newest-created take awaiting a verdict.
-  if (takes !== "resolved" && manager.getAcceptedVariant(src) !== null) {
-    const undecided = new Set(manager.readyUndecidedVariants(src, cache));
-    const beside = Object.keys(variants)
-      .toReversed()
-      .find((id) => undecided.has(id));
+  // The review page's default beside an accept: the newest take awaiting a verdict.
+  if (takes !== "resolved") {
+    const beside = view.undecidedBesideAccepted(src);
     if (beside) return beside;
   }
-  return selectResolvedVariant(manager.getState(), src, undefined, cache)?.variantId ?? null;
+  return view.resolve(src)?.variantId ?? null;
 }
 
 function cueSpan(
   cue: StemAudioEntry,
   kind: CueKind | undefined,
   manager: StateManager,
-  cache: StalenessCache,
+  view: StalenessView,
   takes: CueTakes,
 ): CueSpan | "unmeasured" | "silent" {
   const start = cue.start ?? 0;
@@ -101,7 +98,7 @@ function cueSpan(
   // The source bounds the cue even when the cue declares a `duration`: that becomes an `atrim`, which
   // shortens a take but never pads one (only the final clamp pads, `buildAudioMixArgs`). Unknown
   // source, no claim.
-  const take = cueTake(manager, cue.src, cache, takes);
+  const take = cueTake(manager, cue.src, view, takes);
   if (!take) return "unmeasured";
   const variant = manager.getState().assets[cue.src]?.variants?.[take];
   const sourceDuration = mediaDurationSec(variant?.media ?? null);
@@ -156,9 +153,9 @@ export function findAnimaticOverflows(
   // One memo for the whole pass: resolution recurses through a candidate's inputs, so a per-cue
   // context re-explores the same upstream cone once per cue. A caller with its own hands it over;
   // the manager's carries whatever definitions were registered for the video.
-  cache: StalenessCache = manager.stalenessCache(),
+  view: StalenessView = manager.stalenessView(),
 ): AnimaticOverflow[] {
-  return animatic.shots.flatMap((shot) => findShotOverflows(animatic, manager, shot, takes, cache));
+  return animatic.shots.flatMap((shot) => findShotOverflows(animatic, manager, shot, takes, view));
 }
 
 /** The stems of one board shot whose lines the clamp cuts. */
@@ -167,7 +164,7 @@ export function findShotOverflows(
   manager: StateManager,
   shot: ShotDefinition,
   takes: CueTakes,
-  cache: StalenessCache = manager.stalenessCache(),
+  view: StalenessView = manager.stalenessView(),
 ): AnimaticOverflow[] {
   const stems = listShotStems("animatic", shot);
   if (stems.length === 0) return [];
@@ -182,7 +179,7 @@ export function findShotOverflows(
     const spans: CueSpan[] = [];
     for (const cue of cues) {
       if (!stem.refs.includes(cue.src)) continue;
-      const span = cueSpan(cue, shot.cueKinds?.[cue.src], manager, cache, takes);
+      const span = cueSpan(cue, shot.cueKinds?.[cue.src], manager, view, takes);
       if (span === "unmeasured") unmeasuredCues++;
       else if (span !== "silent") {
         spans.push(span);
@@ -244,7 +241,7 @@ export interface SilentTail {
 export function findAnimaticSilentTails(
   animatic: AnimaticDefinition,
   manager: StateManager,
-  cache: StalenessCache = manager.stalenessCache(),
+  view: StalenessView = manager.stalenessView(),
 ): SilentTail[] {
   const offsets = new Map<string, number>();
   const durations = new Map<string, number>();
@@ -260,7 +257,7 @@ export function findAnimaticSilentTails(
     .map((st) => {
       const span = resolveSoundtrackSpan(st.options, offsets, durations, total);
       const src = parsePlaceholder(st.src.src) ?? st.src.src;
-      const take = selectResolvedVariant(state, src, undefined, cache)?.variantId ?? null;
+      const take = view.resolve(src)?.variantId ?? null;
       return {
         sounding: bedSounding(state, src, take, st.options, span),
         identity: { id: st.id, src, take, options: st.options },
@@ -277,7 +274,7 @@ export function findAnimaticSilentTails(
         .map((s) => Math.min(s.end, to) - from);
       return ends.length > 0 ? [{ ...bed.identity, end: Math.max(...ends) }] : [];
     });
-    const tail = findShotSilentTail(animatic, manager, shot, shotBeds, cache);
+    const tail = findShotSilentTail(animatic, manager, shot, shotBeds, view);
     if (!tail) continue;
     tails.push({
       ...tail,
@@ -328,7 +325,7 @@ function findShotSilentTail(
   manager: StateManager,
   shot: ShotDefinition,
   beds: readonly ShotBed[],
-  cache: StalenessCache,
+  view: StalenessView,
 ): Omit<SilentTail, "vouched"> | null {
   // A coverage shot's take is cut inside by the model, which holds where the sound has stopped.
   if (shot.songCue || shot.coverage) return null;
@@ -339,24 +336,21 @@ function findShotSilentTail(
   if (!cues.some((cue) => kinds[cue.src] === "voice" || kinds[cue.src] === "narration")) {
     return null;
   }
-  const state = manager.getState();
   // A shot's stems accepted as they stand are the mix a human watched the tail in and signed off.
   const stems = listShotStems("animatic", shot);
   if (
     stems.length > 0 &&
-    stems.every((stem) =>
-      selectResolvedVariant(state, stem.address, { requireAccepted: true }, cache),
-    )
+    stems.every((stem) => view.resolve(stem.address, { requireAccepted: true }))
   ) {
     return null;
   }
   let soundEnd = Math.max(0, ...beds.map((bed) => bed.end));
   const takes: Array<string | null> = [];
   for (const cue of cues) {
-    const span = cueSpan(cue, kinds[cue.src], manager, cache, "played");
+    const span = cueSpan(cue, kinds[cue.src], manager, view, "played");
     if (span === "unmeasured") return null;
     if (span !== "silent" && span.soundEnd !== null) soundEnd = Math.max(soundEnd, span.soundEnd);
-    takes.push(cueTake(manager, cue.src, cache, "played"));
+    takes.push(cueTake(manager, cue.src, view, "played"));
   }
 
   const durationSec = shot.duration;

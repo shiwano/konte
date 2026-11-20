@@ -75,7 +75,7 @@ Examples:
               await jobManager.listJobs(),
               manager.getState(),
             ),
-            manager.stalenessCache(),
+            manager.stalenessView(),
           );
 
       // A script that failed to load is a failure of this run, not a footnote: the correction the

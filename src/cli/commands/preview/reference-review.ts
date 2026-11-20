@@ -14,7 +14,6 @@ import {
   listExposedReferenceAddresses,
   listReviewableAddresses,
 } from "../../../core/address.js";
-import { definitionHashForAddress } from "../../../core/composition-resource.js";
 import { loadPatchCatalog, patchHashesOf } from "../../../core/patch.js";
 import { errorResponse, jsonResponse } from "../../page-host/http.js";
 import {
@@ -162,7 +161,7 @@ export async function handleGetReferenceState(
   const manager = await StateManager.load(videoRoot);
   const feedbackMgr = await FeedbackManager.load(videoRoot, "reference");
   const patchCatalog = await loadPatchCatalog(videoRoot, manager.getState());
-  const patchHashes = patchHashesOf(patchCatalog);
+  const view = manager.stalenessView({ patchHashes: patchHashesOf(patchCatalog) });
   const rosterEntries = referenceRosterEntries(direction, manager.getDirectionAcceptance());
   const assetInfo = createAssetInfoBuilder(
     [reference, ...patchCatalog.patches.values()].flatMap((d) => d.prompts ?? []),
@@ -193,18 +192,16 @@ export async function handleGetReferenceState(
         : (variantMediaUrl(manager, addr, vid, assetBaseUrl) ?? null);
     };
 
-    const defHash = definitionHashForAddress(reference, addr);
     const variants = buildVariantCandidates(
       manager,
       addr,
       acceptedId,
-      defHash,
       previewUrl,
       playableUrl,
-      patchHashes,
       (vid) => assetInfo(addr, vid),
       (vid) => songReading(manager, direction, addr, vid),
       voiceLevelKind(rosterEntries.get(assetName)),
+      view,
     );
     const chosen = variantId ? manager.tryGetAssetState(addr)?.variants?.[variantId] : undefined;
 
@@ -218,7 +215,7 @@ export async function handleGetReferenceState(
       fileUrl: variantId && chosen ? (playableUrl(variantId, chosen) ?? undefined) : undefined,
       variants,
       feedback: buildAddressFeedback(feedbackMgr, manager.getState(), addr, {
-        cache: manager.stalenessCache(),
+        view: manager.stalenessView(),
       }),
       handoffNote: handoffNoteForReference(handoff, assetName),
       ...(rosterEntries.has(assetName) ? { directionRoster: rosterEntries.get(assetName) } : {}),

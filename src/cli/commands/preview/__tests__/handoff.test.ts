@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DefinitionLike } from "../../../../core/address.js";
 import {
   compositionDefinitionHashForAddress,
+  definitionHashForAddress,
   materializedLeafContentHash,
 } from "../../../../core/composition-resource.js";
 import { directionPartHashes } from "../../../../core/direction-hash.js";
@@ -160,6 +161,10 @@ describe("collectChangedAddresses", () => {
 
     const shotFn = () => [];
     const def = makeVideoDef(shotFn);
+    mgr.useResolutionDefinitions({
+      definitionHash: (a) => definitionHashForAddress(def, a),
+      isDeterministic: () => false,
+    });
 
     const changed = collectChangedAddresses(
       [{ id: "02", assets: { motion: {} }, shotFn }],

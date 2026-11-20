@@ -20,7 +20,7 @@ export async function loadFeedbackStaleContext(
     ctx: {
       subjectHashes: await directionSubjectHashes(videoRoot),
       definitionHashes: await liveDefinitionHashes(videoRoot),
-      cache: manager.stalenessCache(),
+      view: manager.stalenessView(),
       reviewTimes: await reviewTimes(videoRoot),
     },
   };

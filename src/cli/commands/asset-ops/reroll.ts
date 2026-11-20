@@ -27,7 +27,7 @@ import {
 } from "../../../core/patch.js";
 import { JobManager } from "../../../core/job-manager.js";
 import { resolveRefs } from "../../../core/ref-resolver.js";
-import { collectUndecidedUpstreamVariants } from "../../../core/staleness.js";
+import type { UndecidedUpstreamVariant } from "../../../core/staleness.js";
 import { holdsHumanVerdict } from "../../../core/accept-cascade.js";
 import { buildAddressInfo, isProblemAddress } from "../../../core/status-sections.js";
 import { StateManager } from "../../../core/state/index.js";
@@ -54,7 +54,6 @@ import {
   printSpendReport,
   submitRegisteredJobs,
 } from "../../spend-submit.js";
-import { computeDefinitionHash } from "../../../core/definition-hash.js";
 import { applyPatches } from "../../patch-orchestrator.js";
 import { gatePatchApply } from "../patch/apply.js";
 
@@ -305,22 +304,20 @@ Examples:
           }
           const jobIndex = new JobIndex(allJobs);
           const patchHashes = patchHashesOf(await loadPatchCatalog(videoRoot, failedState));
-          const stalenessCache = manager.stalenessCache();
+          const view = manager.stalenessView();
           candidates = candidates.filter((address) => {
             const assetDef = getAssetEntry(definitionForAddress(address), address);
             return isProblemAddress(
               buildAddressInfo(
                 address,
-                failedState,
+                view,
                 jobsByVariantId,
                 assetDef.kind,
-                computeDefinitionHash(assetDef),
                 jobIndex,
                 undefined,
                 false,
                 null,
                 patchHashes,
-                stalenessCache,
               ),
             );
           });
@@ -578,15 +575,11 @@ Examples:
         // Heads-up: an upstream of a rerolled target has an undecided take that this reroll
         // won't use — it resolves the accepted variant. Skip deps that were regenerated in this
         // run (their downstreams pin to the fresh variant), and dedup across targets by address.
-        const undecidedUpstreamVariants: ReturnType<typeof collectUndecidedUpstreamVariants> = [];
+        const undecidedUpstreamVariants: UndecidedUpstreamVariant[] = [];
         const seenVariant = new Set<string>();
         for (const p of primaries) {
           const remainingDeps = p.deps.filter((d) => !newVariantByAddress.has(d));
-          const variants = collectUndecidedUpstreamVariants(
-            manager.getState(),
-            remainingDeps,
-            manager.stalenessCache(),
-          );
+          const variants = manager.stalenessView().undecidedUpstreams(remainingDeps);
           for (const t of variants) {
             if (seenVariant.has(t.address)) continue;
             seenVariant.add(t.address);

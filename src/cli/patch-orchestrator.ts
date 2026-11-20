@@ -13,7 +13,7 @@ import {
   patchFinalizeOf,
 } from "../core/patch-output.js";
 import type { VideoRoots } from "../core/roots.js";
-import { computeVariantStaleness, variantsNewestFirst } from "../core/staleness.js";
+import { variantsNewestFirst } from "../core/staleness.js";
 import { StateManager } from "../core/state/index.js";
 import type {
   AssetDefinition,
@@ -315,16 +315,14 @@ export function currentPoolVariant(
   const state = manager.getState();
   const variants = state.assets[address]?.variants ?? {};
   const definitionHash = computeDefinitionHash(assetDef);
+  // Reuse is a spend decision — read its inputs as the apply that follows will.
+  const view = manager.stalenessView();
   for (const [variantId, variant] of variantsNewestFirst(variants)) {
     if (!variant.file) continue;
-    const { definitionStale, changedInputs } = computeVariantStaleness(
-      state,
+    const { definitionStale, changedInputs } = view.patchStepStaleness(
       address,
       variant,
       definitionHash,
-      undefined,
-      // Reuse is a spend decision — read its inputs as the apply that follows will.
-      manager.stalenessCache(),
     );
     if (definitionStale) continue;
     if (changedInputs.some((c) => c.address !== pinned.address)) continue;

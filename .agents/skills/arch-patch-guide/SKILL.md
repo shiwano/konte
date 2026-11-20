@@ -40,7 +40,7 @@ A variant with a descendant is not a review candidate — it is the "before" of 
 
 - A correction is a rival take like any other.
 - `patchedAwaitingReview` is tracked apart from the newer-take signal for its wording ("did the fix land?" against "is this better?"). It clears when the correction is accepted, dismissed by an accept of the take beside it, or dropped by `konte patch remove` — the reject route `status` names in its "Needs review" detail.
-- Only a non-stale correction is review work (`isVariantStale`, both axes) — an accept beside it cannot dismiss a stale take. A stale one is listed under "Pending patches"; when its script is gone it stays under "Needs review", routed to `clean`.
+- Only a non-stale correction is review work (`StalenessView.isStale`, both axes) — an accept beside it cannot dismiss a stale take. A stale one is listed under "Pending patches"; when its script is gone it stays under "Needs review", routed to `clean`.
 - Multiple leaves per source are correct — editing a script and re-applying yields two attempts at one fix, both candidates on one "before".
 
 ## Staleness: two axes
@@ -94,4 +94,4 @@ The pipeline is generation's, plus the pin.
 - Comfy prerequisites — a comfy step resolves its declared `models`/`nodes` and goes pending behind the install jobs, with the pin carried as `pinnedDeps` to submit time. A step also goes pending behind the earlier steps' jobs, by the same mechanism.
 - `generate` applies pending patches after its dependency levels.
 - The patched take is unaccepted unless the patch's own adapter is deterministic. A step's address has no stage definition, so the waiter reads that off `patchFinalize` on the job, along with a comfy step's output node and, on the returned step alone, the `output` target that materializes the patched variant. The submit replaces job metadata wholesale; `submitToBackend` carries `patchFinalize` across.
-- `selectResolvedVariant` ignores the patch axis. An edited patch's old output stays what render/`path` consume until re-applied; `status` asks for the re-apply.
+- `StalenessView.resolve` ignores the patch axis. An edited patch's old output stays what render/`path` consume until re-applied; `status` asks for the re-apply.

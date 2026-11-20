@@ -18,6 +18,7 @@ import { KonteError } from "../errors.js";
 import { buildDependencyGraph } from "../graph.js";
 import { JobIndex } from "../job-index.js";
 import { describePendingJob } from "../pending-jobs.js";
+import { StalenessView } from "../staleness.js";
 import type { GenerationJob } from "../types/index.js";
 import type { KonteState } from "../types/index.js";
 import { ASSET_SITES } from "../dsl/adapter.js";
@@ -319,7 +320,11 @@ describe("describePendingJob (reference dependency)", () => {
       },
     };
     expect(
-      describePendingJob(pendingJob(["reference:bgm"], "main"), state, new JobIndex([])),
+      describePendingJob(
+        pendingJob(["reference:bgm"], "main"),
+        new JobIndex([]),
+        new StalenessView(state, undefined),
+      ),
     ).toEqual({
       submittable: true,
     });
@@ -331,7 +336,11 @@ describe("describePendingJob (reference dependency)", () => {
       assets: { "reference:bgm": { variants: {} } },
     };
     expect(
-      describePendingJob(pendingJob(["reference:bgm"], "main"), state, new JobIndex([])),
+      describePendingJob(
+        pendingJob(["reference:bgm"], "main"),
+        new JobIndex([]),
+        new StalenessView(state, undefined),
+      ),
     ).toEqual({
       submittable: false,
       waitingOn: ["reference:bgm"],

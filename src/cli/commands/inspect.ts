@@ -40,25 +40,17 @@ import { KonteError } from "../../core/errors.js";
 import { buildDependencyGraph, extractRefs } from "../../core/graph.js";
 import { loadPatch, patchStepDependents } from "../../core/patch.js";
 import {
-  collectStaleVariants,
-  computeVariantStaleness,
   formatStaleCause,
   formatStaleReason,
-  type PatchHashes,
-  resolvedStaleness,
   type StaleVariant,
-  type StalenessCache,
+  type StalenessView,
+  type VariantStaleness,
 } from "../../core/staleness.js";
 import { StateManager } from "../../core/state/index.js";
 import { readVariantThumbnails } from "../../core/variant-thumbnails.js";
 import { generatedOrigin, isReviewLeaf } from "../../core/variant-lineage.js";
 import { variantOwningFile } from "../../core/variant-dir.js";
-import type {
-  AssetDefinition,
-  AssetState,
-  KonteState,
-  VariantState,
-} from "../../core/types/index.js";
+import type { AssetDefinition, AssetState, VariantState } from "../../core/types/index.js";
 import { type ScriptLine, scriptLinesToView } from "../../core/types/script.js";
 import {
   loadDefinitionForAddress,
@@ -132,34 +124,24 @@ function parseInspectScope(input: string): InspectScope {
 
 // A materialized leaf (composition / stem) as a listing row. It has no AssetDefinition — it is
 // rendered live from the definition and gains a variant only when accepted — so it carries its own
-// kind and live definition hash instead of going through `assetDefHash`.
+// kind.
 interface LeafEntry {
   address: string;
   kind: "composition" | "stem";
-  defHash: string | null;
 }
 
-function leafEntry(
-  definition: DefinitionWithDuration,
-  address: string,
-  kind: LeafEntry["kind"],
-): LeafEntry {
-  return { address, kind, defHash: definitionHashForAddress(definition, address) };
+function leafEntry(address: string, kind: LeafEntry["kind"]): LeafEntry {
+  return { address, kind };
 }
 
 // The no-job leaves a shot offers for review: its composition (it has a shotFn) and its audio stems
 // (it has audio cues). Video-stage only — an animatic shot renders no composition.
-function shotLeafEntries(
-  definition: DefinitionWithDuration,
-  stage: AssetStage,
-  shot: ShotLike,
-): LeafEntry[] {
+function shotLeafEntries(stage: AssetStage, shot: ShotLike): LeafEntry[] {
   if (stage === "reference") return [];
   const entries: LeafEntry[] = [];
-  if (shot.shotFn)
-    entries.push(leafEntry(definition, formatCompositionAddress(stage, shot.id), "composition"));
+  if (shot.shotFn) entries.push(leafEntry(formatCompositionAddress(stage, shot.id), "composition"));
   for (const stem of listShotStems(stage, shot)) {
-    entries.push(leafEntry(definition, stem.address, "stem"));
+    entries.push(leafEntry(stem.address, "stem"));
   }
   return entries;
 }
@@ -167,7 +149,7 @@ function shotLeafEntries(
 // The timeline's own leaf: the soundtrack-bed stem, when the video declares beds.
 function timelineLeafEntries(definition: DefinitionWithDuration, stage: AssetStage): LeafEntry[] {
   if (stage === "reference" || (definition.timelineSoundtracks?.length ?? 0) === 0) return [];
-  return [leafEntry(definition, formatTimelineStemAddress(stage), "stem")];
+  return [leafEntry(formatTimelineStemAddress(stage), "stem")];
 }
 
 function tryGetAssetState(manager: StateManager, address: string): AssetState | null {
@@ -189,49 +171,34 @@ async function loadManager(videoRoot: string): Promise<StateManager | null> {
   }
 }
 
-function assetDefHash(assetDef: AssetDefinition): string | null {
-  return assetDef.kind === "file" ? null : computeDefinitionHash(assetDef);
-}
-
-function formatStaleLine(
-  state: KonteState,
+// The resolved take's staleness, and its line under `Stale:`. `stalenessOf` judges a take at
+// `address`: the view's own, or a patch step's against its script.
+function staleLine(
+  view: StalenessView,
   address: string,
-  stale: StaleVariant | null,
-  currentDefinitionHash: string | null,
-  patchHashes?: PatchHashes,
-  cache?: StalenessCache,
+  stalenessOf: (variant: VariantState) => VariantStaleness,
 ): string {
-  if (!stale) return "-";
+  const resolved = view.resolve(address, { includeStale: true });
+  const variant = resolved ? view.state.assets[address]?.variants?.[resolved.variantId] : undefined;
+  if (!resolved || !variant) return "-";
+  const stale: StaleVariant = { variantId: resolved.variantId, ...stalenessOf(variant) };
   const cause = formatStaleCause(stale);
   const verdict = cause ? `yes — ${stale.variantId} (${cause})` : `no — ${stale.variantId}`;
-  const accepted = acceptedVariant(state, address);
+  const accepted = acceptedVariant(view.state, address);
   if (!accepted || accepted.variantId === stale.variantId) return verdict;
-  const acceptedCause = formatStaleCause(
-    computeVariantStaleness(
-      state,
-      address,
-      accepted.variant,
-      currentDefinitionHash,
-      patchHashes,
-      cache,
-    ),
-  );
+  const acceptedCause = formatStaleCause(stalenessOf(accepted.variant));
   return `${verdict}; resolves in place of the accepted ${accepted.variantId} (${acceptedCause})`;
 }
 
 function formatAssetSummary(
   address: string,
   kind: string,
-  state: KonteState | null,
-  defHash: string | null,
+  view: StalenessView | undefined,
   feedback: readonly FeedbackView[],
-  cache?: StalenessCache,
 ): string {
-  const accepted = state ? acceptedVariantId(state, address) : null;
+  const accepted = view ? acceptedVariantId(view.state, address) : null;
   const status = accepted ? `accepted: ${accepted}` : "-";
-  const staleVariants = state
-    ? collectStaleVariants(state, address, defHash, undefined, cache)
-    : [];
+  const staleVariants = view ? view.staleVariants(address, "accepted") : [];
   const staleInfo = staleVariants.length > 0 ? ` — ${formatStaleReason(staleVariants[0]!)}` : "";
   return `${address} (${kind}): ${status}${staleInfo}${feedbackTag(feedback)}`;
 }
@@ -258,15 +225,14 @@ async function inspectComposition(videoRoot: string, address: string): Promise<v
   const manager = await loadManager(videoRoot);
   const assetState = manager ? tryGetAssetState(manager, address) : null;
   const state = manager?.getState() ?? null;
-  const cache = manager?.stalenessCache();
-  const feedback = (await assetFeedbackReader(videoRoot, parsed.stage, state, cache))(address);
+  const view = manager?.stalenessView();
+  const feedback = (await assetFeedbackReader(videoRoot, parsed.stage, state, view))(address);
 
   const dependencies = depPaths.map((depAddress) => ({
     address: depAddress,
     acceptedVariantId: manager?.getAcceptedVariant(depAddress) ?? null,
   }));
 
-  const stale = state ? resolvedStaleness(state, address, defHash, undefined, cache) : null;
   const variantEntries = Object.entries(assetState?.variants ?? {});
 
   console.log(`Address: ${address}`);
@@ -283,14 +249,12 @@ async function inspectComposition(videoRoot: string, address: string): Promise<v
 
   if (variantEntries.length > 0) {
     console.log(`Accepted: ${(state && acceptedVariantId(state, address)) ?? "-"}`);
-    const staleLine = state
-      ? formatStaleLine(state, address, stale, defHash, undefined, cache)
-      : "-";
-    console.log(`Stale: ${staleLine}`);
+    const staleOf = (v: VariantState) => view!.staleness(address, v);
+    console.log(`Stale: ${view ? staleLine(view, address, staleOf) : "-"}`);
     console.log("Variants:");
     for (const [vid, v] of variantEntries) {
-      const s = state
-        ? computeVariantStaleness(state, address, v, defHash, undefined, cache)
+      const s = view
+        ? staleOf(v)
         : { inputStale: false, definitionStale: false, patchStale: false, changedInputs: [] };
       const tags: string[] = [];
       if (s.inputStale) tags.push("input-stale");
@@ -338,21 +302,19 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
   // the variant's delivery-upscale definition and always read as definition-stale. Its definition hash is
   // re-derived per-variant from the snapshotted target and enforced at export, so (like `status`)
   // skip definition-staleness here; input-staleness (the source changed) still surfaces.
-  const currentDefHash =
-    isDeliveryAddress(address) || assetDef.kind === "file" ? null : computeDefinitionHash(assetDef);
-
-  // Patch scripts are the second definition source in a video, so staleness here needs them too —
-  // otherwise an output produced by an edited script reads fresh in `inspect` while `status`
-  // reports it stale, and the two disagree about the same variant. Read off this command's own
-  // registration rather than importing every script a second time.
   const patchHashes = manager?.patchHashes();
-  // One memo for the whole report, carrying the registered definitions.
-  const cache = manager?.stalenessCache();
+  // A patch step's definition is its script's step, which the registered definitions do not carry.
+  const view = manager?.stalenessView();
+  const stepDefinitionHash = patchStepDef ? computeDefinitionHash(patchStepDef) : null;
+  const staleOf = (v: VariantState): VariantStaleness =>
+    stepDefinitionHash !== null
+      ? view!.patchStepStaleness(address, v, stepDefinitionHash)
+      : view!.staleness(address, v);
 
   let assetState = manager ? tryGetAssetState(manager, address) : null;
   const parsed = parseAddress(address);
   const feedback = (
-    await assetFeedbackReader(videoRoot, parsed.stage, manager?.getState() ?? null, cache)
+    await assetFeedbackReader(videoRoot, parsed.stage, manager?.getState() ?? null, view)
   )(address);
   // A patch step's edges live in its chain, not in the stage graph — reading them from the graph
   // would report every step as depending on nothing and feeding nothing.
@@ -410,10 +372,7 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
   if (assetState) {
     const state = manager!.getState();
     console.log(`Accepted: ${acceptedVariantId(state, address) ?? "-"}`);
-    const stale = resolvedStaleness(state, address, currentDefHash, patchHashes, cache);
-    console.log(
-      `Stale: ${formatStaleLine(state, address, stale, currentDefHash, patchHashes, cache)}`,
-    );
+    console.log(`Stale: ${staleLine(view!, address, staleOf)}`);
     const allVariants: Array<[string, VariantState]> = [];
     for (const [vid, v] of Object.entries(assetState.variants ?? {})) {
       allVariants.push([vid, v]);
@@ -421,14 +380,7 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
     if (allVariants.length > 0) {
       console.log("Variants:");
       for (const [vid, v] of allVariants) {
-        const staleness = computeVariantStaleness(
-          state,
-          address,
-          v,
-          currentDefHash,
-          patchHashes,
-          cache,
-        );
+        const staleness = staleOf(v);
         const tags: string[] = [];
         if (staleness.inputStale) tags.push("input-stale");
         if (staleness.patchStale) tags.push("patch-stale");
@@ -505,7 +457,7 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
             variantId: vid,
             patchHashes,
             animatic,
-            cache,
+            view,
           });
           if (step.kind !== "none") {
             console.log(
@@ -732,13 +684,9 @@ async function inspectShot(videoRoot: string, stage: ShotStage, shotId: string):
 
   const manager = await loadManager(videoRoot);
   const state = manager?.getState() ?? null;
+  const view = manager?.stalenessView();
   const directionView = await loadShot(videoRoot, shotId);
-  const readFeedback = await assetFeedbackReader(
-    videoRoot,
-    stage,
-    state,
-    manager?.stalenessCache(),
-  );
+  const readFeedback = await assetFeedbackReader(videoRoot, stage, state, view);
 
   const assetEntries = Object.entries(shot.assets).map(([assetName, assetDef]) => {
     const address = formatAddress(stage, shotId, assetName);
@@ -747,7 +695,7 @@ async function inspectShot(videoRoot: string, stage: ShotStage, shotId: string):
 
   // The shot's no-job leaves (its composition, its audio stem) are reviewable targets alongside its
   // assets, so a listing of the shot has to offer them.
-  const leaves = shotLeafEntries(definition, stage, shot);
+  const leaves = shotLeafEntries(stage, shot);
   // Composite feedback on the shot as a whole hangs off the bare `<stage>:shot.<id>` target — it
   // belongs to no single asset, so this listing is the only place it can surface.
   const shotFeedback = readFeedback(formatShotAddress(stage, shotId));
@@ -763,11 +711,11 @@ async function inspectShot(videoRoot: string, stage: ShotStage, shotId: string):
     console.log("Assets:");
     for (const entry of assetEntries) {
       console.log(
-        `  ${formatAssetSummary(entry.address, entry.assetDef.kind, state, assetDefHash(entry.assetDef), readFeedback(entry.address))}`,
+        `  ${formatAssetSummary(entry.address, entry.assetDef.kind, view, readFeedback(entry.address))}`,
       );
     }
     for (const leaf of leaves) {
-      console.log(`  ${formatLeafSummary(leaf, state, readFeedback)}`);
+      console.log(`  ${formatLeafSummary(leaf, view, readFeedback)}`);
     }
   }
 
@@ -776,22 +724,13 @@ async function inspectShot(videoRoot: string, stage: ShotStage, shotId: string):
 
 function formatLeafSummary(
   leaf: LeafEntry,
-  state: KonteState | null,
+  view: StalenessView | undefined,
   readFeedback: FeedbackReader,
-  cache?: StalenessCache,
 ): string {
-  return formatAssetSummary(
-    leaf.address,
-    leaf.kind,
-    state,
-    leaf.defHash,
-    readFeedback(leaf.address),
-    cache,
-  );
+  return formatAssetSummary(leaf.address, leaf.kind, view, readFeedback(leaf.address));
 }
 
 function printShotBlock(
-  definition: DefinitionWithDuration,
   shot: ShotLike,
   stage: ShotStage,
   startTime: number,
@@ -800,8 +739,7 @@ function printShotBlock(
   indent: string,
 ): void {
   const endTime = startTime + shot.duration;
-  const state = manager?.getState() ?? null;
-  const cache = manager?.stalenessCache();
+  const view = manager?.stalenessView();
   const shotFeedback = readFeedback(formatShotAddress(stage, shot.id));
   console.log(
     `${indent}Shot: ${shot.id} (${startTime}s — ${endTime}s, ${shot.duration}s)${feedbackTag(shotFeedback)}`,
@@ -809,11 +747,11 @@ function printShotBlock(
   for (const [assetName, assetDef] of Object.entries(shot.assets)) {
     const address = formatAddress(stage, shot.id, assetName);
     console.log(
-      `${indent}  ${formatAssetSummary(address, assetDef.kind, state, assetDefHash(assetDef), readFeedback(address), cache)}`,
+      `${indent}  ${formatAssetSummary(address, assetDef.kind, view, readFeedback(address))}`,
     );
   }
-  for (const leaf of shotLeafEntries(definition, stage, shot)) {
-    console.log(`${indent}  ${formatLeafSummary(leaf, state, readFeedback, cache)}`);
+  for (const leaf of shotLeafEntries(stage, shot)) {
+    console.log(`${indent}  ${formatLeafSummary(leaf, view, readFeedback)}`);
   }
 }
 
@@ -831,19 +769,18 @@ function printTimelineBlock(
   readFeedback: FeedbackReader,
   indent: string,
 ): void {
-  const state = manager?.getState() ?? null;
-  const cache = manager?.stalenessCache();
+  const view = manager?.stalenessView();
   // The flat-pool stage names its own block; only animatic/video have a timeline.
   const heading = stage === "reference" ? "Reference" : "Timeline";
   console.log(`${indent}${heading}:`);
   for (const [assetName, assetDef] of Object.entries(definition.topLevelAssets ?? {})) {
     const address = poolAssetAddress(stage, assetName);
     console.log(
-      `${indent}  ${formatAssetSummary(address, assetDef.kind, state, assetDefHash(assetDef), readFeedback(address), cache)}`,
+      `${indent}  ${formatAssetSummary(address, assetDef.kind, view, readFeedback(address))}`,
     );
   }
   for (const leaf of timelineLeafEntries(definition, stage)) {
-    console.log(`${indent}  ${formatLeafSummary(leaf, state, readFeedback, cache)}`);
+    console.log(`${indent}  ${formatLeafSummary(leaf, view, readFeedback)}`);
   }
 }
 
@@ -855,7 +792,7 @@ async function inspectStage(videoRoot: string, stage: AssetStage): Promise<void>
     videoRoot,
     stage,
     manager?.getState() ?? null,
-    manager?.stalenessCache(),
+    manager?.stalenessView(),
   );
   // The reference pool is flat — it declares `shots: []` — so this narrowing skips nothing and
   // hands the shot helpers the stage type a `shot.<id>.<name>` address actually needs.
@@ -864,7 +801,7 @@ async function inspectStage(videoRoot: string, stage: AssetStage): Promise<void>
   let startTime = 0;
   if (shotStage) {
     for (const shot of definition.shots) {
-      printShotBlock(definition, shot, shotStage, startTime, manager, readFeedback, "");
+      printShotBlock(shot, shotStage, startTime, manager, readFeedback, "");
       startTime += shot.duration;
     }
   }

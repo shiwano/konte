@@ -21,6 +21,7 @@ import {
   defineDirection,
   defineVideo,
 } from "../../../../core/dsl/index.js";
+import { applyResolutionDefinitions } from "../../../../core/definition-hashes.js";
 import { StateManager } from "../../../../core/state/index.js";
 import type { StageDefinition, VideoDefinition } from "../../../../core/types/index.js";
 import { directionDefaults } from "../../../../core/__tests__/helpers/direction.js";
@@ -157,7 +158,17 @@ async function acceptComposition(def: StageDefinition, address: string): Promise
   await manager.save();
 }
 
+// What a command registers before it resolves anything: the definitions on disk.
+async function onDisk(animatic: StageDefinition, video: StageDefinition | null): Promise<void> {
+  await applyResolutionDefinitions({
+    videoRoot: dir,
+    definitions: { reference: null, animatic: animatic as never, video: video as never },
+    patchHashes: new Map(),
+  });
+}
+
 async function boardReel(animatic: StageDefinition, video: StageDefinition | null) {
+  await onDisk(animatic, video);
   const res = await handleGetReelState(
     {
       videoRoot: dir,
@@ -182,6 +193,7 @@ async function boardShot(animatic: StageDefinition, video: StageDefinition | nul
 }
 
 async function cutShot(animatic: StageDefinition, video: StageDefinition) {
+  await onDisk(animatic, video);
   const res = await handleGetReelState(
     {
       videoRoot: dir,
@@ -351,6 +363,7 @@ describe("a graphic shot's composition drawn on both stages", () => {
     await acceptComposition(cut(4), CUT);
     await acceptComposition(board(6), BOARD);
 
+    await onDisk(board(6), cut(6));
     const remade = await remakeSettledLeaves({
       videoRoot: dir,
       stage: cut(6),
@@ -585,6 +598,7 @@ describe("a narrative shot both stages build from files alone", () => {
     await acceptComposition(fileBoard(4), BOARD);
     await acceptComposition(fileCut(6), CUT);
 
+    await onDisk(fileBoard(6), fileCut(6));
     const remade = await remakeSettledLeaves({
       videoRoot: dir,
       stage: fileBoard(6),
@@ -604,6 +618,7 @@ describe("a narrative shot both stages build from files alone", () => {
     await acceptComposition(fileBoard(6, 1), BOARD);
     await acceptComposition(fileCut(6, 1), CUT);
 
+    await onDisk(fileBoard(6, 0.5), fileCut(6, 0.5));
     expect(leafSettledAcross(manager, fileBoard(6, 0.5), fileCut(6, 0.5), BOARD_STEM)).toBe(false);
     expect(boardStemAwaitsVideo(manager, fileBoard(6, 0.5), fileCut(6, 0.5), BOARD_STEM)).toBe(
       true,

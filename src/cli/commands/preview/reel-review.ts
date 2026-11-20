@@ -48,6 +48,7 @@ import {
 } from "../../../core/preview-preroll.js";
 import { shotAcceptTargets, shotNeedsVerdict } from "../../../core/shot-accept-targets.js";
 import { loadPatchCatalog, patchHashesOf } from "../../../core/patch.js";
+import type { StalenessView } from "../../../core/staleness.js";
 import { parsePlaceholder } from "../../../core/dsl/shot-context.js";
 import type { LevelKind } from "../../../core/audio-level.js";
 import { KonteError, errorMessage } from "../../../core/errors.js";
@@ -374,7 +375,7 @@ export async function handleGetReelState(
     manager,
     videoRoot,
     assetBaseUrl,
-    patchHashesOf(patchCatalog),
+    manager.stalenessView({ patchHashes: patchHashesOf(patchCatalog) }),
     assetInfo,
     reelLevelKinds(video),
   );
@@ -493,7 +494,8 @@ function reelAssetBuilder(
   manager: StateManager,
   videoRoot: string,
   assetBaseUrl: string,
-  patchHashes: ReturnType<typeof patchHashesOf>,
+  // Under the patch catalog this request loaded.
+  view: StalenessView,
   assetInfo: ReturnType<typeof createAssetInfoBuilder>,
   levelKinds: ReadonlyMap<string, LevelKind>,
 ) {
@@ -502,34 +504,24 @@ function reelAssetBuilder(
     // The take the plan resolved is the one the reel plays, so the card names it too.
     const variantId: string | null = resolvedVariantId ?? null;
     const variantStatus = displayedVariantStatus(manager, addr, variantId);
-    // Routed to the stage that owns the address: a shot can play a shared `reference:` take, and
-    // the reel's definition answers for none of those.
-    const definitionHash = manager.registeredDefinitionHash(addr);
     return {
       assetName,
       address: addr,
       variantId,
       variantStatus,
-      hasUndecidedBesideAccepted: hasUndecidedBesideAccepted(
-        manager,
-        addr,
-        acceptedId,
-        definitionHash,
-        patchHashes,
-      ),
+      hasUndecidedBesideAccepted: hasUndecidedBesideAccepted(manager, addr, acceptedId, view),
       mediaKind: variantMediaKind(manager, addr, variantId),
       fileUrl: variantId ? variantMediaUrl(manager, addr, variantId, assetBaseUrl) : undefined,
       variants: buildVariantCandidates(
         manager,
         addr,
         acceptedId,
-        definitionHash,
         (vid, v) => variantPreviewUrl(videoRoot, addr, vid, v, assetBaseUrl),
         (vid) => variantMediaUrl(manager, addr, vid, assetBaseUrl) ?? null,
-        patchHashes,
         (vid) => assetInfo(addr, vid),
         undefined,
         levelKinds.get(addr),
+        view,
       ),
     };
   };
@@ -698,7 +690,7 @@ function reelShotVerdictState(
   if (compositionAddress) {
     // Unaccepted or stale both count as needing review (see materializedLeafReviewStatus).
     ({ variantId: compositionVariantId, needsReview: compositionNeedsReview } =
-      materializedLeafReviewStatus(manager, compositionAddress, compositionDefinitionHash));
+      materializedLeafReviewStatus(manager, compositionAddress));
     if (compositionSuperseded) compositionNeedsReview = false;
   }
 
@@ -711,7 +703,7 @@ function reelShotVerdictState(
     .filter((leaf) => isStemAddress(leaf.address))
     .map(({ address }) => {
       const definitionHash = definitionHashForAddress(video, address);
-      const status = materializedLeafReviewStatus(manager, address, definitionHash);
+      const status = materializedLeafReviewStatus(manager, address);
       return {
         address,
         definitionHash,
@@ -731,7 +723,7 @@ function reelShotVerdictState(
     if (stem.definitionHash) leafDefinitionHashes.set(stem.address, stem.definitionHash);
   }
   const feedback = buildAddressFeedback(scope.feedbackMgr, manager.getState(), feedbackAddress, {
-    cache: manager.stalenessCache(),
+    view: manager.stalenessView(),
     definitionHashes: leafDefinitionHashes,
   });
 
@@ -783,7 +775,7 @@ function reelShotVerdictState(
 
 function leafFeedback(scope: ReelStateScope, address: string, definitionHash: string | null) {
   return buildAddressFeedback(scope.feedbackMgr, scope.manager.getState(), address, {
-    cache: scope.manager.stalenessCache(),
+    view: scope.manager.stalenessView(),
     definitionHashes: definitionHash ? new Map([[address, definitionHash]]) : new Map(),
   });
 }
@@ -798,7 +790,7 @@ function timelineStemState(scope: ReelStateScope) {
   return {
     address,
     definitionHash,
-    ...materializedLeafReviewStatus(manager, address, definitionHash),
+    ...materializedLeafReviewStatus(manager, address),
     verdictAddresses: timelineStemRefs(video),
     feedback: leafFeedback(scope, address, definitionHash),
   };
@@ -815,7 +807,7 @@ function overlayState(scope: ReelStateScope) {
     address,
     duration: video.overlay.duration,
     definitionHash,
-    ...materializedLeafReviewStatus(manager, address, definitionHash),
+    ...materializedLeafReviewStatus(manager, address),
     offered: overlayAwaitsAccept(manager, video, scope.counterpart),
     verdictAddresses: overlayTimelineRefs(video),
     feedback: leafFeedback(scope, address, definitionHash),
@@ -856,7 +848,7 @@ function thumbnailState(scope: ReelStateScope, buildAsset: ReturnType<typeof ree
       [cover, ...assets].some((a) => a.hasUndecidedBesideAccepted),
     assets,
     feedback: buildAddressFeedback(scope.feedbackMgr, manager.getState(), THUMBNAIL_TARGET, {
-      cache: manager.stalenessCache(),
+      view: manager.stalenessView(),
     }),
   };
 }

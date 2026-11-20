@@ -6,13 +6,7 @@ import {
   formatShotAddress,
   patchSourceVariantIdOf,
 } from "../../../core/address.js";
-import {
-  isVariantStale,
-  keptViaMarker,
-  parseKeptVia,
-  undecidedVariantBesideAccepted,
-  type PatchHashes,
-} from "../../../core/staleness.js";
+import { keptViaMarker, parseKeptVia, type StalenessView } from "../../../core/staleness.js";
 import { generatedOrigin, isReviewLeaf } from "../../../core/variant-lineage.js";
 import { variantOwningFile } from "../../../core/variant-dir.js";
 import { mediaVisualSize } from "../../../core/variant-media.js";
@@ -111,26 +105,24 @@ export function buildVariantCandidates(
   manager: StateManager,
   addr: string,
   acceptedId: string | null,
-  defHash: string | null,
   buildVariantUrl: (variantId: string, variant: VariantState) => string | null,
   buildFileUrl?: (variantId: string, variant: VariantState) => string | null,
-  patchHashes?: PatchHashes,
   buildInfo?: (variantId: string) => AssetInfo | undefined,
   buildSong?: (variantId: string) => SongReadingInfo | undefined,
   // What the mix levels this address as; its audio takes are auditioned at that level.
   levelKind?: LevelKind,
+  // The view the page's own resolution uses, or the gallery calls current what it is not showing.
+  view: StalenessView = manager.stalenessView(),
 ): VariantCandidate[] {
   const variants: VariantCandidate[] = [];
   try {
     const target = manager.getAssetState(addr);
     const staleState = manager.getState();
-    // The memo the page's own resolution uses, or the gallery calls current what it is not showing.
-    const cache = manager.stalenessCache();
     const hasAccepted = acceptedId != null && target.variants?.[acceptedId] != null;
     const entries = Object.entries(target.variants ?? {})
       .filter(([vid, v]) => v?.file && isReviewLeaf(staleState, addr, vid))
       .map(([vid, v]) => {
-        const stale = isVariantStale(staleState, addr, v, defHash, patchHashes, cache);
+        const stale = view.isStale(addr, v);
         const source = v.derivedFrom ? target.variants?.[v.derivedFrom] : null;
         const info = buildInfo?.(vid);
         const song = buildSong?.(vid);
@@ -199,21 +191,11 @@ export function hasUndecidedBesideAccepted(
   manager: StateManager,
   addr: string,
   acceptedId: string | null,
-  defHash: string | null,
-  patchHashes?: PatchHashes,
+  view: StalenessView = manager.stalenessView(),
 ): boolean {
   if (!acceptedId) return false;
   try {
-    return (
-      undecidedVariantBesideAccepted(
-        manager.getState(),
-        addr,
-        defHash,
-        undefined,
-        patchHashes,
-        manager.stalenessCache(),
-      ) !== null
-    );
+    return view.undecidedBesideAccepted(addr) !== null;
   } catch {
     return false;
   }
@@ -746,7 +728,7 @@ export async function applyAddressReview(
       // definition hashes the page evaluated its comments against, or the record would call a
       // comment standing that the reviewer saw struck through.
       const staleBefore = staleFlagsBeforeDecisions(fbMgr, mgr.getState(), {
-        cache: mgr.stalenessCache(),
+        view: mgr.stalenessView(),
         ...(hooks.staleDefinitionHashes ? { definitionHashes: hooks.staleDefinitionHashes } : {}),
       });
 

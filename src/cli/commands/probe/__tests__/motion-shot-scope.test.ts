@@ -21,7 +21,7 @@ function manager(assets: Record<string, string>): StateManager {
     getState: () => ({ assets: Object.fromEntries(Object.keys(assets).map((a) => [a, {}])) }),
     resolveReference: (address: string) =>
       assets[address] ? { variantId: `v-${address}`, file: assets[address] } : null,
-    readyUndecidedVariants: () => [],
+    stalenessView: () => ({ readyUndecided: () => [] }),
   } as unknown as StateManager;
 }
 

@@ -1,9 +1,8 @@
 import { acceptedVariant } from "./accepted-variant.js";
 import { type AssetStage, type DefinitionLike, getAssetEntry, listAddresses } from "./address.js";
-import { computeDefinitionHash } from "./definition-hash.js";
 import { type DependencyGraph, listUnusedAddresses } from "./graph.js";
 import { type LoadedDefinitions, selectDefinition } from "./select-definition.js";
-import { computeVariantStaleness, isVariantStale, rebakesOverAccept } from "./staleness.js";
+import { rebakesOverAccept } from "./staleness.js";
 import { isJobTerminal } from "./job-manager.js";
 import { StateManager } from "./state/index.js";
 import type { GenerationJob, JobRecord, KonteState } from "./types/index.js";
@@ -21,8 +20,8 @@ export type SkipReason = "active" | "accepted" | "accepted-stale" | "ready";
  * "accepted-stale", and its accept stands too. A deterministic take is the exception: there is nothing else to pick, so re-running the op IS the
  * correction — unless a take matching the current definition is already there.
  *
- * Everything else turns on readiness, both axes of it: pass the asset's current definition
- * hash so an edited definition ages its variant out here exactly as it does in `status`.
+ * Everything else turns on readiness, input and definition axes alike, read off the registered
+ * definitions.
  * `inputRebuilt` — an upstream is generated in the same run — voids readiness: the ready take
  * goes input-stale the moment that job lands.
  */
@@ -30,7 +29,6 @@ export function assetSkipReason(
   manager: StateManager,
   liveJobs: ReadonlySet<string>,
   address: string,
-  currentDefinitionHash: string,
   inputRebuilt = false,
 ): SkipReason | null {
   if (inFlightVariantIds(manager.getState(), address, liveJobs).length > 0) return "active";
@@ -38,21 +36,14 @@ export function assetSkipReason(
   if (!target) return null;
   const state = manager.getState();
   const variants = Object.values(target.variants ?? {});
-  // `currentDefinitionHash` answers this address's own axis; the cache answers its inputs', which
-  // are judged against what each RESOLVES to. Skipping an asset resolution then finds nothing for is
-  // a deadlock: the skip is what would have repaired it.
-  const cache = manager.stalenessCache();
+  // Inputs are judged against what each RESOLVES to: skipping an asset resolution then finds
+  // nothing for is a deadlock, the skip being what would have repaired it. The patch axis is the
+  // patch pass's.
+  const view = manager.stalenessView();
 
   const accepted = acceptedVariant(state, address)?.variant;
   if (accepted?.file) {
-    const staleness = computeVariantStaleness(
-      state,
-      address,
-      accepted,
-      currentDefinitionHash,
-      undefined,
-      cache,
-    );
+    const staleness = view.staleness(address, accepted, { patch: false });
     if (!staleness.inputStale && !staleness.definitionStale) return "accepted";
     // A patch output sits at the SOURCE address, whose own asset may be deterministic. Its refresh
     // is re-applying the correction (this run's own patch pass), so generating here would spend on a fresh original
@@ -64,10 +55,7 @@ export function assetSkipReason(
 
   // An address left holding only takes the reviewer decided against is generated afresh.
   const hasReady = variants.some(
-    (v) =>
-      v.file &&
-      v.status !== "dismissed" &&
-      !isVariantStale(state, address, v, currentDefinitionHash, undefined, cache),
+    (v) => v.file && v.status !== "dismissed" && !view.isStale(address, v, { patch: false }),
   );
   return hasReady && !inputRebuilt ? "ready" : null;
 }
@@ -162,7 +150,6 @@ export function listSpendingAssets(
       manager,
       liveJobs,
       address,
-      computeDefinitionHash(asset),
       (graph?.dependencies.get(address) ?? []).some((d) => spending.has(d)),
     );
     if (!skip) spending.add(address);

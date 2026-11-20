@@ -7,7 +7,7 @@ import {
 import { reviewTimes as readReviewTimes } from "../../core/review-record.js";
 import type { KonteState } from "../../core/types/index.js";
 import { liveDefinitionHashes } from "../../core/feedback/definition-hashes.js";
-import type { StalenessCache } from "../../core/staleness.js";
+import type { StalenessView } from "../../core/staleness.js";
 
 // Feedback as `inspect` reports it. A stale comment no longer stands — its subject moved, or an
 // accept was stamped over it — so it is counted but never quoted.
@@ -31,7 +31,7 @@ export async function assetFeedbackReader(
   state: KonteState | null,
   // The caller's resolution memo: a comment's subject is the take its surface DISPLAYS, so it has
   // to be read by the same rule that surface resolved it with.
-  cache?: StalenessCache,
+  view?: StalenessView,
 ): Promise<FeedbackReader> {
   const manager = await FeedbackManager.load(videoRoot, stage);
   const definitionHashes =
@@ -43,7 +43,7 @@ export async function assetFeedbackReader(
       text: entry.text,
       createdAt: entry.createdAt,
       staleness: state
-        ? feedbackStaleness(entry, address, state, { definitionHashes, cache, reviewTimes })
+        ? feedbackStaleness(entry, address, state, { definitionHashes, view, reviewTimes })
         : "unknown",
     }));
 }

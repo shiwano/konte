@@ -316,7 +316,7 @@ describe("buildVariantCandidates", () => {
     mgr.setAccepted(addr, v1);
     await setThumbnail(mgr, addr, v3, ".konte/cache/thumbnails/v3.jpg");
 
-    const candidates = buildVariantCandidates(mgr, addr, v1, null, (vid, v) =>
+    const candidates = buildVariantCandidates(mgr, addr, v1, (vid, v) =>
       videoVariantThumbUrl(tmpDir, addr, vid, v),
     );
 
@@ -335,7 +335,7 @@ describe("buildVariantCandidates", () => {
     mgr.reserveVariantId(addr); // no file
     setFile(mgr, addr, v1, "v1.mp4");
 
-    const candidates = buildVariantCandidates(mgr, addr, null, null, (vid, v) =>
+    const candidates = buildVariantCandidates(mgr, addr, null, (vid, v) =>
       videoVariantThumbUrl(tmpDir, addr, vid, v),
     );
     expect(candidates.map((c) => c.variantId)).toEqual([v1]);
@@ -354,7 +354,7 @@ describe("buildVariantCandidates", () => {
       height: 1536,
     };
 
-    const candidates = buildVariantCandidates(mgr, addr, null, null, () => null);
+    const candidates = buildVariantCandidates(mgr, addr, null, () => null);
 
     expect(candidates.find((c) => c.variantId === measured)?.size).toEqual({
       width: 1024,
@@ -374,8 +374,12 @@ describe("buildVariantCandidates", () => {
     mgr.ensureAssetState(addr).variants![v1]!.definitionHash = "old-hash";
     mgr.ensureAssetState(addr).variants![v2]!.definitionHash = "live-hash";
     mgr.setAccepted(addr, v1);
+    mgr.useResolutionDefinitions({
+      definitionHash: () => "live-hash",
+      isDeterministic: () => false,
+    });
 
-    const candidates = buildVariantCandidates(mgr, addr, v1, "live-hash", (vid, v) =>
+    const candidates = buildVariantCandidates(mgr, addr, v1, (vid, v) =>
       videoVariantThumbUrl(tmpDir, addr, vid, v),
     );
 
@@ -394,7 +398,7 @@ describe("buildVariantCandidates", () => {
     mgr.setAccepted(addr, v1);
     setReady(mgr, addr, v2, "v2.mp4", "2026-06-02T00:00:02.000Z");
 
-    const candidates = buildVariantCandidates(mgr, addr, v1, null, (vid, v) =>
+    const candidates = buildVariantCandidates(mgr, addr, v1, (vid, v) =>
       videoVariantThumbUrl(tmpDir, addr, vid, v),
     );
     expect(candidates.find((c) => c.variantId === v2)?.undecidedBesideAccepted).toBe(true);
@@ -408,15 +412,15 @@ describe("buildVariantCandidates", () => {
     setReady(mgr, addr, v1, "v1.mp4", "2026-06-02T00:00:01.000Z");
     mgr.setAccepted(addr, v1);
     // No rival yet.
-    expect(hasUndecidedBesideAccepted(mgr, addr, v1, null)).toBe(false);
+    expect(hasUndecidedBesideAccepted(mgr, addr, v1)).toBe(false);
     // A reroll reserves a later variant; not ready until it has a file.
     const v2 = mgr.reserveVariantId(addr);
-    expect(hasUndecidedBesideAccepted(mgr, addr, v1, null)).toBe(false);
+    expect(hasUndecidedBesideAccepted(mgr, addr, v1)).toBe(false);
     setReady(mgr, addr, v2, "v2.mp4", "2026-06-02T00:00:02.000Z");
-    expect(hasUndecidedBesideAccepted(mgr, addr, v1, null)).toBe(true);
+    expect(hasUndecidedBesideAccepted(mgr, addr, v1)).toBe(true);
     // The human saw the reroll and kept the old take: re-accepting it dismisses the rival.
     mgr.setAccepted(addr, v1, { dismiss: [v2] });
-    expect(hasUndecidedBesideAccepted(mgr, addr, v1, null)).toBe(false);
+    expect(hasUndecidedBesideAccepted(mgr, addr, v1)).toBe(false);
   });
 
   it("detects a parallel reroll that finishes after a later-reserved accept", async () => {
@@ -429,9 +433,9 @@ describe("buildVariantCandidates", () => {
     const v2 = mgr.reserveVariantId(addr);
     setReady(mgr, addr, v2, "v2.mp4", "2026-06-02T00:00:01.000Z");
     mgr.setAccepted(addr, v2);
-    expect(hasUndecidedBesideAccepted(mgr, addr, v2, null)).toBe(false);
+    expect(hasUndecidedBesideAccepted(mgr, addr, v2)).toBe(false);
     setReady(mgr, addr, v1, "v1.mp4", "2026-06-02T00:00:02.000Z");
-    expect(hasUndecidedBesideAccepted(mgr, addr, v2, null)).toBe(true);
+    expect(hasUndecidedBesideAccepted(mgr, addr, v2)).toBe(true);
   });
 
   it("does not flag when nothing is accepted, or every rival was settled", async () => {
@@ -441,9 +445,9 @@ describe("buildVariantCandidates", () => {
     const v2 = mgr.reserveVariantId(addr);
     setReady(mgr, addr, v1, "v1.mp4", "2026-06-02T00:00:01.000Z");
     setReady(mgr, addr, v2, "v2.mp4", "2026-06-02T00:00:02.000Z");
-    expect(hasUndecidedBesideAccepted(mgr, addr, null, null)).toBe(false);
+    expect(hasUndecidedBesideAccepted(mgr, addr, null)).toBe(false);
     mgr.setAccepted(addr, v2, { dismiss: [v1] });
-    expect(hasUndecidedBesideAccepted(mgr, addr, v2, null)).toBe(false);
+    expect(hasUndecidedBesideAccepted(mgr, addr, v2)).toBe(false);
   });
 
   it("keeps a dismissed take in the gallery, out of the recommended run", async () => {
@@ -455,7 +459,7 @@ describe("buildVariantCandidates", () => {
     setReady(mgr, addr, v2, "v2.mp4", "2026-06-02T00:00:02.000Z");
     mgr.setAccepted(addr, v2, { dismiss: [v1] });
 
-    const candidates = buildVariantCandidates(mgr, addr, v2, null, (vid, v) =>
+    const candidates = buildVariantCandidates(mgr, addr, v2, (vid, v) =>
       videoVariantThumbUrl(tmpDir, addr, vid, v),
     );
     expect(candidates.map((c) => c.variantId)).toEqual([v2, v1]);
@@ -472,7 +476,11 @@ describe("buildVariantCandidates", () => {
     setReady(mgr, addr, v2, "v2.mp4", "2026-06-02T00:00:02.000Z");
     mgr.ensureAssetState(addr).variants![v2]!.definitionHash = "old-hash";
     mgr.setAccepted(addr, v1);
-    expect(hasUndecidedBesideAccepted(mgr, addr, v1, "live-hash")).toBe(false);
+    mgr.useResolutionDefinitions({
+      definitionHash: () => "live-hash",
+      isDeterministic: () => false,
+    });
+    expect(hasUndecidedBesideAccepted(mgr, addr, v1)).toBe(false);
   });
 });
 

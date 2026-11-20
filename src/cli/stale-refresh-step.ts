@@ -3,7 +3,7 @@ import { getStage, isMaterializedLeafAddress, type Stage } from "../core/address
 import { findAllUnmetPrerequisites } from "../core/review-prerequisites.js";
 import { STAGE_ENTRY_FILE } from "../core/roots.js";
 import type { StateManager } from "../core/state/index.js";
-import type { PatchHashes, StalenessCache } from "../core/staleness.js";
+import type { PatchHashes, StalenessView } from "../core/staleness.js";
 import type { AnimaticDefinition } from "../core/types/index.js";
 
 /**
@@ -63,7 +63,7 @@ export function staleRefreshStep(opts: {
   variantId: string;
   patchHashes?: PatchHashes;
   animatic: AnimaticDefinition | null | undefined;
-  cache?: StalenessCache;
+  view?: StalenessView;
 }): StaleRefreshStep {
   const { manager, address, variantId, patchHashes } = opts;
 
@@ -79,20 +79,23 @@ export function staleRefreshStep(opts: {
   // Asked about a take the address has already moved past: its accepted take stands and is current.
   const accepted = manager.getAcceptedVariant(address);
   if (accepted !== null && accepted !== variantId) {
-    const acceptedStaleness = manager.variantStaleness(address, accepted, opts.cache);
+    const acceptedStaleness = manager.variantStaleness(address, accepted, opts.view);
     if (acceptedStaleness && !acceptedStaleness.inputStale && !acceptedStaleness.definitionStale) {
       return { kind: "none" };
     }
   }
 
-  const matching = manager.matchingReadyVariant(address, variantId, opts.cache);
+  const matching = (opts.view ?? manager.stalenessView()).newestReadyUndecided(
+    address,
+    new Set([variantId]),
+  );
   if (matching && !isMaterializedLeafAddress(address) && manager.registeredDeterministic(address)) {
     return { kind: "none" };
   }
   if (!matching || opts.animatic === undefined) {
     if (isMaterializedLeafAddress(address)) return { kind: "review", stage: getStage(address) };
     if (accepted === variantId && holdsHumanVerdict(manager, address)) {
-      const staleness = manager.variantStaleness(address, variantId, opts.cache);
+      const staleness = manager.variantStaleness(address, variantId, opts.view);
       if (staleness?.definitionStale) {
         return manager.registeredAdapterDrift(address, variantId)
           ? { kind: "stands", cause: "adapter" }

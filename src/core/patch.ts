@@ -23,7 +23,7 @@ import { KonteError, errorMessage } from "./errors.js";
 import { inFlightVariantIds } from "./generation-selection.js";
 import { extractRefs } from "./graph.js";
 import { loadDirectionDefinition, loadIfPresent, reloadPatchDefinition } from "./loader.js";
-import { computeVariantStaleness, type StalenessCache } from "./staleness.js";
+import { StalenessView } from "./staleness.js";
 import type { AssetDefinition, KonteState, VariantState } from "./types/index.js";
 import { mediaVisualSize } from "./variant-media.js";
 import { stageEntryPath } from "./roots.js";
@@ -410,7 +410,7 @@ async function loadDirectionCanvas(
 }
 
 /**
- * Current patch hash per source variant id, the table `computeVariantStaleness` consults to decide
+ * Current patch hash per source variant id, the table `StalenessView` consults to decide
  * whether a patch variant still reflects the script that produced it.
  */
 export function patchHashesOf(catalog: PatchCatalog): Map<string, string> {
@@ -434,9 +434,9 @@ export function findPendingPatches(
   state: KonteState,
   catalog: PatchCatalog,
   liveJobs: ReadonlySet<string>,
-  // The caller's resolution memo. Without it a reverted edit reads as a moved input, and this asks
-  // for a re-apply nothing is waiting on — a spend.
-  cache?: StalenessCache,
+  // The caller's view, under its definitions. A blind one reads a reverted edit as a moved input,
+  // and this asks for a re-apply nothing is waiting on — a spend.
+  view: StalenessView = new StalenessView(state, undefined),
 ): PendingPatch[] {
   const patchHashes = patchHashesOf(catalog);
   const pending: PendingPatch[] = [];
@@ -450,7 +450,7 @@ export function findPendingPatches(
       ([, v]) => v.derivedFrom === patch.sourceVariantId,
     );
     const stalenessOf = (v: VariantState) =>
-      computeVariantStaleness(state, patch.sourceAddress, v, null, patchHashes, cache);
+      view.stalenessWithoutDefinition(patch.sourceAddress, v, patchHashes);
     // A correction is built from the source's file and inherits its input fingerprints, so it can
     // never be fresher than the take it corrects. Where the SOURCE is input-stale, applying again
     // would spend on a take stale from birth, every run.

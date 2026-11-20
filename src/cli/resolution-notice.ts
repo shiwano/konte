@@ -25,8 +25,8 @@ function staleNotice(
   variantId: string,
   animatic: AnimaticDefinition | null | undefined,
 ): string | undefined {
-  const cache = manager.stalenessCache();
-  const staleness = manager.variantStaleness(address, variantId, cache);
+  const view = manager.stalenessView();
+  const staleness = manager.variantStaleness(address, variantId, view);
   if (!staleness || (!staleness.inputStale && !staleness.definitionStale)) return undefined;
   const lead = `${address} resolves to a stale take (${variantId})`;
   const step = staleRefreshStep({
@@ -35,7 +35,7 @@ function staleNotice(
     variantId,
     patchHashes: manager.patchHashes(),
     animatic,
-    cache,
+    view,
   });
   switch (step.kind) {
     case "none":

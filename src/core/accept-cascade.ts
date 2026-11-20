@@ -21,7 +21,7 @@ import type { JobManager } from "./job-manager.js";
 import { variantOwningFile } from "./variant-dir.js";
 import { inferMediaType } from "./media-type.js";
 import { findAllUnmetPrerequisites } from "./review-prerequisites.js";
-import { isAcceptedStale, rebakesOverAccept } from "./staleness.js";
+import { rebakesOverAccept } from "./staleness.js";
 import type { StateManager } from "./state/index.js";
 import type { StageDefinition } from "./types/index.js";
 import type { AnimaticDefinition } from "./types/animatic.js";
@@ -251,7 +251,7 @@ export async function cascadeAcceptConsumedDeps(
         acceptedDepVariantId !== depVariantId &&
         !isMaterializedLeafAddress(depAddress) &&
         !holdsHumanVerdict(manager, depAddress) &&
-        isAcceptedStale(manager, depAddress, manager.registeredDefinitionHash(depAddress));
+        manager.stalenessView().isAcceptedStale(depAddress);
       if (acceptedDepVariantId && !rebaked) {
         await walk(depAddress, acceptedDepVariantId, allowAudio);
         continue;

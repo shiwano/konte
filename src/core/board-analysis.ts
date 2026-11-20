@@ -1241,7 +1241,7 @@ export function acceptedIn(
     const hash = definitionHashForAddress(def, address);
     // A composition with no definition is an undeveloped shot.
     if (hash === null && isCompositionAddress(address)) return false;
-    return manager.acceptedAsDefined(address, hash);
+    return manager.acceptedAsDefined(address);
   };
   return (address) => {
     let hit = memo.get(address);

@@ -12,15 +12,10 @@ import { isJobTerminal } from "./job-manager.js";
 import { describePendingJob } from "./pending-jobs.js";
 import {
   type PatchHashes,
-  type StalenessCache,
-  collectStaleUnacceptedVariants,
-  collectStaleVariants,
-  computeVariantStaleness,
+  type StalenessView,
   formatStaleCause,
   formatStaleReason,
-  isVariantStale,
   rebakesOverAccept,
-  undecidedVariantBesideAccepted,
   variantsNewestFirst,
 } from "./staleness.js";
 import { ERROR_GLIMPSE_WIDTH, truncateSingleLine } from "./truncate.js";
@@ -81,7 +76,7 @@ export interface AddressInfo {
     hasScript: boolean;
   } | null;
   /** The takes `readyCount` counts, in canonical resolution order — `readyVariantIds[0]` is the
-   * take `selectResolvedVariant` resolves to while nothing here is accepted. */
+   * take `StalenessView.resolve` resolves to while nothing here is accepted. */
   readyVariantIds: string[];
   /** `readyVariantIds` less the accepted take — every take here awaiting a verdict. */
   undecidedVariantIds: string[];
@@ -322,10 +317,11 @@ export function latestFailedExport(jobs: JobRecord[]): ExportJob | null {
 
 export function buildAddressInfo(
   address: string,
-  state: KonteState,
+  // The read-only sweep's view: its state, and the definitions every staleness question here is
+  // judged by. The caller owns its lifetime (drop on any write).
+  view: StalenessView,
   jobsByVariantId: Map<string, JobRecord>,
   assetKind: AddressKind | null,
-  currentDefinitionHash: string | null = null,
   jobs: JobIndex = new JobIndex(),
   // Dead composition leftover variant ids for this address (from collectDeadCompositionVariants)
   // — never counted as "ready". A composition is auto-materialized, not rerolled, so a variant
@@ -340,11 +336,8 @@ export function buildAddressInfo(
   // fs access and the definition). Null for a present file and every other kind.
   missingFilePath: string | null = null,
   // Current patch-definition hash per source variant id, when the caller has loaded the patch
-  // scripts. Lets an edited patch's old output read as stale here too.
+  // scripts — which corrections still have a script to own them.
   patchHashes?: PatchHashes,
-  // Shared staleness memo for a read-only sweep — the four staleness passes below re-walk the
-  // same upstream cones per variant otherwise. The caller owns its lifetime (drop on any write).
-  stalenessCache?: StalenessCache,
   // Whether anyone reviews this address at all (see AddressInfo.reviewTarget). The caller decides
   // it — it needs the definition — and only a reference intermediate is not one.
   reviewTarget = true,
@@ -352,25 +345,19 @@ export function buildAddressInfo(
   // ordinary review path.
   reviewUnreachable = false,
 ): AddressInfo {
+  const { state } = view;
   const target = state.assets[address];
   const variants = Object.entries(target?.variants ?? {});
 
   const acceptedId = acceptedVariantId(state, address);
   const hasAccepted = acceptedId !== null;
   const hasOutputFile = variants.some(([, v]) => !!v.file);
-  const undecidedVariantId = undecidedVariantBesideAccepted(
-    state,
-    address,
-    currentDefinitionHash,
-    deadVariantIds,
-    patchHashes,
-    stalenessCache,
-  );
+  const undecidedVariantId = view.undecidedBesideAccepted(address, deadVariantIds);
   // Only lineage leaves count. A take that has been patched is not one of the choices any more —
   // it is the "before" of the variant that replaced it — so counting it would report two things to
   // review where the reviewer sees one.
   // Ordered by `variantsNewestFirst`, the comparator canonical resolution uses, so the first entry
-  // is the take `selectResolvedVariant` hands to preview and render. A different order here would
+  // is the take `StalenessView.resolve` hands to preview and render. A different order here would
   // send a reviewer to judge one take and an accept to a different one.
   const readyVariantIds = variantsNewestFirst(Object.fromEntries(variants))
     .filter(([variantId, v]) => {
@@ -379,14 +366,7 @@ export function buildAddressInfo(
       // "Needs review" after the reviewer said no to everything at it.
       if (v.status === "dismissed") return false;
       if (!isReviewLeaf(state, address, variantId)) return false;
-      const staleness = computeVariantStaleness(
-        state,
-        address,
-        v,
-        currentDefinitionHash,
-        patchHashes,
-        stalenessCache,
-      );
+      const staleness = view.staleness(address, v);
       // Stale on either axis is work to redo, not a take to review: `generate` replaces exactly
       // these (`assetSkipReason`), so counting one here would send a reviewer to judge a picture the
       // next run throws away — and an accept made there would then protect it. They are reported
@@ -407,13 +387,9 @@ export function buildAddressInfo(
       const child = target?.variants?.[id];
       if (child?.file == null || child.status !== "none") return false;
       if (!isReviewLeaf(state, address, id) || deadVariantIds.has(id)) return false;
-      if (
-        !isVariantStale(state, address, child, currentDefinitionHash, patchHashes, stalenessCache)
-      ) {
-        return true;
-      }
+      if (!view.isStale(address, child)) return true;
       // A stale correction is not review work: an accept beside it cannot dismiss it
-      // (`readyUndecidedVariants` skips a stale take), so the item would stand whatever the reviewer
+      // (`StalenessView.readyUndecided` skips a stale take), so the item would stand whatever the reviewer
       // decided. Its live script owns it under "Pending patches" — with no script left there is
       // no other owner, so it stays here, routed to `clean`.
       return (
@@ -443,7 +419,7 @@ export function buildAddressInfo(
     if (job && (job.status === "running" || job.status === "queued")) {
       generatingJobs.push({ variantId, status: job.status, progress: job.progress });
     } else if (job && job.kind === "generation" && job.status === "pending") {
-      const reason = describePendingJob(job, state, jobs, stalenessCache);
+      const reason = describePendingJob(job, jobs, view);
       blockedJobs.push({ variantId, waitingOn: reason.submittable ? [] : reason.waitingOn });
     } else if (job && job.status === "failed") {
       failedJobs.push({ variantId, error: job.error });
@@ -452,24 +428,12 @@ export function buildAddressInfo(
     }
   }
 
-  const staleVariants = collectStaleVariants(
-    state,
-    address,
-    currentDefinitionHash,
-    patchHashes,
-    stalenessCache,
-  );
-  const staleUnacceptedVariants = collectStaleUnacceptedVariants(
-    state,
-    address,
-    currentDefinitionHash,
-    patchHashes,
-    stalenessCache,
-  );
+  const staleVariants = view.staleVariants(address, "accepted");
+  const staleUnacceptedVariants = view.staleVariants(address, "undecided");
   const dismissedCount = variants.filter(
     ([variantId, v]) => v.status === "dismissed" && !deadVariantIds.has(variantId),
   ).length;
-  const deterministic = stalenessCache?.definitions?.isDeterministic(address) === true;
+  const deterministic = view.isDeterministic(address);
   const staleAcceptStands =
     assetKind !== "composition" &&
     assetKind !== "stem" &&
@@ -778,7 +742,7 @@ export function computeStatusSections(
   }
 
   // Generation assets only — a stale leaf's refresh is a re-review, so it sits in "Needs review".
-  // collectStaleVariants returns accepted variants only, so "accepted" needs no saying here, and
+  // `staleVariants(address, "accepted")` returns accepted variants only, so "accepted" needs no saying here, and
   // `reroll` takes the address, never the variant id — `konte inspect <address>` has the variants.
   const stale: StatusSection["items"] = [];
   for (const info of infos) {

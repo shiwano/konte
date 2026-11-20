@@ -74,7 +74,7 @@ A truncated stem is exactly as long as the shot, so what the clamp cuts is caugh
 ## The gate is the ordinary one
 
 - No animatic-specific spend gate — `GATED_UPSTREAM` lists `[reference, animatic]` and the spend gate holds exactly what a spend consumes: a video asset consuming `animatic:shot.01.first` needs that keyframe accepted, one consuming `animatic:shot.01#stem` the stem.
-- A stale accept does not pass — every stem is deterministic (`isDeterministicAddress`), though the mix is reviewed at the board, and strict resolution refuses a stale accept on either axis (`selectResolvedVariant`, via `ResolutionDefinitions.isDeterministic`).
+- A stale accept does not pass — every stem is deterministic (`isDeterministicAddress`), though the mix is reviewed at the board, and strict resolution refuses a stale accept on either axis (`StalenessView.resolve`).
 - Re-picking a voice take or editing a cue ages the stem out; the shot's next accept re-mixes it, with no `generate` in between. Once the video develops the shot past the board, konte keeps the stem current instead (Review, below).
 - The cast voice gate is the direction's (`arch-direction-guide`).
 - A board with one unwritten `blocking`/`camera` (`movement-unwritten`) holds every video spend and the board's review.

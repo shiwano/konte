@@ -39,6 +39,20 @@ describe("assetSkipReason", () => {
   const address = "video:shot.01.motion";
   const upstream = "video:shot.01.key";
 
+  // `assetSkipReason` with `hash` installed as `address`'s current definition.
+  function skipUnder(
+    manager: StateManager,
+    liveJobs: ReadonlySet<string>,
+    hash: string,
+    inputRebuilt?: boolean,
+  ) {
+    manager.useResolutionDefinitions({
+      definitionHash: (a) => (a === address ? hash : null),
+      isDeterministic: () => false,
+    });
+    return assetSkipReason(manager, liveJobs, address, inputRebuilt);
+  }
+
   // A ready variant of `address`: has a file and carries the current definition hash.
   async function withReadyVariant(): Promise<{ manager: StateManager; vid: string }> {
     const manager = await createManager();
@@ -64,46 +78,46 @@ describe("assetSkipReason", () => {
 
   it("generates when no variants exist", async () => {
     const manager = await createManager();
-    expect(assetSkipReason(manager, NO_JOBS, address, HASH)).toBeNull();
+    expect(skipUnder(manager, NO_JOBS, HASH)).toBeNull();
   });
 
   it("skips an unaccepted variant that is ready", async () => {
     const { manager } = await withReadyVariant();
-    expect(assetSkipReason(manager, NO_JOBS, address, HASH)).toBe("ready");
+    expect(skipUnder(manager, NO_JOBS, HASH)).toBe("ready");
   });
 
   it("generates a ready variant whose upstream the same run rebuilds", async () => {
     const { manager } = await withReadyVariant();
-    expect(assetSkipReason(manager, NO_JOBS, address, HASH, true)).toBeNull();
+    expect(skipUnder(manager, NO_JOBS, HASH, true)).toBeNull();
   });
 
   it("keeps an accepted variant whose upstream the same run rebuilds", async () => {
     const { manager, vid } = await withReadyVariant();
     manager.setAccepted(address, vid);
-    expect(assetSkipReason(manager, NO_JOBS, address, HASH, true)).toBe("accepted");
+    expect(skipUnder(manager, NO_JOBS, HASH, true)).toBe("accepted");
   });
 
   it("generates when the only ready variant was dismissed", async () => {
     const { manager, vid } = await withReadyVariant();
     manager.getAssetState(address).variants![vid]!.status = "dismissed";
-    expect(assetSkipReason(manager, NO_JOBS, address, HASH)).toBeNull();
+    expect(skipUnder(manager, NO_JOBS, HASH)).toBeNull();
   });
 
   it("generates when the only variant is definition-stale and unaccepted", async () => {
     const { manager } = await withReadyVariant();
-    expect(assetSkipReason(manager, NO_JOBS, address, "def-edited")).toBeNull();
+    expect(skipUnder(manager, NO_JOBS, "def-edited")).toBeNull();
   });
 
   it("generates when the only variant is input-stale and unaccepted", async () => {
     const { manager, vid } = await withReadyVariant();
     makeInputStale(manager, vid);
-    expect(assetSkipReason(manager, NO_JOBS, address, HASH)).toBeNull();
+    expect(skipUnder(manager, NO_JOBS, HASH)).toBeNull();
   });
 
   it("skips an accepted variant that is ready", async () => {
     const { manager, vid } = await withReadyVariant();
     manager.setAccepted(address, vid);
-    expect(assetSkipReason(manager, NO_JOBS, address, HASH)).toBe("accepted");
+    expect(skipUnder(manager, NO_JOBS, HASH)).toBe("accepted");
   });
 
   // generate never draws a rival to a take a human accepted — that is reroll's job. A new variant
@@ -111,26 +125,26 @@ describe("assetSkipReason", () => {
   it("skips an accepted variant that is definition-stale", async () => {
     const { manager, vid } = await withReadyVariant();
     manager.setAccepted(address, vid);
-    expect(assetSkipReason(manager, NO_JOBS, address, "def-edited")).toBe("accepted-stale");
+    expect(skipUnder(manager, NO_JOBS, "def-edited")).toBe("accepted-stale");
   });
 
   it("skips an accepted variant that is input-stale as accepted", async () => {
     const { manager, vid } = await withReadyVariant();
     makeInputStale(manager, vid);
     manager.setAccepted(address, vid);
-    expect(assetSkipReason(manager, NO_JOBS, address, HASH)).toBe("accepted");
+    expect(skipUnder(manager, NO_JOBS, HASH)).toBe("accepted");
   });
 
   it("reports an in-flight job before anything else", async () => {
     const { manager } = await withReadyVariant();
     const vid = manager.reserveVariantId(address);
-    expect(assetSkipReason(manager, new Set([vid]), address, HASH)).toBe("active");
+    expect(skipUnder(manager, new Set([vid]), HASH)).toBe("active");
   });
 
   it("generates past a reservation whose job was never created", async () => {
     const manager = await createManager();
     manager.reserveVariantId(address);
-    expect(assetSkipReason(manager, NO_JOBS, address, HASH)).toBeNull();
+    expect(skipUnder(manager, NO_JOBS, HASH)).toBeNull();
   });
 });
 
@@ -366,6 +380,10 @@ describe("buildGeneratePlan", () => {
       file: "motion.mp4",
       definitionHash: computeDefinitionHash(comfyDef),
       inputFingerprints: { [key]: "key-old" },
+    });
+    manager.useResolutionDefinitions({
+      definitionHash: () => computeDefinitionHash(comfyDef),
+      isDeterministic: () => false,
     });
 
     const plan = buildGeneratePlan({

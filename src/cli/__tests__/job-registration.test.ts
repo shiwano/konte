@@ -3,7 +3,6 @@ import * as fs from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { computeDefinitionHash } from "../../core/definition-hash.js";
 import { assetSkipReason, inFlightVariantIds } from "../../core/generation-selection.js";
 import { JobManager, jobsDbPath } from "../../core/job-manager.js";
 import { StateManager } from "../../core/state/index.js";
@@ -44,10 +43,9 @@ describe("registerJobsBatch", () => {
   it("skips an address a concurrent run's take became ready at after the caller judged it", async () => {
     const { dir, jobManager } = await setup();
     const address = "video:shot.01.clip";
-    const definitionHash = computeDefinitionHash(comfyDef);
     const judged = await StateManager.load(dir);
     const skip = (m: StateManager, live: ReadonlySet<string>, a: string) =>
-      assetSkipReason(m, live, a, definitionHash);
+      assetSkipReason(m, live, a);
     expect(skip(judged, NO_JOBS, address)).toBeNull();
 
     const [rival] = await registerJobsBatch(dir, jobManager, [request(address)]);

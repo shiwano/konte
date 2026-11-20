@@ -46,7 +46,7 @@ import { songParts } from "./song-parts.js";
 import { KonteError } from "./errors.js";
 import { mixAudioTracks, type MuxAudioTrack } from "./ffmpeg.js";
 import { shotById } from "./shot-index.js";
-import { computeAcceptedStaleness, formatStaleCause, isAcceptedStale } from "./staleness.js";
+import { formatStaleCause } from "./staleness.js";
 import { sha256Hex, shortHash, stableHash } from "./content-hash.js";
 import { stableStringify } from "./stable-stringify.js";
 import type { StateManager } from "./state/index.js";
@@ -224,7 +224,7 @@ function compositionRefsResolvable(
  * resolved variant's outputHash (accepted, else newest non-stale ready variant —
  * the same bar the composite render and the auto-materialize gate use). A composition
  * is materialized from ready upstreams, so the fingerprint tracks the resolved output;
- * computeVariantStaleness compares it against that same resolved output, so the composition
+ * `StalenessView.staleness` compares it against that same resolved output, so the composition
  * flips input-stale once an upstream resolves elsewhere — a different accept, or a patch/reroll
  * where nothing is accepted. Unresolvable refs (no ready variant) are skipped.
  */
@@ -924,7 +924,7 @@ export function shotAcceptsStand(
       return (
         leafSettledAcross(manager, video, counterpart, address) ||
         (manager.getAcceptedVariant(address) !== null &&
-          !isAcceptedStale(manager, address, definitionHashForAddress(video, address)))
+          !manager.stalenessView().isAcceptedStale(address))
       );
     });
 }
@@ -951,8 +951,8 @@ export function overlayAwaitsAccept(
   if (!video.overlay) return false;
   const address = formatTimelineOverlayAddress(video.stage);
   return (
-    materializedLeafReviewStatus(manager, address, definitionHashForAddress(video, address))
-      .needsReview && shotAcceptsStand(manager, video, counterpart)
+    materializedLeafReviewStatus(manager, address).needsReview &&
+    shotAcceptsStand(manager, video, counterpart)
   );
 }
 
@@ -1133,12 +1133,11 @@ export function leafReadyForReview(
 export function materializedLeafReviewStatus(
   manager: StateManager,
   address: string,
-  defHash: string | null,
 ): { variantId: string | null; needsReview: boolean } {
   const variantId = manager.getAcceptedVariant(address);
   return {
     variantId,
-    needsReview: variantId === null || isAcceptedStale(manager, address, defHash),
+    needsReview: variantId === null || manager.stalenessView().isAcceptedStale(address),
   };
 }
 
@@ -1260,10 +1259,7 @@ function boardStemAgedUnderVideo(
   if (!(videoShot.compositionRefs ?? []).includes(address)) return false;
   if (videoShotHasVariant(manager, video, videoShot)) return false;
   if (manager.getAcceptedVariant(address) === null) return false;
-  if (
-    !materializedLeafReviewStatus(manager, address, definitionHashForAddress(board, address))
-      .needsReview
-  ) {
+  if (!materializedLeafReviewStatus(manager, address).needsReview) {
     return false;
   }
   if (!leafInputsJudged(manager, board, boardShot, address, new Set())) return false;
@@ -1336,12 +1332,7 @@ function leafInputsJudged(
   const refs = leafReadinessRefs(stage, address);
   if (refs === null) return false;
   if (refs.some((ref) => !manager.resolveReference(ref, { requireAccepted: true }))) return false;
-  const accepted = computeAcceptedStaleness(
-    manager.getState(),
-    address,
-    null,
-    manager.stalenessCache(),
-  );
+  const accepted = manager.stalenessView().acceptedStaleness(address);
   const judged = (current: string | null | undefined): boolean =>
     current != null && drawn.has(current);
   if (!accepted.changedInputs.every((i) => judged(i.current))) return false;
@@ -1452,8 +1443,7 @@ export function leafSignedOff(
   address: string,
 ): boolean {
   if (!leafReadyForReview(manager, video, address)) return false;
-  return !materializedLeafReviewStatus(manager, address, definitionHashForAddress(video, address))
-    .needsReview;
+  return !materializedLeafReviewStatus(manager, address).needsReview;
 }
 
 /** One ref a leaf consumes that resolves to nothing a spend may bake, and why. */

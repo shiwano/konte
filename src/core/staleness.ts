@@ -1,5 +1,4 @@
 import { acceptedVariant, acceptedVariantId } from "./accepted-variant.js";
-import type { StateManager } from "./state/index.js";
 import type { KonteState, VariantState } from "./types/index.js";
 import { variantOwningFile } from "./variant-dir.js";
 import { isReviewLeaf } from "./variant-lineage.js";
@@ -40,30 +39,10 @@ interface ResolveCore {
 const CUTOFF_CORE: ResolveCore = { acceptedId: null, newestFreshId: null, newestStaleId: null };
 
 /**
- * Memo shared across staleness queries over one unchanged state. Without it every query
- * re-explores the upstream cone, which is exponential on an unaccepted dependency chain
- * (a cross-shot chain). Any state mutation invalidates it — create one per read-only
- * pass and drop it on write; the exported functions create a per-call one when none is given.
- *
- * `definitions` rides along because the memo is only valid under the definitions it was computed
- * with — sharing one between a blind cache and a loaded one hands out the other's resolution.
- */
-export function createStalenessCache(definitions?: ResolutionDefinitions) {
-  return {
-    resolved: new Map<string, ResolveCore>(),
-    definitions,
-    definitionHashes: new Map<string, string | null>(),
-    chainInputs: new Map<string, ReadonlySet<string>>(),
-  };
-}
-
-export type StalenessCache = ReturnType<typeof createStalenessCache>;
-
-/**
- * One resolution walk: the memo (per-call or caller-shared), the in-progress addresses that
- * end a cyclic recursion, and whether the current subtree's answer leaned on such a cutoff —
- * a path-dependent answer that must not be memoized, or a later query entering from another
- * root could read a resolution the render path would not pick.
+ * One resolution walk: the view's memo, the in-progress addresses that end a cyclic recursion, and
+ * whether the current subtree's answer leaned on such a cutoff — a path-dependent answer that must
+ * not be memoized, or a later query entering from another root could read a resolution the render
+ * path would not pick.
  */
 interface ResolveContext {
   memo: Map<string, ResolveCore>;
@@ -74,21 +53,10 @@ interface ResolveContext {
   chainInputs: Map<string, ReadonlySet<string>>;
 }
 
-function newContext(cache?: StalenessCache): ResolveContext {
-  return {
-    memo: cache?.resolved ?? new Map(),
-    visiting: new Set(),
-    sawCutoff: false,
-    definitions: cache?.definitions,
-    definitionHashes: cache?.definitionHashes ?? new Map(),
-    chainInputs: cache?.chainInputs ?? new Map(),
-  };
-}
-
 /**
  * The current definition hash for an address inside a resolution walk, or null when the walk was
- * given no definitions — the definition axis is then skipped, as `currentDefinitionHash: null`
- * skips it for a single variant. Memoized per walk: hashing a composition walks its structure.
+ * given no definitions — the definition axis is then skipped. Memoized per view: hashing a
+ * composition walks its structure.
  */
 function walkDefinitionHash(address: string, ctx: ResolveContext): string | null {
   if (!ctx.definitions) return null;
@@ -118,8 +86,7 @@ function resolvedOutputHash(
 
 /**
  * Current patch-definition hash per source variant id (`patches/<sourceVariantId>.ts`), as built
- * by `loadPatchCatalog`. Passed by callers that have loaded the patch scripts; omitting it simply
- * skips the patch axis, mirroring how `currentDefinitionHash: null` skips the definition axis.
+ * by `loadPatchCatalog`. Without it the patch axis is not read.
  */
 export type PatchHashes = ReadonlyMap<string, string>;
 
@@ -159,33 +126,6 @@ function isPatchStale(variant: VariantState, patchHashes: PatchHashes | undefine
   if (!patchHashes || variant.derivedFrom == null || variant.patchHash == null) return false;
   const current = patchHashes.get(variant.derivedFrom);
   return current !== undefined && current !== variant.patchHash;
-}
-
-/**
- * Content-addressed staleness for a single variant, derived from recorded hashes.
- * input-stale: a consumed input's recorded fingerprint no longer matches the output that
- * input's address resolves to now. definition-stale: the variant's own definition
- * (definitionHash, or for a patch variant its patch script) differs from the current one.
- *
- * A dependency path IS its upstream address, so each recorded input
- * fingerprint is checked directly against that address's resolved output.
- */
-export function computeVariantStaleness(
-  state: KonteState,
-  address: string,
-  variant: VariantState,
-  currentDefinitionHash: string | null,
-  patchHashes?: PatchHashes,
-  cache?: StalenessCache,
-): VariantStaleness {
-  return computeVariantStalenessInternal(
-    state,
-    address,
-    variant,
-    currentDefinitionHash,
-    patchHashes,
-    newContext(cache),
-  );
 }
 
 function isDeterministicIn(ctx: ResolveContext, address: string): boolean {
@@ -329,24 +269,6 @@ function madeFrom(
   });
 }
 
-export function isVariantStale(
-  state: KonteState,
-  address: string,
-  variant: VariantState,
-  currentDefinitionHash: string | null,
-  patchHashes?: PatchHashes,
-  cache?: StalenessCache,
-): boolean {
-  return isVariantStaleInternal(
-    state,
-    address,
-    variant,
-    currentDefinitionHash,
-    patchHashes,
-    newContext(cache),
-  );
-}
-
 function isVariantStaleInternal(
   state: KonteState,
   address: string,
@@ -483,31 +405,6 @@ function resolveCore(state: KonteState, address: string, ctx: ResolveContext): R
   }
 }
 
-/**
- * The variant an address resolves to: the accepted one if any, otherwise the newest non-stale
- * variant with a file. "Newest" is by `createdAt`, not insertion order.
- *
- * `includeStale` picks which of the two questions this answers:
- *
- * - With it — "what does this address name right now": accepted, else newest non-stale, else the
- *   newest stale one. This is what every surface a human reads takes — `konte path`, the review
- *   pages, `probe`, an address passed to `accept`/`patch new`.
- * - Without it — "what may a spend build on": a stale take answers nothing. This is the pipeline's
- *   question, asked by the job scheduler and the composition materializer so neither builds on
- *   material a regeneration is about to replace, and by staleness itself so a recorded fingerprint
- *   is compared against the take generation would consume now.
- *
- * State-pure counterpart of `StateManager.resolveReference` — both must agree.
- */
-export function selectResolvedVariant(
-  state: KonteState,
-  address: string,
-  options?: { includeStale?: boolean; requireAccepted?: boolean },
-  cache?: StalenessCache,
-): { variantId: string; isAccepted: boolean } | null {
-  return selectResolvedVariantInternal(state, address, options, newContext(cache));
-}
-
 function selectResolvedVariantInternal(
   state: KonteState,
   address: string,
@@ -546,234 +443,6 @@ function selectResolvedVariantInternal(
   return null;
 }
 
-/**
- * An undecided take standing beside the accepted one — a reroll or a patch output that is ready and
- * non-stale while the accepted variant stays the resolved/shown (and downstream-consumed) one.
- * Returns the newest such take's id, or null when nothing is accepted or every rival is settled.
- *
- * The verdict is read from `status` alone (see `VariantStatusSchema`), with no comparison of when
- * a take landed against when the accept was made.
- *
- * A variant that has been patched is not a candidate — it is the "before" of its correction.
- *
- * Single source of truth behind the preview UI's `hasUndecidedBesideAccepted`, `status`'s staleAwaitingAccept,
- * and the generate/reroll upstream warning.
- */
-export function undecidedVariantBesideAccepted(
-  state: KonteState,
-  address: string,
-  currentDefinitionHash: string | null = null,
-  excludeVariantIds?: ReadonlySet<string>,
-  patchHashes?: PatchHashes,
-  cache?: StalenessCache,
-): string | null {
-  if (acceptedVariant(state, address)?.variant.file == null) return null;
-  return newestReadyUndecidedVariant(
-    state,
-    address,
-    currentDefinitionHash,
-    excludeVariantIds,
-    patchHashes,
-    cache,
-  );
-}
-
-/**
- * The newest take at an address still awaiting a verdict and non-stale on both axes — the way out
- * of a stale take that costs no spend, and what a reverted edit hands the address back to.
- *
- * Reads the same candidates as `readyUndecidedVariants`, so a dismissed take and a patched-off one are
- * out. An accepted match is out too — it would already be what the address resolves to.
- */
-export function newestReadyUndecidedVariant(
-  state: KonteState,
-  address: string,
-  currentDefinitionHash: string | null = null,
-  excludeVariantIds?: ReadonlySet<string>,
-  patchHashes?: PatchHashes,
-  cache?: StalenessCache,
-): string | null {
-  const variants = state.assets[address]?.variants;
-  if (!variants) return null;
-  const readyOf = (v: VariantState) => v.readyAt ?? v.createdAt;
-  const candidates = readyUndecidedVariants(
-    state,
-    address,
-    currentDefinitionHash,
-    excludeVariantIds,
-    patchHashes,
-    cache,
-  );
-  let newest: string | null = null;
-  let newestAt = "";
-  for (const variantId of candidates) {
-    const at = readyOf(variants[variantId] as VariantState);
-    if (newest === null || at > newestAt) {
-      newest = variantId;
-      newestAt = at;
-    }
-  }
-  return newest;
-}
-
-/**
- * Every take at an address still awaiting a verdict: undecided (`status === "none"`), holding a
- * file, a lineage leaf, and non-stale on both axes. These are the candidates a review is deciding
- * among — what an accept dismisses the rest of, and what `status` counts as review work.
- */
-export function readyUndecidedVariants(
-  state: KonteState,
-  address: string,
-  currentDefinitionHash: string | null = null,
-  excludeVariantIds?: ReadonlySet<string>,
-  patchHashes?: PatchHashes,
-  cache?: StalenessCache,
-): string[] {
-  const variants = state.assets[address]?.variants;
-  if (!variants) return [];
-  const ctx = newContext(cache);
-  const ready: string[] = [];
-  for (const [variantId, v] of Object.entries(variants)) {
-    if (!v.file || v.status !== "none") continue;
-    if (excludeVariantIds?.has(variantId)) continue;
-    if (!isReviewLeaf(state, address, variantId)) continue;
-    if (isVariantStaleInternal(state, address, v, currentDefinitionHash, patchHashes, ctx))
-      continue;
-    ready.push(variantId);
-  }
-  return ready;
-}
-
-export interface UndecidedUpstreamVariant {
-  depPath: string;
-  address: string;
-  acceptedVariantId: string;
-  undecidedVariantId: string;
-}
-
-/**
- * For each dependency, the upstream whose accepted variant a downstream generate/reroll
- * will resolve while a ready, non-stale take sits undecided beside it — the silent case
- * where the downstream builds on the accepted frame after an upstream reroll. The undecided
- * take is the newest of those, which is not necessarily newer than the accept. Empty when
- * every upstream's rivals are settled (or none is accepted). A dependency path IS the
- * upstream address.
- */
-export function collectUndecidedUpstreamVariants(
-  state: KonteState,
-  depPaths: readonly string[],
-  cache?: StalenessCache,
-): UndecidedUpstreamVariant[] {
-  const variants: UndecidedUpstreamVariant[] = [];
-  const seen = new Set<string>();
-  const sharedCache = cache ?? createStalenessCache();
-  for (const depPath of depPaths) {
-    const address = depPath;
-    if (seen.has(address)) continue;
-    seen.add(address);
-    const undecidedVariantId = undecidedVariantBesideAccepted(
-      state,
-      address,
-      // Off the cache's own definitions: a rival whose definition has moved is not one to accept.
-      sharedCache.definitions?.definitionHash(address) ?? null,
-      undefined,
-      sharedCache.definitions?.patchHashes,
-      sharedCache,
-    );
-    if (!undecidedVariantId) continue;
-    const acceptedId = acceptedVariantId(state, address);
-    if (!acceptedId) continue;
-    variants.push({ depPath, address, acceptedVariantId: acceptedId, undecidedVariantId });
-  }
-  return variants;
-}
-
-/**
- * Accepted variants of `address` that are currently stale, with the reason.
- * Used by both `status` and `inspect` to surface why-stale uniformly.
- */
-export function collectStaleVariants(
-  state: KonteState,
-  address: string,
-  currentDefinitionHash: string | null,
-  patchHashes?: PatchHashes,
-  cache?: StalenessCache,
-): StaleVariant[] {
-  const variants = state.assets[address]?.variants ?? {};
-  const ctx = newContext(cache);
-  const result: StaleVariant[] = [];
-  for (const [variantId, v] of Object.entries(variants)) {
-    if (v.status !== "accepted") continue;
-    const s = computeVariantStalenessInternal(
-      state,
-      address,
-      v,
-      currentDefinitionHash,
-      patchHashes,
-      ctx,
-    );
-    if (s.inputStale || s.definitionStale) {
-      result.push({ variantId, ...s });
-    }
-  }
-  return result;
-}
-
-/**
- * Unaccepted variants of `address` that are currently stale, newest-first — takes nobody signed off
- * and that no longer match what their inputs or definition say. Not `collectStaleVariants`, which
- * is accepted takes, whose refresh is a `reroll`; these are work the next `generate` redoes.
- */
-export function collectStaleUnacceptedVariants(
-  state: KonteState,
-  address: string,
-  currentDefinitionHash: string | null,
-  patchHashes?: PatchHashes,
-  cache?: StalenessCache,
-): StaleVariant[] {
-  const variants = state.assets[address]?.variants ?? {};
-  const ctx = newContext(cache);
-  const result: StaleVariant[] = [];
-  for (const [variantId, v] of variantsNewestFirst(variants)) {
-    // Undecided takes only. A dismissed one is settled work whatever its staleness, and `status`
-    // says so on its own terms rather than reporting it as a take the next generate will replace.
-    if (v.status !== "none" || !v.file) continue;
-    const s = computeVariantStalenessInternal(
-      state,
-      address,
-      v,
-      currentDefinitionHash,
-      patchHashes,
-      ctx,
-    );
-    if (s.inputStale || s.definitionStale) {
-      result.push({ variantId, ...s });
-    }
-  }
-  return result;
-}
-
-/**
- * Staleness of the take `address` resolves to on a read surface (`includeStale`), or null when
- * nothing resolves. A dismissed or superseded take never counts.
- */
-export function resolvedStaleness(
-  state: KonteState,
-  address: string,
-  currentDefinitionHash: string | null,
-  patchHashes?: PatchHashes,
-  cache?: StalenessCache,
-): StaleVariant | null {
-  const ctx = newContext(cache);
-  const resolved = selectResolvedVariantInternal(state, address, { includeStale: true }, ctx);
-  const v = resolved ? state.assets[address]?.variants?.[resolved.variantId] : undefined;
-  if (!resolved || !v) return null;
-  return {
-    variantId: resolved.variantId,
-    ...computeVariantStalenessInternal(state, address, v, currentDefinitionHash, patchHashes, ctx),
-  };
-}
-
 /** Compact one-line stale reason, e.g. `stale (input-stale: a, b; definition-stale)`. */
 // Why the variant is stale, with no "stale" of its own — for a caller whose surrounding context
 // (a section title, a column header) already says it. Empty when neither axis is set.
@@ -798,106 +467,311 @@ export function formatStaleReason(sv: VariantStaleness): string {
   return cause ? `stale (${cause})` : "stale";
 }
 
-interface AcceptedStaleness extends VariantStaleness {
+export interface AcceptedStaleness extends VariantStaleness {
   variantId: string | null;
 }
 
+/** Which axes a staleness question reads beyond inputs and the definition. */
+interface StalenessAxes {
+  // False leaves a patch output's own script out: its refresh is the patch pass's.
+  patch?: boolean;
+}
+
 /**
- * Staleness of the asset's accepted variant. Returns variantId: null (and false
- * flags) when nothing is accepted.
+ * Staleness and resolution over one state, judged under one set of definitions: each address's
+ * definition hash and the patch hashes are read from `definitions`. Without definitions only the
+ * input axis is read and no asset is deterministic.
+ *
+ * The memo is what keeps a pass linear — without it every query re-explores the upstream cone,
+ * exponential on an unaccepted cross-shot chain. It is valid only while `state` is unchanged: make
+ * one per read-only pass and drop it on any write.
  */
-export function computeAcceptedStaleness(
-  state: KonteState,
-  address: string,
-  currentDefinitionHash: string | null,
-  cache?: StalenessCache,
-): AcceptedStaleness {
-  const accepted = acceptedVariant(state, address);
-  if (accepted) {
+export class StalenessView {
+  private readonly memo = new Map<string, ResolveCore>();
+  private readonly definitionHashes = new Map<string, string | null>();
+  private readonly chainInputs = new Map<string, ReadonlySet<string>>();
+
+  constructor(
+    readonly state: KonteState,
+    readonly definitions: ResolutionDefinitions | undefined,
+  ) {}
+
+  private walk(): ResolveContext {
     return {
-      variantId: accepted.variantId,
-      ...computeVariantStaleness(
-        state,
-        address,
-        accepted.variant,
-        currentDefinitionHash,
-        undefined,
-        cache,
-      ),
+      memo: this.memo,
+      visiting: new Set(),
+      sawCutoff: false,
+      definitions: this.definitions,
+      definitionHashes: this.definitionHashes,
+      chainInputs: this.chainInputs,
     };
   }
-  return {
-    variantId: null,
-    inputStale: false,
-    definitionStale: false,
-    patchStale: false,
-    changedInputs: [],
-  };
-}
 
-// Takes a manager rather than bare state so the walk gets its definitions by default — the accepted
-// take's inputs are judged against what each RESOLVES to.
-export function isAcceptedStale(
-  manager: StateManager,
-  address: string,
-  currentDefinitionHash: string | null = null,
-  cache?: StalenessCache,
-): boolean {
-  const s = computeAcceptedStaleness(
-    manager.getState(),
-    address,
-    currentDefinitionHash,
-    cache ?? manager.stalenessCache(),
-  );
-  return s.inputStale || s.definitionStale;
-}
-
-/**
- * Transitive downstream addresses whose accepted variant is now input-stale, or that no take
- * resolves for with an undismissed one input-stale, given the current state. Walks the dependents graph from `address`. Used to
- * surface "what this accept/reject made stale" without storing flags.
- *
- * The dependents graph is keyed by address, so each reached node is a concrete address — no
- * per-profile reconstruction.
- */
-export function collectStaleDependents(
-  state: KonteState,
-  address: string,
-  dependents: ReadonlyMap<string, readonly string[]>,
-  cache?: StalenessCache,
-): string[] {
-  const marked = new Set<string>();
-  const visited = new Set<string>();
-  const ctx = newContext(cache);
-  const queue = [...(dependents.get(address) ?? [])];
-
-  while (queue.length > 0) {
-    const currentAddr = queue.shift() as string;
-    if (visited.has(currentAddr)) continue;
-    visited.add(currentAddr);
-
-    // Read through resolution: the accepted take, else — where no take resolves — any take still
-    // standing for the address.
-    const variants = state.assets[currentAddr]?.variants ?? {};
-    const core = resolveCore(state, currentAddr, ctx);
-    const standing = core.acceptedId
-      ? [variants[core.acceptedId]!]
-      : core.newestFreshId
-        ? []
-        : Object.values(variants).filter((v) => v.file && v.status !== "dismissed");
-    if (
-      standing.some(
-        (v) =>
-          computeVariantStalenessInternal(state, currentAddr, v, null, undefined, ctx).inputStale,
-      )
-    ) {
-      marked.add(currentAddr);
-    }
-
-    for (const next of dependents.get(currentAddr) ?? []) {
-      if (!visited.has(next)) queue.push(next);
-    }
+  /** The current definition hash of `address`, null where the definitions have none to compare. */
+  definitionHash(address: string): string | null {
+    return walkDefinitionHash(address, this.walk());
   }
 
-  return [...marked];
+  get patchHashes(): PatchHashes | undefined {
+    return this.definitions?.patchHashes;
+  }
+
+  isDeterministic(address: string): boolean {
+    return isDeterministicIn(this.walk(), address);
+  }
+
+  /**
+   * The variant an address resolves to: the accepted one if any, otherwise the newest non-stale
+   * variant with a file, newest by `variantsNewestFirst`.
+   *
+   * `includeStale` picks which of the two questions this answers:
+   *
+   * - With it — "what does this address name right now": accepted, else newest non-stale, else the
+   *   newest stale one. This is what every surface a human reads takes — `konte path`, the review
+   *   pages, `probe`, an address passed to `accept`/`patch new`.
+   * - Without it — "what may a spend build on": a stale take answers nothing. This is the
+   *   pipeline's question, asked by the job scheduler and the composition materializer so neither
+   *   builds on material a regeneration is about to replace, and by staleness itself so a recorded
+   *   fingerprint is compared against the take generation would consume now.
+   */
+  resolve(
+    address: string,
+    options?: { includeStale?: boolean; requireAccepted?: boolean },
+  ): { variantId: string; isAccepted: boolean } | null {
+    return selectResolvedVariantInternal(this.state, address, options, this.walk());
+  }
+
+  /**
+   * How `variant` at `address` stands. input-stale: a consumed input's recorded fingerprint no
+   * longer matches the output that input's address resolves to now. definition-stale: the
+   * variant's own definition (definitionHash, or for a patch variant its patch script) differs
+   * from the current one.
+   */
+  staleness(address: string, variant: VariantState, axes?: StalenessAxes): VariantStaleness {
+    const ctx = this.walk();
+    return computeVariantStalenessInternal(
+      this.state,
+      address,
+      variant,
+      walkDefinitionHash(address, ctx),
+      axes?.patch === false ? undefined : this.patchHashes,
+      ctx,
+    );
+  }
+
+  isStale(address: string, variant: VariantState, axes?: StalenessAxes): boolean {
+    const s = this.staleness(address, variant, axes);
+    return s.inputStale || s.definitionStale;
+  }
+
+  /**
+   * `staleness` with the address's definition left unread, against the given patch hashes — for a
+   * patch pass.
+   */
+  stalenessWithoutDefinition(
+    address: string,
+    variant: VariantState,
+    patchHashes: PatchHashes | undefined,
+  ): VariantStaleness {
+    return computeVariantStalenessInternal(
+      this.state,
+      address,
+      variant,
+      null,
+      patchHashes,
+      this.walk(),
+    );
+  }
+
+  /**
+   * `staleness` of a take at a patch chain step, whose definition is the step in its patch script —
+   * which the registered definitions do not carry.
+   */
+  patchStepStaleness(
+    address: string,
+    variant: VariantState,
+    stepDefinitionHash: string,
+  ): VariantStaleness {
+    return computeVariantStalenessInternal(
+      this.state,
+      address,
+      variant,
+      stepDefinitionHash,
+      undefined,
+      this.walk(),
+    );
+  }
+
+  /**
+   * Staleness of the take `address` resolves to on a read surface (`includeStale`), or null when
+   * nothing resolves. A dismissed or superseded take never counts.
+   */
+  resolvedStaleness(address: string): StaleVariant | null {
+    const resolved = this.resolve(address, { includeStale: true });
+    const v = resolved ? this.state.assets[address]?.variants?.[resolved.variantId] : undefined;
+    if (!resolved || !v) return null;
+    return { variantId: resolved.variantId, ...this.staleness(address, v) };
+  }
+
+  /**
+   * Staleness of the asset's accepted variant; variantId null (and false flags) when nothing is
+   * accepted. The patch axis is not read: an accepted correction stands until its re-apply lands.
+   */
+  acceptedStaleness(address: string): AcceptedStaleness {
+    const accepted = acceptedVariant(this.state, address);
+    if (accepted) {
+      return {
+        variantId: accepted.variantId,
+        ...this.staleness(address, accepted.variant, { patch: false }),
+      };
+    }
+    return {
+      variantId: null,
+      inputStale: false,
+      definitionStale: false,
+      patchStale: false,
+      changedInputs: [],
+    };
+  }
+
+  isAcceptedStale(address: string): boolean {
+    const s = this.acceptedStaleness(address);
+    return s.inputStale || s.definitionStale;
+  }
+
+  /**
+   * Whether the take accepted at `address` was drawn from the current definition, or from one that
+   * moved only under its adapter.
+   */
+  acceptedAsDefined(address: string): boolean {
+    const accepted = this.acceptedStaleness(address);
+    if (accepted.variantId === null) return false;
+    if (!accepted.definitionStale) return true;
+    return this.definitions?.adapterDrift?.(this.state, address, accepted.variantId) === true;
+  }
+
+  /**
+   * Every take at `address` awaiting a verdict: undecided (`status === "none"`), holding a file, a
+   * lineage leaf, and non-stale on every axis — newest first, in the order resolution reads them.
+   * These are the candidates a review is deciding among, what an accept dismisses the rest of, and
+   * what `status` counts as review work.
+   */
+  readyUndecided(address: string, exclude?: ReadonlySet<string>): string[] {
+    const variants = this.state.assets[address]?.variants;
+    if (!variants) return [];
+    return variantsNewestFirst(variants)
+      .filter(
+        ([variantId, v]) =>
+          v.file &&
+          v.status === "none" &&
+          !exclude?.has(variantId) &&
+          isReviewLeaf(this.state, address, variantId) &&
+          !this.isStale(address, v),
+      )
+      .map(([variantId]) => variantId);
+  }
+
+  /**
+   * The newest of `readyUndecided` — the way out of a stale take that costs no spend, and what a
+   * reverted edit hands the address back to.
+   */
+  newestReadyUndecided(address: string, exclude?: ReadonlySet<string>): string | null {
+    return this.readyUndecided(address, exclude)[0] ?? null;
+  }
+
+  /**
+   * The newest take awaiting a verdict beside an accepted one, which stays the resolved/shown (and
+   * downstream-consumed) take meanwhile. Null when nothing is accepted or every rival is settled.
+   * The verdict is read from `status` alone (see `VariantStatusSchema`). Behind the preview UI's
+   * `hasUndecidedBesideAccepted`, `status`'s staleAwaitingAccept, and the generate/reroll upstream
+   * warning.
+   */
+  undecidedBesideAccepted(address: string, exclude?: ReadonlySet<string>): string | null {
+    if (acceptedVariant(this.state, address)?.variant.file == null) return null;
+    return this.newestReadyUndecided(address, exclude);
+  }
+
+  /**
+   * The stale takes at `address`, newest first: the accepted one — whose refresh is a `reroll` — or
+   * the undecided ones holding a file, work the next `generate` redoes. A dismissed take is settled
+   * whatever its staleness.
+   */
+  staleVariants(address: string, verdict: "accepted" | "undecided"): StaleVariant[] {
+    const result: StaleVariant[] = [];
+    for (const [variantId, v] of variantsNewestFirst(this.state.assets[address]?.variants ?? {})) {
+      if (verdict === "accepted" ? v.status !== "accepted" : v.status !== "none" || !v.file)
+        continue;
+      const s = this.staleness(address, v);
+      if (s.inputStale || s.definitionStale) result.push({ variantId, ...s });
+    }
+    return result;
+  }
+
+  /**
+   * For each dependency, the upstream whose accepted variant a downstream generate/reroll will
+   * resolve while a ready, non-stale take sits undecided beside it — the silent case where the
+   * downstream builds on the accepted frame after an upstream reroll. A dependency path IS the
+   * upstream address.
+   */
+  undecidedUpstreams(depPaths: readonly string[]): UndecidedUpstreamVariant[] {
+    const result: UndecidedUpstreamVariant[] = [];
+    for (const address of new Set(depPaths)) {
+      const undecidedVariantId = this.undecidedBesideAccepted(address);
+      if (!undecidedVariantId) continue;
+      const acceptedId = acceptedVariantId(this.state, address);
+      if (!acceptedId) continue;
+      result.push({ depPath: address, address, acceptedVariantId: acceptedId, undecidedVariantId });
+    }
+    return result;
+  }
+
+  /**
+   * Transitive downstream addresses whose accepted variant is now input-stale, or that no take
+   * resolves for with an undismissed one input-stale. Walks the dependents graph from `address`.
+   * Used to surface "what this accept/reject made stale" without storing flags.
+   */
+  staleDependents(address: string, dependents: ReadonlyMap<string, readonly string[]>): string[] {
+    const marked = new Set<string>();
+    const visited = new Set<string>();
+    const ctx = this.walk();
+    const queue = [...(dependents.get(address) ?? [])];
+
+    while (queue.length > 0) {
+      const currentAddr = queue.shift() as string;
+      if (visited.has(currentAddr)) continue;
+      visited.add(currentAddr);
+
+      // Read through resolution: the accepted take, else — where no take resolves — any take still
+      // standing for the address.
+      const variants = this.state.assets[currentAddr]?.variants ?? {};
+      const core = resolveCore(this.state, currentAddr, ctx);
+      const standing = core.acceptedId
+        ? [variants[core.acceptedId]!]
+        : core.newestFreshId
+          ? []
+          : Object.values(variants).filter((v) => v.file && v.status !== "dismissed");
+      if (
+        standing.some(
+          (v) =>
+            computeVariantStalenessInternal(this.state, currentAddr, v, null, undefined, ctx)
+              .inputStale,
+        )
+      ) {
+        marked.add(currentAddr);
+      }
+
+      for (const next of dependents.get(currentAddr) ?? []) {
+        if (!visited.has(next)) queue.push(next);
+      }
+    }
+
+    return [...marked];
+  }
+}
+
+export interface UndecidedUpstreamVariant {
+  depPath: string;
+  address: string;
+  acceptedVariantId: string;
+  undecidedVariantId: string;
 }

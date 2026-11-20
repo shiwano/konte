@@ -2,7 +2,6 @@ import { formatAddress, getStage, isStemAddress, shotStemAssetNames } from "./ad
 import {
   boardStemAwaitsVideo,
   commitShotStem,
-  definitionHashForAddress,
   discardPreparedStem,
   leafSettledAcross,
   materializeCompositionVariant,
@@ -37,8 +36,7 @@ export function staleSettledLeaves(
         .filter(
           (address) =>
             leafSettledAcross(manager, stage, counterpart, address) &&
-            materializedLeafReviewStatus(manager, address, definitionHashForAddress(stage, address))
-              .needsReview,
+            materializedLeafReviewStatus(manager, address).needsReview,
         )
         .map((address) => ({ shotId: shot.id, address })),
     );

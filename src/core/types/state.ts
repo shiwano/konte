@@ -151,7 +151,7 @@ const VariantStateSchema = z.object({
   // analysis job records it, and on every other variant.
   song: SongRecordSchema.optional(),
   // When the variant was reserved (ISO 8601). Drives "newest" selection in
-  // `selectResolvedVariant`.
+  // `StalenessView.resolve`.
   createdAt: z.string(),
   // When the variant's file first became available (ISO 8601) — generation/materialization
   // committed an output. Distinct from `createdAt` (reservation, stamped before the file exists),

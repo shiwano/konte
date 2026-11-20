@@ -30,7 +30,7 @@ import { confirmDeletion, formatBreakdown, printAborted, NO_FLAG_DESCRIPTION } f
 import { loadDirectionIfPresent, loadStageDefinitions } from "../../core/stage-definitions.js";
 import { directionPartHashes } from "../../core/direction-hash.js";
 import { applyResolutionDefinitions } from "../../core/definition-hashes.js";
-import type { StalenessCache } from "../../core/staleness.js";
+import type { StalenessView } from "../../core/staleness.js";
 import { getPathSize, removePathSafely } from "./clean-utils.js";
 import {
   collectOrphans,
@@ -111,9 +111,9 @@ function isStale(
   manager: StateManager,
   address: string,
   variantId: string,
-  cache: StalenessCache,
+  view: StalenessView,
 ): boolean | null {
-  const s = manager.variantStaleness(address, variantId, cache);
+  const s = manager.variantStaleness(address, variantId, view);
   return s ? s.inputStale || s.definitionStale : null;
 }
 
@@ -121,13 +121,13 @@ function isStaleBesideCurrentAccept(
   manager: StateManager,
   address: string,
   variantId: string,
-  cache: StalenessCache,
+  view: StalenessView,
 ): boolean {
   const accepted = manager.getAcceptedVariant(address);
   if (!accepted || accepted === variantId) return false;
   return (
-    isStale(manager, address, accepted, cache) === false &&
-    isStale(manager, address, variantId, cache) === true
+    isStale(manager, address, accepted, view) === false &&
+    isStale(manager, address, variantId, view) === true
   );
 }
 
@@ -322,7 +322,7 @@ async function executeClean(videoRoot: string, opts: CleanOptions): Promise<void
   }
 
   // Pass 1: collect candidates
-  const stalenessCache = manager.stalenessCache();
+  const view = manager.stalenessView();
   const firstPlan = planClean({
     state,
     addresses: filteredAddresses,
@@ -330,8 +330,7 @@ async function executeClean(videoRoot: string, opts: CleanOptions): Promise<void
     leaving: leftToOrphans,
     deadLeaves: deadLeafKeys,
     isStaleLeftover: (address, variantId) =>
-      definitionsComplete &&
-      isStaleBesideCurrentAccept(manager, address, variantId, stalenessCache),
+      definitionsComplete && isStaleBesideCurrentAccept(manager, address, variantId, view),
     stepPolicy,
     activeJobVariantIds,
     deleteUndecided: !!opts.deleteUndecided,
@@ -420,7 +419,7 @@ async function executeClean(videoRoot: string, opts: CleanOptions): Promise<void
           animatic,
           complete: false,
         }));
-        const freshCache = mgr.stalenessCache();
+        const freshView = mgr.stalenessView();
         const judgesSteps =
           !opts.deleteUndecided && collected.some((c) => patchSourceVariantIdOf(c.address));
         const plan = planClean({
@@ -431,7 +430,7 @@ async function executeClean(videoRoot: string, opts: CleanOptions): Promise<void
           only: confirmed,
           deadLeaves: deadLeafKeysOf(mgr, [fresh.video, fresh.animatic]),
           isStaleLeftover: (address, variantId) =>
-            fresh.complete && isStaleBesideCurrentAccept(mgr, address, variantId, freshCache),
+            fresh.complete && isStaleBesideCurrentAccept(mgr, address, variantId, freshView),
           stepPolicy: judgesSteps
             ? await loadPatchStepPolicy(videoRoot, mgr, mgr.absentVariantIds())
             : { reusable: new Set(), unloadedSources: "all" },

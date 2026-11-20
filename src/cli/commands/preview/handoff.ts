@@ -21,10 +21,7 @@ import {
   THUMBNAIL_TARGET,
 } from "../../../core/address.js";
 import { thumbnailOf } from "../../../core/graph.js";
-import {
-  definitionHashForAddress,
-  materializedLeafContentHash,
-} from "../../../core/composition-resource.js";
+import { materializedLeafContentHash } from "../../../core/composition-resource.js";
 import { directionPartHashes } from "../../../core/direction-hash.js";
 import type { Direction } from "../../../core/dsl/direction.js";
 import { KonteError } from "../../../core/errors.js";
@@ -35,7 +32,6 @@ import {
   REVIEW_DIR,
   type ReviewRecord,
 } from "../../../core/review-record.js";
-import { isAcceptedStale } from "../../../core/staleness.js";
 import { StateManager } from "../../../core/state/index.js";
 import type { Handoff, HandoffNote } from "../../../core/types/handoff.js";
 import type {
@@ -132,7 +128,7 @@ function leafChangedSinceReview(
   const variants = manager.tryGetAssetState(leafAddress)?.variants ?? {};
   return (
     hasFreshUnreviewedReady(variants, undefined, record.createdAt) ||
-    isAcceptedStale(manager, leafAddress, definitionHashForAddress(stageDef, leafAddress))
+    manager.stalenessView().isAcceptedStale(leafAddress)
   );
 }
 
@@ -190,7 +186,7 @@ export function collectChangedAddresses(
     const reviewedId = reviewedTimeline[assetName];
     const resolved = manager.resolveReference(addr);
     const resolvedChanged = resolved != null && resolved.variantId !== reviewedId;
-    const acceptedStale = isAcceptedStale(manager, addr, definitionHashForAddress(stageDef, addr));
+    const acceptedStale = manager.stalenessView().isAcceptedStale(addr);
     if (
       resolvedChanged ||
       hasFreshUnreviewedReady(variants, reviewedId, record.createdAt) ||
@@ -239,11 +235,7 @@ export function collectChangedAddresses(
       const addr = formatAddress(stage, shot.id, assetName);
       const variants = manager.tryGetAssetState(addr)?.variants;
       if (!variants) continue;
-      const acceptedStale = isAcceptedStale(
-        manager,
-        addr,
-        definitionHashForAddress(stageDef, addr),
-      );
+      const acceptedStale = manager.stalenessView().isAcceptedStale(addr);
       if (
         hasFreshUnreviewedReady(variants, reviewed[assetName], record.createdAt) ||
         acceptedStale
@@ -316,7 +308,7 @@ export function collectChangedReferenceAddresses(
     const reviewedId = reviewed[assetName];
     const resolved = manager.resolveReference(addr);
     const resolvedChanged = resolved != null && resolved.variantId !== reviewedId;
-    const acceptedStale = isAcceptedStale(manager, addr, definitionHashForAddress(reference, addr));
+    const acceptedStale = manager.stalenessView().isAcceptedStale(addr);
     if (
       resolvedChanged ||
       hasFreshUnreviewedReady(variants, reviewedId, record.createdAt) ||

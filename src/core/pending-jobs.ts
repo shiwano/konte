@@ -13,16 +13,14 @@ import { JobIndex, prerequisiteVerdict } from "./job-index.js";
 import { isStrandedSubmit, type JobManager, RUN_LEASE_TTL_MS } from "./job-manager.js";
 import { loadPatchStepDefinition } from "./patch.js";
 import { resolveRefs } from "./ref-resolver.js";
-import type { StalenessCache } from "./staleness.js";
+import type { StalenessView } from "./staleness.js";
 import { type LoadedDefinitions, selectDefinition } from "./select-definition.js";
-import { selectResolvedVariant } from "./staleness.js";
 import { StateManager } from "./state/index.js";
 import { submittingStopped, trackSubmission } from "./submission-drain.js";
 import type {
   AssetDefinition,
   BackendKind,
   GenerationJob,
-  KonteState,
   VideoDefinition,
 } from "./types/index.js";
 import type { VideoRoots } from "./roots.js";
@@ -193,9 +191,11 @@ export async function submitReadyPendingJobs(
  * else holds that line — the acceptance gate only guards the cross-stage edges — so a dependent
  * waits here, pending and unbilled, until its upstream is rebuilt.
  */
-export function assetResolves(state: KonteState, address: string, cache?: StalenessCache): boolean {
-  const selected = selectResolvedVariant(state, address, { includeStale: false }, cache);
-  return selected !== null && state.assets[address]?.variants?.[selected.variantId]?.file != null;
+export function assetResolves(view: StalenessView, address: string): boolean {
+  const selected = view.resolve(address, { includeStale: false });
+  return (
+    selected !== null && view.state.assets[address]?.variants?.[selected.variantId]?.file != null
+  );
 }
 
 // A job's pinned upstream dependencies (address → variant-id), set by
@@ -251,9 +251,8 @@ export type PendingReason = { submittable: true } | { submittable: false; waitin
 // so here a not-ready dependency is always a genuine wait.
 export function describePendingJob(
   job: GenerationJob,
-  state: KonteState,
   jobs: JobIndex,
-  cache?: StalenessCache,
+  view: StalenessView,
 ): PendingReason {
   const waitingOn: string[] = [];
   const pinned = readPinnedDeps(job);
@@ -263,7 +262,7 @@ export function describePendingJob(
   // A pinned dep waits on its own producer instead, reported by the dependsOnJobs pass below.
   for (const depAddress of job.dependsOnAssets) {
     if (pinned[depAddress] !== undefined) continue;
-    if (jobs.hasActiveJobFor(depAddress) || !assetResolves(state, depAddress, cache))
+    if (jobs.hasActiveJobFor(depAddress) || !assetResolves(view, depAddress))
       waitingOn.push(depAddress);
   }
 
@@ -294,7 +293,7 @@ function rerunHint(address: string): string {
 
 function evaluateJob(job: GenerationJob, manager: StateManager, jobs: JobIndex): JobEvaluation {
   const state = manager.getState();
-  const cache = manager.stalenessCache();
+  const view = manager.stalenessView();
   const rerun = rerunHint(job.address);
 
   const prerequisites = prerequisiteVerdict(job.dependsOnJobs, (id) => jobs.get(id));
@@ -340,7 +339,7 @@ function evaluateJob(job: GenerationJob, manager: StateManager, jobs: JobIndex):
     // A job producing this upstream takes precedence over an existing file: wait for the
     // fresh output even when a stale variant already has one (see JobIndex.hasActiveJobFor).
     if (jobs.hasActiveJobFor(depAddress)) return { action: "wait" };
-    if (assetResolves(state, depAddress, cache)) continue;
+    if (assetResolves(view, depAddress)) continue;
     return {
       action: "fail",
       reason: `Dependency ${depAddress} has no ready variant and no active job — it failed or was never generated. Generate it first, then ${rerun}.`,

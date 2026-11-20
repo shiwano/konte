@@ -1,5 +1,4 @@
 import { KonteError } from "../../../core/errors.js";
-import { collectStaleDependents } from "../../../core/staleness.js";
 import { StateManager } from "../../../core/state/index.js";
 import type { buildDependencyGraph } from "../../../core/graph.js";
 import { confirmAction, printAborted } from "../../confirm.js";
@@ -35,14 +34,8 @@ export function staleFrom(
   moved: ReadonlyArray<{ address: string }>,
   dependents: ReturnType<typeof buildDependencyGraph>["dependents"],
 ): string[] {
-  const cache = manager.stalenessCache();
-  return [
-    ...new Set(
-      moved.flatMap(({ address }) =>
-        collectStaleDependents(manager.getState(), address, dependents, cache),
-      ),
-    ),
-  ];
+  const view = manager.stalenessView();
+  return [...new Set(moved.flatMap(({ address }) => view.staleDependents(address, dependents)))];
 }
 
 // The stale addresses a commit produced that the prompt never showed — a concurrent decision landed

@@ -6,7 +6,7 @@ import {
   isStageScope,
 } from "./address.js";
 import { type Finding, findingTraits, groupByFixIn } from "./finding.js";
-import { isVariantStale, type StalenessCache } from "./staleness.js";
+import { StalenessView } from "./staleness.js";
 import { ERROR_GLIMPSE_WIDTH, truncateSingleLine } from "./truncate.js";
 import { STAGE_ENTRY_FILE } from "./roots.js";
 import type { ExportReadiness, LastExport } from "./status-sections.js";
@@ -140,23 +140,15 @@ function suggestPatchScriptEdits(
   }
 }
 
-function hasFreshPending(
-  state: KonteState,
-  address: string,
-  a: AssetState,
-  cache?: StalenessCache,
-): boolean {
+function hasFreshPending(view: StalenessView, address: string, a: AssetState): boolean {
   if (!a.variants) return false;
   const variants = Object.values(a.variants);
   // An accepted asset is settled: its remaining unpicked variants are alternatives,
   // not pending review. Mirror the "Needs review" section (readyCount > 0 && !hasAccepted)
   // so Next steps never nags to re-review a fully-accepted stage.
-  if (acceptedVariantId(state, address) !== null) return false;
+  if (acceptedVariantId(view.state, address) !== null) return false;
   return variants.some(
-    (v: VariantState) =>
-      v.status === "none" &&
-      v.file !== null &&
-      !isVariantStale(state, address, v, null, undefined, cache),
+    (v: VariantState) => v.status === "none" && v.file !== null && !view.isStale(address, v),
   );
 }
 
@@ -250,7 +242,7 @@ function suggestDefinitionRestores(
 // replaces the take. `reroll`/`generate` are gated by the spend gates, a re-review only by a class
 // its compositions carry — a blocked stage drops what would abort.
 //
-// Every address here carries an ACCEPTED stale variant (collectStaleVariants returns no other), and
+// Every address here carries an ACCEPTED stale variant (`staleVariants(address, "accepted")` returns no other), and
 // `generate` skips an accepted asset even when stale (`assetSkipReason`'s "accepted-stale"), so
 // grouping them into one `konte generate <stage>` would name a command that does nothing. A
 // deterministic take is the exception — its accept was konte's own, and `generate` re-bakes it.
@@ -499,10 +491,10 @@ export function formatSuggestedActions(actions: readonly SuggestedAction[]): str
 interface SuggestStatusInput {
   state: KonteState;
   /**
-   * The caller's resolution memo. Without it the state-only fallbacks below read the input axis
+   * The caller's staleness view. Without it the state-only fallbacks below read the input axis
    * alone, and a "needs review" nudge can name a take the review page no longer shows.
    */
-  stalenessCache?: StalenessCache;
+  stalenessView?: StalenessView;
   /**
    * The report's "Needs review" addresses, computed by the caller that has the live definitions (so
    * a composition's definition-staleness is accounted for). Falls back to the state-only
@@ -624,10 +616,11 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
   // Ahead of the review suggestions: what the human already asked for outranks showing them more.
   suggestFeedbackRead(actions, input.feedbackAddresses ?? []);
 
+  const fallbackView = input.stalenessView ?? new StalenessView(state, undefined);
   const pendingAddresses =
     input.pendingReviewAddresses ??
     Object.entries(state.assets)
-      .filter(([addr, a]) => hasFreshPending(state, addr, a, input.stalenessCache))
+      .filter(([addr, a]) => hasFreshPending(fallbackView, addr, a))
       .map(([addr]) => addr);
   for (const scope of distinctScopes(pendingAddresses)) {
     // The edit step for what holds it stands in for a refused review.

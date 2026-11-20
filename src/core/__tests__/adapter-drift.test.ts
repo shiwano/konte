@@ -65,7 +65,7 @@ async function driftOf(made: AssetDefinition, current: AssetDefinition): Promise
 
 async function signsOff(made: AssetDefinition, current: AssetDefinition): Promise<boolean> {
   const { sm } = await acceptUnder(made, current);
-  return sm.acceptedAsDefined(ADDRESS, computeDefinitionHash(current));
+  return sm.acceptedAsDefined(ADDRESS);
 }
 
 describe("adapter drift", () => {

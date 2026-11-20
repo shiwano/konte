@@ -2,7 +2,7 @@ import type { Command } from "commander";
 import { liveGenerationVariantIds } from "../../../core/generation-selection.js";
 import { JobManager } from "../../../core/job-manager.js";
 import { findPendingPatches, loadPatchCatalog, patchHashesOf } from "../../../core/patch.js";
-import { isVariantStale, variantsNewestFirst } from "../../../core/staleness.js";
+import { variantsNewestFirst } from "../../../core/staleness.js";
 import { StateManager } from "../../../core/state/index.js";
 import { requireVideoRoots } from "../../context.js";
 import {
@@ -54,14 +54,14 @@ Examples:
       const patchHashes = patchHashesOf(catalog);
       // The per-row "current" count takes the same memo, or the two columns disagree about a patch.
       await applyResolutionDefinitions({ videoRoot, patchHashes });
-      const cache = manager.stalenessCache();
+      const view = manager.stalenessView();
       const jobs = await new JobManager(videoRoot).listJobs();
       const pending = new Set(
         findPendingPatches(
           state,
           catalog,
           await liveGenerationVariantIds(videoRoot, jobs, state),
-          manager.stalenessCache(),
+          view,
         ).map((p) => p.sourceVariantId),
       );
 
@@ -73,9 +73,9 @@ Examples:
           .map(([id]) => id);
         const current = outputs.filter((id) => {
           const v = variants[id];
-          return (
-            v?.file && !isVariantStale(state, patch.sourceAddress, v, null, patchHashes, cache)
-          );
+          if (!v?.file) return false;
+          const staleness = view.stalenessWithoutDefinition(patch.sourceAddress, v, patchHashes);
+          return !staleness.inputStale && !staleness.definitionStale;
         });
         rows.push({
           source: patch.sourceVariantId,

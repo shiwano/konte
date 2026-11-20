@@ -8,6 +8,7 @@ import {
 } from "../../core/address.js";
 import { assertNever } from "../../core/assert.js";
 import { loadCheckContext } from "../../core/check-context.js";
+import { applyResolutionDefinitions } from "../../core/definition-hashes.js";
 import { directionCheckOf } from "../../core/checks.js";
 import {
   classifyDirectionFinding,
@@ -61,8 +62,23 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
 
   const manager = await StateManager.load(videoRoot);
   const acceptance = manager.getDirectionAcceptance();
+  const { reference, animatic, video } = await applyResolutionDefinitions({
+    videoRoot,
+    state: manager.getState(),
+  });
   const check = directionCheckOf(
-    await loadCheckContext({ cueTakes: "played", videoRoot, direction, manager, graph: null }),
+    await loadCheckContext({
+      cueTakes: "played",
+      videoRoot,
+      definitions: {
+        reference: reference ?? null,
+        animatic: animatic ?? null,
+        video: video ?? null,
+      },
+      direction,
+      manager,
+      graph: null,
+    }),
   )!;
   const view = directionAcceptanceView(direction, acceptance, check.waiverCoverage);
   const contents = directionPartContents(direction);

@@ -1,5 +1,4 @@
 import { KonteError } from "./errors.js";
-import { selectResolvedVariant } from "./staleness.js";
 import type { StateManager } from "./state/index.js";
 
 export function resolveRefs(
@@ -9,17 +8,12 @@ export function resolveRefs(
 ): Record<string, string> {
   const resolved: Record<string, string> = {};
   const state = manager.getState();
-  // The manager's cache, so a spend resolves its inputs by the definitions the command registered.
-  const cache = manager.stalenessCache();
+  // The manager's view, so a spend resolves its inputs by the definitions the command registered.
+  const view = manager.stalenessView();
 
   // A dependency path IS its upstream address, so it resolves directly.
   for (const depPath of addresses) {
-    const selected = selectResolvedVariant(
-      state,
-      depPath,
-      { requireAccepted: options.strict },
-      cache,
-    );
+    const selected = view.resolve(depPath, { requireAccepted: options.strict });
     const file = selected ? state.assets[depPath]?.variants?.[selected.variantId]?.file : undefined;
     if (file) {
       resolved[depPath] = file;

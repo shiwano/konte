@@ -12,11 +12,7 @@ import {
   type Stage,
 } from "../address.js";
 import { shortId } from "../short-id.js";
-import {
-  computeVariantStaleness,
-  selectResolvedVariant,
-  type StalenessCache,
-} from "../staleness.js";
+import { StalenessView } from "../staleness.js";
 import type { FeedbackEntry, KonteState } from "../types/index.js";
 
 export function generateFeedbackId(): string {
@@ -47,9 +43,9 @@ export interface FeedbackStaleContext {
   // provided, an address missing from it means the leaf left the definition (its shotFn or audio
   // was removed), which — like a vanished direction part — makes the comment stale.
   definitionHashes?: ReadonlyMap<string, string>;
-  // The caller's resolution memo, carrying the definitions its own surface resolved by. Omit it and
+  // The caller's staleness view, carrying the definitions its own surface resolved by. Omit it and
   // a media comment's subject is compared against a take the reviewer was not necessarily shown.
-  cache?: StalenessCache;
+  view?: StalenessView;
   // When each of a stage's reviews was submitted (`reviewTimes`). Omit it and an overall comment,
   // or one its own review accepted over, is left unevaluated.
   reviewTimes?: ReadonlyMap<Stage, readonly string[]>;
@@ -128,11 +124,12 @@ export function feedbackStaleness(
     }
     if (ctx.definitionHashes.get(addr) !== snapshotHash) return "stale";
   }
+  const view = ctx.view ?? new StalenessView(state, undefined);
   for (const [addr, snapshotVariantId] of Object.entries(entry.displayedVariants ?? {})) {
     // `includeStale` is what the review surfaces pass, so this asks about the take actually on
     // screen. Without it an all-stale address resolves to null and the comment would read fresh
     // while the reviewer is looking at the very frame its subject moved under.
-    const resolved = selectResolvedVariant(state, addr, { includeStale: true }, ctx.cache);
+    const resolved = view.resolve(addr, { includeStale: true });
     if (resolved === null) continue;
     if (resolved.variantId !== snapshotVariantId) return "stale";
     // Resolved still matches the snapshot, but a displayed variant can be stale — an accepted one
@@ -143,18 +140,10 @@ export function feedbackStaleness(
       // The take recorded a definition to be measured against and the caller registered none to
       // measure it with, so that axis is unread rather than clean — the same hole as the two above,
       // kept out today by nothing but every caller happening to register definitions first.
-      if (variant.definitionHash !== null && ctx.cache?.definitions === undefined) {
+      if (variant.definitionHash !== null && view.definitions === undefined) {
         unevaluated = true;
       }
-      const s = computeVariantStaleness(
-        state,
-        addr,
-        variant,
-        ctx.cache?.definitions?.definitionHash(addr) ?? null,
-        ctx.cache?.definitions?.patchHashes,
-        ctx.cache,
-      );
-      if (s.inputStale || s.definitionStale) return "stale";
+      if (view.isStale(addr, variant)) return "stale";
     }
   }
   return unevaluated ? "unknown" : "fresh";
