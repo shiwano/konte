@@ -53,11 +53,7 @@ import {
   listRemovedShotStemAddresses,
 } from "./composition-resource.js";
 import { computeDefinitionHash } from "./definition-hash.js";
-import {
-  applyResolutionDefinitions,
-  definitionDriftFields,
-  isDeterministicAddress,
-} from "./definition-hashes.js";
+import { applyResolutionDefinitions, definitionDriftFields } from "./definition-hashes.js";
 import { deliveryUpscalerMissing } from "./delivery.js";
 import {
   type DirectionAcceptanceSummary,
@@ -101,6 +97,7 @@ import {
   spendHeldError,
 } from "./spend-gate.js";
 import { loadStageDefinitions, loadDirectionIfPresent } from "./stage-definitions.js";
+import { rebakesOverAccept } from "./staleness.js";
 import { StateManager } from "./state/index.js";
 import {
   type AddressInfo,
@@ -360,13 +357,11 @@ async function buildStatusReport(
     referenceDef ? listExposedReferenceAddresses(referenceDef) : [],
   );
 
-  const deterministicAddresses = new Set<string>();
   const infos: AddressInfo[] = addresses.map((addr) => {
     let assetKind: AddressInfo["assetKind"] = null;
     let definitionHash: string | null = null;
     let missingFilePath: string | null = null;
     let leafReady = false;
-    let deterministic = false;
     const def = getDefinition(addr);
     // An asset the stage declared without returning it is an intermediate: it is generated and
     // tracked, but no review surface lists it and no accept is owed on it (see
@@ -437,7 +432,6 @@ async function buildStatusReport(
           if (!onDisk) missingFilePath = entry.path;
         } else {
           definitionHash = computeDefinitionHash(entry);
-          deterministic = entry.deterministic === true;
         }
       } catch {
         // definition not found for this address
@@ -454,7 +448,6 @@ async function buildStatusReport(
       !isDeliveryAddress(addr) &&
       !decidable.has(addr);
 
-    if (deterministic) deterministicAddresses.add(addr);
     const info = buildAddressInfo(
       addr,
       state,
@@ -469,7 +462,6 @@ async function buildStatusReport(
       stalenessCache,
       reviewTarget,
       reviewUnreachable,
-      deterministic,
     );
     if (settledAcross) info.staleAcceptStands = info.staleVariants.length > 0;
     return info;
@@ -484,7 +476,7 @@ async function buildStatusReport(
       if (!info) return null;
       if (!info.hasAccepted) return "open";
       const accepted = acceptedVariant(state, address)?.variant;
-      return deterministicAddresses.has(address) && accepted?.derivedFrom == null
+      return accepted && rebakesOverAccept(accepted, manager.registeredDeterministic(address))
         ? "rebakes"
         : "holds";
     };
@@ -1020,8 +1012,7 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
     const accepted = acceptedVariant(state, address);
     return (
       accepted !== null &&
-      accepted.variant.derivedFrom == null &&
-      isDeterministicAddress({ reference, animatic, video }, address)
+      rebakesOverAccept(accepted.variant, manager.registeredDeterministic(address))
     );
   };
   const staleAddresses: string[] = [];

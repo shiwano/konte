@@ -9,7 +9,7 @@ import {
   detectOrphans,
 } from "../status-sections.js";
 import { JobIndex } from "../job-index.js";
-import { selectResolvedVariant } from "../staleness.js";
+import { createStalenessCache, selectResolvedVariant } from "../staleness.js";
 import type { JobRecord, KonteState } from "../types/index.js";
 
 function makeState(assets: KonteState["assets"]): KonteState {
@@ -1896,12 +1896,44 @@ describe("an accepted take whose upstream alone changed", () => {
         false,
         null,
         undefined,
-        undefined,
+        createStalenessCache({ definitionHash: () => null, isDeterministic: () => deterministic }),
         true,
         false,
-        deterministic,
       );
     expect(build(false).staleAcceptStands).toBe(true);
     expect(build(true).staleAcceptStands).toBe(false);
+  });
+
+  it("leaves a stale #delivery out of Stale: its refresh is the next export", () => {
+    const source = "video:shot.01.motion";
+    const delivery = `${source}#delivery`;
+    const take = (file: string, outputHash: string, inputFingerprints: Record<string, string>) => ({
+      status: "accepted" as const,
+      outputHash,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      inputFingerprints,
+      file,
+      definitionHash: null,
+      metadata: {},
+    });
+    const state = makeState({
+      [source]: { variants: { "v-src": take("a.mp4", "new", {}) } },
+      [delivery]: { variants: { "v-up": take("b.mp4", "upscaled", { [source]: "old" }) } },
+    });
+    const info = buildAddressInfo(
+      delivery,
+      state,
+      new Map(),
+      null,
+      null,
+      new JobIndex([]),
+      undefined,
+      false,
+      null,
+      undefined,
+      createStalenessCache({ definitionHash: () => null, isDeterministic: () => true }),
+    );
+    expect(info.staleVariants).not.toEqual([]);
+    expect(computeStatusSections([info]).find((s) => s.title === "Stale")).toBeUndefined();
   });
 });

@@ -143,6 +143,14 @@ export interface ResolutionDefinitions {
   adapterDrift?: (state: KonteState, address: string, variantId: string) => boolean;
 }
 
+/** Whether `generate` re-bakes an accepted `variant`: an unpatched take of a deterministic asset. */
+export function rebakesOverAccept(
+  variant: Pick<VariantState, "derivedFrom">,
+  deterministic: boolean,
+): boolean {
+  return variant.derivedFrom == null && deterministic;
+}
+
 // A patch variant's own definition is its patch script, so editing that script ages out the take
 // it produced — exactly as editing animatic.tsx ages out a generated one. Its `definitionHash`
 // meanwhile is inherited from its source, so the address-level axis still stales the whole lineage
@@ -180,6 +188,10 @@ export function computeVariantStaleness(
   );
 }
 
+function isDeterministicIn(ctx: ResolveContext, address: string): boolean {
+  return ctx.definitions?.isDeterministic(address) === true;
+}
+
 // The source of a patch output while its accept stands; the output's inherited axes are its.
 function standingAcceptedSource(
   state: KonteState,
@@ -190,7 +202,7 @@ function standingAcceptedSource(
   if (variant.derivedFrom == null) return null;
   const source = state.assets[address]?.variants?.[variant.derivedFrom];
   if (source?.status !== "accepted" || !source.file) return null;
-  if (source.derivedFrom == null && ctx.definitions?.isDeterministic(address) === true) return null;
+  if (rebakesOverAccept(source, isDeterministicIn(ctx, address))) return null;
   return source;
 }
 
@@ -407,10 +419,7 @@ function resolveCore(state: KonteState, address: string, ctx: ResolveContext): R
 
   const found = acceptedVariant(state, address);
   const accepted = found?.variant.file != null ? found : null;
-  if (
-    accepted &&
-    !(accepted.variant.derivedFrom == null && ctx.definitions?.isDeterministic(address) === true)
-  ) {
+  if (accepted && !rebakesOverAccept(accepted.variant, isDeterministicIn(ctx, address))) {
     const result: ResolveCore = {
       acceptedId: accepted.variantId,
       newestFreshId: null,
@@ -518,9 +527,8 @@ function selectResolvedVariantInternal(
     if (!variants) return null;
     for (const [variantId, v] of Object.entries(variants)) {
       if (v.status !== "accepted" || v.file === null) continue;
-      const rebakes = v.derivedFrom == null && ctx.definitions?.isDeterministic(address) === true;
       if (
-        rebakes &&
+        rebakesOverAccept(v, isDeterministicIn(ctx, address)) &&
         isVariantStaleInternal(state, address, v, walkDefinitionHash(address, ctx), undefined, ctx)
       )
         return null;

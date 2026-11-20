@@ -3,7 +3,7 @@ import { type AssetStage, type DefinitionLike, getAssetEntry, listAddresses } fr
 import { computeDefinitionHash } from "./definition-hash.js";
 import { type DependencyGraph, listUnusedAddresses } from "./graph.js";
 import { type LoadedDefinitions, selectDefinition } from "./select-definition.js";
-import { computeVariantStaleness, isVariantStale } from "./staleness.js";
+import { computeVariantStaleness, isVariantStale, rebakesOverAccept } from "./staleness.js";
 import { isJobTerminal } from "./job-manager.js";
 import { StateManager } from "./state/index.js";
 import type { GenerationJob, JobRecord, KonteState } from "./types/index.js";
@@ -30,7 +30,6 @@ export function assetSkipReason(
   liveJobs: ReadonlySet<string>,
   address: string,
   currentDefinitionHash: string,
-  deterministic = false,
   inputRebuilt = false,
 ): SkipReason | null {
   if (inFlightVariantIds(manager.getState(), address, liveJobs).length > 0) return "active";
@@ -57,7 +56,7 @@ export function assetSkipReason(
     // A patch output sits at the SOURCE address, whose own asset may be deterministic. Its refresh
     // is re-applying the correction (this run's own patch pass), so generating here would spend on a fresh original
     // and orphan the very take the patch names.
-    if (accepted.derivedFrom != null || !deterministic) {
+    if (!rebakesOverAccept(accepted, manager.registeredDeterministic(address))) {
       return staleness.definitionStale ? "accepted-stale" : "accepted";
     }
   }
@@ -163,7 +162,6 @@ export function listSpendingAssets(
       liveJobs,
       address,
       computeDefinitionHash(asset),
-      asset.deterministic === true,
       (graph?.dependencies.get(address) ?? []).some((d) => spending.has(d)),
     );
     if (!skip) spending.add(address);

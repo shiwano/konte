@@ -768,7 +768,6 @@ export function buildGeneratePlan(params: {
           liveJobs,
           address,
           computeDefinitionHash(assetDef),
-          assetDef.deterministic === true,
           deps.some((d) => notYetBuilt.has(d)),
         );
         if (skip) {

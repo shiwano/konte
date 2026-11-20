@@ -21,7 +21,7 @@ import type { JobManager } from "./job-manager.js";
 import { variantOwningFile } from "./variant-dir.js";
 import { inferMediaType } from "./media-type.js";
 import { findAllUnmetPrerequisites } from "./review-prerequisites.js";
-import { isAcceptedStale } from "./staleness.js";
+import { isAcceptedStale, rebakesOverAccept } from "./staleness.js";
 import type { StateManager } from "./state/index.js";
 import type { StageDefinition } from "./types/index.js";
 import type { AnimaticDefinition } from "./types/animatic.js";
@@ -287,7 +287,7 @@ export function holdsHumanVerdict(manager: StateManager, address: string): boole
   if (variantId === null) return false;
   const variant = manager.tryGetAssetState(address)?.variants?.[variantId];
   if (!variant?.file) return false;
-  return variant.derivedFrom != null || !manager.registeredDeterministic(address);
+  return !rebakesOverAccept(variant, manager.registeredDeterministic(address));
 }
 
 /**

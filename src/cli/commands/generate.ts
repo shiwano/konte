@@ -380,14 +380,7 @@ export function registerGenerateCommand(program: Command): void {
           const inputRebuilt = deps.some((d) => rebuiltAddresses.has(d));
           // Readiness first, then the gate — see buildGeneratePlan for why that order.
           const skip: SkipJudge = (m, live, a) =>
-            assetSkipReason(
-              m,
-              live,
-              a,
-              definitionHash,
-              assetDef.deterministic === true,
-              inputRebuilt,
-            );
+            assetSkipReason(m, live, a, definitionHash, inputRebuilt);
           const skipReason = skip(manager, liveJobs, address);
           if (skipReason) {
             assetResults.push({ address, status: "skipped", skipReason, jobs: [] });

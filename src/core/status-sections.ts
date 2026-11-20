@@ -2,6 +2,7 @@ import { acceptedVariantId } from "./accepted-variant.js";
 import {
   type Stage,
   formatAddressSuffix,
+  isDeliveryAddress,
   isPatchAddress,
   isPlateAddress,
   parseAddress,
@@ -18,6 +19,7 @@ import {
   formatStaleCause,
   formatStaleReason,
   isVariantStale,
+  rebakesOverAccept,
   undecidedVariantBesideAccepted,
   variantsNewestFirst,
 } from "./staleness.js";
@@ -348,8 +350,6 @@ export function buildAddressInfo(
   // See AddressInfo.reviewUnreachable. The caller decides it; false leaves the address on the
   // ordinary review path.
   reviewUnreachable = false,
-  // Whether the address's asset is deterministic — its stale accept is re-baked, never kept.
-  deterministic = false,
 ): AddressInfo {
   const target = state.assets[address];
   const variants = Object.entries(target?.variants ?? {});
@@ -472,6 +472,7 @@ export function buildAddressInfo(
   const dismissedCount = variants.filter(
     ([variantId, v]) => v.status === "dismissed" && !deadVariantIds.has(variantId),
   ).length;
+  const deterministic = stalenessCache?.definitions?.isDeterministic(address) === true;
   const staleAcceptStands =
     assetKind !== "composition" &&
     assetKind !== "stem" &&
@@ -482,7 +483,7 @@ export function buildAddressInfo(
       (sv) =>
         sv.inputStale &&
         !sv.definitionStale &&
-        (!deterministic || target?.variants?.[sv.variantId]?.derivedFrom != null),
+        !rebakesOverAccept(target?.variants?.[sv.variantId] ?? {}, deterministic),
     );
 
   return {
@@ -790,6 +791,7 @@ export function computeStatusSections(
       info.assetKind === "animatic" ||
       info.assetKind === "overlay" ||
       info.assetKind === "thumbnail" ||
+      isDeliveryAddress(info.address) ||
       info.staleAcceptStands
     ) {
       continue;

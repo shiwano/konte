@@ -82,13 +82,13 @@ describe("assetSkipReason", () => {
 
   it("generates a ready variant whose upstream the same run rebuilds", async () => {
     const { manager } = await withReadyVariant();
-    expect(assetSkipReason(manager, NO_JOBS, address, HASH, false, true)).toBeNull();
+    expect(assetSkipReason(manager, NO_JOBS, address, HASH, true)).toBeNull();
   });
 
   it("keeps an accepted variant whose upstream the same run rebuilds", async () => {
     const { manager, vid } = await withReadyVariant();
     manager.setAccepted(address, vid);
-    expect(assetSkipReason(manager, NO_JOBS, address, HASH, false, true)).toBe("accepted");
+    expect(assetSkipReason(manager, NO_JOBS, address, HASH, true)).toBe("accepted");
   });
 
   it("generates when the only ready variant was dismissed", async () => {
