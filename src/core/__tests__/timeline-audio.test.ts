@@ -8,6 +8,8 @@ vi.mock("../video-probe.js", () => ({
 import {
   bedPasses,
   buildTimelineTracks,
+  cueDuration,
+  placeTimelineAudio,
   type RawShotAudio,
   resolveSoundtrackSpan,
   type ResolvedSoundtrack,
@@ -363,5 +365,77 @@ describe("resolveSoundtrackSpan", () => {
       start: 0,
       end: 3, // offset(01)=0 + duration(01)=3
     });
+  });
+});
+
+describe("buildTimelineTracks — an empty bed span", () => {
+  it("leaves the bed's source unprobed", async () => {
+    vi.mocked(probeMediaDuration).mockClear();
+    const tracks = await buildTimelineTracks({
+      shotOrder: order,
+      actualDurations: durations,
+      audioByShot: new Map(),
+      soundtracks: [
+        {
+          id: "bgm",
+          file: "/bgm.mp3",
+          mediaStart: 0,
+          volume: 1,
+          duck: false,
+          from: { shot: "02" },
+          until: { shot: "02", at: 0 },
+        },
+      ],
+    });
+    expect(tracks).toEqual([]);
+    expect(probeMediaDuration).not.toHaveBeenCalled();
+  });
+});
+
+describe("placeTimelineAudio", () => {
+  const shots = order.map((shotId) => ({ shotId, duration: durations.get(shotId)! }));
+  const source = { durationSec: 12, hasAudio: true, loudness: undefined };
+
+  it("keeps an embedded clip with no audio stream unmuxed and out of the duck", () => {
+    const placed = placeTimelineAudio({
+      shots,
+      cues: [
+        {
+          shotId: "01",
+          cue: cue({ role: "embedded", file: "/silent.mp4", kind: "voice" }),
+          source: { ...source, hasAudio: false },
+        },
+      ],
+      beds: [],
+    });
+    expect(placed.cues[0]).toMatchObject({ start: 0, duration: 3, muxed: false, trigger: null });
+  });
+
+  it("drops a bed whose span is empty", () => {
+    const bed = { id: "bgm", file: "/bgm.mp3", mediaStart: 0, volume: 1, duck: false as const };
+    const placed = placeTimelineAudio({
+      shots,
+      cues: [],
+      beds: [
+        { bed: { ...bed, from: { shot: "02" }, until: { shot: "02", at: 0 } }, sourceSec: 30 },
+      ],
+    });
+    expect(placed.beds).toEqual([]);
+  });
+});
+
+describe("cueDuration", () => {
+  it("ends an embedded clip at its shot's cut whatever its source length", () => {
+    expect(cueDuration(cue({ role: "embedded", file: "/c.mp4", localStart: 1 }), 3, 10)).toBe(2);
+  });
+
+  it("is unknown for an open-ended sound whose source is unmeasured", () => {
+    expect(cueDuration(cue({ role: "sound", file: "/a.mp3" }), 3, null)).toBeNull();
+  });
+
+  it("plays an open-ended sound out from mediaStart at its rate", () => {
+    expect(cueDuration(cue({ role: "sound", file: "/a.mp3", mediaStart: 2, rate: 2 }), 3, 10)).toBe(
+      4,
+    );
   });
 });

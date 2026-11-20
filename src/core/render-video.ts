@@ -18,7 +18,11 @@ import { injectBaseTimeline } from "./composition-builder.js";
 import { overlayLineTimings } from "./line-timing.js";
 import { injectOverlay, overlayShotStarts, renderOverlayBody } from "./overlay-render.js";
 import type { LineTiming } from "./subtitle-timing.js";
-import { resolveCompositionRef, substituteAssetPlaceholders } from "./composition-refs.js";
+import {
+  resolveCompositionRef,
+  resolvePlaceholderSrc,
+  substituteAssetPlaceholders,
+} from "./composition-refs.js";
 import { planShotById } from "./shot-index.js";
 import { assertTailwindClasses } from "./tailwind-classes.js";
 import { compositionCacheKey } from "./composition-resource.js";
@@ -30,12 +34,7 @@ import {
   getDeliverySize,
   getDeliveryUpscaleFn,
 } from "./delivery.js";
-import {
-  parsePlaceholder,
-  runInRenderMode,
-  runTimelineInRenderMode,
-  type ShotFunction,
-} from "./dsl/shot-context.js";
+import { runInRenderMode, runTimelineInRenderMode, type ShotFunction } from "./dsl/shot-context.js";
 import { KonteError, errorMessage } from "./errors.js";
 import { STAGE_ENTRY_FILE } from "./roots.js";
 import { syncFileAssets } from "./file-sync.js";
@@ -54,13 +53,13 @@ import {
 } from "./render-plan.js";
 import { mapConcurrent } from "./concurrency.js";
 import { Semaphore } from "./semaphore.js";
-import { clampEffectiveGain, cueKindsBySrc } from "./audio-level.js";
+import { cueKindsBySrc } from "./audio-level.js";
 import { StateManager } from "./state/index.js";
 import {
   buildTimelineTracks,
   collectShotAudioCues,
   type RawShotAudio,
-  type ResolvedSoundtrack,
+  resolveSoundtracks,
 } from "./timeline-audio.js";
 import type { SoundtrackEntry } from "./dsl/builders.js";
 import {
@@ -301,12 +300,8 @@ async function renderVideoFile(opts: {
   // bed, the song bed, an `<Audio src={reference.sfx}>` cue pulled in by closure, or a
   // `<Video src={shot(…).x} hasAudio>` stem. Only a shot's own assets are resolved by the render pass; resolve the rest
   // from state here. A src that is not a placeholder (a real file path) is returned untouched.
-  const resolveAssetSrc = (src: string): string => {
-    const address = parsePlaceholder(src);
-    if (address === null) return src;
-    const resolved = resolveCompositionRef(manager, address);
-    return resolved?.file ?? src;
-  };
+  const resolveAssetSrc = (src: string): string =>
+    resolvePlaceholderSrc(src, (address) => resolveCompositionRef(manager, address)?.file);
 
   // Snapshot each shot's resolved files BEFORE any per-layer delivery substitution so timeline
   // audio (esp. <Video hasAudio>) is read from the original sources — audio never needs upscaling.
@@ -659,19 +654,7 @@ async function applyTimelineAudio(opts: {
   // asset (`reference.bgm`) it is still a `__konte:reference:…__` placeholder here, so resolve it to
   // its on-disk file before the mux; from/until anchors resolve to absolute time in
   // buildTimelineTracks against the ffprobed shot durations.
-  const resolvedSoundtracks: ResolvedSoundtrack[] = soundtracks.map((st) => ({
-    id: st.id,
-    file: resolveAssetSrc(st.src.src),
-    from: st.options.from,
-    until: st.options.until,
-    mediaStart: st.options.mediaStart ?? 0,
-    volume: clampEffectiveGain((st.options.volume ?? 1) * (plan.bedLevels[st.id]?.gain ?? 1)),
-    ...(plan.bedLevels[st.id]?.loudness ? { loudness: plan.bedLevels[st.id]!.loudness } : {}),
-    fadeIn: st.options.fadeIn,
-    fadeOut: st.options.fadeOut,
-    loop: st.options.loop,
-    duck: st.options.duck,
-  }));
+  const resolvedSoundtracks = resolveSoundtracks(soundtracks, plan.bedLevels, resolveAssetSrc);
 
   const audioByShot = new Map<string, RawShotAudio[]>();
   for (const shotPlan of plan.shots) {

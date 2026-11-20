@@ -1,13 +1,15 @@
 import type { ShotStage } from "./address.js";
 import { runInRenderMode } from "./dsl/shot-context.js";
 import type { AudioLevelling, CueKind, ShotCueLevels } from "./audio-level.js";
-import { cueBySrc, isVoiceKind, loudnessOf } from "./audio-level.js";
+import { clampEffectiveGain, cueBySrc, isVoiceKind, loudnessOf } from "./audio-level.js";
+import type { SoundtrackEntry } from "./dsl/builders.js";
 import {
   buildDuckEnvelope,
   duckSettings,
   narrationDuck,
   voiceTriggerSpan,
   type Duck,
+  type DuckStep,
   type Span,
 } from "./audio-duck.js";
 import type { AudioLoudness } from "./audio-loudness.js";
@@ -60,6 +62,8 @@ export interface ResolvedSoundtrack {
   fadeOut?: number;
   loop?: boolean;
   duck: Duck;
+  // The stage's song bed (`mixedSoundtracks`).
+  song?: true;
 }
 
 function toNum(value: unknown): number | null {
@@ -76,8 +80,8 @@ function toNum(value: unknown): number | null {
  * paths so every `src` is the on-disk source the mux reads — no HTTP/relative mapping. Audio is
  * never baked into the shot composite; it is reconstructed from these placements at final mux.
  *
- * The one reader of a rendered shot's cues: the mux and the probe share it so they cannot disagree
- * about what is in the mix or what ducks a bed.
+ * The one reader of a rendered shot's cues: the mux and the probe read it, then place what it
+ * returns with `placeTimelineAudio`.
  */
 export function collectShotAudioCues(opts: {
   stage: ShotStage;
@@ -216,11 +220,178 @@ export function bedPasses(opts: {
   return passes;
 }
 
-// Resolve audio into absolute-timeline mux tracks. Offsets accumulate from the ACTUAL rendered
-// shot durations (ffprobed), so placement is sample-accurate even when a shot renders a frame or
-// two off its nominal length. Per-shot `<Audio>` and embedded clips become one independent
-// play-once track each; timeline `soundtracks` (beds) resolve to one span each (looping to fill if
-// the source is shorter than the span), and may overlap.
+// What the placement reads off a cue's source take.
+export interface CueSource {
+  // Null when unmeasured; read only for an open-ended `<Audio>`.
+  durationSec: number | null;
+  // Read only for an embedded clip.
+  hasAudio: boolean;
+  loudness: AudioLoudness | undefined;
+}
+
+export interface PlacedCue<C extends RawShotAudio> {
+  cue: C;
+  shotId: string;
+  start: number;
+  duration: number | null;
+  // False for an embedded clip with no audio stream: the mux drops it.
+  muxed: boolean;
+  // Where a line sounds — what a ducking bed yields to; null for a cue that is not a line.
+  trigger: Span | null;
+  // The dips an embedded clip's own track takes under the narration over it.
+  duck: { steps: DuckStep[]; depth: number } | null;
+}
+
+export interface PlacedBed<B extends ResolvedSoundtrack> {
+  bed: B;
+  start: number;
+  end: number;
+  duration: number;
+  loop: boolean;
+  duck: { steps: DuckStep[]; depth: number } | null;
+}
+
+// A cue's played length on the timeline.
+export function cueDuration(
+  cue: Pick<RawShotAudio, "role" | "localStart" | "localEnd" | "mediaStart" | "rate">,
+  shotDuration: number,
+  sourceSec: number | null,
+): number | null {
+  if (cue.role === "embedded") {
+    const end = cue.localEnd != null ? Math.min(cue.localEnd, shotDuration) : shotDuration;
+    return Math.max(0, end - cue.localStart);
+  }
+  if (cue.localEnd != null) return Math.max(0, cue.localEnd - cue.localStart);
+  return sourceSec != null ? Math.max(0, sourceSec - cue.mediaStart) / cue.rate : null;
+}
+
+// The span a voice cue ducks a bed over, null for a cue that is not a line or does not sound.
+export function cueTrigger(
+  cue: Pick<RawShotAudio, "role" | "kind" | "mediaStart" | "rate">,
+  start: number,
+  duration: number | null,
+  source: Pick<CueSource, "hasAudio" | "loudness">,
+): Span | null {
+  if (!isVoiceKind(cue.kind) || duration == null || duration <= 0) return null;
+  if (cue.role === "embedded" && !source.hasAudio) return null;
+  return voiceTriggerSpan({
+    start,
+    end: start + duration,
+    mediaStart: cue.mediaStart,
+    rate: cue.rate,
+    leadInSec: source.loudness?.leadInSec,
+    soundEndSec: source.loudness?.soundEndSec,
+  });
+}
+
+function layOutShots(shots: ReadonlyArray<{ shotId: string; duration: number }>): {
+  offsets: Map<string, number>;
+  durations: Map<string, number>;
+  totalDuration: number;
+} {
+  const offsets = new Map<string, number>();
+  const durations = new Map<string, number>();
+  let acc = 0;
+  for (const { shotId, duration } of shots) {
+    offsets.set(shotId, acc);
+    durations.set(shotId, duration);
+    acc += duration;
+  }
+  return { offsets, durations, totalDuration: acc };
+}
+
+// Every cue and bed placed on the timeline the shots' durations lay out: the one placement the mux
+// plays and the probe reports.
+export function placeTimelineAudio<C extends RawShotAudio, B extends ResolvedSoundtrack>(opts: {
+  shots: ReadonlyArray<{ shotId: string; duration: number }>;
+  cues: ReadonlyArray<{ shotId: string; cue: C; source: CueSource }>;
+  beds: ReadonlyArray<{ bed: B; sourceSec: number | null }>;
+}): {
+  offsets: Map<string, number>;
+  durations: Map<string, number>;
+  totalDuration: number;
+  cues: PlacedCue<C>[];
+  beds: PlacedBed<B>[];
+} {
+  const { offsets, durations, totalDuration } = layOutShots(opts.shots);
+
+  const cues: PlacedCue<C>[] = opts.cues.map(({ shotId, cue, source }) => {
+    const start = (offsets.get(shotId) ?? 0) + cue.localStart;
+    const duration = cueDuration(cue, durations.get(shotId) ?? 0, source.durationSec);
+    return {
+      cue,
+      shotId,
+      start,
+      duration,
+      muxed: cue.role !== "embedded" || source.hasAudio,
+      trigger: cueTrigger(cue, start, duration, source),
+      duck: null,
+    };
+  });
+
+  const voices = cues.flatMap((p) => (p.trigger ? [p.trigger] : []));
+  const narration = cues.flatMap((p) =>
+    p.trigger && p.cue.role === "sound" && p.cue.kind === "narration" ? [p.trigger] : [],
+  );
+  for (const [i, p] of cues.entries()) {
+    if (p.cue.role !== "embedded" || !p.muxed || p.duration == null) continue;
+    p.duck = narrationDuck({
+      clip: { start: p.start, end: p.start + p.duration },
+      narration,
+      volume: p.cue.volume,
+      loudness: opts.cues[i]!.source.loudness,
+    });
+  }
+
+  const beds: PlacedBed<B>[] = [];
+  for (const { bed, sourceSec } of opts.beds) {
+    const { start, end } = resolveSoundtrackSpan(bed, offsets, durations, totalDuration);
+    const duration = Math.max(0, end - start);
+    if (duration <= 0) continue;
+    const loop =
+      bed.loop ?? (sourceSec != null && shouldAutoLoop(sourceSec - bed.mediaStart, duration));
+    const settings = duckSettings(bed.duck, { volume: bed.volume, loudness: bed.loudness });
+    const steps = settings
+      ? buildDuckEnvelope({ bed: { start, end }, triggers: voices, settings })
+      : [];
+    beds.push({
+      bed,
+      start,
+      end,
+      duration,
+      loop,
+      duck: settings && steps.length > 0 ? { steps, depth: settings.depth } : null,
+    });
+  }
+
+  return { offsets, durations, totalDuration, cues, beds };
+}
+
+export function resolveSoundtracks(
+  soundtracks: readonly SoundtrackEntry[],
+  bedLevels: Readonly<Record<string, { gain: number; loudness?: AudioLoudness }>>,
+  resolveSrc: (src: string) => string,
+): ResolvedSoundtrack[] {
+  return soundtracks.map((st) => {
+    const level = bedLevels[st.id];
+    return {
+      id: st.id,
+      file: resolveSrc(st.src.src),
+      from: st.options.from,
+      until: st.options.until,
+      mediaStart: st.options.mediaStart ?? 0,
+      volume: clampEffectiveGain((st.options.volume ?? 1) * (level?.gain ?? 1)),
+      ...(level?.loudness ? { loudness: level.loudness } : {}),
+      fadeIn: st.options.fadeIn,
+      fadeOut: st.options.fadeOut,
+      loop: st.options.loop,
+      duck: st.options.duck,
+      ...(st.song ? { song: true } : {}),
+    };
+  });
+}
+
+// The mux tracks of a timeline laid out on the ACTUAL rendered shot durations (ffprobed).
 export async function buildTimelineTracks(opts: {
   shotOrder: string[];
   actualDurations: Map<string, number>;
@@ -232,15 +403,6 @@ export async function buildTimelineTracks(opts: {
 }): Promise<MuxAudioTrack[]> {
   const { shotOrder, actualDurations, audioByShot, soundtracks = [], mediaOf } = opts;
 
-  const offsets = new Map<string, number>();
-  let acc = 0;
-  for (const shotId of shotOrder) {
-    offsets.set(shotId, acc);
-    acc += actualDurations.get(shotId) ?? 0;
-  }
-  const totalDuration = acc;
-
-  const tracks: MuxAudioTrack[] = [];
   const sourceDurations = new Map<string, number | null>();
   const sourceDuration = async (file: string): Promise<number | null> => {
     if (!sourceDurations.has(file)) {
@@ -254,104 +416,67 @@ export async function buildTimelineTracks(opts: {
     return recorded ? mediaHasAudio(recorded) : await probeHasAudio(file);
   };
 
-  // Where the spoken lines sit on the finished timeline — what a ducking bed yields to — and the
-  // narration among them, which a clip's own track yields to.
-  const voiceSpans: Span[] = [];
-  const narrationSpans: Span[] = [];
-
-  // <Sound> and embedded: one independent, play-once track per placement.
-  const placed: Array<{ raw: RawShotAudio; start: number; duration: number | null }> = [];
+  const cues: Array<{ shotId: string; cue: RawShotAudio; source: CueSource }> = [];
   for (const shotId of shotOrder) {
-    const offset = offsets.get(shotId) ?? 0;
-    const shotDur = actualDurations.get(shotId) ?? 0;
-    for (const raw of audioByShot.get(shotId) ?? []) {
-      if (raw.role === "embedded" && !(await hasAudio(raw.file))) continue;
-      const start = offset + raw.localStart;
-      let duration: number | null;
-      if (raw.role === "embedded") {
-        const end = raw.localEnd != null ? Math.min(raw.localEnd, shotDur) : shotDur;
-        duration = Math.max(0, end - raw.localStart);
-      } else if (raw.localEnd != null) {
-        duration = Math.max(0, raw.localEnd - raw.localStart);
-      } else {
-        const len = await sourceDuration(raw.file);
-        duration = len != null ? Math.max(0, len - raw.mediaStart) / raw.rate : null;
-      }
-      if (isVoiceKind(raw.kind) && duration != null && duration > 0) {
-        const loudness = loudnessOf(mediaOf?.(raw.file));
-        const trigger = voiceTriggerSpan({
-          start,
-          end: start + duration,
-          mediaStart: raw.mediaStart,
-          rate: raw.rate,
-          leadInSec: loudness?.leadInSec,
-          soundEndSec: loudness?.soundEndSec,
-        });
-        if (trigger) voiceSpans.push(trigger);
-        if (trigger && raw.role === "sound" && raw.kind === "narration") {
-          narrationSpans.push(trigger);
-        }
-      }
-      placed.push({ raw, start, duration });
+    for (const cue of audioByShot.get(shotId) ?? []) {
+      const embedded = cue.role === "embedded";
+      const audible = !embedded || (await hasAudio(cue.file));
+      const openEnded = !embedded && cue.localEnd == null;
+      cues.push({
+        shotId,
+        cue,
+        source: {
+          durationSec: openEnded ? await sourceDuration(cue.file) : null,
+          hasAudio: audible,
+          loudness: loudnessOf(mediaOf?.(cue.file)),
+        },
+      });
     }
   }
-  for (const { raw, start, duration } of placed) {
-    const duck =
-      raw.role === "embedded" && duration != null
-        ? narrationDuck({
-            clip: { start, end: start + duration },
-            narration: narrationSpans,
-            volume: raw.volume,
-            loudness: loudnessOf(mediaOf?.(raw.file)),
-          })
-        : null;
-    tracks.push({
-      file: raw.file,
-      start,
-      mediaStart: raw.mediaStart,
-      rate: raw.rate,
-      duration,
-      volume: raw.volume,
-      ...(duck ? { duck } : {}),
-      loop: false,
-      fadeIn: raw.fadeIn,
-      fadeOut: raw.fadeOut,
-    });
+  const beds: Array<{ bed: ResolvedSoundtrack; sourceSec: number | null }> = [];
+  const shots = shotOrder.map((shotId) => ({ shotId, duration: actualDurations.get(shotId) ?? 0 }));
+  const { offsets, durations, totalDuration } = layOutShots(shots);
+  for (const bed of soundtracks) {
+    // A bed with an empty span is never placed: leave its source unprobed.
+    const { start, end } = resolveSoundtrackSpan(bed, offsets, durations, totalDuration);
+    if (end <= start) continue;
+    beds.push({ bed, sourceSec: await sourceDuration(bed.file) });
   }
 
-  // Timeline-level soundtracks: each is one span, resolved from its from/until shot anchors.
-  // `from` omitted → timeline start (0); `until` omitted → timeline end. `at` within an anchor is
-  // shot-internal seconds (omitted: from→0 / until→that shot's actual end). Beds may overlap.
-  for (const st of soundtracks) {
-    const { start: spanStart, end: spanEnd } = resolveSoundtrackSpan(
-      st,
-      offsets,
-      actualDurations,
-      totalDuration,
-    );
-    const spanDuration = Math.max(0, spanEnd - spanStart);
-    if (spanDuration <= 0) continue;
-    const len = await sourceDuration(st.file);
-    const loop = st.loop ?? (len != null && shouldAutoLoop(len - st.mediaStart, spanDuration));
-    const settings = duckSettings(st.duck, { volume: st.volume, loudness: st.loudness });
-    const steps = settings
-      ? buildDuckEnvelope({
-          bed: { start: spanStart, end: spanEnd },
-          triggers: voiceSpans,
-          settings,
-        })
-      : [];
+  const placed = placeTimelineAudio({
+    shots,
+    cues,
+    beds,
+  });
+
+  const tracks: MuxAudioTrack[] = [];
+  for (const { cue, start, duration, muxed, duck } of placed.cues) {
+    if (!muxed) continue;
     tracks.push({
-      file: st.file,
-      start: spanStart,
-      mediaStart: st.mediaStart,
+      file: cue.file,
+      start,
+      mediaStart: cue.mediaStart,
+      rate: cue.rate,
+      duration,
+      volume: cue.volume,
+      ...(duck ? { duck } : {}),
+      loop: false,
+      fadeIn: cue.fadeIn,
+      fadeOut: cue.fadeOut,
+    });
+  }
+  for (const { bed, start, duration, loop, duck } of placed.beds) {
+    tracks.push({
+      file: bed.file,
+      start,
+      mediaStart: bed.mediaStart,
       rate: 1,
-      duration: spanDuration,
-      volume: st.volume,
-      ...(settings && steps.length > 0 ? { duck: { steps, depth: settings.depth } } : {}),
+      duration,
+      volume: bed.volume,
+      ...(duck ? { duck } : {}),
       loop,
-      fadeIn: st.fadeIn,
-      fadeOut: st.fadeOut,
+      fadeIn: bed.fadeIn,
+      fadeOut: bed.fadeOut,
     });
   }
 

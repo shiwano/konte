@@ -1,37 +1,31 @@
 import { mixedSoundtracks } from "./song-bed.js";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
-import { formatAddress, formatTimelineAddress } from "./address.js";
-import { isConsumableAddress } from "./composition-refs.js";
+import { formatAddress, formatTimelineAddress, shownShotAssetNames } from "./address.js";
+import { resolveCompositionRef, resolvePlaceholderSrc } from "./composition-refs.js";
 import {
   type AudioLevelling,
-  clampEffectiveGain,
   cueKindsBySrc,
-  isVoiceKind,
   loudnessOf,
   playedLufs,
   shotCueLevels,
 } from "./audio-level.js";
-import {
-  buildDuckEnvelope,
-  duckSettings,
-  narrationDuck,
-  voiceTriggerSpan,
-  type Span,
-} from "./audio-duck.js";
-import type { AudioLoudness } from "./audio-loudness.js";
-import { parsePlaceholder, runTimelineInRenderMode } from "./dsl/shot-context.js";
+import type { Span } from "./audio-duck.js";
+import { runTimelineInRenderMode } from "./dsl/shot-context.js";
 import { KonteError } from "./errors.js";
 import { runFfmpeg } from "./ffmpeg-exec.js";
 import { computeBedLevels } from "./render-plan.js";
 import type { StateManager } from "./state/index.js";
 import {
   collectShotAudioCues,
+  type CueSource,
+  placeTimelineAudio,
   type RawShotAudio,
-  resolveSoundtrackSpan,
-  shouldAutoLoop,
+  type ResolvedSoundtrack,
+  resolveSoundtracks,
 } from "./timeline-audio.js";
-import type { StageDefinition } from "./types/index.js";
+import type { StageDefinition, VariantMedia } from "./types/index.js";
+import { mediaHasAudio } from "./variant-media.js";
 import { probeMediaDuration } from "./video-probe.js";
 import { formatSeconds, formatSecondsRange } from "./format-duration.js";
 
@@ -86,7 +80,19 @@ export interface AudioInspectModel {
 }
 
 // The mux's own cue, tagged with the shot it was harvested from.
-type RawPlacement = RawShotAudio & { shotId: string };
+// Whether a source carries an audio stream, as the mux judges it.
+function carriesAudio(read: SourceRead, media: VariantMedia | undefined): boolean {
+  if (media) return mediaHasAudio(media);
+  return read.profile ? read.profile.rms.length > 0 : false;
+}
+
+interface SourceRead {
+  absFile: string;
+  displayFile: string;
+  isPlaceholder: boolean;
+  fileExists: boolean;
+  profile: SourceProfile | null;
+}
 
 // A source still unresolved at inspect time renders as a `__konte:<stage>:<address>__` placeholder
 // rather than a file path. Surface it as the address ("not generated yet") instead of a bogus file.
@@ -707,47 +713,19 @@ export async function inspectTimelineAudio(opts: {
   const { video, manager, videoRoot, shotId } = opts;
   const size = video.format.size;
 
-  // Nominal offsets/durations over the WHOLE timeline — needed even for a single-shot view so a
-  // soundtrack's from/until anchors (which may reference other shots) resolve correctly.
-  const offsets = new Map<string, number>();
-  const durations = new Map<string, number>();
-  const shotSpans: { shotId: string; start: number; end: number }[] = [];
-  let acc = 0;
-  for (const shot of video.shots) {
-    offsets.set(shot.id, acc);
-    durations.set(shot.id, shot.duration);
-    shotSpans.push({ shotId: shot.id, start: acc, end: acc + shot.duration });
-    acc += shot.duration;
-  }
-  const totalDuration = acc;
-
   // Every resolved source is a variant's committed file; remember its variant id and output hash
   // so the waveform cache can key on `<variantId>/<outputHash>` rather than on the file path.
   const fileToVariant = new Map<string, { variantId: string; outputHash: string | null }>();
-  // Loudness rides along: it is what a duck aims off.
-  const loudnessByFile = new Map<string, AudioLoudness | undefined>();
+  const mediaByFile = new Map<string, VariantMedia | undefined>();
   const resolveFile = (address: string): string | null => {
     const r = manager.resolveReference(address);
     if (r) {
       fileToVariant.set(r.file, { variantId: r.variantId, outputHash: r.outputHash });
-      loudnessByFile.set(
-        r.file,
-        loudnessOf(manager.getState().assets[address]?.variants?.[r.variantId]?.media),
-      );
+      mediaByFile.set(r.file, manager.getState().assets[address]?.variants?.[r.variantId]?.media);
     }
     return r?.file ?? null;
   };
-
-  // An audio source may still be a placeholder — a `<Soundtrack src={reference.bgm}/>` bed, a
-  // `<Sound src={reference.sfx}/>` cue pulled in by closure, or a `<Video src={shot(…).x} hasAudio>`
-  // stem. The render pass only re-resolves a shot's own assets, so resolve the rest from state. A
-  // src that is not a placeholder (a real file path) is returned untouched.
-  const resolveAssetSrc = (src: string): string => {
-    const address = parsePlaceholder(src);
-    if (address === null || !isConsumableAddress(address)) return src;
-    // A dependency path IS its upstream address.
-    return resolveFile(address) ?? src;
-  };
+  const resolveAssetSrc = (src: string): string => resolvePlaceholderSrc(src, resolveFile);
 
   // Run the timeline in render mode (resolving what's available) to get the shot render fns and the
   // resolved soundtrack list — exactly as the final mux does.
@@ -777,13 +755,27 @@ export async function inspectTimelineAudio(opts: {
   );
   const bedLevels = computeBedLevels(video, manager, timelineResolvedVariants);
 
+  const profileMemo = new Map<string, SourceProfile | null>();
+  const readSource = async (file: string): Promise<SourceRead> => {
+    const { absFile, displayFile, isPlaceholder } = interpretSource(file, videoRoot);
+    const fileExists = !isPlaceholder && existsSync(absFile);
+    const profile = fileExists
+      ? await getVariantSourceProfile(absFile, fileToVariant, videoRoot, profileMemo)
+      : null;
+    return { absFile, displayFile, isPlaceholder, fileExists, profile };
+  };
+
   // Collect every shot's standalone placements.
-  const placements: RawPlacement[] = [];
+  const cues: Array<{
+    shotId: string;
+    cue: RawShotAudio & { read: SourceRead };
+    source: CueSource;
+  }> = [];
   for (const shot of video.shots) {
     if (!shot.shotFn) continue;
     const resolvedFiles: Record<string, string> = {};
     const resolvedVariants: Record<string, string> = {};
-    for (const assetName of Object.keys(shot.assets)) {
+    for (const assetName of shownShotAssetNames(video.stage, video.shots, shot)) {
       const file = resolveFile(formatAddress(video.stage, shot.id, assetName));
       if (!file) continue;
       resolvedFiles[assetName] = file;
@@ -792,75 +784,86 @@ export async function inspectTimelineAudio(opts: {
     }
 
     const renderFn = renderShotInputs?.find((s) => s.id === shot.id)?.fn ?? shot.shotFn;
-    placements.push(
-      ...collectShotAudioCues({
+    const shotCues = collectShotAudioCues({
+      stage: video.stage,
+      shotId: shot.id,
+      duration: shot.duration,
+      renderFn,
+      size,
+      resolvedFiles,
+      timelineFiles: timelineResolvedFiles,
+      cueLevels: shotCueLevels({
         stage: video.stage,
         shotId: shot.id,
-        duration: shot.duration,
-        renderFn,
-        size,
+        cueKinds: shot.cueKinds,
+        pictureRefs: shot.pictureRefs,
+        state: manager.getState(),
+        resolvedVariants,
+        timelineResolvedVariants,
+        resolve: (address) => resolveCompositionRef(manager, address)?.variantId,
+      }),
+      cueKinds: cueKindsBySrc({
+        stage: video.stage,
+        shotId: shot.id,
+        cueKinds: shot.cueKinds,
         resolvedFiles,
         timelineFiles: timelineResolvedFiles,
-        cueLevels: shotCueLevels({
-          stage: video.stage,
-          shotId: shot.id,
-          cueKinds: shot.cueKinds,
-          pictureRefs: shot.pictureRefs,
-          state: manager.getState(),
-          resolvedVariants,
-          timelineResolvedVariants,
-          resolve: (address) => manager.resolveReference(address)?.variantId,
-        }),
-        cueKinds: cueKindsBySrc({
-          stage: video.stage,
-          shotId: shot.id,
-          cueKinds: shot.cueKinds,
-          resolvedFiles,
-          timelineFiles: timelineResolvedFiles,
-        }),
-        // A read surface: a shot that fails to render contributes nothing rather than blanking
-        // the timeline.
-        onRenderError: "skip",
-      }).map((cue) => ({ ...cue, shotId: shot.id })),
-    );
+      }),
+      // A read surface: a shot that fails to render contributes nothing rather than blanking
+      // the timeline.
+      onRenderError: "skip",
+    });
+    for (const cue of shotCues) {
+      const read = await readSource(resolveAssetSrc(cue.file));
+      cues.push({
+        shotId: shot.id,
+        cue: { ...cue, read },
+        source: {
+          durationSec: read.profile?.durationSec ?? null,
+          hasAudio: carriesAudio(read, mediaByFile.get(read.absFile)),
+          loudness: loudnessOf(mediaByFile.get(read.absFile)),
+        },
+      });
+    }
   }
 
+  const beds: Array<{ bed: ResolvedSoundtrack & { read: SourceRead }; sourceSec: number | null }> =
+    [];
+  for (const bed of resolveSoundtracks(soundtracks, bedLevels, resolveAssetSrc)) {
+    const read = await readSource(bed.file);
+    beds.push({ bed: { ...bed, read }, sourceSec: read.profile?.durationSec ?? null });
+  }
+
+  const placed = placeTimelineAudio({
+    shots: video.shots.map((s) => ({ shotId: s.id, duration: s.duration })),
+    cues,
+    beds,
+  });
+  const { durations, totalDuration } = placed;
+  const shotSpans = video.shots.map((s) => {
+    const start = placed.offsets.get(s.id) ?? 0;
+    return { shotId: s.id, start, end: start + s.duration };
+  });
+
   const tracks: AudioTrack[] = [];
-  const profileMemo = new Map<string, SourceProfile | null>();
-  // Where the lines sit, and how loud — what a ducking bed yields to, and what "audible" is
-  // measured against. Kept per line: a bed is only under the lines it overlaps.
+  // How loud each line plays — what "audible" is measured against. Kept per line: a bed is only
+  // under the lines it overlaps.
   const voices: Array<Span & { lufs: number | null }> = [];
-  const narration: Span[] = [];
-  const clipLoudness = new Map<AudioTrack, AudioLoudness | undefined>();
   const layers: MixLayer[] = [];
 
-  for (const raw of placements) {
-    const { absFile, displayFile, isPlaceholder } = interpretSource(
-      resolveAssetSrc(raw.file),
-      videoRoot,
-    );
-    const fileExists = !isPlaceholder && existsSync(absFile);
-    const sourceProfile = fileExists
-      ? await getVariantSourceProfile(absFile, fileToVariant, videoRoot, profileMemo)
-      : null;
+  for (const {
+    cue: raw,
+    shotId: cueShotId,
+    start,
+    duration,
+    muxed,
+    trigger,
+    duck,
+  } of placed.cues) {
+    const { absFile, displayFile, isPlaceholder, fileExists, profile: sourceProfile } = raw.read;
     const sourceDuration = sourceProfile?.durationSec ?? null;
-    const hasAudioStream =
-      raw.role === "embedded" ? (sourceProfile ? sourceProfile.rms.length > 0 : false) : null;
-
-    const offset = offsets.get(raw.shotId) ?? 0;
-    const shotDur = durations.get(raw.shotId) ?? 0;
-    const start = offset + raw.localStart;
-
-    let duration: number | null;
-    if (raw.role === "embedded") {
-      const end = raw.localEnd != null ? Math.min(raw.localEnd, shotDur) : shotDur;
-      duration = Math.max(0, end - raw.localStart);
-    } else if (raw.localEnd != null) {
-      duration = Math.max(0, raw.localEnd - raw.localStart);
-    } else {
-      duration =
-        sourceDuration != null ? Math.max(0, sourceDuration - raw.mediaStart) / raw.rate : null;
-    }
+    const hasAudioStream = raw.role === "embedded" ? muxed : null;
+    const shotDur = durations.get(cueShotId) ?? 0;
     const end = start + (duration ?? 0);
     // The source seconds the track plays through.
     const sourceSpan = duration != null ? duration * raw.rate : null;
@@ -869,9 +872,7 @@ export async function inspectTimelineAudio(opts: {
     const notes: string[] = [];
     if (isPlaceholder) warnings.push("not generated yet");
     else if (!fileExists) warnings.push(`source not found: ${displayFile}`);
-    if (raw.role === "embedded" && fileExists && hasAudioStream === false) {
-      warnings.push("no audio stream (dropped from the mux)");
-    }
+    if (!muxed && fileExists) warnings.push("no audio stream (dropped from the mux)");
     if (duration == null) warnings.push("unknown duration (source unreadable)");
     if (end > totalDuration + 0.01) {
       warnings.push(`extends ${formatSeconds(end - totalDuration, 2)} past timeline end`);
@@ -920,24 +921,14 @@ export async function inspectTimelineAudio(opts: {
       ? sliceEnvelope(sourceProfile, raw.mediaStart, sourceSpan!, false, buckets)
       : new Array<number>(buckets).fill(0);
 
-    const lufs = playedLufs(loudnessByFile.get(absFile), raw.volume);
-    if (isVoiceKind(raw.kind) && duration != null && duration > 0) {
-      const trigger = voiceTriggerSpan({
-        start,
-        end,
-        mediaStart: raw.mediaStart,
-        rate: raw.rate,
-        leadInSec: loudnessByFile.get(absFile)?.leadInSec,
-        soundEndSec: loudnessByFile.get(absFile)?.soundEndSec,
-      });
-      if (trigger) voices.push({ ...trigger, lufs });
-      if (trigger && raw.role === "sound" && raw.kind === "narration") narration.push(trigger);
-    }
+    const loudness = loudnessOf(mediaByFile.get(absFile));
+    const lufs = playedLufs(loudness, raw.volume);
+    if (trigger) voices.push({ ...trigger, lufs });
 
-    const track: AudioTrack = {
+    tracks.push({
       kind: raw.role,
-      label: `${raw.shotId} ${raw.role}`,
-      shotId: raw.shotId,
+      label: `${cueShotId} ${raw.role}`,
+      shotId: cueShotId,
       cueId: raw.cueId,
       soundtrackId: null,
       file: displayFile,
@@ -951,59 +942,22 @@ export async function inspectTimelineAudio(opts: {
       volume: raw.volume,
       levelling: raw.levelling ?? { gain: 1, reason: "unclassified" },
       lufs,
-      duckedLufs: null,
+      duckedLufs: duck ? playedLufs(loudness, raw.volume * duck.depth) : null,
       loop: false,
       fadeIn: raw.fadeIn,
       fadeOut: raw.fadeOut,
       envelope,
       warnings,
       notes,
-    };
-    tracks.push(track);
-    if (raw.role === "embedded") clipLoudness.set(track, loudnessByFile.get(absFile));
-  }
-
-  // The duck the mux gives a clip's own track under the narration over it.
-  for (const [track, loudness] of clipLoudness) {
-    const duck = narrationDuck({
-      clip: { start: track.start, end: track.end },
-      narration,
-      volume: track.volume,
-      loudness,
     });
-    if (duck) track.duckedLufs = playedLufs(loudness, track.volume * duck.depth);
   }
 
-  for (const st of soundtracks) {
-    const { absFile, displayFile, isPlaceholder } = interpretSource(
-      resolveAssetSrc(st.src.src),
-      videoRoot,
-    );
-    const fileExists = !isPlaceholder && existsSync(absFile);
-    const sourceProfile = fileExists
-      ? await getVariantSourceProfile(absFile, fileToVariant, videoRoot, profileMemo)
-      : null;
+  for (const { bed, start, end, duration, loop, duck } of placed.beds) {
+    const { displayFile, isPlaceholder, fileExists, profile: sourceProfile } = bed.read;
     const sourceDuration = sourceProfile?.durationSec ?? null;
-    const mediaStart = st.options.mediaStart ?? 0;
-    const level = bedLevels[st.id];
-    const volume = clampEffectiveGain((st.options.volume ?? 1) * (level?.gain ?? 1));
-
-    const { start, end } = resolveSoundtrackSpan(st.options, offsets, durations, totalDuration);
-    const duration = Math.max(0, end - start);
-    if (duration <= 0) continue;
-
-    // The duck the mux will apply, resolved off the same take.
-    const loudness = loudnessByFile.get(absFile);
-    const settings = duckSettings(st.options.duck, { volume, loudness });
-    const ducks =
-      settings != null &&
-      buildDuckEnvelope({ bed: { start, end }, triggers: voices, settings }).length > 0;
-    const lufs = playedLufs(loudness, volume);
-    const duckedLufs = ducks && settings ? playedLufs(loudness, volume * settings.depth) : null;
-
-    const loop =
-      st.options.loop ??
-      (sourceDuration != null && shouldAutoLoop(sourceDuration - mediaStart, duration));
+    const { mediaStart, volume } = bed;
+    const lufs = playedLufs(bed.loudness, volume);
+    const duckedLufs = duck ? playedLufs(bed.loudness, volume * duck.depth) : null;
 
     const warnings: string[] = [];
     const notes: string[] = [];
@@ -1031,13 +985,13 @@ export async function inspectTimelineAudio(opts: {
         );
       }
       // The song ends where the timeline does.
-      if (!loop && !st.song) {
+      if (!loop && !bed.song) {
         for (const w of detectWindowCuts(
           sourceProfile.rms,
           sourceProfile.rate,
           mediaStart,
           duration,
-          st.options,
+          bed,
         )) {
           (w.informational ? notes : warnings).push(w.message);
         }
@@ -1054,10 +1008,10 @@ export async function inspectTimelineAudio(opts: {
 
     tracks.push({
       kind: "soundtrack",
-      label: st.id,
+      label: bed.id,
       shotId: null,
       cueId: null,
-      soundtrackId: st.id,
+      soundtrackId: bed.id,
       file: displayFile,
       fileExists,
       sourceDuration,
@@ -1067,12 +1021,12 @@ export async function inspectTimelineAudio(opts: {
       mediaStart,
       duration,
       volume,
-      levelling: level?.adjustment ?? { gain: 1, reason: "unmeasured" },
+      levelling: bedLevels[bed.id]?.adjustment ?? { gain: 1, reason: "unmeasured" },
       lufs,
       duckedLufs,
       loop,
-      fadeIn: st.options.fadeIn,
-      fadeOut: st.options.fadeOut,
+      fadeIn: bed.fadeIn,
+      fadeOut: bed.fadeOut,
       envelope,
       warnings,
       notes,

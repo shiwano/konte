@@ -103,6 +103,15 @@ interface ResolvedCompositionRef {
   isAccepted: boolean;
 }
 
+export function resolvePlaceholderSrc(
+  src: string,
+  resolve: (address: string) => string | null | undefined,
+): string {
+  const address = parsePlaceholder(src);
+  if (address === null || !isConsumableAddress(address)) return src;
+  return resolve(address) ?? src;
+}
+
 // Total by construction: `depPath` is whatever `parsePlaceholder` yielded, and a user's own text can
 // shape that (a literal `__konte:video:seed__` in a subtitle spells the placeholder syntax but names
 // no asset). `isConsumableAddress` rejects those, so the address machinery below never sees an unparseable

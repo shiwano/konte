@@ -27,7 +27,6 @@ import {
   buildDuckEnvelope,
   duckSettings,
   narrationDuck,
-  voiceTriggerSpan,
   type BedAutomation,
   type Span,
 } from "./audio-duck.js";
@@ -62,8 +61,8 @@ import {
 } from "./render-plan.js";
 import { shotById } from "./shot-index.js";
 import { assertTailwindClasses, type ClassSubject } from "./tailwind-classes.js";
-import { bedPasses, resolveSoundtrackSpan } from "./timeline-audio.js";
-import { mediaDurationSec } from "./variant-media.js";
+import { bedPasses, cueDuration, cueTrigger, resolveSoundtrackSpan } from "./timeline-audio.js";
+import { mediaDurationSec, mediaHasAudio } from "./variant-media.js";
 import type { StateManager } from "./state/index.js";
 import type { StageDefinition } from "./types/index.js";
 
@@ -664,14 +663,12 @@ export interface StemAudioEntry {
   fadeOut: number | null;
 }
 
-/** What the take resolved for a voice cue tells the duck. */
+/** What the take resolved for a voice cue tells the duck, read off its measured media. */
 interface VoiceVariant {
-  /** The take's duration less the cue's `mediaStart`, in source seconds; null when unmeasured. */
-  length: number | null;
-  /** The silence the take opens with, from the file's head (see `voiceTriggerSpan`). */
-  leadInSec: number | undefined;
-  /** Where the take's sound ends, from the file's head (see `voiceTriggerSpan`). */
-  soundEndSec: number | undefined;
+  /** The take's length in source seconds; null when unmeasured. */
+  sourceSec: number | null;
+  hasAudio: boolean;
+  loudness: AudioLoudness | undefined;
 }
 
 // The ordered audio cues of an already-rendered composition element (<Audio> → "sound",
@@ -706,11 +703,40 @@ export function harvestAudioStructure(
   return entries;
 }
 
-/**
- * Where the spoken lines sit on the timeline, from the definition alone — what a ducking bed yields
- * to. Declared durations, not rendered ones, so the preview and the stem's hash agree; the mux
- * builds the same spans off the real ones.
- */
+// A shot's voice cues as the spans a bed ducks under, placed `offset` into the timeline, by the
+// mux's own placement rule. Unmeasured, an open-ended line is taken to sound to its shot's end.
+function shotVoiceSpans(
+  cues: readonly StemAudioEntry[],
+  shot: { duration: number; cueKinds?: Readonly<Record<string, CueKind>> },
+  offset: number,
+  voiceVariant: (cue: StemAudioEntry) => VoiceVariant | null,
+): VoiceSpan[] {
+  const spans: VoiceSpan[] = [];
+  for (const cue of cues) {
+    const kind = shot.cueKinds?.[cue.src];
+    if (!isVoiceKind(kind)) continue;
+    const localStart = cue.start ?? 0;
+    const placement = {
+      role: cue.track === "embedded" ? ("embedded" as const) : ("sound" as const),
+      kind,
+      localStart,
+      localEnd: cue.duration != null ? localStart + cue.duration : null,
+      mediaStart: cue.mediaStart ?? 0,
+      rate: cue.rate,
+    };
+    const variant = voiceVariant(cue);
+    const duration =
+      cueDuration(placement, shot.duration, variant?.sourceSec ?? null) ??
+      Math.max(0, shot.duration - localStart);
+    const span = cueTrigger(placement, offset + localStart, duration, {
+      hasAudio: variant?.hasAudio ?? true,
+      loudness: variant?.loudness,
+    });
+    if (span) spans.push({ ...span, address: cue.src, kind: kind!, track: cue.track });
+  }
+  return spans;
+}
+
 /**
  * The voice cues of the shots a video plan is showing the BOARD for. A stand-in shot plays the
  * animatic's whole composition, audio and all, so its lines are what a bed must yield to there —
@@ -724,7 +750,6 @@ function standInVoiceSpans(
   const spans: VoiceSpan[] = [];
   let offset = 0;
   for (const shotPlan of plan.shots) {
-    const duration = shotPlan.duration;
     const standIn = shotPlan.showStandIn
       ? plan.standInPlan?.shots.find((s) => s.shotId === shotPlan.shotId)
       : undefined;
@@ -735,7 +760,7 @@ function standInVoiceSpans(
         standIn.shotFn,
         plan.format,
       );
-      for (const cue of harvestAudioStructure(element, {
+      const cues = harvestAudioStructure(element, {
         shotId: standIn.shotId,
         width: plan.size.width,
         height: plan.size.height,
@@ -744,26 +769,10 @@ function standInVoiceSpans(
         typography: plan.typography,
         ...(standIn.panels ? { panels: standIn.panels } : {}),
         ...(standIn.cutinPanels ? { cutinPanels: standIn.cutinPanels } : {}),
-      })) {
-        const kind = standIn.cueKinds?.[cue.src];
-        if (!isVoiceKind(kind)) continue;
-        const start = cue.start ?? 0;
-        const variant = voiceVariant(cue);
-        const played = variant?.length != null ? variant.length / cue.rate : null;
-        const length = cue.duration ?? played ?? Math.max(0, standIn.duration - start);
-        if (length <= 0) continue;
-        const span = voiceTriggerSpan({
-          start: offset + start,
-          end: offset + start + length,
-          mediaStart: cue.mediaStart ?? 0,
-          rate: cue.rate,
-          leadInSec: variant?.leadInSec,
-          soundEndSec: variant?.soundEndSec,
-        });
-        if (span) spans.push({ ...span, address: cue.src, kind: kind!, track: cue.track });
-      }
+      });
+      spans.push(...shotVoiceSpans(cues, standIn, offset, voiceVariant));
     }
-    offset += duration;
+    offset += shotPlan.duration;
   }
   return spans;
 }
@@ -785,12 +794,10 @@ function previewVoiceVariant(
     if (!resolved) return null;
     const media =
       manager.getState().assets[resolved.address]?.variants?.[resolved.variantId]?.media ?? null;
-    const recorded = mediaDurationSec(media);
-    const loudness = loudnessOf(media ?? undefined);
     return {
-      length: recorded == null ? null : Math.max(0, recorded - (cue.mediaStart ?? 0)),
-      leadInSec: loudness?.leadInSec,
-      soundEndSec: loudness?.soundEndSec,
+      sourceSec: mediaDurationSec(media),
+      hasAudio: media ? mediaHasAudio(media) : true,
+      loudness: loudnessOf(media ?? undefined),
     };
   };
 }
@@ -798,34 +805,20 @@ function previewVoiceVariant(
 /** A spoken line's span: the cue that sounds it, what the line is, and whether a clip carries it. */
 type VoiceSpan = Span & { address: string; kind: CueKind; track: StemAudioEntry["track"] };
 
+/**
+ * Where the spoken lines sit on the timeline — what a ducking bed yields to. Declared durations;
+ * the mux places the same cues off the real ones.
+ */
 function declaredVoiceSpans(
   video: StageDefinition,
-  // The take resolved for a cue. Given, an OPEN-ENDED cue spans what it will actually sound for,
-  // and every cue ducks from where its sound starts. Omitted (the hash paths) the span falls back
-  // to the whole placement, keeping those render- and take-free.
-  voiceVariant?: (cue: StemAudioEntry) => VoiceVariant | null,
+  voiceVariant: (cue: StemAudioEntry) => VoiceVariant | null,
 ): Array<VoiceSpan & { shotId: string }> {
   const spans: Array<VoiceSpan & { shotId: string }> = [];
   let offset = 0;
   for (const shot of video.shots) {
-    for (const cue of harvestShotAudioStructure(video, shot.id) ?? []) {
-      const kind = shot.cueKinds?.[cue.src];
-      if (!isVoiceKind(kind)) continue;
-      const start = cue.start ?? 0;
-      const variant = voiceVariant?.(cue) ?? null;
-      const played = variant?.length != null ? variant.length / cue.rate : null;
-      const length = cue.duration ?? played ?? Math.max(0, shot.duration - start);
-      if (length <= 0) continue;
-      const span = voiceTriggerSpan({
-        start: offset + start,
-        end: offset + start + length,
-        mediaStart: cue.mediaStart ?? 0,
-        rate: cue.rate,
-        leadInSec: variant?.leadInSec,
-        soundEndSec: variant?.soundEndSec,
-      });
-      if (span)
-        spans.push({ ...span, address: cue.src, kind: kind!, track: cue.track, shotId: shot.id });
+    const cues = harvestShotAudioStructure(video, shot.id) ?? [];
+    for (const span of shotVoiceSpans(cues, shot, offset, voiceVariant)) {
+      spans.push({ ...span, shotId: shot.id });
     }
     offset += shot.duration;
   }
