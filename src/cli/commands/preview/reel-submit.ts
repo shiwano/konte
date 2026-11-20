@@ -1412,6 +1412,7 @@ async function applyThumbnailDecision(
         variantId: shown,
         dismiss: candidates[address] ?? [],
         cascade: submit.cascade,
+        resign: true,
       },
       ledger,
     );

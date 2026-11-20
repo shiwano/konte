@@ -30,7 +30,7 @@ function noteOverturned(
  * Accepts one take and cascades onto what it consumed. Re-accepting the accepted take still settles
  * `dismiss`. A generation take cascades and is recorded only when the accept moved — its cascade
  * replays what its job consumed — while a materialized leaf always is, signing off what it displays
- * now.
+ * now. `resign` cascades an unchanged generation take too, recording only what its cascade lands.
  *
  * `via` is the accept this one rides on; `cascadeVia` (default: `address`) is what its cascade is
  * recorded through.
@@ -45,6 +45,7 @@ export async function commitAccept(
     cascade: AcceptCascadeOpts | null;
     via?: string;
     cascadeVia?: string;
+    resign?: boolean;
   },
   ledger?: AcceptLedger,
 ): Promise<{ previous: string | null; cascaded: string[] }> {
@@ -52,12 +53,11 @@ export async function commitAccept(
   const previous = manager.getAcceptedVariant(address);
   if (ledger?.overturned) noteOverturned(manager, address, variantId, ledger.overturned);
   manager.setAccepted(address, variantId, { dismiss: target.dismiss ?? [] });
-  if (previous === variantId && !isMaterializedLeafAddress(address)) {
-    return { previous, cascaded: [] };
-  }
+  const moved = previous !== variantId || isMaterializedLeafAddress(address);
+  if (!moved && !target.resign) return { previous, cascaded: [] };
   // Recorded before the cascade: a cascade that throws leaves this accept standing.
-  ledger?.acceptedAssets.push(address);
-  if (ledger && target.via) ledger.cascadeAccepted.push({ address, via: target.via });
+  if (moved) ledger?.acceptedAssets.push(address);
+  if (moved && ledger && target.via) ledger.cascadeAccepted.push({ address, via: target.via });
   const cascaded = target.cascade
     ? await cascadeAcceptConsumedDeps(manager, jobManager, address, variantId, target.cascade)
     : [];

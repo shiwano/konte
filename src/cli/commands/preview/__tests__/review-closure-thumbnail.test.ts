@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
+import { JobManager } from "../../../../core/job-manager.js";
 import { unacceptedThumbnailRefs } from "../../../../core/render-plan.js";
 import { formatReviewRecord, loadAllReviewRecords } from "../../../../core/review-record.js";
 import { StateManager } from "../../../../core/state/index.js";
 import { loadPreviewDefinitions } from "../load-definitions.js";
+import { handleReelSubmit } from "../reel-submit.js";
+import { reloadVideoDefinition } from "../../../../core/loader.js";
 import { useTempWorkspace } from "../../../__tests__/cli-fixtures.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -122,6 +125,52 @@ describe("video review closure with a thumbnail", () => {
     const after = await StateManager.load(videoRoot);
     expect(after.getAcceptedVariant(FIT)).not.toBe(fitBefore);
     expect((await outstanding(videoRoot)).needsReview).toEqual([]);
+  });
+
+  it("signs off an input the still drew again when its unchanged cover is re-accepted", async () => {
+    const videoRoot = await project(undefined, THUMBNAIL_VIDEO_TSX);
+    await settle(videoRoot);
+    const manager = await StateManager.load(videoRoot);
+    const still = manager.getAcceptedVariant(STILL)!;
+    const cover = manager.getAcceptedVariant(COVER)!;
+    await new JobManager(videoRoot).createJob({
+      address: STILL,
+      variantId: still,
+      resolvedDeps: { [COVER]: manager.getAssetState(COVER).variants![cover]!.file! },
+      backendKind: "local",
+    });
+    manager.setUnaccepted(COVER, cover);
+    await manager.save();
+
+    const defs = await loadPreviewDefinitions({ videoRoot, mode: "video-preview" });
+    const res = await handleReelSubmit(
+      {
+        videoRoot,
+        handoff: null,
+        direction: defs.direction,
+        animatic: defs.animatic,
+        reference: null,
+        downstreamVideo: null,
+      },
+      async () => reloadVideoDefinition(path.join(videoRoot, "video.tsx")),
+      new Request("http://127.0.0.1/api/video/submit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          decisions: {},
+          displayedVariants: { [STILL]: still },
+          thumbnailDecision: "accepted",
+          displayedStandInShotIds: [],
+        }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { skippedDecisions?: unknown[] }).skippedDecisions ?? []).toEqual(
+      [],
+    );
+    const after = await StateManager.load(videoRoot);
+    expect(after.getAcceptedVariant(COVER)).toBe(cover);
+    expect(unacceptedThumbnailRefs(defs.video!, after)).toEqual([]);
   });
 
   it("records the takes the accepted thumbnail drew, and holds an export to them", async () => {
