@@ -612,9 +612,7 @@ export class JobWatcher {
   private async countActiveJobs(): Promise<number> {
     try {
       const jobs = await this.jobManager.listJobs();
-      return jobs.filter(
-        (j) => j.status === "pending" || j.status === "queued" || j.status === "running",
-      ).length;
+      return jobs.filter((j) => !isJobTerminal(j.status)).length;
     } catch {
       return 0;
     }

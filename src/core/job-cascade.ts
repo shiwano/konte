@@ -1,6 +1,7 @@
 import * as fs from "node:fs/promises";
 import { parseAddress } from "./address.js";
-import { isJobTerminal, type JobManager, jobLogPath } from "./job-manager.js";
+import { isActiveGeneration } from "./job-index.js";
+import { type JobManager, jobLogPath } from "./job-manager.js";
 import { StateManager } from "./state/index.js";
 import type { GenerationJob, JobRecord } from "./types/index.js";
 
@@ -50,14 +51,9 @@ export async function cascadeFailPendingJobs(
       const target = freshState.assets[depAddress];
       const hasFile = target ? Object.values(target.variants ?? {}).some((v) => v.file) : false;
       if (hasFile) return false;
-      const hasActiveJob = allJobs.some(
-        (j) =>
-          j.kind === "generation" &&
-          j.address === depAddress &&
-          j.variantId !== job.variantId &&
-          !isJobTerminal(j.status),
+      return !allJobs.some(
+        (j) => isActiveGeneration(j) && j.variantId !== job.variantId && j.address === depAddress,
       );
-      return !hasActiveJob;
     });
 
     if (!depDead) continue;
@@ -77,13 +73,9 @@ export async function cascadeFailPendingJobs(
       });
       if (!committed) continue;
 
-      await StateManager.withLock(videoRoot, async (mgr) => {
-        const target = mgr.getState().assets[job.address];
-        const variant = target?.variants?.[job.variantId];
-        if (variant) {
-          variant.metadata = { error: "Dependency cleaned" };
-        }
-      });
+      await StateManager.withLock(videoRoot, async (mgr) =>
+        mgr.markVariantFailed(job.address, job.variantId, "Dependency cleaned"),
+      );
       for (const p of paths) {
         await fs.rm(p, { recursive: true, force: true });
       }

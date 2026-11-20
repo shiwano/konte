@@ -1,6 +1,7 @@
 import { type DefinitionLike, getStage, listAddresses, parseAddress } from "./address.js";
 import { parsePlaceholder } from "./dsl/shot-context.js";
 import { type DependencyGraph, listUnusedAddresses } from "./graph.js";
+import { isJobTerminal } from "./job-manager.js";
 import type { StateManager } from "./state/index.js";
 import type {
   AnimaticDefinition,
@@ -54,9 +55,7 @@ export function findStrandedTakes(opts: {
 
   // A dependent job still running, or one whose take is still there to play.
   const reaches = (job: GenerationJob): boolean => {
-    if (job.status === "pending" || job.status === "queued" || job.status === "running") {
-      return true;
-    }
+    if (!isJobTerminal(job.status)) return true;
     if (job.status !== "completed") return false;
     const take = state.assets[job.address]?.variants?.[job.variantId];
     return take?.file != null && take.status !== "dismissed";

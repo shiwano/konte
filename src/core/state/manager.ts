@@ -729,6 +729,21 @@ export class StateManager {
     variant.decidedAt = null;
   }
 
+  markVariantFailed(address: string, variantId: string, error: string): void {
+    const variant = this.tryGetAssetState(address)?.variants?.[variantId];
+    if (variant) variant.metadata = { error };
+  }
+
+  markVariantCancelled(address: string, variantId: string): void {
+    const variant = this.tryGetAssetState(address)?.variants?.[variantId];
+    if (!variant) return;
+    variant.status = "none";
+    variant.file = null;
+    variant.readyAt = null;
+    delete variant.media;
+    variant.metadata = { cancelledAt: new Date().toISOString() };
+  }
+
   // A take recorded on another manager over the same video — its files already under its variant dir.
   adoptVariant(address: string, variantId: string, variant: VariantState): void {
     const target = this.ensureAssetState(address);

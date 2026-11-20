@@ -888,6 +888,16 @@ export class JobManager {
     });
   }
 
+  // Null when the job had already settled.
+  async cancel(id: string): Promise<JobRecord | null> {
+    const now = new Date().toISOString();
+    return this.updateIfNotTerminal(id, {
+      status: "cancelled",
+      completedAt: now,
+      reportedAt: now,
+    });
+  }
+
   /**
    * Apply an update only if the job is still in one of `expected` statuses — a compare-and-set
    * in one write transaction, for a caller acting on a job list it snapshotted earlier (e.g.

@@ -7,6 +7,7 @@ import { computeVariantStaleness, isVariantStale, rebakesOverAccept } from "./st
 import { isJobTerminal } from "./job-manager.js";
 import { StateManager } from "./state/index.js";
 import type { GenerationJob, JobRecord, KonteState } from "./types/index.js";
+import { variantLifecycle } from "./variant-lifecycle.js";
 
 export type SkipReason = "active" | "accepted" | "accepted-stale" | "ready";
 
@@ -103,7 +104,7 @@ export function holdsJoblessReservation(state: KonteState, jobs: readonly JobRec
   const jobIds = new Set(jobs.map((job) => job.id));
   return Object.values(state.assets).some((asset) =>
     Object.entries(asset.variants ?? {}).some(
-      ([id, v]) => !v.file && !v.metadata?.error && !v.metadata?.cancelledAt && !jobIds.has(id),
+      ([id, v]) => variantLifecycle(v) === "reserved" && !jobIds.has(id),
     ),
   );
 }

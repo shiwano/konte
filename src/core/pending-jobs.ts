@@ -166,12 +166,9 @@ export async function submitReadyPendingJobs(
 
         if (committed) {
           try {
-            await StateManager.withLock(videoRoot, async (mgr) => {
-              const variant = mgr.getState().assets[job.address]?.variants?.[job.variantId];
-              if (variant) {
-                variant.metadata = { error: evaluation.reason };
-              }
-            });
+            await StateManager.withLock(videoRoot, async (mgr) =>
+              mgr.markVariantFailed(job.address, job.variantId, evaluation.reason),
+            );
           } catch {
             // best-effort
           }
@@ -525,12 +522,9 @@ async function trySubmitJob(
 
     if (committed) {
       try {
-        await StateManager.withLock(videoRoot, async (mgr) => {
-          const variant = mgr.getState().assets[job.address]?.variants?.[job.variantId];
-          if (variant) {
-            variant.metadata = { error: errorMsg };
-          }
-        });
+        await StateManager.withLock(videoRoot, async (mgr) =>
+          mgr.markVariantFailed(job.address, job.variantId, errorMsg),
+        );
       } catch {
         // best-effort
       }

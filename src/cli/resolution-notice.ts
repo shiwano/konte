@@ -1,6 +1,7 @@
+import { isActiveGeneration } from "../core/job-index.js";
 import { JobManager } from "../core/job-manager.js";
 import type { StateManager } from "../core/state/index.js";
-import type { AnimaticDefinition, GenerationJob, JobRecord } from "../core/types/index.js";
+import type { AnimaticDefinition, GenerationJob } from "../core/types/index.js";
 import { staleRefreshStep } from "./stale-refresh-step.js";
 
 export interface ResolvedVariant {
@@ -60,13 +61,6 @@ function staleNotice(
     case "reroll":
       return `${lead} — \`konte reroll ${address}\` to rebuild it`;
   }
-}
-
-function isActiveGeneration(job: JobRecord): job is GenerationJob {
-  return (
-    job.kind === "generation" &&
-    (job.status === "pending" || job.status === "queued" || job.status === "running")
-  );
 }
 
 export async function listActiveGenerationJobs(videoRoot: string): Promise<GenerationJob[]> {

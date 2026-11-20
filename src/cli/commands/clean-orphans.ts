@@ -17,7 +17,8 @@ import type {
 } from "../../core/types/index.js";
 import { buildOrphanContext, listStrayVariantDirs } from "../../core/orphans.js";
 import { StateManager } from "../../core/state/index.js";
-import { activeGenerationVariantIds, patchFilePath } from "../../core/patch.js";
+import { activeGenerationVariantIds } from "../../core/job-index.js";
+import { patchFilePath } from "../../core/patch.js";
 import { prerollVariantDir } from "../../core/preview-preroll.js";
 import { songPartsVariantDir } from "../../core/song-parts.js";
 import {

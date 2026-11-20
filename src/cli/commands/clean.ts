@@ -12,13 +12,13 @@ import {
   collectDeadStemVariants,
 } from "../../core/composition-resource.js";
 import {
-  activeGenerationVariantIds,
   listPatchVariantIds,
   loadPatchCatalog,
   patchAssetAddress,
   patchStepEntries,
 } from "../../core/patch.js";
 import { listThumbnailAddressDirs } from "../../core/variant-thumbnails.js";
+import { activeGenerationVariantIds } from "../../core/job-index.js";
 import { JobManager } from "../../core/job-manager.js";
 import { StateManager } from "../../core/state/index.js";
 import type {

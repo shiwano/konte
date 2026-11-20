@@ -3,7 +3,8 @@ import { KonteError, errorMessage } from "../core/errors.js";
 import { extractRefs } from "../core/graph.js";
 import type { JobManager } from "../core/job-manager.js";
 import type { LoadedPatch } from "../core/patch.js";
-import { activeGenerationJobs, patchAssetAddress, patchStepEntries } from "../core/patch.js";
+import { activeGenerationJobs } from "../core/job-index.js";
+import { patchAssetAddress, patchStepEntries } from "../core/patch.js";
 import {
   type PatchFinalize,
   type PatchOutputOrigin,

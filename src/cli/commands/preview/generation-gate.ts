@@ -14,6 +14,7 @@ import type { LoadedDefinitions } from "../../../core/select-definition.js";
 import { StateManager } from "../../../core/state/index.js";
 import { formatStaleCause } from "../../../core/staleness.js";
 import { drawsStaleRefAsWritten } from "../../../core/render-plan.js";
+import { variantLifecycle } from "../../../core/variant-lifecycle.js";
 
 // A take whose job failed: `generate` was run and the asset is that failure's to answer.
 function newestTakeFailed(
@@ -27,7 +28,7 @@ function newestTakeFailed(
       latest === null || entry[1].createdAt > latest[1].createdAt ? entry : latest,
     null,
   );
-  return newest !== null && (newest[1].metadata?.error != null || failedJobs.has(newest[0]));
+  return newest !== null && (variantLifecycle(newest[1]) === "failed" || failedJobs.has(newest[0]));
 }
 
 function unsubmittedCause(manager: StateManager, address: string): string {

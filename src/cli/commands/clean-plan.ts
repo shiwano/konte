@@ -2,6 +2,7 @@ import { patchSourceVariantIdOf } from "../../core/address.js";
 import { patchChainTargets } from "../../core/patch.js";
 import type { KonteState } from "../../core/types/index.js";
 import { variantsHostedBy } from "../../core/variant-dir.js";
+import { variantLifecycle } from "../../core/variant-lifecycle.js";
 import {
   acceptedConsumers,
   collectDescendants,
@@ -160,21 +161,23 @@ export function planClean(input: CleanPlanInput): CleanPlan {
         continue;
       }
 
-      const category: CleanCategory = variant.metadata?.error
-        ? "failed"
-        : variant.metadata?.cancelledAt
-          ? "cancelled"
-          : isDeadLeaf
-            ? "dead leftover"
-            : isDismissed
-              ? "dismissed"
-              : isStaleLeftover
-                ? "stale"
-                : isUnusedStep
-                  ? "unused patch step"
-                  : variant.file
-                    ? "undecided"
-                    : "incomplete";
+      const lifecycle = variantLifecycle(variant);
+      const category: CleanCategory =
+        lifecycle === "failed"
+          ? "failed"
+          : lifecycle === "cancelled"
+            ? "cancelled"
+            : isDeadLeaf
+              ? "dead leftover"
+              : isDismissed
+                ? "dismissed"
+                : isStaleLeftover
+                  ? "stale"
+                  : isUnusedStep
+                    ? "unused patch step"
+                    : variant.file
+                      ? "undecided"
+                      : "incomplete";
       if (input.only && input.only.get(key) !== category) {
         kept.push("reclassified");
         continue;

@@ -24,13 +24,7 @@ import { inFlightVariantIds } from "./generation-selection.js";
 import { extractRefs } from "./graph.js";
 import { loadDirectionDefinition, loadIfPresent, reloadPatchDefinition } from "./loader.js";
 import { computeVariantStaleness, type StalenessCache } from "./staleness.js";
-import type {
-  AssetDefinition,
-  GenerationJob,
-  JobRecord,
-  KonteState,
-  VariantState,
-} from "./types/index.js";
+import type { AssetDefinition, KonteState, VariantState } from "./types/index.js";
 import { mediaVisualSize } from "./variant-media.js";
 import { stageEntryPath } from "./roots.js";
 
@@ -492,21 +486,6 @@ export function findPendingPatches(
 }
 
 /** Generation jobs that have not reached a terminal state, by variant id. */
-export function activeGenerationJobs(jobs: readonly JobRecord[]): Map<string, GenerationJob> {
-  const active = new Map<string, GenerationJob>();
-  for (const job of jobs) {
-    if (job.kind !== "generation") continue;
-    if (job.status !== "pending" && job.status !== "queued" && job.status !== "running") continue;
-    active.set(job.id, job);
-  }
-  return active;
-}
-
-/** Variant ids of generation jobs that have not reached a terminal state. */
-export function activeGenerationVariantIds(jobs: readonly JobRecord[]): Set<string> {
-  return new Set(activeGenerationJobs(jobs).keys());
-}
-
 export function requirePatch(catalog: PatchCatalog, sourceVariantId: string): LoadedPatch {
   const patch = catalog.patches.get(sourceVariantId);
   if (patch) return patch;

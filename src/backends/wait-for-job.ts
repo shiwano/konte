@@ -579,13 +579,9 @@ async function runAsOwner(
     if (!committed) return null;
 
     try {
-      await StateManager.withLock(videoRoot, async (manager) => {
-        const target = manager.ensureAssetState(job.address);
-        const variant = target.variants?.[job.variantId];
-        if (variant) {
-          variant.metadata = { error: errorMsg };
-        }
-      });
+      await StateManager.withLock(videoRoot, async (manager) =>
+        manager.markVariantFailed(job.address, job.variantId, errorMsg),
+      );
     } catch (stateErr) {
       const stateMsg = errorMessage(stateErr);
       hooks.onStateUpdateError?.({

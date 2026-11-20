@@ -7,7 +7,7 @@ import {
   isPlateAddress,
   parseAddress,
 } from "./address.js";
-import { JobIndex } from "./job-index.js";
+import { isActiveGeneration, JobIndex } from "./job-index.js";
 import { isJobTerminal } from "./job-manager.js";
 import { describePendingJob } from "./pending-jobs.js";
 import {
@@ -25,6 +25,7 @@ import {
 } from "./staleness.js";
 import { ERROR_GLIMPSE_WIDTH, truncateSingleLine } from "./truncate.js";
 import type { AssetDefinition, ExportJob, JobRecord, KonteState } from "./types/index.js";
+import { variantLifecycle } from "./variant-lifecycle.js";
 import { collectDescendants, isReviewLeaf } from "./variant-lineage.js";
 
 // "composition" is a synthetic kind: a shot's assembled output, not a real
@@ -446,12 +447,8 @@ export function buildAddressInfo(
       blockedJobs.push({ variantId, waitingOn: reason.submittable ? [] : reason.waitingOn });
     } else if (job && job.status === "failed") {
       failedJobs.push({ variantId, error: job.error });
-    } else if (!v.file && !v.metadata?.error && !v.metadata?.cancelledAt) {
-      const hasActiveJob =
-        job && (job.status === "running" || job.status === "queued" || job.status === "pending");
-      if (!hasActiveJob) {
-        problemVariants.push(variantId);
-      }
+    } else if (variantLifecycle(v) === "reserved" && !isActiveGeneration(job)) {
+      problemVariants.push(variantId);
     }
   }
 

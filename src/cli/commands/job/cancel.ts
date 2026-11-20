@@ -64,11 +64,7 @@ async function cancelOne(
   // ComfyUI-Manager has no abort API — which is harmless (the model is
   // cached). Generation jobs depending on this model will fail on cascade.
   if (job.kind === "comfy-model-download") {
-    const cancelledJob = await jobManager.updateIfNotTerminal(jobId, {
-      status: "cancelled",
-      completedAt: new Date().toISOString(),
-      reportedAt: new Date().toISOString(),
-    });
+    const cancelledJob = await jobManager.cancel(jobId);
     if (!cancelledJob) return skippedTerminal(jobManager, jobId);
     const filename = job.model.filename;
     console.warn(
@@ -89,11 +85,7 @@ async function cancelOne(
   // check); an install already started may finish server-side (harmless). Generation jobs
   // depending on this will fail on cascade.
   if (job.kind === "comfy-node-install" || job.kind === "comfy-node-activate") {
-    const cancelledJob = await jobManager.updateIfNotTerminal(jobId, {
-      status: "cancelled",
-      completedAt: new Date().toISOString(),
-      reportedAt: new Date().toISOString(),
-    });
+    const cancelledJob = await jobManager.cancel(jobId);
     if (!cancelledJob) return skippedTerminal(jobManager, jobId);
     const what =
       job.kind === "comfy-node-install" ? `node install "${job.node.id}"` : `node activation`;
@@ -109,11 +101,7 @@ async function cancelOne(
   // cancelled (a running worker stops on the next status check); a render already in
   // flight may still finish writing its file — harmless, just re-export to refresh.
   if (job.kind === "export" || job.kind === "song-analysis") {
-    const cancelledJob = await jobManager.updateIfNotTerminal(jobId, {
-      status: "cancelled",
-      completedAt: new Date().toISOString(),
-      reportedAt: new Date().toISOString(),
-    });
+    const cancelledJob = await jobManager.cancel(jobId);
     if (!cancelledJob) return skippedTerminal(jobManager, jobId);
     return {
       jobId,
@@ -148,28 +136,18 @@ async function cancelOne(
   // Compare-and-set: if the owner committed "completed" between our initial terminal check and
   // now, don't overwrite it with "cancelled" — and, crucially, don't fall through to the state
   // wipe below, which would erase the real output file from state.
-  const cancelledJob = await jobManager.updateIfNotTerminal(jobId, {
-    status: "cancelled",
-    completedAt: new Date().toISOString(),
-    reportedAt: new Date().toISOString(),
-  });
+  const cancelledJob = await jobManager.cancel(jobId);
   if (!cancelledJob) return skippedTerminal(jobManager, jobId);
 
+  let stateNote = "";
   try {
-    await StateManager.withLock(videoRoot, async (manager) => {
-      // Use tryGetAssetState, not ensureAssetState: a job whose asset was already pruned
-      // must not be resurrected into state just to mark its (gone) variant cancelled.
-      const variant = manager.tryGetAssetState(job.address)?.variants?.[job.variantId];
-      if (variant) {
-        variant.status = "none";
-        variant.file = null;
-        variant.readyAt = null;
-        delete variant.media;
-        variant.metadata = { cancelledAt: new Date().toISOString() };
-      }
-    });
-  } catch {
-    // state update is best-effort
+    await StateManager.withLock(videoRoot, async (manager) =>
+      manager.markVariantCancelled(job.address, job.variantId),
+    );
+  } catch (err) {
+    stateNote =
+      ` Its take ${job.variantId} was not marked cancelled in konte.state.json: ` +
+      `${errorMessage(err)}.`;
   }
 
   const submitNote = !midSubmit
@@ -185,7 +163,7 @@ async function cancelOne(
     jobId,
     outcome: "cancelled",
     job: cancelledJob,
-    message: `Generation job ${jobId} cancelled.${submitNote}`,
+    message: `Generation job ${jobId} cancelled.${submitNote}${stateNote}`,
   };
 }
 

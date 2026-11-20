@@ -2,12 +2,9 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { Command } from "commander";
 import { KonteError } from "../../../core/errors.js";
+import { activeGenerationVariantIds } from "../../../core/job-index.js";
 import { JobManager } from "../../../core/job-manager.js";
-import {
-  activeGenerationVariantIds,
-  patchChainTargets,
-  patchFilePath,
-} from "../../../core/patch.js";
+import { patchChainTargets, patchFilePath } from "../../../core/patch.js";
 import { StateManager } from "../../../core/state/index.js";
 import { patchChainDir, variantDir } from "../../../core/variant-dir.js";
 import { addressToCacheSegments, getAssetStage } from "../../../core/address.js";

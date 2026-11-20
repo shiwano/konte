@@ -10,10 +10,12 @@ import { resolveUrlTokens } from "../comfyui/token-resolver.js";
 import { computeDefinitionHash } from "../core/definition-hash.js";
 import { writeDefinitionSnapshot } from "../core/definition-snapshot.js";
 import { variantDir } from "../core/variant-dir.js";
+import { variantLifecycle } from "../core/variant-lifecycle.js";
 import type { DeliveryTarget } from "../core/delivery.js";
 import { KonteError } from "../core/errors.js";
 import type { DependencyGraph } from "../core/graph.js";
-import { comfyModelJobId, isJobTerminal, JobManager } from "../core/job-manager.js";
+import { isActiveGeneration } from "../core/job-index.js";
+import { comfyModelJobId, JobManager } from "../core/job-manager.js";
 import type { JobRecord } from "../core/types/index.js";
 import type { PatchFinalize } from "../core/patch-output.js";
 import { assetResolves } from "../core/pending-jobs.js";
@@ -525,11 +527,6 @@ interface JobRegistration extends JobRequest {
 
 const INTERRUPTED_REGISTRATION = "Its registration was interrupted before a job was created";
 
-// Inside the state lock the state is current, so a completed job's take already has its file.
-function isActiveGenerationJob(job: JobRecord | null): boolean {
-  return job?.kind === "generation" && !isJobTerminal(job.status);
-}
-
 /**
  * Reserve each request's variants and create their jobs in ONE state-lock hold, the state saved
  * before any job exists so the worker never reads a job whose variant is absent. A variant with no
@@ -558,10 +555,10 @@ export async function registerJobsBatch(
     const liveJobs = new Set<string>();
     for (const address of new Set(planned.map((p) => p.req.address))) {
       for (const [id, v] of Object.entries(manager.tryGetAssetState(address)?.variants ?? {})) {
-        if (v.file || v.metadata?.error || v.metadata?.cancelledAt) continue;
+        if (variantLifecycle(v) !== "reserved") continue;
         if (!jobManager.hasJob(id)) {
-          v.metadata = { ...v.metadata, error: INTERRUPTED_REGISTRATION };
-        } else if (isActiveGenerationJob(jobManager.tryGetJob(id))) {
+          manager.markVariantFailed(address, id, INTERRUPTED_REGISTRATION);
+        } else if (isActiveGeneration(jobManager.tryGetJob(id))) {
           liveJobs.add(id);
         }
       }

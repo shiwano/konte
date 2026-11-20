@@ -1,10 +1,18 @@
+import { isJobTerminal } from "./job-manager.js";
 import type { GenerationJob, JobRecord } from "./types/index.js";
 
-function isActiveGeneration(job: JobRecord): job is GenerationJob {
-  return (
-    job.kind === "generation" &&
-    (job.status === "running" || job.status === "queued" || job.status === "pending")
-  );
+export function isActiveGeneration(job: JobRecord | null | undefined): job is GenerationJob {
+  return job?.kind === "generation" && !isJobTerminal(job.status);
+}
+
+export function activeGenerationJobs(jobs: readonly JobRecord[]): Map<string, GenerationJob> {
+  const active = new Map<string, GenerationJob>();
+  for (const job of jobs) if (isActiveGeneration(job)) active.set(job.id, job);
+  return active;
+}
+
+export function activeGenerationVariantIds(jobs: readonly JobRecord[]): Set<string> {
+  return new Set(activeGenerationJobs(jobs).keys());
 }
 
 /**
