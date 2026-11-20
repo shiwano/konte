@@ -1083,6 +1083,12 @@ function writePairs(state: PairState, lineup: readonly string[], shotId: string)
   for (const { a, key } of lineupPairs(lineup)) state.set(key, { left: a, source: shotId });
 }
 
+// A frame crosses the line when it reverses a pair the place holds. It moves no one — a move is a
+// `lineupTo`, given time a jump — so its opening writes nothing. The check guards the line, so every
+// frame across it is a finding: nothing reads a crossing frame in the far camera's terms.
+const reversesOrder = (state: PairState, lineup: readonly string[]): boolean =>
+  lineupPairs(lineup).some(({ a, key }) => (state.get(key)?.left ?? a) !== a);
+
 // A `lineupTo` states the frame the shot ENDS on, in full — so a subject the frame held at the start
 // and not at the end has walked out of it, and where they now stand is not something this shot says.
 // Their pairs go, and the next frame that holds them beside someone settles their place again.
@@ -1173,8 +1179,8 @@ function opensJump(shots: readonly LineupShot[], index: number): boolean {
 
 // Returns the cycle the writes closed, after restarting the place from the order this frame leaves,
 // so later shots do not report the same ring again.
-function writeFrame(state: PairState, shot: LineupShot): string[] | null {
-  writePairs(state, shot.lineup, shot.shotId);
+function writeFrame(state: PairState, shot: LineupShot, across: boolean): string[] | null {
+  if (!across) writePairs(state, shot.lineup, shot.shotId);
   if (shot.lineupTo) {
     const exits = shot.lineupTo;
     dropSubjects(state, new Set(shot.lineup.filter((id) => !exits.includes(id))));
@@ -1183,7 +1189,7 @@ function writeFrame(state: PairState, shot: LineupShot): string[] | null {
   const cycle = findCycle(state);
   if (cycle) {
     state.clear();
-    writePairs(state, shot.lineupTo ?? shot.lineup, shot.shotId);
+    writePairs(state, shot.lineupTo ?? (across ? [] : shot.lineup), shot.shotId);
   }
   return cycle;
 }
@@ -1201,6 +1207,7 @@ export type OffscreenFigure = { id: string; side: "left" | "right" };
 export function offscreenFigures(shots: readonly LineupShot[]): Map<string, OffscreenFigure[]> {
   const out = new Map<string, OffscreenFigure[]>();
   const byLocation = new Map<string, PairState>();
+  const acrossLane = new Map<PanelLane, boolean>();
   const lastSeenIn = new Map<string, string>();
   const stateOf = (location: string): PairState => {
     const state = byLocation.get(location) ?? new Map();
@@ -1214,18 +1221,31 @@ export function offscreenFigures(shots: readonly LineupShot[]): Map<string, Offs
     const frames = shots.slice(index, end);
     index = end;
 
+    // Which frames cross is read as `checkLineups` reads it: a cutin against the main frame's
+    // opening, a long take run on from a crossing as the same crossing.
+    const opened = new Map<string, PairState>();
+    const across = new Map<LineupShot, boolean>();
     for (const shot of frames) {
       if (shot.location === undefined) continue;
+      const state = stateOf(shot.location);
       const figures = readOffscreen(
-        stateOf(shot.location),
+        state,
         shot.lineup,
         (id) => lastSeenIn.get(id) === shot.location,
       );
       if (figures.length > 0) out.set(`${shot.shotId}/${shot.lane}`, figures);
+      const seen = opened.get(shot.location) ?? new Map(state);
+      opened.set(shot.location, seen);
+      const crosses =
+        reversesOrder(seen, shot.lineup) ||
+        (shot.join === "continuous" && acrossLane.get(shot.lane) === true);
+      across.set(shot, crosses);
+      if (!crosses) writePairs(seen, shot.lineup, shot.shotId);
     }
     for (const shot of frames) {
+      acrossLane.set(shot.lane, across.get(shot) === true);
       if (shot.location === undefined) continue;
-      writeFrame(stateOf(shot.location), shot);
+      writeFrame(stateOf(shot.location), shot, across.get(shot) === true);
       for (const id of [...shot.lineup, ...(shot.lineupTo ?? []), ...(shot.passing ?? [])]) {
         lastSeenIn.set(id, shot.location);
       }
@@ -1261,10 +1281,12 @@ function readOffscreen(
  * the caller has it. Pure: the caller flattens the arc tree and resolves each shot's location.
  *
  * The state is one `Map` of pairs per LOCATION — "a is left of b", with the shot that said so. A
- * shot's `lineup` is checked against it, then written into it, then its `lineupTo` over that; a
- * `join` of `jump-back`/`jump-forward` empties every place, because given time people move anywhere,
- * and a coverage shot empties its own after its opening frame is read. There is no carry-over of
- * the LIST: each shot states only what its own frame holds, and the pairs are what remember.
+ * shot's `lineup` is checked against it, then written into it unless it crosses the line
+ * (`reversesOrder`), then its `lineupTo` over that; a long take run on from a crossing is the same
+ * crossing, not reported twice; a `join` of `jump-back`/`jump-forward` empties every place, because
+ * given time people move anywhere, and a coverage shot empties its own after its opening frame is
+ * read. There is no carry-over of the LIST: each shot states only what its own
+ * frame holds, and the pairs are what remember.
  */
 export function checkLineups(
   shots: readonly LineupShot[],
@@ -1290,7 +1312,8 @@ export function checkLineups(
   const byLocation = new Map<string, PairState>();
 
   // Both lanes of a shot read before either writes its `lineupTo`, as in `offscreenFigures`.
-  const pending: (LineupShot & { location: string })[] = [];
+  const pending: (LineupShot & { location: string; across: boolean })[] = [];
+  const acrossFrames = new Set<string>();
   const flush = () => {
     const frames = pending.splice(0);
     const stateOf = (shot: { location: string }): PairState => byLocation.get(shot.location)!;
@@ -1318,7 +1341,9 @@ export function checkLineups(
         // Restart the place from the order these frames leave, so later shots do not report the
         // same ring again.
         state.clear();
-        for (const shot of here) writePairs(state, shot.lineupTo ?? shot.lineup, shot.shotId);
+        for (const shot of here) {
+          writePairs(state, shot.lineupTo ?? (shot.across ? [] : shot.lineup), shot.shotId);
+        }
       }
       if (here.some((f) => f.coverage)) byLocation.delete(location);
     }
@@ -1370,7 +1395,13 @@ export function checkLineups(
       const held = state.get(key);
       return held && held.left !== a ? [{ a, b, source: held.source }] : [];
     });
-    if (flipped.length > 0) {
+    const runsOnAcross =
+      shot.join === "continuous" &&
+      previous !== undefined &&
+      acrossFrames.has(frameSubject(previous));
+    const across = runsOnAcross || flipped.length > 0;
+    if (across) acrossFrames.add(subject);
+    if (flipped.length > 0 && !runsOnAcross) {
       findings.push({
         code: "lineup-flipped",
         subject,
@@ -1383,7 +1414,7 @@ export function checkLineups(
 
     // Only where the order itself still holds: a flipped pair means the accumulation and this frame
     // already disagree about the axis, and betweenness read off it would name the wrong body.
-    const skipped = flipped.length === 0 ? skippedBetween(state, shot.lineup) : [];
+    const skipped = across ? [] : skippedBetween(state, shot.lineup);
     if (skipped.length > 0) {
       findings.push({
         code: "lineup-gap",
@@ -1396,8 +1427,8 @@ export function checkLineups(
 
     // The opening is written at once, so the other lane of this shot reads beside it; what the
     // frame leaves waits for the flush.
-    writePairs(state, shot.lineup, shot.shotId);
-    pending.push({ ...shot, location });
+    if (!across) writePairs(state, shot.lineup, shot.shotId);
+    pending.push({ ...shot, location, across });
   }
   flush();
 

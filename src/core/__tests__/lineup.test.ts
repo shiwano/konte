@@ -197,6 +197,57 @@ describe("the accumulated order", () => {
     expect(found[0]!.message).toContain("shot 01");
   });
 
+  it("reads a frame back on the line's side against the order before the crossing", () => {
+    const dir = direction({
+      shots: [
+        shot("01", "deck", { lineup: ["ane", "imouto"] }),
+        shot("02", "stern", { lineup: ["imouto", "ane"] }),
+        shot("03", "deck", { lineup: ["ane", "imouto"] }),
+        shot("04", "stern", { lineup: ["imouto", "ane"] }),
+      ],
+    });
+    expect(codes(dir, "lineup-flipped").map((f) => [f.subject, f.message])).toEqual([
+      ["02", expect.stringContaining("shot 01")],
+      ["04", expect.stringContaining("shot 03")],
+    ]);
+  });
+
+  it("flags every frame across the line, the far camera's second frame too", () => {
+    const dir = direction({
+      shots: [
+        shot("01", "deck", { lineup: ["ane", "imouto"] }),
+        shot("02", "stern", { lineup: ["imouto", "ane"] }),
+        shot("03", "stern", { lineup: ["imouto", "ane"] }),
+      ],
+    });
+    expect(codes(dir, "lineup-flipped").map((f) => f.subject)).toEqual(["02", "03"]);
+  });
+
+  it("takes none of the order a frame from across the line adds", () => {
+    const dir = direction({
+      shots: [
+        shot("01", "deck", { lineup: ["ane", "imouto"] }),
+        shot("02", "stern", { lineup: ["imouto", "mother", "ane"] }),
+        shot("03", "deck", { lineup: ["ane", "imouto"] }),
+      ],
+    });
+    const found = checkDirection(dir).active.filter((f) => f.code.startsWith("lineup-"));
+    expect(found.map((f) => [f.code, f.subject])).toEqual([["lineup-flipped", "02"]]);
+  });
+
+  it("reads a long take run on from a frame across the line as the same camera", () => {
+    const dir = direction({
+      shots: [
+        shot("01", "deck", { lineup: ["ane", "imouto"] }),
+        shot("02", "stern", { lineup: ["imouto", "ane"] }),
+        shot("03", "stern", { lineup: ["imouto", "ane"], join: "continuous" }),
+        shot("04", "deck", { lineup: ["ane", "imouto"] }),
+      ],
+    });
+    const found = checkDirection(dir).active.filter((f) => f.code.startsWith("lineup-"));
+    expect(found.map((f) => [f.code, f.subject])).toEqual([["lineup-flipped", "02"]]);
+  });
+
   it("reports the pairs a waiver of the flip lets through, whichever shot said otherwise", () => {
     const dir = direction({
       shots: [
