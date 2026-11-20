@@ -9746,6 +9746,11 @@ export type VideoProps = Omit<VideoElementProps, "src"> & {
   volume?: number;
   /** Appended to `konte-clip` — a full-stage, cover-fit layer; Tailwind utilities here override it. */
   className?: string;
+  /**
+   * Keys out the take's flat backdrop — green, or the hex colour given — leaving the subject on a
+   * transparent layer over what is under it. `id`, `className` and `style` land on that layer.
+   */
+  chromaKey?: boolean | ColorString;
 };
 export declare function Video({
   src,
@@ -9759,6 +9764,7 @@ export declare function Video({
   hasAudio,
   volume,
   className,
+  chromaKey,
   ...rest
 }: VideoProps): React.ReactElement;
 export declare const adapters: {

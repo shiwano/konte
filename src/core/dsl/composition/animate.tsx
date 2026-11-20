@@ -93,10 +93,14 @@ function assertEmbeddable(shotId: string, source: string): void {
 // roots at its `[data-composition-id]` host, which HyperFrames' scoped `querySelector` resolves to
 // itself; a standalone render carries that attribute on a <head> <meta>, so the tag is checked and
 // `#stage` used instead.
-function errorOverlayJs(shotId: string): string {
+export function errorOverlayJs(
+  shotId: string,
+  attribute = "data-konte-animate-error",
+  failure = "<Animate> script failed",
+): string {
   const key = JSON.stringify(`shot-${shotId}`);
   const hostSelector = JSON.stringify(`[data-composition-id="shot-${shotId}"]`);
-  return `var host=document.querySelector(${hostSelector});if(host&&host.tagName==="META")host=null;host=host||document.getElementById("stage")||document.body;if(host){var box=document.createElement("div");box.setAttribute("data-konte-animate-error",${key});box.style.cssText="position:absolute;left:0;right:0;bottom:0;z-index:2147483647;background:#b00020;color:#fff;font:600 14px/1.4 ui-monospace,monospace;padding:10px 14px;white-space:pre-wrap;word-break:break-word;";box.textContent="konte: <Animate> script failed in "+${key}+"\\n"+msg;host.appendChild(box);}`;
+  return `var host=document.querySelector(${hostSelector});if(host&&host.tagName==="META")host=null;host=host||document.getElementById("stage")||document.body;if(host){var box=document.createElement("div");box.setAttribute(${JSON.stringify(attribute)},${key});box.style.cssText="position:absolute;left:0;right:0;bottom:0;z-index:2147483647;background:#b00020;color:#fff;font:600 14px/1.4 ui-monospace,monospace;padding:10px 14px;white-space:pre-wrap;word-break:break-word;";box.textContent="konte: "+${JSON.stringify(failure)}+" in "+${key}+"\\n"+msg;host.appendChild(box);}`;
 }
 
 function unserializablePath(value: unknown, path: string): string | null {

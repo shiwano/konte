@@ -5,6 +5,9 @@ import { assertPlaybackRate } from "../../playback-rate.js";
 import { applyLevelGain } from "../../audio-level.js";
 import { KonteError } from "../../errors.js";
 import { songSpanOf, songWindowStart } from "../song-window.js";
+import { sha256Hex } from "../../content-hash.js";
+import { backdropColor, chromaKeyScript, DEFAULT_BACKDROP } from "./chroma-key.js";
+import type { ColorString } from "../adapters/local.js";
 
 type VideoElementProps = React.ComponentPropsWithoutRef<"video">;
 
@@ -31,6 +34,11 @@ export type VideoProps = Omit<VideoElementProps, "src"> & {
   volume?: number;
   /** Appended to `konte-clip` — a full-stage, cover-fit layer; Tailwind utilities here override it. */
   className?: string;
+  /**
+   * Keys out the take's flat backdrop — green, or the hex colour given — leaving the subject on a
+   * transparent layer over what is under it. `id`, `className` and `style` land on that layer.
+   */
+  chromaKey?: boolean | ColorString;
 };
 
 export function Video({
@@ -45,6 +53,7 @@ export function Video({
   hasAudio,
   volume,
   className,
+  chromaKey,
   ...rest
 }: VideoProps): React.ReactElement {
   // Default the clip to run to the shot's end. Without an explicit data-duration the
@@ -76,25 +85,53 @@ export function Video({
     hasAudio: clipHasAudio,
   });
 
-  return (
+  const label = `Shot "${shotId}" <Video>`;
+  const backdrop =
+    chromaKey === true ? DEFAULT_BACKDROP : chromaKey ? backdropColor(chromaKey, label) : undefined;
+  const layerClass = className ? `konte-clip ${className}` : "konte-clip";
+  const { id, style, ...media } = rest;
+  const clipDuration =
+    duration ?? raw["data-duration"] ?? Math.max(0, shotDuration - Number(clipStart));
+  const clipMediaStart = window ?? mediaStart ?? raw["data-media-start"];
+  const keyedId = backdrop
+    ? (id ??
+      `konte-key-${sha256Hex(
+        JSON.stringify([src.src, clipStart, clipDuration, clipMediaStart, rate, className, style]),
+      ).slice(0, 12)}`)
+    : undefined;
+  const video = (
     <video
       src={src.src}
       muted={muted}
       playsInline={playsInline}
-      {...rest}
-      className={className ? `konte-clip ${className}` : "konte-clip"}
+      {...media}
+      id={keyedId ? `${keyedId}-source` : id}
+      style={keyedId ? { opacity: 0 } : style}
+      className={keyedId ? "konte-clip" : layerClass}
       data-start={clipStart}
-      data-duration={
-        duration ?? raw["data-duration"] ?? Math.max(0, shotDuration - Number(clipStart))
-      }
+      data-duration={clipDuration}
       data-end={undefined}
-      data-media-start={window ?? mediaStart ?? raw["data-media-start"]}
+      data-media-start={clipMediaStart}
       data-playback-rate={rate}
       data-has-audio={hasAudio === undefined ? raw["data-has-audio"] : hasAudio ? "true" : "false"}
       data-volume={levelled}
     >
       {children}
     </video>
+  );
+  if (!backdrop || !keyedId) return video;
+  return (
+    <>
+      {video}
+      <div className="konte-clip" data-start={clipStart} data-duration={clipDuration}>
+        <canvas
+          id={keyedId}
+          className={className ? `konte-keyed ${className}` : "konte-keyed"}
+          style={style}
+        />
+      </div>
+      <script>{chromaKeyScript(`${keyedId}-source`, keyedId, backdrop, shotId, label)}</script>
+    </>
   );
 }
 
