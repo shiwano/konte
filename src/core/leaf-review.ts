@@ -97,16 +97,21 @@ function leafContentHash(
   return stableHash({ definitionHash, inputFingerprints });
 }
 
-// The upstream refs a materialized leaf consumes for its input fingerprints — the same refs its
-// materializer fingerprints: a composition's picture refs, a shot stem's cues, the timeline beds.
-// null when the address is not a renderable leaf (no shotFn / no audio cues / no soundtracks).
-function leafInputRefs(video: StageDefinition, address: string): readonly string[] | null {
+// The refs a materialized leaf draws on: `compositionRefsOf` its shot for a composition, a shot
+// stem's cues, the timeline beds, the overlay's refs. null when the address is not a renderable
+// leaf (no shotFn / no audio cues / no soundtracks), which is not the same as a leaf whose refs do
+// not resolve.
+function leafRefs(
+  video: StageDefinition,
+  address: string,
+  compositionRefsOf: (shot: ShotDefinition) => readonly string[],
+): readonly string[] | null {
   if (isOverlayAddress(address)) return video.overlay?.compositionRefs ?? null;
   const parsed = parseAddress(address);
   if (isCompositionAddress(address)) {
     if (parsed.kind !== "shot") return null;
     const shot = shotById(video.shots, parsed.shotId);
-    return shot?.shotFn ? compositionFingerprintRefs(video, shot) : null;
+    return shot?.shotFn ? compositionRefsOf(shot) : null;
   }
   if (isStemAddress(address)) {
     if (parsed.kind === "shot") return shotStemOf(video, address)?.refs ?? null;
@@ -115,6 +120,11 @@ function leafInputRefs(video: StageDefinition, address: string): readonly string
     }
   }
   return null;
+}
+
+// The refs a leaf's materializer fingerprints.
+function leafInputRefs(video: StageDefinition, address: string): readonly string[] | null {
+  return leafRefs(video, address, (shot) => compositionFingerprintRefs(video, shot));
 }
 
 // The content-hash baseline of one materialized leaf (composition / stem), or null when it is not a
@@ -137,31 +147,15 @@ export function materializedLeafContentHash(
   return leafContentHash(definitionHash, inputFingerprints);
 }
 
-// The refs a leaf's readiness is judged on. null when the address is not a renderable leaf (no
-// shotFn / no audio cues / no soundtracks), which is not the same as a leaf whose refs do not
-// resolve — the callers below keep the two apart.
+// The refs a leaf's readiness is judged on: for a composition, the shot's whole pool, which the
+// render plan gates its build on.
 function leafReadinessRefs(video: StageDefinition, address: string): readonly string[] | null {
-  if (isOverlayAddress(address)) return video.overlay?.compositionRefs ?? null;
-  const parsed = parseAddress(address);
-  if (isCompositionAddress(address)) {
-    if (parsed.kind !== "shot") return null;
-    const shot = shotById(video.shots, parsed.shotId);
-    if (!shot?.shotFn) return null;
-    // The render plan gates a composition build on the shot's whole pool, not only the refs the
-    // composition places. Read the same set here, so "ready for review" and "the builder will take
-    // it" cannot disagree.
+  return leafRefs(video, address, (shot) => {
     const pool = Object.keys(shot.assets ?? {}).map((name) =>
       formatAddress(video.stage, shot.id, name),
     );
     return [...new Set([...(shot.compositionRefs ?? []), ...pool])];
-  }
-  if (isStemAddress(address)) {
-    if (parsed.kind === "shot") return shotStemOf(video, address)?.refs ?? null;
-    if (parsed.kind === "timeline") {
-      return (video.timelineSoundtracks?.length ?? 0) > 0 ? timelineStemRefs(video) : null;
-    }
-  }
-  return null;
+  });
 }
 
 // Whether a materialized leaf (composition / stem) is ready to be reviewed right now: it has a
