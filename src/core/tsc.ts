@@ -4,7 +4,7 @@ import { KonteError, errorMessage } from "./errors.js";
 import { VIDEO_MARKER, VIDEO_NAME_PATTERN, VIDEOS_DIR } from "./roots.js";
 import { exeName, provisionOnce, toolCacheDir, unpackTarballInto } from "./tool-cache.js";
 import { toolPin } from "./tool-checksums.js";
-import { execFileAsync } from "./exec-file.js";
+import { execFileAsync, isExecFileError } from "./exec-file.js";
 
 const TSC_VERSION = "7.0.2";
 
@@ -99,12 +99,11 @@ export async function typeCheckWorkspace(
     );
     return { success: true, errorCount: 0, output: "", diagnostics: [], otherVideos: [] };
   } catch (err) {
-    const stdout = err instanceof Error && "stdout" in err ? String(err.stdout) : "";
-    const stderr = err instanceof Error && "stderr" in err ? String(err.stderr) : "";
-    const output = (stdout + stderr).trim();
+    const failed = isExecFileError(err) ? err : null;
+    const output = failed ? `${failed.stdout}${failed.stderr}`.trim() : "";
     if (!output) {
-      const code = err instanceof Error && "code" in err ? String(err.code) : "unknown";
-      const signal = err instanceof Error && "signal" in err ? err.signal : null;
+      const code = failed?.code ?? "unknown";
+      const signal = failed?.signal;
       throw new KonteError(
         "TSC_SETUP_FAILED",
         `tsc execution failed (code: ${code}${signal ? `, signal: ${signal}` : ""}): ${errorMessage(err)}`,

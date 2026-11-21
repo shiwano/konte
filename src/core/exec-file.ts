@@ -8,11 +8,16 @@ interface ExecFileOptions {
   cwd?: string;
 }
 
-interface ExecFileError extends Error {
+export interface ExecFileError extends Error {
   code?: number | string;
   signal?: string | null;
   stdout: string | Buffer;
   stderr: string | Buffer;
+}
+
+/** Whether `err` is how `execFileAsync` rejects. */
+export function isExecFileError(err: unknown): err is ExecFileError {
+  return err instanceof Error && "stdout" in err && "stderr" in err;
 }
 
 /**
