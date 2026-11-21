@@ -1,7 +1,7 @@
 import { sha256Hex } from "./content-hash.js";
 import { accessSync, constants, existsSync, mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
-import { WORKSPACE_MARKER } from "./roots.js";
+import { findWorkspaceRootSync } from "./roots.js";
 
 // Bun caches its transpile of every source file over ~50KB — in a konte workspace, the definition
 // entries — keyed by the file's CONTENT ALONE, never its location. A definition reaches an adapter
@@ -38,16 +38,6 @@ function cwdFromArgs(args: readonly string[]): string {
   return found ?? process.cwd();
 }
 
-function findWorkspaceRoot(from: string): string | null {
-  let dir = path.resolve(from);
-  for (;;) {
-    if (existsSync(path.join(dir, WORKSPACE_MARKER))) return dir;
-    const parent = path.dirname(dir);
-    if (parent === dir) return null;
-    dir = parent;
-  }
-}
-
 // The generation a given root's piles belong to. A move lands on a new one, and the generation it
 // left is never read again. Nothing prunes it: konte would be recursively deleting a path it does
 // not control, at startup, to reclaim disk inside a directory that is already ignored. Deleting
@@ -82,7 +72,7 @@ function insideWorkspace(root: string, dir: string): boolean {
 // own generation is still there. Returns Bun's disable value when there is no workspace to own a
 // cache, or when the directory cannot be written — never the machine-wide cache under `~/.bun`.
 export function resolveTranspilerCachePath(args: readonly string[]): string {
-  const root = findWorkspaceRoot(cwdFromArgs(args));
+  const root = findWorkspaceRootSync(cwdFromArgs(args));
   if (!root) return TRANSPILER_CACHE_DISABLED;
 
   const dir = path.join(root, CACHE_BASE, generation(root));

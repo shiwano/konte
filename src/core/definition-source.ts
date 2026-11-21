@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { sha256Hex } from "./content-hash.js";
 import { songReadingsOf } from "./song-variant.js";
 import { KonteStateSchema } from "./types/state.js";
-import { STAGE_ENTRY_FILE, WORKSPACE_MARKER } from "./roots.js";
+import { STAGE_ENTRY_FILE, findWorkspaceRootSync } from "./roots.js";
 
 // The files a video's definitions are evaluated from: its stage entries and patch scripts, and the
 // workspace's adapters. A job records this fingerprint when it is created, from the same files the
@@ -25,16 +25,6 @@ const ADAPTERS_DIR = "adapters";
 const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
 // A comfy adapter's workflow graph is part of its definition (`workflowHash`).
 const ADAPTER_EXTENSIONS = new Set([...SOURCE_EXTENSIONS, ".json"]);
-
-function findWorkspaceRoot(from: string): string | null {
-  let dir = path.resolve(from);
-  for (;;) {
-    if (existsSync(path.join(dir, WORKSPACE_MARKER))) return dir;
-    const parent = path.dirname(dir);
-    if (parent === dir) return null;
-    dir = parent;
-  }
-}
 
 async function listSources(
   dir: string,
@@ -67,7 +57,7 @@ export async function listDefinitionSources(videoRoot: string): Promise<string[]
     if (existsSync(file)) files.push(file);
   }
   files.push(...(await listSources(path.resolve(videoRoot, PATCHES_DIR))));
-  const workspaceRoot = findWorkspaceRoot(videoRoot);
+  const workspaceRoot = findWorkspaceRootSync(videoRoot);
   if (workspaceRoot)
     files.push(...(await listSources(path.join(workspaceRoot, ADAPTERS_DIR), ADAPTER_EXTENSIONS)));
   return files.sort();

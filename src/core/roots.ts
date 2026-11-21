@@ -87,6 +87,16 @@ export function findWorkspaceRoot(from: string): Promise<string | null> {
   return findUp(from, WORKSPACE_MARKER);
 }
 
+export function findWorkspaceRootSync(from: string): string | null {
+  let dir = path.resolve(from);
+  for (;;) {
+    if (existsSync(path.join(dir, WORKSPACE_MARKER))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+
 /** Upward search for a video root, stopping at (and including) the workspace root. */
 function findVideoRoot(from: string, stopAt: string): Promise<string | null> {
   return findUp(from, VIDEO_MARKER, stopAt);

@@ -20,7 +20,7 @@ import { withSongVariants } from "./dsl/song-context.js";
 import { resolveSongVariant, songReadingsOf, type SongVariant } from "./song-variant.js";
 import { KonteStateSchema } from "./types/state.js";
 import { extractRefs } from "./graph.js";
-import { STAGE_ENTRY_FILE, WORKSPACE_MARKER, stageEntryPath } from "./roots.js";
+import { STAGE_ENTRY_FILE, findWorkspaceRootSync, stageEntryPath } from "./roots.js";
 import { type Handoff, HandoffSchema } from "./types/handoff.js";
 import {
   type AssetDefinition,
@@ -50,16 +50,6 @@ import {
 //     this alias MUST carry one.
 const WORKSPACE_ALIAS_PREFIX = "konte/workspace/";
 const WORKSPACE_ALIAS_EXTS = [".ts", ".tsx", ".js", ".jsx"];
-
-function findWorkspaceRootSync(from: string): string | null {
-  let dir = path.resolve(from);
-  for (;;) {
-    if (existsSync(path.join(dir, WORKSPACE_MARKER))) return dir;
-    const parent = path.dirname(dir);
-    if (parent === dir) return null;
-    dir = parent;
-  }
-}
 
 function resolveWorkspaceAlias(specifier: string, importer: string | undefined): string | null {
   const rest = specifier.slice(WORKSPACE_ALIAS_PREFIX.length);
