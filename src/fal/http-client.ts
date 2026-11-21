@@ -2,6 +2,7 @@ import { openAsBlob } from "node:fs";
 import * as path from "node:path";
 import {
   downloadToFile,
+  externalFailureMessage,
   guessContentType,
   parseApiResponse,
   sendOnce,
@@ -9,7 +10,6 @@ import {
 import { rejectedCredentialMessage } from "../core/credentials.js";
 import { KonteError, type KonteErrorCode, errorMessage } from "../core/errors.js";
 import { fetchWithRetry, mediaTransferTimeoutMs, TransientHttpError } from "../core/http-retry.js";
-import { redactExternalBody } from "../core/redact.js";
 import { backendCredential } from "../core/types/credentials.js";
 import {
   type FalStatusResponse,
@@ -29,9 +29,8 @@ function queueAppId(endpointId: string): string {
 
 const FAL_KEY = backendCredential("fal")!.key;
 
-async function failureMessage(res: Response, what: string): Promise<string> {
-  const body = redactExternalBody(await res.text().catch(() => ""), [`\${${FAL_KEY}}`]);
-  return `${what} failed (${res.status}): ${body}`;
+function failureMessage(res: Response, what: string): Promise<string> {
+  return externalFailureMessage(res, what, [`\${${FAL_KEY}}`]);
 }
 
 async function failure(res: Response, what: string, code: KonteErrorCode): Promise<KonteError> {

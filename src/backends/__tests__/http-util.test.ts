@@ -6,11 +6,29 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { KonteError } from "../../core/errors.js";
-import { downloadToFile, parseApiResponse, saveDownloadResponse } from "../http-util.js";
+import {
+  downloadToFile,
+  externalFailureMessage,
+  parseApiResponse,
+  saveDownloadResponse,
+} from "../http-util.js";
 import { TransientHttpError } from "../../core/http-retry.js";
 
 const jsonResponse = (body: unknown): Response =>
   new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
+
+describe("externalFailureMessage", () => {
+  it("redacts the status text that stands in for an empty body", async () => {
+    process.env.KONTE_TEST_FAILURE_KEY = "s3cret-key";
+    try {
+      const res = new Response("", { status: 401, statusText: "bad key s3cret-key" });
+      const message = await externalFailureMessage(res, "upload", ["${KONTE_TEST_FAILURE_KEY}"]);
+      expect(message).toBe("upload failed (401): bad key ${KONTE_TEST_FAILURE_KEY}");
+    } finally {
+      delete process.env.KONTE_TEST_FAILURE_KEY;
+    }
+  });
+});
 
 describe("parseApiResponse", () => {
   it("keeps an interrupted JSON response retryable", async () => {

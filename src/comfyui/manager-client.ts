@@ -1,16 +1,13 @@
 import { z } from "zod";
 import { parseApiResponse } from "../backends/http-util.js";
 import { KonteError, errorMessage } from "../core/errors.js";
-import { fetchWithRetry } from "../core/http-retry.js";
 import { pollUntilTerminal, TransientPollError } from "../core/poll-until-terminal.js";
 import { isAuthFailure } from "./error-utils.js";
-import { resolveHeaderTokens } from "./token-resolver.js";
 import type { ComfyModelDeclaration, ComfyNodeDeclaration } from "../core/types/index.js";
 import type { ComfyUIHttpClient } from "./http-client.js";
 import type { ComfyUIInputSpec, ComfyUINodeDefinition } from "./types.js";
 import { sleep } from "../core/sleep.js";
 
-const DEFAULT_TIMEOUT_MS = 30_000;
 // After a reboot the server is down briefly; poll its readiness for up to this long.
 const DEFAULT_REBOOT_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -171,7 +168,7 @@ export class ComfyUIManagerClient {
 
   async isAvailable(): Promise<boolean> {
     try {
-      const res = await this.fetchManager(ROUTE_VERSION, { method: "GET" });
+      const res = await this.httpClient.observe(ROUTE_VERSION);
       // A reachable server that isn't a Manager (non-ok) is a definitive "not available".
       return res.ok;
     } catch (err) {
@@ -188,7 +185,7 @@ export class ComfyUIManagerClient {
   // trimmed text; parse the major with `parseManagerMajorVersion`.
   async getVersion(): Promise<string | null> {
     try {
-      const res = await this.fetchManager(ROUTE_VERSION, { method: "GET" });
+      const res = await this.httpClient.observe(ROUTE_VERSION);
       if (!res.ok) return null;
       const text = (await res.text()).trim();
       return text.length > 0 ? text : null;
@@ -216,11 +213,16 @@ export class ComfyUIManagerClient {
 
   private async readSessionTask(uiId: string): Promise<ManagerTaskOutcome | null> {
     try {
-      const res = await this.fetchManager(`${ROUTE_HISTORY}?ui_id=${encodeURIComponent(uiId)}`, {
-        method: "GET",
-      });
+      const res = await this.httpClient.observe(
+        `${ROUTE_HISTORY}?ui_id=${encodeURIComponent(uiId)}`,
+      );
       if (!res.ok) return null;
-      const { history } = ManagerSessionHistorySchema.parse(await res.json());
+      const { history } = await parseApiResponse(
+        res,
+        ManagerSessionHistorySchema,
+        "COMFYUI_MANAGER_UNAVAILABLE",
+        "ComfyUI-Manager queue/history",
+      );
       const message = history?.result ?? history?.status?.messages.join("; ");
       const result = history?.status?.status_str ?? (message === "success" ? "success" : undefined);
       if (result === undefined) return null;
@@ -237,17 +239,27 @@ export class ComfyUIManagerClient {
   // older batch can still hold a stale entry for it.
   private async readBatchTask(uiId: string): Promise<ManagerTaskOutcome | null> {
     try {
-      const listRes = await this.fetchManager(ROUTE_HISTORY_LIST, { method: "GET" });
+      const listRes = await this.httpClient.observe(ROUTE_HISTORY_LIST);
       if (!listRes.ok) return null;
-      const { ids } = ManagerHistoryListSchema.parse(await listRes.json());
+      const { ids } = await parseApiResponse(
+        listRes,
+        ManagerHistoryListSchema,
+        "COMFYUI_MANAGER_UNAVAILABLE",
+        "ComfyUI-Manager queue/history_list",
+      );
       const batchId = ids[0];
       if (batchId === undefined) return null;
 
-      const res = await this.fetchManager(`${ROUTE_HISTORY}?id=${encodeURIComponent(batchId)}`, {
-        method: "GET",
-      });
+      const res = await this.httpClient.observe(
+        `${ROUTE_HISTORY}?id=${encodeURIComponent(batchId)}`,
+      );
       if (!res.ok) return null;
-      const batch = ManagerHistorySchema.parse(await res.json());
+      const batch = await parseApiResponse(
+        res,
+        ManagerHistorySchema,
+        "COMFYUI_MANAGER_UNAVAILABLE",
+        "ComfyUI-Manager queue/history",
+      );
       const operation = batch.operations.find((op) => op.operation_id === uiId);
       if (!operation) return null;
       const hint = denialHint(batch.state_before);
@@ -350,7 +362,7 @@ export class ComfyUIManagerClient {
     };
     if (model.base) body.base = model.base;
 
-    const res = await this.fetchManager("/api/v2/manager/queue/install_model", {
+    const res = await this.httpClient.observe("/api/v2/manager/queue/install_model", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -358,24 +370,16 @@ export class ComfyUIManagerClient {
     if (!res.ok) {
       // The Manager may echo the request's resolved URL (with its `${VAR}` token) in the error
       // body; redact it back to the placeholder before this message is persisted to job/log.
-      const text = this.httpClient.redactBody(await res.text().catch(() => ""), [model.url]);
-      throw new KonteError(
-        "COMFYUI_MANAGER_UNAVAILABLE",
-        `ComfyUI-Manager rejected install request for ${model.filename} (${res.status}): ${text || res.statusText}. ` +
-          SECURITY_LEVEL_HINT,
-      );
+      throw await this.managerFailure(res, `install of ${model.filename}`, {
+        hint: SECURITY_LEVEL_HINT,
+        redact: [model.url],
+      });
     }
   }
 
   async startQueue(): Promise<void> {
-    const res = await this.fetchManager("/api/v2/manager/queue/start", { method: "POST" });
-    if (!res.ok) {
-      const text = this.httpClient.redactBody(await res.text().catch(() => ""));
-      throw new KonteError(
-        "COMFYUI_MANAGER_UNAVAILABLE",
-        `ComfyUI-Manager queue/start failed (${res.status}): ${text || res.statusText}`,
-      );
-    }
+    const res = await this.httpClient.observe("/api/v2/manager/queue/start", { method: "POST" });
+    if (!res.ok) throw await this.managerFailure(res, "queue/start");
   }
 
   async getQueueStatus(clientId?: string): Promise<ManagerQueueStatus> {
@@ -385,14 +389,8 @@ export class ComfyUIManagerClient {
       clientId !== undefined
         ? `/api/v2/manager/queue/status?client_id=${encodeURIComponent(clientId)}`
         : "/api/v2/manager/queue/status";
-    const res = await this.fetchManager(path, { method: "GET" });
-    if (!res.ok) {
-      const text = this.httpClient.redactBody(await res.text().catch(() => ""));
-      throw new KonteError(
-        "COMFYUI_MANAGER_UNAVAILABLE",
-        `ComfyUI-Manager queue/status failed (${res.status}): ${text || res.statusText}`,
-      );
-    }
+    const res = await this.httpClient.observe(path);
+    if (!res.ok) throw await this.managerFailure(res, "queue/status");
     return parseApiResponse(
       res,
       ManagerQueueStatusSchema,
@@ -498,15 +496,11 @@ export class ComfyUIManagerClient {
   // startup. The response shape varies by Manager version, so this is defensive: it collects
   // both object keys and any nested cnr_id/id fields.
   async getInstalledNodeIds(mode: "default" | "imported"): Promise<Set<string>> {
-    const res = await this.fetchManager(`${ROUTE_INSTALLED}?mode=${mode}`, { method: "GET" });
-    if (!res.ok) {
-      const text = this.httpClient.redactBody(await res.text().catch(() => ""));
-      throw new KonteError(
-        "COMFYUI_MANAGER_UNAVAILABLE",
-        `ComfyUI-Manager ${ROUTE_INSTALLED} failed (${res.status}): ${text || res.statusText}`,
-      );
-    }
-    return collectNodePackIds(await res.json());
+    const res = await this.httpClient.observe(`${ROUTE_INSTALLED}?mode=${mode}`);
+    if (!res.ok) throw await this.managerFailure(res, ROUTE_INSTALLED);
+    return collectNodePackIds(
+      await parseApiResponse(res, z.unknown(), "COMFYUI_MANAGER_UNAVAILABLE", ROUTE_INSTALLED),
+    );
   }
 
   async queueInstallNode(args: ManagerNodeInstallArgs): Promise<void> {
@@ -528,18 +522,15 @@ export class ComfyUIManagerClient {
       },
     };
 
-    const res = await this.fetchManager(ROUTE_QUEUE_TASK, {
+    const res = await this.httpClient.observe(ROUTE_QUEUE_TASK, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     if (!res.ok) {
-      const text = this.httpClient.redactBody(await res.text().catch(() => ""));
-      throw new KonteError(
-        "COMFYUI_MANAGER_UNAVAILABLE",
-        `ComfyUI-Manager rejected node install for "${node.id}" (${res.status}): ${text || res.statusText}. ` +
-          SECURITY_LEVEL_HINT,
-      );
+      throw await this.managerFailure(res, `install of node "${node.id}"`, {
+        hint: SECURITY_LEVEL_HINT,
+      });
     }
   }
 
@@ -548,15 +539,11 @@ export class ComfyUIManagerClient {
   // `konte comfy import` to scaffold a `nodes: [...]` block from a workflow.
   async resolveClassToPack(classTypes: readonly string[]): Promise<Map<string, string>> {
     if (classTypes.length === 0) return new Map();
-    const res = await this.fetchManager(`${ROUTE_GETMAPPINGS}?mode=nickname`, { method: "GET" });
-    if (!res.ok) {
-      const text = this.httpClient.redactBody(await res.text().catch(() => ""));
-      throw new KonteError(
-        "COMFYUI_MANAGER_UNAVAILABLE",
-        `ComfyUI-Manager ${ROUTE_GETMAPPINGS} failed (${res.status}): ${text || res.statusText}`,
-      );
-    }
-    const classToPack = invertNodeMappings(await res.json());
+    const res = await this.httpClient.observe(`${ROUTE_GETMAPPINGS}?mode=nickname`);
+    if (!res.ok) throw await this.managerFailure(res, ROUTE_GETMAPPINGS);
+    const classToPack = invertNodeMappings(
+      await parseApiResponse(res, z.unknown(), "COMFYUI_MANAGER_UNAVAILABLE", ROUTE_GETMAPPINGS),
+    );
     const result = new Map<string, string>();
     for (const cls of classTypes) {
       const pack = classToPack.get(cls);
@@ -570,7 +557,7 @@ export class ComfyUIManagerClient {
   // outcome, not a failure — readiness is confirmed separately via waitUntilReachable.
   async reboot(): Promise<void> {
     try {
-      await this.fetchManager(ROUTE_REBOOT, { method: "POST", timeout: 5_000 });
+      await this.httpClient.observe(ROUTE_REBOOT, { method: "POST", timeout: 5_000 });
     } catch (err) {
       // The server drops the connection as it restarts — a transient comms failure here is the
       // expected outcome, not a failure; readiness is confirmed separately via waitUntilReachable.
@@ -592,40 +579,20 @@ export class ComfyUIManagerClient {
     return false;
   }
 
-  // A transient comms failure (network error, request timeout, 408/429/5xx) is NOT a Manager
-  // verdict — it surfaces as a `TransientHttpError` (a `TransientPollError`) so callers can keep
-  // polling or leave the install job re-observable, matching how generation waits treat transient
-  // failures. A reachable Manager's permanent non-ok (e.g. 403 security_level, 404) is returned as
-  // a Response so the caller raises its own typed error. `maxRetries: 0` keeps this a single
-  // classifying attempt: the poll loop / job re-observe owns the retry cadence, and a POST is never
-  // silently re-sent.
-  private async fetchManager(
-    path: string,
-    options?: RequestInit & { timeout?: number },
-  ): Promise<Response> {
-    const url = `${this.baseUrl}${path}`;
-    const { timeout, ...init } = options ?? {};
-    const headers = {
-      ...resolveHeaderTokens(this.httpClient.headerTemplates),
-      ...(init.headers as Record<string, string>),
-    };
-    const res = await fetchWithRetry(
-      url,
-      { ...init, headers },
-      { maxRetries: 0, timeoutMs: timeout ?? DEFAULT_TIMEOUT_MS },
+  private async managerFailure(
+    res: Response,
+    what: string,
+    options: { hint?: string; redact?: readonly string[] } = {},
+  ): Promise<KonteError> {
+    const message = await this.httpClient.failureMessage(
+      res,
+      `ComfyUI-Manager ${what}`,
+      options.redact,
     );
-    // The Manager answers 403 for its own `security_level` restriction, but only ever to refuse an
-    // ACTION — which konte only asks for with a POST. A route konte merely reads from has no such
-    // refusal to express, so a 403 there is the auth front, and must be terminal: a queue poll
-    // touches nothing else, so nothing would re-observe it as an auth failure.
-    const method = (init.method ?? "GET").toUpperCase();
-    if (res.status === 401 || (res.status === 403 && method === "GET")) {
-      throw new KonteError(
-        "COMFYUI_UNAUTHORIZED",
-        `ComfyUI-Manager at ${this.baseUrl} rejected the credentials (${res.status}).`,
-      );
-    }
-    return res;
+    return new KonteError(
+      "COMFYUI_MANAGER_UNAVAILABLE",
+      options.hint ? `${message}. ${options.hint}` : message,
+    );
   }
 }
 

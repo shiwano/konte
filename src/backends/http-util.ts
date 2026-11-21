@@ -3,7 +3,7 @@ import { z } from "zod";
 import { streamToFileAtomic, writeFileAtomic } from "../core/atomic-write.js";
 import { KonteError, type KonteErrorCode, errorMessage } from "../core/errors.js";
 import { API_REQUEST_TIMEOUT_MS, fetchWithRetry, TransientHttpError } from "../core/http-retry.js";
-import { redactUrlSecret } from "../core/redact.js";
+import { redactExternalBody, redactUrlSecret } from "../core/redact.js";
 
 const CONTENT_TYPES: Record<string, string> = {
   ".png": "image/png",
@@ -47,6 +47,17 @@ export async function sendOnce(
     throw new TransientHttpError(await describeFailure(res), { status: res.status });
   }
   return res;
+}
+
+/** A vendor's non-OK answer as one line, its body redacted of every `${VAR}` in `templates`. */
+export async function externalFailureMessage(
+  res: Response,
+  what: string,
+  templates: readonly string[],
+): Promise<string> {
+  const body = await res.text().catch(() => "");
+  const detail = redactExternalBody(body || res.statusText, templates);
+  return `${what} failed (${res.status})${detail ? `: ${detail}` : ""}`;
 }
 
 // A third-party API's JSON body is untrusted input. Validate it at the client boundary so a

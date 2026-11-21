@@ -1,4 +1,8 @@
-import { parseApiResponse, saveDownloadResponse } from "../backends/http-util.js";
+import {
+  externalFailureMessage,
+  parseApiResponse,
+  saveDownloadResponse,
+} from "../backends/http-util.js";
 import { KonteError, errorMessage } from "../core/errors.js";
 import { fetchWithRetry, headersDeadline, mediaTransferTimeoutMs } from "../core/http-retry.js";
 import { redactExternalBody } from "../core/redact.js";
@@ -57,7 +61,20 @@ export class ComfyUIHttpClient {
    * request it rejected, credential included.
    */
   redactBody(body: string, extraTemplates: readonly string[] = []): string {
-    return redactExternalBody(body, [...Object.values(this.headerTemplates), ...extraTemplates]);
+    return redactExternalBody(body, this.redactedTemplates(extraTemplates));
+  }
+
+  /** A non-OK answer as one line, its body redacted as `redactBody` does. */
+  failureMessage(
+    res: Response,
+    what: string,
+    extraTemplates: readonly string[] = [],
+  ): Promise<string> {
+    return externalFailureMessage(res, what, this.redactedTemplates(extraTemplates));
+  }
+
+  private redactedTemplates(extraTemplates: readonly string[]): string[] {
+    return [...Object.values(this.headerTemplates), ...extraTemplates];
   }
 
   async queuePrompt(workflow: ComfyUIWorkflow): Promise<ComfyUIPromptResponse> {
@@ -93,7 +110,7 @@ export class ComfyUIHttpClient {
       }
       throw new KonteError(
         "COMFYUI_ERROR",
-        `ComfyUI API error (${res.status}): ${this.redactBody(text) || res.statusText}`,
+        `ComfyUI /prompt failed (${res.status}): ${this.redactBody(text || res.statusText)}`,
       );
     }
 
@@ -202,7 +219,7 @@ export class ComfyUIHttpClient {
   async getObjectInfo(): Promise<Record<string, ComfyUINodeDefinition>> {
     const res = await this.observe("/object_info");
     if (!res.ok) {
-      throw new KonteError("COMFYUI_ERROR", `ComfyUI /object_info failed (${res.status})`);
+      throw new KonteError("COMFYUI_ERROR", await this.failureMessage(res, "ComfyUI /object_info"));
     }
     return parseApiResponse(res, ComfyUIObjectInfoSchema, "COMFYUI_ERROR", "ComfyUI /object_info");
   }
@@ -216,7 +233,10 @@ export class ComfyUIHttpClient {
     const res = await this.observe(`/api/models/${encodeURIComponent(folder)}`);
     if (res.status === 404) return null;
     if (!res.ok) {
-      throw new KonteError("COMFYUI_ERROR", `ComfyUI /api/models/${folder} failed (${res.status})`);
+      throw new KonteError(
+        "COMFYUI_ERROR",
+        await this.failureMessage(res, `ComfyUI /api/models/${folder}`),
+      );
     }
     const files = await parseApiResponse(
       res,
@@ -312,43 +332,47 @@ export class ComfyUIHttpClient {
 
     // Unconditional, `allowErrorStatus` included: that flag lets `/prompt` read a workflow
     // validation body, and reading a 401 page as one reports it as an unparseable workflow.
-    this.rejectUnauthorized(res);
+    if (res.status === 401 || res.status === 403) throw this.unauthorized(res.status);
 
     if (!res.ok && !options?.allowErrorStatus) {
-      const body = this.redactBody(await res.text().catch(() => ""));
       throw new KonteError(
         res.status >= 500 ? "COMFYUI_UNAVAILABLE" : "COMFYUI_ERROR",
-        `ComfyUI API error (${res.status}): ${body || res.statusText}`,
+        await this.failureMessage(res, `ComfyUI ${path.split("?")[0]}`),
       );
     }
 
     return res;
   }
 
-  // A single classifying attempt: a comms failure throws `TransientHttpError`, so a caller verifying
-  // a finished install can tell "couldn't observe" from "genuinely absent".
-  private async observe(path: string): Promise<Response> {
+  /**
+   * One classifying attempt, never retried and never re-sent: a comms failure or a 408/429/5xx
+   * throws `TransientHttpError`, and any other answer is returned for the caller to read. The poll
+   * loop or the job's re-observation owns the retry cadence.
+   */
+  async observe(path: string, options: RequestInit & { timeout?: number } = {}): Promise<Response> {
+    const { timeout, ...init } = options;
     const res = await fetchWithRetry(
       `${this.baseUrl}${path}`,
-      { headers: this.authHeaders() },
-      { maxRetries: 0, timeoutMs: DEFAULT_TIMEOUT_MS },
+      { ...init, headers: { ...this.authHeaders(), ...(init.headers as Record<string, string>) } },
+      { maxRetries: 0, timeoutMs: timeout ?? DEFAULT_TIMEOUT_MS },
     );
-    this.rejectUnauthorized(res);
+    // ComfyUI-Manager answers 403 for its own `security_level` restriction, but only ever to refuse
+    // an action, which konte only asks for with a POST. To a read, only the auth front answers 403.
+    const method = (init.method ?? "GET").toUpperCase();
+    if (res.status === 401 || (res.status === 403 && method === "GET")) {
+      throw this.unauthorized(res.status);
+    }
     return res;
   }
 
-  private rejectUnauthorized(res: Response): void {
-    if (res.status === 401 || res.status === 403) {
-      throw new KonteError("COMFYUI_UNAUTHORIZED", this.unauthorizedMessage(res.status));
-    }
-  }
-
-  private unauthorizedMessage(status: number): string {
+  private unauthorized(status: number): KonteError {
     const names = Object.keys(this.headerTemplates);
-    return names.length === 0
-      ? `ComfyUI at ${this.baseUrl} rejected the request (${status}) and konte sent no credentials. ` +
+    const message =
+      names.length === 0
+        ? `ComfyUI at ${this.baseUrl} rejected the request (${status}) and konte sent no credentials. ` +
           `Set "comfy.comfyui.headers" in konte.config.json (or \`konte settings\`, Config tab).`
-      : `ComfyUI at ${this.baseUrl} rejected the credentials in ${names.join(", ")} (${status}).`;
+        : `ComfyUI at ${this.baseUrl} rejected the credentials in ${names.join(", ")} (${status}).`;
+    return new KonteError("COMFYUI_UNAUTHORIZED", message);
   }
 }
 
