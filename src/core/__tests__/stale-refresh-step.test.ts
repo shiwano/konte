@@ -2,9 +2,9 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { StateManager } from "../../core/state/index.js";
-import type { AnimaticDefinition } from "../../core/types/index.js";
-import { staleRefreshStep } from "../stale-refresh-step.js";
+import { StateManager } from "../state/index.js";
+import type { AnimaticDefinition } from "../types/index.js";
+import { staleRefreshAction, staleRefreshStep } from "../stale-refresh.js";
 
 const ADDRESS = "animatic:shot.01.first";
 let tmpDir: string;
@@ -190,5 +190,26 @@ describe("staleRefreshStep", () => {
         animatic: boardWithMovement("steps in"),
       }),
     ).toEqual({ kind: "clean" });
+  });
+});
+
+describe("staleRefreshAction", () => {
+  it("names the owed movement before the accept it unblocks", () => {
+    const action = staleRefreshAction(
+      { kind: "prerequisite", variantId: "v-old", missing: ["blocking"], writeIn: "animatic.tsx" },
+      ADDRESS,
+    );
+    expect(action?.command).toBeNull();
+    expect(action?.note).toMatch(/^write blocking in animatic\.tsx, then `konte accept v-old`/);
+  });
+
+  it("keeps the reroll off the restore step and offers it as the alternative", () => {
+    const action = staleRefreshAction(
+      { kind: "restore", variantId: "v-old", file: "animatic.tsx" },
+      ADDRESS,
+    );
+    expect(action?.command).toBeNull();
+    expect(action?.note).not.toContain("konte reroll");
+    expect(action?.alternative).toContain(`konte reroll ${ADDRESS}`);
   });
 });

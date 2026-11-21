@@ -10,7 +10,13 @@ import { loadKonteConfig } from "../../core/config.js";
 import { computeDependencyLevels } from "../../core/dependency-levels.js";
 import { printCapped } from "../format-list.js";
 import { collectTransitiveDependents } from "../../core/graph.js";
-import { plateFork } from "../../core/stale-refresh.js";
+import {
+  type StaleRefreshStep,
+  formatStaleRefreshAction,
+  plateFork,
+  staleRefreshAction,
+  staleRefreshStep,
+} from "../../core/stale-refresh.js";
 import { JobManager } from "../../core/job-manager.js";
 import { findPendingPatches, loadPatchCatalog } from "../../core/patch.js";
 import { JobIndex } from "../../core/job-index.js";
@@ -19,7 +25,6 @@ import { type PatchRun, applyPatches, preparePatchSpend } from "../patch-orchest
 import { selectDefinition } from "../../core/select-definition.js";
 import { formatStaleCause } from "../../core/staleness.js";
 import { StateManager } from "../../core/state/index.js";
-import { type StaleRefreshStep, staleRefreshStep } from "../stale-refresh-step.js";
 import type { AssetDefinition } from "../../core/types/index.js";
 import { loadDirectionIfPresent } from "../../core/stage-definitions.js";
 import { openVideoSession } from "../../core/video-session.js";
@@ -146,7 +151,7 @@ export function registerGenerateCommand(program: Command): void {
             {
               address,
               cause,
-              ...describeAcceptedStaleStep(step, variantId),
+              ...describeAcceptedStaleStep(step, address),
               ...(fork ? { fork } : {}),
             },
           ];
@@ -629,36 +634,12 @@ export function registerGenerateCommand(program: Command): void {
 
 function describeAcceptedStaleStep(
   step: StaleRefreshStep,
-  variantId: string | null,
+  address: string,
 ): Pick<AcceptedStaleAsset, "step" | "reroll"> {
-  switch (step.kind) {
-    case "restore":
-      return {
-        step: `the accept stands — restore the definition in ${step.file} to what made it (\`konte inspect ${variantId}\`) to keep it current`,
-        reroll: true,
-      };
-    case "reroll":
-      return { step: null, reroll: true };
-    case "patch-apply":
-      return { step: `konte patch apply ${step.sourceVariantId}`, reroll: false };
-    case "clean":
-      return { step: "konte clean (its patch script is gone)", reroll: false };
-    case "accept":
-      return {
-        step: `konte accept ${step.variantId} (already generated, matches the current definition)`,
-        reroll: false,
-      };
-    case "prerequisite":
-      return {
-        step: `write ${step.missing.join("/")} in ${step.writeIn}, then konte accept ${step.variantId} (already generated, matches the current definition)`,
-        reroll: false,
-      };
-    case "generate":
-      return { step: `konte generate ${step.stage}`, reroll: false };
-    case "review":
-      return { step: `konte preview ${step.stage}`, reroll: false };
-    case "stands":
-    case "none":
-      return { step: "the accept stands", reroll: false };
-  }
+  if (step.kind === "reroll") return { step: null, reroll: true };
+  const action = staleRefreshAction(step, address);
+  return {
+    step: action ? formatStaleRefreshAction(action) : "the accept stands",
+    reroll: step.kind === "restore",
+  };
 }

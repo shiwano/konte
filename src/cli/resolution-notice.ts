@@ -1,8 +1,12 @@
 import { isActiveGeneration } from "../core/job-index.js";
 import { JobManager } from "../core/job-manager.js";
+import {
+  formatStaleRefreshAction,
+  staleRefreshAction,
+  staleRefreshStep,
+} from "../core/stale-refresh.js";
 import type { StateManager } from "../core/state/index.js";
 import type { AnimaticDefinition, GenerationJob } from "../core/types/index.js";
-import { staleRefreshStep } from "./stale-refresh-step.js";
 
 export interface ResolvedVariant {
   address: string;
@@ -37,30 +41,8 @@ function staleNotice(
     animatic,
     view,
   });
-  switch (step.kind) {
-    case "none":
-      return undefined;
-    case "patch-apply":
-      return `${lead} — \`konte patch apply ${step.sourceVariantId}\` to re-apply its correction`;
-    case "clean":
-      return `${lead} — \`konte clean\` (its patch script is gone)`;
-    case "accept":
-      return `${lead} — \`konte accept ${step.variantId}\` is already generated and matches the current definition`;
-    case "prerequisite":
-      return `${lead} — ${step.variantId} matches the current definition; write ${step.missing.join("/")} in ${step.writeIn} before accepting it`;
-    case "generate":
-      return `${lead} — \`konte generate ${step.stage}\` to re-bake it (a deterministic take has no alternative to pick)`;
-    case "review":
-      return `${lead} — \`konte preview ${step.stage}\` to re-accept it (materialized by its accept)`;
-    case "stands":
-      return step.cause === "adapter"
-        ? `${lead} — its adapter changed since; the accept stands`
-        : `${lead} — accepted against an older upstream; the accept stands`;
-    case "restore":
-      return `${lead} — accepted against a changed definition; restore it in ${step.file} to what made the take (\`konte inspect ${variantId}\`) to keep the accept`;
-    case "reroll":
-      return `${lead} — \`konte reroll ${address}\` to rebuild it`;
-  }
+  const action = staleRefreshAction(step, address);
+  return action ? `${lead} — ${formatStaleRefreshAction(action)}` : undefined;
 }
 
 export async function listActiveGenerationJobs(videoRoot: string): Promise<GenerationJob[]> {

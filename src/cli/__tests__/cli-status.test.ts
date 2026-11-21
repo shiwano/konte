@@ -766,7 +766,7 @@ describe("status command", () => {
     expect(stdout).not.toContain(`konte reroll ${ADDRESS}`);
 
     const inspected = await run(["inspect", ADDRESS], projectDir);
-    expect(inspected.stdout).toContain("Its adapter changed since; the accept stands");
+    expect(inspected.stdout).toContain("    its adapter changed since; the accept stands");
   });
 
   it("still offers the restore when the call site's own input moved", async () => {

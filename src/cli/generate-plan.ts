@@ -22,7 +22,7 @@ const SKIP_REASON_TEXT: Record<SkipReason, string> = {
 export type AcceptedStaleAsset = {
   address: string;
   cause: string;
-  /** The `staleRefreshStep` for the accepted take, when it is not a reroll. */
+  /** The accepted take's `staleRefreshAction`, when it is not a reroll. */
   step: string | null;
   /** Whether a reroll is what takes the edited definition. */
   reroll: boolean;

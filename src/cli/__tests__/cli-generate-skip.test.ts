@@ -150,7 +150,7 @@ export default defineReference(direction, { references: () => {
     const { stdout, stderr } = await run(["generate", "reference"], projectDir);
     expect(stderr).toContain(address);
     expect(stderr).toContain("definition-stale");
-    expect(stderr).toContain("the accept stands — restore the definition in reference.tsx");
+    expect(stderr).toContain("the accept stands — restore it in reference.tsx");
     expect(stderr).toContain(`for a take of the edited definition: konte reroll ${address}`);
     expect(stdout).toContain("1 accepted but stale");
   });

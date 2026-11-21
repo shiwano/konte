@@ -746,7 +746,7 @@ describe("path command", () => {
     const { stdout, stderr } = await run(["path", address], projectDir);
     expect(stdout.trim()).toBe("/tmp/picked.mp4");
     expect(stderr).toContain(
-      `accepted against a changed definition; restore it in video.tsx to what made the take (\`konte inspect ${v1}\`)`,
+      `accepted against a changed definition; the accept stands — restore it in video.tsx to what made the take (\`konte inspect ${v1}\`)`,
     );
     expect(stderr).not.toContain("konte reroll");
   });
@@ -918,7 +918,7 @@ describe("inspect command (why-stale)", () => {
     const { stdout } = await run(["inspect", finalAddr], projectDir);
     expect(stdout).toContain("Stale: yes");
     expect(stdout).toContain("input-stale: video:shot.01.motion changed (motion-o → motion-n)");
-    expect(stdout).toContain("Accepted against an older upstream; the accept stands");
+    expect(stdout).toContain("    accepted against an older upstream; the accept stands");
   });
 
   it("judges the Stale line by the resolved take, not a dismissed one", async () => {

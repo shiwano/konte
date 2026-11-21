@@ -57,6 +57,11 @@ import {
   loadDirectionIfPresent,
   loadStageDefinitions,
 } from "../../core/stage-definitions.js";
+import {
+  formatStaleRefreshAction,
+  staleRefreshAction,
+  staleRefreshStep,
+} from "../../core/stale-refresh.js";
 import { requireVideoRoot } from "../context.js";
 import { inspectDirection } from "./inspect-direction.js";
 import {
@@ -71,7 +76,6 @@ import {
   definitionForAddress,
   type StageDefinitions,
 } from "../../core/definition-hashes.js";
-import { staleRefreshStep } from "../stale-refresh-step.js";
 import {
   type DefinitionWithDuration,
   type ShotLike,
@@ -459,28 +463,12 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
             animatic,
             view,
           });
-          if (step.kind !== "none") {
+          const action = staleRefreshAction(step, address);
+          if (action) {
             console.log(
-              step.kind === "clean"
-                ? "    Suggested: konte clean (its patch script is gone)"
-                : step.kind === "patch-apply"
-                  ? `    Suggested: konte patch apply ${step.sourceVariantId}`
-                  : step.kind === "accept"
-                    ? `    Suggested: konte accept ${step.variantId} (already generated, matches the current definition)`
-                    : step.kind === "prerequisite"
-                      ? `    Suggested: write ${step.missing.join("/")} in ${step.writeIn}, then konte accept ${step.variantId} (already generated, matches the current definition)`
-                      : step.kind === "generate"
-                        ? `    Suggested: konte generate ${step.stage} (a deterministic take has no alternative to pick)`
-                        : step.kind === "review"
-                          ? `    Suggested: konte preview ${step.stage} (materialized by its accept)`
-                          : step.kind === "stands"
-                            ? step.cause === "adapter"
-                              ? "    Its adapter changed since; the accept stands"
-                              : "    Accepted against an older upstream; the accept stands"
-                            : step.kind === "restore"
-                              ? `    Suggested: restore the fields above in ${step.file} to what made this take — the accept stands (konte reroll ${address} draws a new take beside it)`
-                              : `    Suggested: konte reroll ${address}`,
+              `    ${action.command ? "Suggested: " : ""}${formatStaleRefreshAction(action)}`,
             );
+            if (action.alternative) console.log(`    or: ${action.alternative}`);
           }
         }
       }
