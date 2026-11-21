@@ -552,11 +552,7 @@ export class JobManager {
     return this.transaction(() => {
       const existing = this.read(id);
       if (existing) {
-        const stale =
-          existing.status === "failed" ||
-          existing.status === "cancelled" ||
-          (existing.status === "completed" && !this.allJobsCompleted(opts.dependsOnJobs));
-        if (stale) {
+        if (isStaleProvisioning(existing.status, !this.allJobsCompleted(opts.dependsOnJobs))) {
           this.apply(existing, { status: "pending", error: null, completedAt: null, lease: null });
           return { id, created: false, reset: true };
         }
