@@ -34,12 +34,7 @@ import type { AudioLoudness } from "./audio-loudness.js";
 import { jsx } from "react/jsx-runtime";
 import { Composition, CompositionHead } from "./dsl/composition/composition.js";
 import type { LineTimer, LineTiming } from "./subtitle-timing.js";
-import {
-  injectOverlay,
-  OVERLAY_COMPOSITION_ID,
-  overlayShotStarts,
-  renderOverlayBody,
-} from "./overlay-render.js";
+import { injectOverlay, OVERLAY_COMPOSITION_ID, renderOverlayBody } from "./overlay-render.js";
 import { resolveCompositionRef, substituteAssetPlaceholders } from "./composition-refs.js";
 import {
   parsePlaceholder,
@@ -58,6 +53,7 @@ import {
   type RenderPlan,
   type ShotRenderPlan,
   shotSpans,
+  shotStarts,
 } from "./render-plan.js";
 import { shotById } from "./shot-index.js";
 import { assertTailwindClasses, type ClassSubject } from "./tailwind-classes.js";
@@ -814,13 +810,12 @@ function declaredVoiceSpans(
   voiceVariant: (cue: StemAudioEntry) => VoiceVariant | null,
 ): Array<VoiceSpan & { shotId: string }> {
   const spans: Array<VoiceSpan & { shotId: string }> = [];
-  let offset = 0;
+  const starts = shotStarts(video.shots, video.format.fps);
   for (const shot of video.shots) {
     const cues = harvestShotAudioStructure(video, shot.id) ?? [];
-    for (const span of shotVoiceSpans(cues, shot, offset, voiceVariant)) {
+    for (const span of shotVoiceSpans(cues, shot, starts.get(shot.id) ?? 0, voiceVariant)) {
       spans.push({ ...span, shotId: shot.id });
     }
-    offset += shot.duration;
   }
   return spans;
 }
@@ -1099,7 +1094,7 @@ export async function buildShotCompositionHtml(
     await assertTailwindClasses([{ label: formatTimelineOverlayAddress(plan.stage), html: body }]);
     html = injectOverlay(html, {
       body,
-      shotStart: overlayShotStarts(video.shots).get(shotId) ?? 0,
+      shotStart: shotStarts(video.shots, video.format.fps).get(shotId) ?? 0,
       shotDuration: shotPlan.duration,
     });
   }
@@ -1108,7 +1103,7 @@ export async function buildShotCompositionHtml(
   // plays. Every shot's lines are rendered to find it, so only for a shot with a clip to duck.
   let duckUnder: ClipDuck | undefined;
   if (HAS_CLIP_AUDIO.test(html)) {
-    const shotStart = overlayShotStarts(video.shots).get(shotId) ?? 0;
+    const shotStart = shotStarts(video.shots, video.format.fps).get(shotId) ?? 0;
     const narration = declaredVoiceSpans(
       video,
       previewVoiceVariant(manager, allowNotReady ?? false),

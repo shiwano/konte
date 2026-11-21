@@ -24,6 +24,8 @@ export interface ShotLike {
 
 export interface DefinitionWithDuration {
   shots: ShotLike[];
+  // Absent on the reference.
+  format?: { fps: number };
   topLevelAssets?: Record<string, AssetDefinition>;
   timelineSoundtracks?: readonly unknown[];
   prompts?: readonly PromptOccurrence[];

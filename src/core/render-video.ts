@@ -16,7 +16,7 @@ import {
 } from "./address.js";
 import { injectBaseTimeline } from "./composition-builder.js";
 import { overlayLineTimings } from "./line-timing.js";
-import { injectOverlay, overlayShotStarts, renderOverlayBody } from "./overlay-render.js";
+import { injectOverlay, renderOverlayBody } from "./overlay-render.js";
 import type { LineTiming } from "./subtitle-timing.js";
 import {
   resolveCompositionRef,
@@ -49,6 +49,7 @@ import {
   buildRenderPlan,
   type RenderPlan,
   type ShotRenderPlan,
+  shotStarts,
   unacceptedThumbnailRefs,
 } from "./render-plan.js";
 import { mapConcurrent } from "./concurrency.js";
@@ -1250,7 +1251,7 @@ async function renderOverlayOf(
   return {
     definition: video.overlay,
     fn: timelineRun?.overlay ?? video.overlay.fn,
-    shotStarts: overlayShotStarts(video.shots),
+    shotStarts: shotStarts(video.shots, video.format.fps),
     ...(lineTimings ? { lineTimings } : {}),
   };
 }

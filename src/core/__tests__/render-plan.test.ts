@@ -8,7 +8,7 @@ import { Composition } from "../dsl/composition/composition.js";
 import { pendingShot, shot, videoTimeline } from "./helpers/shot.js";
 import { testDirection } from "./helpers/direction.js";
 import { KonteError } from "../errors.js";
-import { buildRenderPlan, buildStageReviewPlan, shotSpans } from "../render-plan.js";
+import { buildRenderPlan, buildStageReviewPlan, shotSpans, shotStarts } from "../render-plan.js";
 import { StateManager } from "../state/index.js";
 import { ASSET_SITES } from "../dsl/adapter.js";
 
@@ -656,5 +656,16 @@ describe("shotSpans", () => {
       const holding = spans.filter((s) => t >= s.start && t < s.start + s.duration);
       expect(holding, `frame ${frame}`).toHaveLength(1);
     }
+  });
+});
+
+describe("shotStarts", () => {
+  it("keys each shot's start by id on the frames shotSpans counts", () => {
+    const shots = [76, 125, 62, 94, 63].map((f, i) => ({ id: `0${i + 1}`, duration: f / 24 }));
+    const starts = shotStarts(shots, 24);
+
+    expect([...starts.keys()]).toEqual(["01", "02", "03", "04", "05"]);
+    expect([...starts.values()]).toEqual(shotSpans(shots, 24).spans.map((s) => s.start));
+    expect(starts.get("05")).toBe((76 + 125 + 62 + 94) / 24);
   });
 });

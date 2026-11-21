@@ -21,8 +21,8 @@ import { recognizesSpeechIn } from "./sherpa-binary.js";
 import type { StateManager } from "./state/index.js";
 import type { AnimaticDefinition, StageDefinition, VideoDefinition } from "./types/index.js";
 import { loadDirectionDefinition } from "./loader.js";
-import { overlayShotStarts, renderOverlayBody } from "./overlay-render.js";
-import { buildRenderPlan, type RenderPlan } from "./render-plan.js";
+import { renderOverlayBody } from "./overlay-render.js";
+import { buildRenderPlan, type RenderPlan, shotStarts } from "./render-plan.js";
 import { stageEntryPath } from "./roots.js";
 import { loadStageDefinitions } from "./stage-definitions.js";
 import { lineText } from "./types/script.js";
@@ -240,7 +240,7 @@ export async function stageLineTimings(
   const direction = await loadDirectionDefinition(stageEntryPath(videoRoot, "direction"));
   const loaded = await loadStageDefinitions(videoRoot, { tolerant: true });
   const animatic = video.stage === "animatic" ? (video as AnimaticDefinition) : loaded.animatic;
-  const starts = overlayShotStarts(video.shots);
+  const starts = shotStarts(video.shots, video.format.fps);
   return reelLineTimings({
     videoRoot,
     manager,

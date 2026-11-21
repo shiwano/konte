@@ -31,7 +31,8 @@ import {
   type StemAudioEntry,
 } from "./composition-builder.js";
 import { resolveCompositionRef, substituteAssetPlaceholders } from "./composition-refs.js";
-import { overlayShotStarts, renderOverlayBody } from "./overlay-render.js";
+import { renderOverlayBody } from "./overlay-render.js";
+import { shotStarts } from "./render-plan.js";
 import { computeDefinitionHash } from "./definition-hash.js";
 import {
   clampEffectiveGain,
@@ -262,9 +263,7 @@ export function compositionCacheKey(
   // The overlay laid over the shot is part of the frames a delivery upscales.
   const overlay = video.overlay
     ? {
-        shotStart: video.shots
-          .slice(0, video.shots.indexOf(shot))
-          .reduce((sum, s) => sum + s.duration, 0),
+        shotStart: shotStarts(video.shots, video.format.fps).get(shotId) ?? 0,
         definitionHash: overlayDefinitionHash(video),
         inputs: compositionInputFingerprints(manager, overlayFingerprintRefs(video)),
       }
@@ -861,7 +860,7 @@ export function overlayDefinitionHash(video: StageDefinition, rewrite?: HashInpu
       structureHtml,
       ...(stems.length > 0
         ? {
-            shotStarts: [...overlayShotStarts(video.shots)],
+            shotStarts: [...shotStarts(video.shots, video.format.fps)],
             stems: stems.map((stem) => [stem, stemDefinitionHashForAddress(video, stem)]),
           }
         : {}),

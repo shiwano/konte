@@ -86,6 +86,7 @@ import {
 } from "./inspect-definition.js";
 import { inspectPrompts, type PromptScope } from "./inspect-prompts.js";
 import { type PlateFrame, plateFrameOf } from "../../core/prompt-shots.js";
+import { shotStarts } from "../../core/render-plan.js";
 
 type InspectScope = PromptScope | { level: "variant"; variantId: string };
 
@@ -641,6 +642,10 @@ function printShot(view: ShotView, characterNameById: ReadonlyMap<string, string
   }
 }
 
+function shotStartsOf(definition: DefinitionWithDuration): Map<string, number> {
+  return definition.format ? shotStarts(definition.shots, definition.format.fps) : new Map();
+}
+
 async function inspectShot(videoRoot: string, stage: ShotStage, shotId: string): Promise<void> {
   const definition = await loadDefinitionWithDuration(videoRoot, stage);
 
@@ -649,11 +654,7 @@ async function inspectShot(videoRoot: string, stage: ShotStage, shotId: string):
     throw new KonteError("SHOT_NOT_FOUND", `Shot "${shotId}" not found in ${stage} definition`);
   }
 
-  let startTime = 0;
-  for (const s of definition.shots) {
-    if (s.id === shotId) break;
-    startTime += s.duration;
-  }
+  const startTime = shotStartsOf(definition).get(shotId) ?? 0;
   const endTime = startTime + shot.duration;
 
   const manager = await loadManager(videoRoot);
@@ -772,11 +773,10 @@ async function inspectStage(videoRoot: string, stage: AssetStage): Promise<void>
   // hands the shot helpers the stage type a `shot.<id>.<name>` address actually needs.
   const shotStage: ShotStage | null = stage === "reference" ? null : stage;
 
-  let startTime = 0;
   if (shotStage) {
+    const starts = shotStartsOf(definition);
     for (const shot of definition.shots) {
-      printShotBlock(shot, shotStage, startTime, manager, readFeedback, "");
-      startTime += shot.duration;
+      printShotBlock(shot, shotStage, starts.get(shot.id) ?? 0, manager, readFeedback, "");
     }
   }
   // The timeline block also carries the video's soundtrack stem, so it prints for a video that

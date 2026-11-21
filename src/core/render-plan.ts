@@ -153,6 +153,15 @@ export function shotSpans(
   return { spans, total: frames / fps };
 }
 
+// Each shot's start on the timeline by id, as `shotSpans` counts it.
+export function shotStarts(
+  shots: readonly { id: string; duration: number }[],
+  fps: number,
+): Map<string, number> {
+  const { spans } = shotSpans(shots, fps);
+  return new Map(shots.map((shot, i) => [shot.id, spans[i]!.start]));
+}
+
 // Everything a shot's composition consumes from outside the shot, the overlay laid over it
 // included — it renders with the shot.
 function outsideShotRefs(video: StageDefinition, shot: StageDefinition["shots"][number]): string[] {
