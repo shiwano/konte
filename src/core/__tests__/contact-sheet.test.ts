@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   cellFilters,
   DEFAULT_MAX_CELLS,
-  escapeFilterPath,
   MAX_CELLS_LIMIT,
   maxCellsForWidth,
   paginateCells,
@@ -241,29 +240,11 @@ describe("cellFilters", () => {
   it("pins the same pixel format with and without a label", () => {
     const layout = planContactSheetLayout(12);
     expect(cellFilters(layout, null).endsWith("format=yuvj420p")).toBe(true);
-    expect(cellFilters(layout, "/tmp/label.txt").endsWith("format=yuvj420p")).toBe(true);
+    expect(cellFilters(layout, "label-0.txt").endsWith("format=yuvj420p")).toBe(true);
   });
 
   it("burns the label before pinning the format", () => {
-    const chain = cellFilters(planContactSheetLayout(12), "/tmp/label.txt");
+    const chain = cellFilters(planContactSheetLayout(12), "label-0.txt");
     expect(chain.indexOf("drawtext")).toBeLessThan(chain.indexOf("format="));
-  });
-});
-
-describe("escapeFilterPath", () => {
-  // A filtergraph option value is parsed before drawtext sees it, so an unescaped Windows path
-  // (drive colon + backslashes) or a tmpdir carrying a quote would break the filter and silently
-  // drop labels.
-  it("escapes the characters the filtergraph parser claims", () => {
-    expect(escapeFilterPath(String.raw`C:\Users\a\label.txt`)).toBe(
-      String.raw`C\:\\Users\\a\\label.txt`,
-    );
-    expect(escapeFilterPath("/tmp/it's/label.txt")).toBe("/tmp/it\\'s/label.txt");
-  });
-
-  it("leaves an ordinary posix path alone", () => {
-    expect(escapeFilterPath("/tmp/konte-sheet-ab12/label-0.txt")).toBe(
-      "/tmp/konte-sheet-ab12/label-0.txt",
-    );
   });
 });

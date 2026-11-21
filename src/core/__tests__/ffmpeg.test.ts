@@ -3,6 +3,7 @@ import { KonteError } from "../errors.js";
 
 vi.mock("../exec-file.js", () => ({
   execFileAsync: vi.fn(),
+  makeWorkTmpDir: vi.fn(),
 }));
 
 vi.mock("node:fs/promises", async (importOriginal) => {
@@ -13,7 +14,6 @@ vi.mock("node:fs/promises", async (importOriginal) => {
     writeFile: vi.fn().mockResolvedValue(undefined),
     rm: vi.fn().mockResolvedValue(undefined),
     rename: vi.fn().mockResolvedValue(undefined),
-    mkdtemp: vi.fn().mockResolvedValue("/tmp/konte-concat-mock"),
   };
 });
 
@@ -31,7 +31,7 @@ import {
   tagDeliverable,
   trimVideo,
 } from "../ffmpeg.js";
-import { execFileAsync } from "../exec-file.js";
+import { execFileAsync, makeWorkTmpDir } from "../exec-file.js";
 
 const execFileMock = execFileAsync as unknown as Mock;
 
@@ -59,7 +59,7 @@ beforeEach(() => {
   (fsPromises.mkdir as Mock).mockResolvedValue(undefined);
   (fsPromises.writeFile as Mock).mockResolvedValue(undefined);
   (fsPromises.rm as Mock).mockResolvedValue(undefined);
-  (fsPromises.mkdtemp as Mock).mockResolvedValue("/tmp/konte-concat-mock");
+  (makeWorkTmpDir as Mock).mockResolvedValue("/tmp/konte-concat-mock");
 });
 
 describe("ensureFfmpeg / ensureFfprobe", () => {
@@ -139,7 +139,7 @@ describe("concatenateShots", () => {
       outputFile: "/output/final.mp4",
     });
 
-    expect(fsPromises.mkdtemp).toHaveBeenCalled();
+    expect(makeWorkTmpDir).toHaveBeenCalledWith("konte-concat-");
     expect(fsPromises.writeFile).toHaveBeenCalledWith(
       "/tmp/konte-concat-mock/filelist.txt",
       expect.stringContaining("file '/input/shot-01.mp4'"),

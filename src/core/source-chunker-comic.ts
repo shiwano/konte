@@ -4,7 +4,6 @@
 
 import { readdirSync, statSync } from "node:fs";
 import * as fs from "node:fs/promises";
-import * as os from "node:os";
 import * as path from "node:path";
 import yauzl from "yauzl";
 import {
@@ -29,6 +28,7 @@ import { imageFileSize } from "./image-size.js";
 import { Pdf, type PdfDict, type PdfPageImage, PdfParseError } from "./pdf.js";
 import { pdfInfo, renderPdfPage } from "./pdf-render.js";
 import type { SourceIndex } from "./types/index.js";
+import { makeWorkTmpDir } from "./exec-file.js";
 
 const BUNDLE_PAGES = 12;
 // The page images a reader reads are scaled to this short side.
@@ -498,7 +498,7 @@ async function writeChunk(
   }
   const chunksDir = sourceChunksDir(src);
   await fs.mkdir(path.join(chunksDir, stem), { recursive: true });
-  const work = await fs.mkdtemp(path.join(os.tmpdir(), "konte-comic-"));
+  const work = await makeWorkTmpDir("konte-comic-");
   try {
     const numbers = pageNumbers(c.from, c.to);
     const written = await mapConcurrent(numbers, FFMPEG_CONCURRENCY, async (page) => {

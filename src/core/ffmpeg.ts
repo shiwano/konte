@@ -1,11 +1,11 @@
 import * as fs from "node:fs/promises";
-import * as os from "node:os";
 import * as path from "node:path";
 import { KonteError } from "./errors.js";
 import { duckVolumeExpr, type DuckStep } from "./audio-duck.js";
 import { atempoChain } from "./audio-retime.js";
 import { ffmpegBin, ffprobeBin } from "./ffmpeg-binary.js";
 import { runFfmpeg } from "./ffmpeg-exec.js";
+import { makeWorkTmpDir } from "./exec-file.js";
 
 /** Resolves a usable ffmpeg, provisioning the managed build on first use. */
 export async function ensureFfmpeg(): Promise<void> {
@@ -233,7 +233,7 @@ export async function muxTimelineAudio(options: {
   let tmpDir: string | null = null;
   try {
     if (tracks.length > MUX_CHUNK_SIZE) {
-      tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "konte-mux-"));
+      tmpDir = await makeWorkTmpDir("konte-mux-");
       const intermediates: MuxAudioTrack[] = [];
       for (let i = 0; i < tracks.length; i += MUX_CHUNK_SIZE) {
         const chunk = tracks.slice(i, i + MUX_CHUNK_SIZE);
@@ -341,7 +341,7 @@ export async function concatenateShots(options: {
   await fs.mkdir(path.dirname(outputFile), { recursive: true });
 
   const listContent = inputFiles.map((f) => `file '${escapeConcatPath(f)}'`).join("\n");
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "konte-concat-"));
+  const tmpDir = await makeWorkTmpDir("konte-concat-");
   const listFile = path.join(tmpDir, "filelist.txt");
 
   try {

@@ -1,6 +1,5 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import * as fs from "node:fs/promises";
-import * as os from "node:os";
 import * as path from "node:path";
 import { FFMPEG_CONCURRENCY, mapConcurrent } from "./concurrency.js";
 import { KonteError, errorMessage } from "./errors.js";
@@ -19,7 +18,7 @@ import { frameInterval, lastSeekableTime } from "./frame-extract.js";
 import { shotFrameDir } from "./feedback-frames.js";
 import { probeVideo, type VideoProbeResult } from "./video-probe.js";
 import type { StageDefinition } from "./types/index.js";
-import { execFileAsync } from "./exec-file.js";
+import { execFileAsync, makeWorkTmpDir } from "./exec-file.js";
 import { formatSeconds } from "./format-duration.js";
 
 // The audio inspector decodes PCM, buckets RMS amplitude, and caches the result; motion is the exact
@@ -755,7 +754,7 @@ async function tileStripFrames(
     "-start_number",
     "1",
     "-i",
-    path.join(framesDir, "frame-%03d.jpg"),
+    "frame-%03d.jpg",
     ...SINGLE_FRAME_OUTPUT_ARGS,
     "-vf",
     `tile=${cols}x${rows}:padding=6:margin=6:color=0x111111`,
@@ -765,7 +764,7 @@ async function tileStripFrames(
     "3",
     tilePath,
   ];
-  await runFfmpeg(tileArgs, "Failed to tile motion strip");
+  await runFfmpeg(tileArgs, "Failed to tile motion strip", { cwd: framesDir });
   if (!hasBytes(tilePath)) {
     throw new KonteError("FFMPEG_ERROR", "ffmpeg wrote no motion strip");
   }
@@ -846,7 +845,7 @@ export async function renderMotionStrip(opts: {
     throw new KonteError("ASSET_NOT_FOUND", `Variant file not found on disk: ${waveform.file}`);
   }
 
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "konte-strip-"));
+  const tmpDir = await makeWorkTmpDir("konte-strip-");
   const tilePath = path.join(outDir, `.${path.basename(tmpDir)}.jpg`);
   try {
     const useLabel = await ffmpegCanDrawText();
@@ -998,7 +997,7 @@ export async function renderCompositionMotionStrip(opts: {
   const outFile = path.join(outDir, `strip-${specStr}.jpg`);
   if (hasBytes(outFile)) return { path: outFile, timestamps, window };
 
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "konte-strip-"));
+  const tmpDir = await makeWorkTmpDir("konte-strip-");
   const tilePath = path.join(outDir, `.${path.basename(tmpDir)}.jpg`);
   try {
     const useLabel = await ffmpegCanDrawText();

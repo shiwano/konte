@@ -1,6 +1,5 @@
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
-import * as os from "node:os";
 import * as path from "node:path";
 import { writeFileAtomic } from "./atomic-write.js";
 import { FFMPEG_CONCURRENCY, mapConcurrent } from "./concurrency.js";
@@ -8,6 +7,7 @@ import { hashFile, sha256Hex } from "./content-hash.js";
 import { KonteError } from "./errors.js";
 import { SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "./ffmpeg-binary.js";
 import { ffmpegCanDrawText, runFfmpeg } from "./ffmpeg-exec.js";
+import { makeWorkTmpDir } from "./exec-file.js";
 
 // A sheet exists to be Read by an agent, so its geometry is bounded by what a vision model keeps:
 // past a ~1568px long edge or ~1.15M pixels the image is downscaled on the way in, shrinking every
@@ -264,13 +264,6 @@ export function paginateCells<T>(cells: readonly T[], maxCells: number): T[][] {
   return pages;
 }
 
-// A filtergraph option value is parsed before drawtext ever sees it: `\` escapes, `:` ends the
-// value, `'` ends the quoted run. Paths carry all three (a Windows `C:\…`, a POSIX tmpdir the user
-// named). Escape them rather than trusting the temp path's shape.
-export function escapeFilterPath(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/:/g, "\\:").replace(/'/g, "\\'");
-}
-
 // Every cell is pinned to one pixel format. `tile` accumulates columns*rows frames before it emits,
 // and a format change part-way through the image sequence reinitializes the filtergraph, discarding
 // everything accumulated so far — so a sheet mixing a source-derived cell (yuvj444p from a PNG) with
@@ -289,7 +282,7 @@ export function cellFilters(layout: ContactSheetLayout, labelFile: string | null
     // Reading the label from a file with expansion off keeps the address's own `:`/`%`/`\` out of
     // the filtergraph and away from drawtext's strftime expansion.
     filters.push(
-      `drawtext=textfile='${escapeFilterPath(labelFile)}':expansion=none:x=5:y=5:fontsize=${fontsize}:fontcolor=white:box=1:boxcolor=black@0.6:boxborderw=4`,
+      `drawtext=textfile=${labelFile}:expansion=none:x=5:y=5:fontsize=${fontsize}:fontcolor=white:box=1:boxcolor=black@0.6:boxborderw=4`,
     );
   }
   // Last, so it survives whatever the label burn-in negotiated.
@@ -302,6 +295,7 @@ async function renderCell(
   outputPath: string,
   layout: ContactSheetLayout,
   labelFile: string | null,
+  workDir: string,
 ): Promise<void> {
   await runFfmpeg(
     [
@@ -319,6 +313,7 @@ async function renderCell(
       outputPath,
     ],
     `Failed to render contact sheet cell for ${cell.label}`,
+    { cwd: workDir },
   );
   if (!existsSync(outputPath)) {
     throw new KonteError("FFMPEG_ERROR", `ffmpeg produced no cell for ${cell.label}`);
@@ -491,7 +486,7 @@ export async function drawContactSheet(
   cells: readonly ContactSheetCell[],
   layout: ContactSheetLayout,
 ): Promise<{ bytes: Buffer; labelled: boolean }> {
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "konte-sheet-"));
+  const tmpDir = await makeWorkTmpDir("konte-sheet-");
   try {
     const labelled = await ffmpegCanDrawText();
 
@@ -500,14 +495,15 @@ export async function drawContactSheet(
     await mapConcurrent(cells, FFMPEG_CONCURRENCY, async (cell, i) => {
       let labelFile: string | null = null;
       if (labelled) {
-        labelFile = path.join(tmpDir, `label-${i}.txt`);
-        await fs.writeFile(labelFile, cell.label, "utf-8");
+        labelFile = `label-${i}.txt`;
+        await fs.writeFile(path.join(tmpDir, labelFile), cell.label, "utf-8");
       }
       await renderCell(
         cell,
         path.join(tmpDir, `cell-${String(i + 1).padStart(3, "0")}.jpg`),
         layout,
         labelFile,
+        tmpDir,
       );
     });
 
@@ -533,7 +529,7 @@ export async function drawContactSheet(
         "-start_number",
         "1",
         "-i",
-        path.join(tmpDir, "cell-%03d.jpg"),
+        "cell-%03d.jpg",
         ...SINGLE_FRAME_OUTPUT_ARGS,
         "-vf",
         `tile=${layout.columns}x${layout.rows}:padding=${TILE_PADDING}:margin=${TILE_MARGIN}:color=${BACKGROUND}`,
@@ -544,6 +540,7 @@ export async function drawContactSheet(
         tiled,
       ],
       "Failed to tile contact sheet",
+      { cwd: tmpDir },
     );
 
     return { bytes: await fs.readFile(tiled), labelled };

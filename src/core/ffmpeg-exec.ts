@@ -12,22 +12,23 @@ import {
 export async function runFfmpeg(
   args: readonly string[],
   what: string,
+  options?: { cwd?: string },
 ): Promise<{ stdout: string; stderr: string }>;
 export async function runFfmpeg(
   args: readonly string[],
   what: string,
-  options: { encoding: "buffer" },
+  options: { cwd?: string; encoding: "buffer" },
 ): Promise<{ stdout: Buffer; stderr: Buffer }>;
 export async function runFfmpeg(
   args: readonly string[],
   what: string,
-  options: { encoding?: "buffer" } = {},
+  options: { cwd?: string; encoding?: "buffer" } = {},
 ): Promise<{ stdout: string | Buffer; stderr: string | Buffer }> {
   const ffmpeg = await ffmpegBin();
   try {
     return options.encoding === "buffer"
-      ? await execFileAsync(ffmpeg, args, { encoding: "buffer" })
-      : await execFileAsync(ffmpeg, args);
+      ? await execFileAsync(ffmpeg, args, { cwd: options.cwd, encoding: "buffer" })
+      : await execFileAsync(ffmpeg, args, { cwd: options.cwd });
   } catch (err) {
     throw new KonteError("FFMPEG_ERROR", `${what}: ${errorMessage(err)}`);
   }

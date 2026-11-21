@@ -85,3 +85,10 @@ function captureRoot(): string {
   const workspace = workspaceRootOrNull();
   return workspace ? path.join(workspace, ".konte", "tmp") : os.tmpdir();
 }
+
+/** A fresh scratch directory under the root a write-restricted sandbox leaves writable. */
+export async function makeWorkTmpDir(prefix: string): Promise<string> {
+  const root = captureRoot();
+  await fs.promises.mkdir(root, { recursive: true });
+  return fs.promises.mkdtemp(path.join(root, prefix));
+}
