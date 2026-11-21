@@ -4,15 +4,21 @@
 
 import {
   type AssetStage,
-  type DefinitionLike,
   formatShotAddress,
   formatTimelineOverlayAddress,
-  getAssetEntry,
   getStage,
   isHeardStemAddress,
   isPatchAddress,
-  listAddresses,
 } from "./address.js";
+import { getAssetEntry, listAddresses } from "./definition-addresses.js";
+import {
+  type AssetStageDefinition,
+  isShotStageDefinition,
+  type AnimaticDefinition,
+  type AssetDefinition,
+  type ReferenceDefinition,
+  type VideoDefinition,
+} from "./types/index.js";
 import {
   type CueTakes,
   findAnimaticOverflows,
@@ -44,13 +50,6 @@ import { promptFindings } from "./prompt-check.js";
 import { findAllUnmetPrerequisites, prerequisiteShot } from "./review-prerequisites.js";
 import type { StateManager } from "./state/index.js";
 import { type ClassSubject, checkTailwindClasses } from "./tailwind-classes.js";
-import type {
-  AnimaticDefinition,
-  AssetDefinition,
-  ReferenceDefinition,
-  StageDefinition,
-  VideoDefinition,
-} from "./types/index.js";
 import { checkSourceLocators } from "./source-direction.js";
 import { findUnplacedStems } from "./heard-stem.js";
 import { JobManager } from "./job-manager.js";
@@ -121,17 +120,17 @@ type Check = {
 
 const ASSET_STAGES: readonly AssetStage[] = ["reference", "animatic", "video"];
 
-function stageDefinitions(ctx: CheckContext): Array<[AssetStage, DefinitionLike]> {
+function stageDefinitions(ctx: CheckContext): Array<[AssetStage, AssetStageDefinition]> {
   return ASSET_STAGES.flatMap((stage) => {
     const def = ctx[stage];
-    return def ? [[stage, def as DefinitionLike] as [AssetStage, DefinitionLike]] : [];
+    return def ? [[stage, def] as [AssetStage, AssetStageDefinition]] : [];
   });
 }
 
 // The markup the class check reads on a stage: each `jsxImage`'s, and on a composition stage each
 // developed shot's composition and the overlay — which a review renders too.
 function stageClassSubjects(
-  definition: DefinitionLike,
+  definition: AssetStageDefinition,
   stage: AssetStage,
 ): { images: ClassSubject[]; compositions: ClassSubject[] } {
   const images = listAddresses(definition, stage).flatMap((address) => {
@@ -140,8 +139,9 @@ function stageClassSubjects(
       ? [{ label: address, html: entry.inputs.stage as string }]
       : [];
   });
-  const compositions =
-    stage === "reference" ? [] : compositionClassSubjects(definition as unknown as StageDefinition);
+  const compositions = isShotStageDefinition(definition)
+    ? compositionClassSubjects(definition)
+    : [];
   return { images, compositions };
 }
 

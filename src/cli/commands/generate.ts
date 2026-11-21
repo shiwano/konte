@@ -1,11 +1,8 @@
 import type { Command } from "commander";
 import { queueSongAnalyses } from "../../core/song-queue.js";
-import {
-  type DefinitionLike,
-  getAssetEntry,
-  getStage,
-  parseStageScope,
-} from "../../core/address.js";
+import { getStage, parseStageScope } from "../../core/address.js";
+import { getAssetEntry } from "../../core/definition-addresses.js";
+import type { AssetStageDefinition, AssetDefinition } from "../../core/types/index.js";
 import { loadKonteConfig } from "../../core/config.js";
 import { computeDependencyLevels } from "../../core/dependency-levels.js";
 import { printCapped } from "../format-list.js";
@@ -25,7 +22,6 @@ import { type PatchRun, applyPatches, preparePatchSpend } from "../patch-orchest
 import { selectDefinition } from "../../core/select-definition.js";
 import { formatStaleCause } from "../../core/staleness.js";
 import { StateManager } from "../../core/state/index.js";
-import type { AssetDefinition } from "../../core/types/index.js";
 import { loadDirectionIfPresent } from "../../core/stage-definitions.js";
 import { openVideoSession } from "../../core/video-session.js";
 import { spendVerdicts } from "../finding-gates.js";
@@ -95,7 +91,7 @@ export function registerGenerateCommand(program: Command): void {
       // asset-address helpers below need. A board or video spend while the song they are cut to
       // has no read take stops here on `SONG_UNREAD`.
       const loaded = selectDefinition(stage, defs);
-      const def: DefinitionLike = loaded.def;
+      const def: AssetStageDefinition = loaded.def;
 
       const assetEntryOf = (address: string): AssetDefinition => getAssetEntry(def, address);
 

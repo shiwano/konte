@@ -1,7 +1,8 @@
 // Where a reel shot's lines are heard on the reel: each line's marks (what a take gets wrong of it,
 // or what its clip cuts) and the reel second each of its characters is heard at.
 
-import { isHeardStemAddress, listShotStems, STEM_ASSET_NAME, tryParseAddress } from "./address.js";
+import { isHeardStemAddress, STEM_ASSET_NAME, tryParseAddress } from "./address.js";
+import { listShotStems } from "./definition-addresses.js";
 import { type CompositionClip, harvestShotAudioStructure } from "./composition-builder.js";
 import { definitionForAddress, type StageDefinitions } from "./definition-hashes.js";
 import type { Direction } from "./dsl/direction.js";

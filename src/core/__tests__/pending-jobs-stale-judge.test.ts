@@ -7,7 +7,7 @@ import type {
   SubmitResult,
   WaitForCompletionResult,
 } from "../backend.js";
-import { getAssetEntry } from "../address.js";
+import { getAssetEntry } from "../definition-addresses.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { asset, defineVideo } from "../dsl/index.js";
 import { Composition } from "../dsl/composition/composition.js";

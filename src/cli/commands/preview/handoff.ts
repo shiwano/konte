@@ -2,7 +2,6 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { StageDefinition } from "../../../core/types/index.js";
 import {
-  type DefinitionLike,
   formatAddress,
   formatCompositionAddress,
   formatPlateAddress,
@@ -12,14 +11,16 @@ import {
   formatTimelineAddress,
   formatTimelineOverlayAddress,
   formatTimelineStemAddress,
+  STEM_ASSET_NAME,
+  tryParseAddress,
+  THUMBNAIL_TARGET,
+} from "../../../core/address.js";
+import {
   listReviewableAddresses,
   listShotStems,
   shownShotAssetNames,
-  STEM_ASSET_NAME,
-  tryParseAddress,
   thumbnailOwnAddresses,
-  THUMBNAIL_TARGET,
-} from "../../../core/address.js";
+} from "../../../core/definition-addresses.js";
 import { thumbnailOf } from "../../../core/graph.js";
 import { materializedLeafContentHash } from "../../../core/leaf-review.js";
 import { directionPartHashes } from "../../../core/direction-hash.js";
@@ -112,17 +113,13 @@ function hasFreshUnreviewedReady(
 // the fresh-materialization / accepted-stale signals.
 function leafChangedSinceReview(
   manager: StateManager,
-  stageDef: DefinitionLike,
+  stageDef: StageDefinition,
   leafAddress: string,
   record: ReviewRecord,
 ): boolean {
   const baseline = record.context.contentHashes?.[leafAddress];
   if (baseline != null) {
-    const live = materializedLeafContentHash(
-      manager,
-      stageDef as unknown as VideoDefinition,
-      leafAddress,
-    );
+    const live = materializedLeafContentHash(manager, stageDef, leafAddress);
     return live == null || live !== baseline;
   }
   const variants = manager.tryGetAssetState(leafAddress)?.variants ?? {};
@@ -154,7 +151,7 @@ export function collectChangedAddresses(
   }>,
   stage: ShotStage,
   manager: StateManager,
-  stageDef: DefinitionLike,
+  stageDef: StageDefinition,
   record: ReviewRecord,
 ): string[] {
   const ordered: string[] = [];
@@ -166,11 +163,9 @@ export function collectChangedAddresses(
     ordered.push(address);
   };
 
-  // The soundtrack beds — read off whichever stage this is (the reference DefinitionLike carries
-  // none, so the field is absent). Their presence is what mints that stage's `timeline#stem`, and
-  // both composition stages have one.
-  const timelineSoundtracks = (stageDef as unknown as { timelineSoundtracks?: readonly unknown[] })
-    .timelineSoundtracks;
+  // The soundtrack beds. Their presence is what mints that stage's `timeline#stem`, and both
+  // composition stages have one.
+  const timelineSoundtracks = stageDef.timelineSoundtracks;
 
   // Timeline (stage-level, non-shot) assets are outside `shots`, so the loops below never
   // reach them — the same structural gap that hid bgm / sizzle beds from the scaffold. The
@@ -204,7 +199,7 @@ export function collectChangedAddresses(
   }
 
   // The overlay is a leaf: its baseline is the content hash the review recorded.
-  if ((stageDef as unknown as StageDefinition).overlay) {
+  if (stageDef.overlay) {
     const address = formatTimelineOverlayAddress(stage);
     if (leafChangedSinceReview(manager, stageDef, address, record)) timelinePaths.push(address);
   }
@@ -267,7 +262,7 @@ export function collectChangedAddresses(
 export function collectAllAddresses(
   shots: Array<{ id: string }>,
   stage: ShotStage,
-  topLevelAssets?: DefinitionLike["topLevelAssets"],
+  topLevelAssets?: StageDefinition["topLevelAssets"],
   timelineSoundtracks?: readonly unknown[],
   plateIds?: readonly string[],
   hasOverlay?: boolean,

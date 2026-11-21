@@ -4,7 +4,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { holdsHumanVerdict } from "../accept-cascade.js";
-import { isMaterializedLeafAddress, listOverlayAddresses } from "../address.js";
+import { isMaterializedLeafAddress } from "../address.js";
+import { listOverlayAddresses } from "../definition-addresses.js";
 import { definitionHashForAddress } from "../leaf-hash.js";
 import { materializeOverlayVariant } from "../overlay-resource.js";
 import {

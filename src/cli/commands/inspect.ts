@@ -8,10 +8,8 @@ import {
   formatCompositionAddress,
   formatPlateAddress,
   formatShotAddress,
-  listShotStems,
   formatTimelineAddress,
   formatTimelineStemAddress,
-  getAssetEntry,
   isDeliveryAddress,
   isMaterializedLeafAddress,
   isPatchAddress,
@@ -20,9 +18,9 @@ import {
   parseAddress,
   parseDirectionScope,
   tryParseAddress,
-  validateAddress,
   assetNameOf,
 } from "../../core/address.js";
+import { listShotStems, getAssetEntry, validateAddress } from "../../core/definition-addresses.js";
 import { acceptedVariant, acceptedVariantId } from "../../core/accepted-variant.js";
 import { definitionHashForAddress } from "../../core/leaf-hash.js";
 import { shotById } from "../../core/shot-index.js";
@@ -804,7 +802,10 @@ async function plateFrameOfAddress(
 }
 
 async function inspectPlates(videoRoot: string): Promise<void> {
-  const definition = await loadDefinitionWithDuration(videoRoot, "animatic");
+  const definition: DefinitionWithDuration = await loadDefinitionWithDuration(
+    videoRoot,
+    "animatic",
+  );
   const ids = definition.exposedPlateIds ?? [];
   if (ids.length === 0) {
     console.log("No plates returned.");

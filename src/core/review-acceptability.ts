@@ -1,4 +1,5 @@
-import { formatAddress, type ShotStage, shownShotAssetNames } from "./address.js";
+import { formatAddress, type ShotStage } from "./address.js";
+import { shownShotAssetNames } from "./definition-addresses.js";
 import { buildStageReviewPlan, type RenderPlan, type ShotRenderPlan } from "./render-plan.js";
 import type { ShotAcceptabilityInput } from "./shot-acceptable.js";
 import { shotById } from "./shot-index.js";

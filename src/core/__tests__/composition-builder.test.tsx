@@ -30,7 +30,7 @@ import {
 import { directionDefaults, testDirection } from "./helpers/direction.js";
 import { moves, shot, animaticTimeline, videoTimeline } from "./helpers/shot.js";
 import { KonteError } from "../errors.js";
-import { getAssetEntry } from "../address.js";
+import { getAssetEntry } from "../definition-addresses.js";
 import { computeDefinitionHash } from "../definition-hash.js";
 import { applyResolutionDefinitions } from "../definition-hashes.js";
 import { writeDefinitionSnapshot } from "../definition-snapshot.js";

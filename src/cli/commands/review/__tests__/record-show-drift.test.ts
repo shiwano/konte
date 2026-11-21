@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getAssetEntry } from "../../../../core/address.js";
+import { getAssetEntry } from "../../../../core/definition-addresses.js";
 import { writeDefinitionSnapshot } from "../../../../core/definition-snapshot.js";
 import { type ReviewRecord, saveReviewRecord } from "../../../../core/review-record.js";
 import { StateManager } from "../../../../core/state/manager.js";

@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { spendGateHooks } from "../../backends/backend-policy.js";
 import { computeDefinitionHash } from "../../core/definition-hash.js";
-import { getAssetEntry } from "../../core/address.js";
+import { getAssetEntry } from "../../core/definition-addresses.js";
 import { StateManager } from "../../core/state/manager.js";
 import { loadStageDefinitions } from "../../core/stage-definitions.js";
 import { ctx, useTempWorkspace, writeWorkspaceConfig, run, initWorkspace } from "./cli-fixtures.js";

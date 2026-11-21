@@ -1,4 +1,5 @@
-import { formatAddress, getStage, isStemAddress, shotStemAssetNames } from "./address.js";
+import { formatAddress, getStage, isStemAddress } from "./address.js";
+import { shotStemAssetNames } from "./definition-addresses.js";
 import {
   commitShotStem,
   discardPreparedStem,

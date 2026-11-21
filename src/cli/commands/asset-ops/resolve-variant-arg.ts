@@ -1,4 +1,5 @@
-import { getAssetEntry, parseTakeArg } from "../../../core/address.js";
+import { parseTakeArg } from "../../../core/address.js";
+import { getAssetEntry } from "../../../core/definition-addresses.js";
 import { definitionForAddress, type StageDefinitions } from "../../../core/definition-hashes.js";
 import { KonteError } from "../../../core/errors.js";
 import { variantsNewestFirst } from "../../../core/staleness.js";

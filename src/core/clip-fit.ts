@@ -1,4 +1,5 @@
-import { shotCueRefs, tryParseAddress } from "./address.js";
+import { tryParseAddress } from "./address.js";
+import { shotCueRefs } from "./definition-addresses.js";
 import { harvestShotAudioStructure, type StemAudioEntry } from "./composition-builder.js";
 import { GRID_HOLD_OVERRUN, OVERFLOW_FLOOR, type ClipLength } from "./dsl/clip-length-collect.js";
 import { floorToGrid } from "./dsl/comfy-asset.js";

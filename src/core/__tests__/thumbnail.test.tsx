@@ -25,12 +25,10 @@ import { withThumbnailFrameHashes } from "../thumbnail-frame.js";
 import {
   THUMBNAIL_FRAME_ADDRESS,
   THUMBNAIL_STILL_ADDRESS,
-  thumbnailCoverAddress,
-  getAssetEntry,
   isMaterializedLeafAddress,
-  listAddresses,
   parseAddress,
 } from "../address.js";
+import { thumbnailCoverAddress, getAssetEntry, listAddresses } from "../definition-addresses.js";
 import {
   Audio,
   Composition,

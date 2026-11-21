@@ -11,9 +11,11 @@ import {
   formatDirectionLocationAddress,
   formatDirectionPropAddress,
   formatReferenceAddress,
+} from "../../../core/address.js";
+import {
   listExposedReferenceAddresses,
   listReviewableAddresses,
-} from "../../../core/address.js";
+} from "../../../core/definition-addresses.js";
 import { loadPatchCatalog, patchHashesOf } from "../../../core/patch.js";
 import { errorResponse, jsonResponse } from "../../page-host/http.js";
 import {

@@ -19,23 +19,25 @@ import {
 import {
   formatShotAddress,
   formatTimelineStemAddress,
-  listCompositionAddresses,
-  listStemAddresses,
   isMaterializedLeafAddress,
   isStageScope,
   isVariantIdArg,
-  listExposedReferenceAddresses,
-  listOverlayAddresses,
   THUMBNAIL_FRAME_ADDRESS,
   THUMBNAIL_STILL_ADDRESS,
-  thumbnailCoverAddress,
-  thumbnailOwnAddresses,
   THUMBNAIL_TARGET,
   matchesAddressScope,
   parseDirectionScope,
-  parseShotScope,
+  parseShotAddress,
   parseTakeArg,
 } from "../../../core/address.js";
+import {
+  listCompositionAddresses,
+  listStemAddresses,
+  listExposedReferenceAddresses,
+  listOverlayAddresses,
+  thumbnailCoverAddress,
+  thumbnailOwnAddresses,
+} from "../../../core/definition-addresses.js";
 import { findMatchingCompositionVariant } from "../../../core/leaf-hash.js";
 import {
   listRemovedShotStemAddresses,
@@ -393,7 +395,7 @@ function shotScopeDecision(
   stages: ShotStages,
   target: string,
 ): ShotDecision | null {
-  const scope = parseShotScope(target);
+  const scope = parseShotAddress(target);
   if (!scope) return null;
   const def = stages[scope.stage];
   const decision = def ? shotDecision(manager, def, scope.shotId) : { leaves: [], released: [] };

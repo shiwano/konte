@@ -1,7 +1,8 @@
 import { mixedSoundtracks } from "./song-bed.js";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
-import { formatAddress, formatTimelineAddress, shownShotAssetNames } from "./address.js";
+import { formatAddress, formatTimelineAddress } from "./address.js";
+import { shownShotAssetNames } from "./definition-addresses.js";
 import { resolveCompositionRef, resolvePlaceholderSrc } from "./composition-refs.js";
 import {
   type AudioLevelling,

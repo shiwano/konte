@@ -5,9 +5,8 @@ import {
   formatAddress,
   formatTimelineOverlayAddress,
   formatTimelineStemAddress,
-  listShotStems,
-  shotStemAssetNames,
 } from "./address.js";
+import { listShotStems, shotStemAssetNames } from "./definition-addresses.js";
 import type { StemAudioEntry } from "./composition-builder.js";
 import {
   clampEffectiveGain,

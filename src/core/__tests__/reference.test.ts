@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { formatReferenceAddress, parseAddress } from "../address.js";
 import {
-  formatReferenceAddress,
   listExposedReferenceAddresses,
   listReferenceAddresses,
   listReviewableAddresses,
-  parseAddress,
-} from "../address.js";
+} from "../definition-addresses.js";
 import { matchesAddressScope } from "../address.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { audioFile, imageFile, videoFile } from "../dsl/adapters/index.js";

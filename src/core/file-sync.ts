@@ -1,15 +1,17 @@
 import * as fs from "node:fs/promises";
-import { type AssetStage, type DefinitionLike, getAssetEntry, listAddresses } from "./address.js";
-import { hashFile } from "./content-hash.js";
-import { KonteError } from "./errors.js";
-import { resolveWithinRoot } from "./path-containment.js";
-import type { StateManager } from "./state/index.js";
+import { type AssetStage } from "./address.js";
+import { getAssetEntry, listAddresses } from "./definition-addresses.js";
 import type {
+  AssetStageDefinition,
   ReferenceDefinition,
   AnimaticDefinition,
   VariantState,
   VideoDefinition,
 } from "./types/index.js";
+import { hashFile } from "./content-hash.js";
+import { KonteError } from "./errors.js";
+import { resolveWithinRoot } from "./path-containment.js";
+import type { StateManager } from "./state/index.js";
 import { probeMediaInfo } from "./video-probe.js";
 
 interface SyncFileAssetsOptions {
@@ -30,7 +32,7 @@ interface FileAssetSyncTargets {
 }
 
 async function syncFileAssetsForDefinition(
-  definition: DefinitionLike,
+  definition: AssetStageDefinition,
   stage: AssetStage,
   manager: StateManager,
   validate: boolean,
@@ -144,7 +146,7 @@ export async function syncFileAssets(
   const measureMedia = options?.measure ?? false;
   const changed: string[] = [];
 
-  const stages: Array<[AssetStage, DefinitionLike | null | undefined]> = [
+  const stages: Array<[AssetStage, AssetStageDefinition | null | undefined]> = [
     ["reference", targets.reference],
     ["animatic", targets.animatic],
     ["video", targets.video],

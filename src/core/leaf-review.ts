@@ -6,8 +6,8 @@ import {
   isOverlayAddress,
   isStemAddress,
   parseAddress,
-  shotStemAssetNames,
 } from "./address.js";
+import { shotStemAssetNames } from "./definition-addresses.js";
 import { findShotOverflows } from "./animatic-overflow.js";
 import { compositionPictureNodes } from "./composition-builder.js";
 import { substituteAssetPlaceholders } from "./composition-refs.js";

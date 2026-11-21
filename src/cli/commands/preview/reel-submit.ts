@@ -15,19 +15,21 @@ import {
   isMaterializedLeafAddress,
   isOverlayAddress,
   isStemAddress,
-  listCompositionAddresses,
-  listOverlayAddresses,
   formatThumbnailAddress,
   THUMBNAIL_FRAME_ADDRESS,
-  thumbnailCoverAddress,
-  listShotStems,
-  listStemAddresses,
   parseAddress,
   parseAddressStream,
   parseShotAddress,
-  shotStemAssetNames,
   type ShotStage,
 } from "../../../core/address.js";
+import {
+  listCompositionAddresses,
+  listOverlayAddresses,
+  thumbnailCoverAddress,
+  listShotStems,
+  listStemAddresses,
+  shotStemAssetNames,
+} from "../../../core/definition-addresses.js";
 import { resolveCompositionRef } from "../../../core/composition-refs.js";
 import { timelineStemRefs } from "../../../core/leaf-hash.js";
 import {

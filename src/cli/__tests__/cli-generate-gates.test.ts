@@ -5,7 +5,7 @@ import { promisify } from "node:util";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readDefinitionSnapshot } from "../../core/definition-snapshot.js";
 import { computeDefinitionHash } from "../../core/definition-hash.js";
-import { getAssetEntry } from "../../core/address.js";
+import { getAssetEntry } from "../../core/definition-addresses.js";
 import {
   ffmpegBin,
   SINGLE_FRAME_INPUT_ARGS,

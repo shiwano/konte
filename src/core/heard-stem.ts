@@ -3,8 +3,8 @@ import {
   formatShotAddress,
   isHeardStemAddress,
   isNarrationStemAddress,
-  listShotStems,
 } from "./address.js";
+import { listShotStems } from "./definition-addresses.js";
 import { parsePlaceholder } from "./dsl/shot-context.js";
 import { KonteError } from "./errors.js";
 import { extractRefs } from "./graph.js";

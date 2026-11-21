@@ -1,10 +1,12 @@
 import { randomBytes } from "node:crypto";
-import {
-  type DefinitionLike,
-  getAssetEntry,
-  getStage,
-  isDeliveryAddress,
-} from "../core/address.js";
+import { getStage, isDeliveryAddress } from "../core/address.js";
+import { getAssetEntry } from "../core/definition-addresses.js";
+import type {
+  AssetStageDefinition,
+  GenerationJob,
+  JobKind,
+  JobRecord,
+} from "../core/types/index.js";
 import type { WaitOptions } from "../core/backend.js";
 import { KonteError, errorMessage } from "../core/errors.js";
 import { redactPersisted } from "../core/redact.js";
@@ -22,7 +24,6 @@ import {
 import { StateManager } from "../core/state/index.js";
 import { ensureVariantThumbnails } from "../core/variant-thumbnails.js";
 import { type ThumbnailInfo } from "../core/frame-extract.js";
-import type { GenerationJob, JobKind, JobRecord } from "../core/types/index.js";
 import { variantDir } from "../core/variant-dir.js";
 import { spokenLinesAt } from "../core/prompt-check.js";
 import { startLeaseHeartbeat } from "../core/lease-heartbeat.js";
@@ -214,7 +215,7 @@ function takeDefinitionOf(
       // A `#delivery` definition is built from the resolved source's real dimensions, which are
       // not re-probed here, so it gets no output-node hint. Routed through selectDefinition so
       // every stage that owns addresses is covered by one exhaustive mapping.
-      const def: DefinitionLike = selectDefinition(getStage(job.address), definitions).def;
+      const def: AssetStageDefinition = selectDefinition(getStage(job.address), definitions).def;
       const assetDef = getAssetEntry(def, job.address);
       owesLine =
         job.address !== songOfDefinitions(definitions) &&

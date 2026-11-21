@@ -1,15 +1,13 @@
 import * as path from "node:path";
 import {
-  type DefinitionLike,
-  getAssetEntry,
   isCompositionAddress,
   isHeardStemAddress,
   isOverlayAddress,
   isSongStemAddress,
   isStemAddress,
-  listShotStems,
   parseAddress,
 } from "./address.js";
+import { getAssetEntry, listShotStems } from "./definition-addresses.js";
 import {
   compositionStructureHtml,
   harvestShotAudioStructure,
@@ -26,7 +24,9 @@ import { shortHash, stableHash } from "./content-hash.js";
 import type { StateManager } from "./state/index.js";
 import {
   isPendingShot,
+  isShotStageDefinition,
   type AssetDefinition,
+  type AssetStageDefinition,
   type AssetState,
   type ShotDefinition,
   type StageDefinition,
@@ -151,20 +151,20 @@ export function compositionDefinitionHashForAddress(
  * and `status` compute so definition-staleness reads consistently everywhere.
  */
 export function definitionHashForAddress(
-  def: DefinitionLike,
+  def: AssetStageDefinition,
   address: string,
   rewrite?: HashInputRewrite,
 ): string | null {
   if (isOverlayAddress(address)) {
-    return (def as unknown as StageDefinition).overlay
-      ? overlayDefinitionHash(def as unknown as StageDefinition, rewrite)
-      : null;
+    return isShotStageDefinition(def) && def.overlay ? overlayDefinitionHash(def, rewrite) : null;
   }
   if (isCompositionAddress(address)) {
-    return compositionDefinitionHashForAddress(def as unknown as StageDefinition, address, rewrite);
+    return isShotStageDefinition(def)
+      ? compositionDefinitionHashForAddress(def, address, rewrite)
+      : null;
   }
   if (isStemAddress(address)) {
-    return stemDefinitionHashForAddress(def as unknown as StageDefinition, address, rewrite);
+    return isShotStageDefinition(def) ? stemDefinitionHashForAddress(def, address, rewrite) : null;
   }
   try {
     const entry = getAssetEntry(def, address);

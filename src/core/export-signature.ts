@@ -1,10 +1,6 @@
 import { mixedSoundtracks } from "./song-bed.js";
-import {
-  listCompositionAddresses,
-  listStemAddresses,
-  THUMBNAIL_FRAME_ADDRESS,
-  THUMBNAIL_STILL_ADDRESS,
-} from "./address.js";
+import { THUMBNAIL_FRAME_ADDRESS, THUMBNAIL_STILL_ADDRESS } from "./address.js";
+import { listCompositionAddresses, listStemAddresses } from "./definition-addresses.js";
 import { definitionHashForAddress, overlayDefinitionHash } from "./leaf-hash.js";
 import { shortHash } from "./content-hash.js";
 import type { VideoDefinition } from "./types/index.js";

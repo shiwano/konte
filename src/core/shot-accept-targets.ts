@@ -8,18 +8,20 @@ import {
   isThumbnailAddress,
   THUMBNAIL_FRAME_ADDRESS,
   THUMBNAIL_STILL_ADDRESS,
-  thumbnailCoverAddress,
   getStage,
   isNarrationStemAddress,
   isOffFrameStemAddress,
   isSongStemAddress,
   isStemAddress,
+  tryParseAddress,
+} from "./address.js";
+import {
+  thumbnailCoverAddress,
   listShotStems,
   shotCueRefs,
   shotStemAssetNames,
   shownShotAssetNames,
-  tryParseAddress,
-} from "./address.js";
+} from "./definition-addresses.js";
 import { removedShotStemAddresses } from "./stem-resource.js";
 import { leafSettledAcross, materializedLeafReviewStatus } from "./leaf-review.js";
 import { parsePlaceholder } from "./dsl/shot-context.js";

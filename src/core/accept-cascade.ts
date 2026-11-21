@@ -3,11 +3,11 @@ import {
   isCompositionAddress,
   isMaterializedLeafAddress,
   isStemAddress,
-  listShotStems,
   isOverlayAddress,
   isThumbnailAddress,
   parseAddress,
 } from "./address.js";
+import { listShotStems } from "./definition-addresses.js";
 import { loadCastReferenceAddresses } from "./characters.js";
 import { shotById } from "./shot-index.js";
 import {

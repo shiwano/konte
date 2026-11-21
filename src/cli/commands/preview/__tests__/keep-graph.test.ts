@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { DefinitionLike } from "../../../../core/address.js";
+import type { AssetStageDefinition } from "../../../../core/types/index.js";
 import type { DependencyGraph } from "../../../../core/graph.js";
 import { StateManager } from "../../../../core/state/index.js";
 import { buildKeepGraph } from "../keep-graph.js";
@@ -20,13 +20,13 @@ const deterministic = { kind: "local", op: "imageResize", inputs: {}, determinis
 const reference = {
   topLevelAssets: { sheet: generated },
   exposedAssetNames: ["sheet"],
-} as unknown as DefinitionLike;
+} as unknown as AssetStageDefinition;
 const animatic = {
   stage: "animatic",
   shots: [],
   topLevelAssets: { bg: generated, small: deterministic },
   plates: { front: generated },
-} as unknown as DefinitionLike;
+} as unknown as AssetStageDefinition;
 
 function graphOf(edges: Array<[string, string]>): DependencyGraph {
   const nodes = [...new Set(edges.flat())];

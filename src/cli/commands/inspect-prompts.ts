@@ -3,9 +3,9 @@ import {
   type ShotStage,
   formatPlateAddress,
   formatShotAddress,
-  getAssetEntry,
   tryParseAddress,
 } from "../../core/address.js";
+import { getAssetEntry } from "../../core/definition-addresses.js";
 import {
   listPanelConditioning,
   type PanelConditioning,
@@ -27,6 +27,7 @@ import {
 } from "../../core/prompt-shots.js";
 import { loadVideoAndAnimatic } from "../../core/stage-definitions.js";
 import type { AnimaticDefinition } from "../../core/types/animatic.js";
+import type { AssetStageDefinition } from "../../core/types/index.js";
 import type { PanelDefinition, PanelLane, Respelling } from "../../core/types/definition.js";
 import { openVideoSession } from "../../core/video-session.js";
 import { spendHeldAssets } from "../finding-gates.js";
@@ -53,11 +54,12 @@ export async function inspectPrompts(
 ): Promise<void> {
   const stage = scope.level === "direction" ? null : scope.stage;
   const shotStages = stage === "video" ? await loadVideoAndAnimatic(videoRoot) : null;
-  const definition = shotStages
+  const loaded = shotStages
     ? shotStages.video
     : stage
       ? await loadDefinitionWithDuration(videoRoot, stage)
       : null;
+  const definition: DefinitionWithDuration | null = loaded;
   const boardMoves = panelMovesByShot(shotStages?.animatic);
   const prompts = definition?.prompts ?? [];
   const respellings = definition?.respellings;
@@ -124,7 +126,7 @@ export async function inspectPrompts(
       console.log(`  generation: ${pending.has(address) ? "pending" : "comparison only"}`);
   };
   const printTurbo = (address: string) => {
-    const turbo = definition ? turboOf(definition, address) : undefined;
+    const turbo = loaded ? turboOf(loaded, address) : undefined;
     if (turbo !== undefined) console.log(`  turbo: ${turbo ? "on" : "off"}`);
   };
 
@@ -221,7 +223,7 @@ export async function inspectPrompts(
 
 // The side of the adapter's turbo switch the address is declared on; undefined where its adapter
 // has none.
-function turboOf(definition: DefinitionWithDuration, address: string): boolean | undefined {
+function turboOf(definition: AssetStageDefinition, address: string): boolean | undefined {
   try {
     const def = getAssetEntry(definition, address);
     return "turbo" in def ? def.turbo : undefined;

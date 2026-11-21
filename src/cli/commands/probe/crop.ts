@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { Command } from "commander";
-import { getAssetEntry } from "../../../core/address.js";
+import { getAssetEntry } from "../../../core/definition-addresses.js";
 import {
   type ContactSheetCell,
   DEFAULT_MAX_CELLS,

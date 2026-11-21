@@ -1,19 +1,24 @@
 import {
   type AssetStage,
-  type DefinitionLike,
   formatPlateAddress,
   formatShotAddress,
   formatTimelineAddress,
-  getAssetEntry,
   isMaterializedLeafAddress,
-  listExposedReferenceAddresses,
   THUMBNAIL_TARGET,
   tryParseAddress,
 } from "../../../core/address.js";
+import {
+  getAssetEntry,
+  listExposedReferenceAddresses,
+} from "../../../core/definition-addresses.js";
 import { getBackendKind } from "../../../backends/resolve-backend.js";
 import { type DependencyGraph, thumbnailOf } from "../../../core/graph.js";
 import type { StateManager } from "../../../core/state/index.js";
-import { isPendingShot, type StageDefinition } from "../../../core/types/index.js";
+import {
+  type AssetStageDefinition,
+  isPendingShot,
+  isShotStageDefinition,
+} from "../../../core/types/index.js";
 import { isReviewLeaf } from "../../../core/variant-lineage.js";
 import type { KeepGraphInfo, KeepVariantInfo } from "../../../core/types/review-state.js";
 
@@ -25,7 +30,7 @@ import type { KeepGraphInfo, KeepVariantInfo } from "../../../core/types/review-
 export function buildKeepGraph(opts: {
   manager: StateManager;
   graph: DependencyGraph;
-  stages: ReadonlyArray<{ stage: AssetStage; definition: DefinitionLike | null }>;
+  stages: ReadonlyArray<{ stage: AssetStage; definition: AssetStageDefinition | null }>;
 }): KeepGraphInfo {
   const { manager, graph } = opts;
   const state = manager.getState();
@@ -39,7 +44,8 @@ export function buildKeepGraph(opts: {
     }
   }
   for (const stage of ["animatic", "video"] as const) {
-    const definition = definitionByStage.get(stage) as StageDefinition | null | undefined;
+    const loaded = definitionByStage.get(stage);
+    const definition = loaded && isShotStageDefinition(loaded) ? loaded : null;
     for (const shot of definition?.shots ?? []) {
       if (isPendingShot(shot)) continue;
       units[formatShotAddress(stage, shot.id)] = { stage, label: `Shot ${shot.id}` };
@@ -49,9 +55,8 @@ export function buildKeepGraph(opts: {
     for (const name of Object.keys(definition?.topLevelAssets ?? {})) {
       units[formatTimelineAddress(stage, name)] = { stage, label: `Timeline: ${name}` };
     }
-    for (const setupId of Object.keys(
-      (definition as { plates?: Record<string, unknown> } | null | undefined)?.plates ?? {},
-    )) {
+    const plates = definition && "plates" in definition ? definition.plates : undefined;
+    for (const setupId of Object.keys(plates ?? {})) {
       units[formatPlateAddress(setupId)] = { stage, label: `Plate: ${setupId}` };
     }
   }

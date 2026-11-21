@@ -1,11 +1,12 @@
 import { acceptedVariant } from "./accepted-variant.js";
-import { type AssetStage, type DefinitionLike, getAssetEntry, listAddresses } from "./address.js";
+import { type AssetStage } from "./address.js";
+import { getAssetEntry, listAddresses } from "./definition-addresses.js";
+import type { AssetStageDefinition, GenerationJob, JobRecord, KonteState } from "./types/index.js";
 import { type DependencyGraph, listUnusedAddresses } from "./graph.js";
 import { type LoadedDefinitions, selectDefinition } from "./select-definition.js";
 import { rebakesOverAccept } from "./staleness.js";
 import { isJobTerminal } from "./job-manager.js";
 import { StateManager } from "./state/index.js";
-import type { GenerationJob, JobRecord, KonteState } from "./types/index.js";
 import { variantLifecycle } from "./variant-lifecycle.js";
 
 export type SkipReason = "active" | "accepted" | "accepted-stale" | "ready";
@@ -135,7 +136,7 @@ export function selectGenerationAssets(opts: {
 
 // The assets a run over `addresses` generates, in their given order.
 export function listSpendingAssets(
-  def: DefinitionLike,
+  def: AssetStageDefinition,
   addresses: ReadonlySet<string>,
   manager: StateManager,
   liveJobs: ReadonlySet<string>,

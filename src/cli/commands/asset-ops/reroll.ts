@@ -2,20 +2,26 @@ import { consumedBoardStems, remakeSettledLeaves } from "../../../core/board-lea
 import type { Command } from "commander";
 import {
   type AssetStage,
-  type DefinitionLike,
   type Stage,
   assertValidAddressScope,
   classifyTargetArg,
-  getAssetEntry,
   getStage,
   isMaterializedLeafAddress,
   isDeliveryAddress,
-  listAddresses,
   isPatchAddress,
   matchesAddressScope,
   tryParseAddress,
-  validateAddress,
 } from "../../../core/address.js";
+import {
+  getAssetEntry,
+  listAddresses,
+  validateAddress,
+} from "../../../core/definition-addresses.js";
+import type {
+  AssetStageDefinition,
+  AssetDefinition,
+  JobRecord,
+} from "../../../core/types/index.js";
 import { loadKonteConfig } from "../../../core/config.js";
 import { KonteError } from "../../../core/errors.js";
 import { collectRerollCascade, listUnusedAddresses } from "../../../core/graph.js";
@@ -32,7 +38,6 @@ import type { UndecidedUpstreamVariant } from "../../../core/staleness.js";
 import { holdsHumanVerdict } from "../../../core/accept-cascade.js";
 import { buildAddressInfo, isProblemAddress } from "../../../core/status-sections.js";
 import { StateManager } from "../../../core/state/index.js";
-import type { AssetDefinition, JobRecord } from "../../../core/types/index.js";
 import { getBackendKind } from "../../../backends/resolve-backend.js";
 import { selectDefinition } from "../../../core/select-definition.js";
 import { openVideoSession } from "../../../core/video-session.js";
@@ -187,12 +192,12 @@ Examples:
           );
         }
 
-        const stageEntries: Array<readonly [AssetStage, DefinitionLike]> = [
+        const stageEntries: Array<readonly [AssetStage, AssetStageDefinition]> = [
           ["reference", reference],
           ...(animatic ? [["animatic", animatic] as const] : []),
           ...(video ? [["video", video] as const] : []),
         ];
-        const definitionForAddress = (address: string): DefinitionLike =>
+        const definitionForAddress = (address: string): AssetStageDefinition =>
           selectDefinition(getStage(address), definitions).def;
 
         // Every declared asset of the video, so a scope sweep reads one list rather than one per
@@ -345,7 +350,7 @@ Examples:
           address: string;
           def: AssetDefinition;
           stage: Stage;
-          definition: DefinitionLike;
+          definition: AssetStageDefinition;
           deps: string[];
         };
         // Every refusal a named address owes was answered above, and a swept one passed
@@ -377,7 +382,7 @@ Examples:
           def: AssetDefinition;
           deps: string[];
           stage: Stage;
-          definition: DefinitionLike;
+          definition: AssetStageDefinition;
           isPrimary: boolean;
         };
         const workItemByAddress = new Map<string, WorkItem>();

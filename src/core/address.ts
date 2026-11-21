@@ -1,9 +1,6 @@
 import { assertNever } from "./assert.js";
 import { IMAGED_VIEWS, VIEW_NAME_BODY, viewAssetName, type ImagedView } from "./view.js";
 import { KonteError } from "./errors.js";
-import { shotById } from "./shot-index.js";
-import type { AssetDefinition } from "./types/index.js";
-import type { PinOccurrence, PromptOccurrence } from "./types/stage-build.js";
 
 // The four stages. `direction` is the one that owns no asset — its addresses are feedback-only
 // targets.
@@ -31,29 +28,10 @@ export type ParsedAddress =
       delivery: false;
     };
 
-export interface DefinitionLike {
-  shots: Array<{ id: string; assets: Record<string, AssetDefinition> }>;
-  topLevelAssets?: Record<string, AssetDefinition>;
-  // Animatic stage only: every asset its `plates` callback declared, keyed by name.
-  plates?: Record<string, AssetDefinition>;
-  // Animatic stage only: the plate names it returned (see isUnexposedPlateAddress).
-  exposedPlateIds?: string[];
-  // Reference stage only: the asset names its callback returned (see listExposedReferenceAddresses).
-  exposedAssetNames?: string[];
-  // Video stage only: every asset its `thumbnail.compose` declared, keyed by name, its frame and its
-  // still.
-  thumbnail?: {
-    assets: Record<string, AssetDefinition>;
-    frame: { asset: AssetDefinition } | null;
-    compose: { still: AssetDefinition } | null;
-  } | null;
-  // What the prompt and pin checks read off a stage entry, whichever one this is (see
-  // prompt-check.ts, pin-check.ts).
-  prompts?: readonly PromptOccurrence[];
-  pins?: readonly PinOccurrence[];
-}
-
-const ADDRESS_PATTERN = /^(animatic|video|reference):(.+)$/;
+const SHOT_STAGE_BODY = "animatic|video";
+const ASSET_STAGE_BODY = `${SHOT_STAGE_BODY}|reference`;
+const STAGE_BODY = `${ASSET_STAGE_BODY}|direction`;
+const ADDRESS_PATTERN = new RegExp(`^(${ASSET_STAGE_BODY}):(.+)$`);
 const NAME_BODY = "[a-zA-Z0-9_-]+";
 // A reserved name fills the same slot as an author's name but is introduced by `#` instead of `.`
 // (see RESERVED_NAME_SIGIL). Exactly the token `delivery` is excluded, so `#delivery` can only ever
@@ -84,7 +62,7 @@ const NAME_SLOT = `(?:\\.${NAME_BODY}|${RESERVED_NAME_BODY})`;
 const VARIANT_ID_BODY = "v-[a-zA-Z0-9]+";
 const PATCH_SUFFIX_PATTERN = new RegExp(`^patch\\.(${VARIANT_ID_BODY})\\.([a-zA-Z0-9_-]+)$`);
 const PATCH_ADDRESS_PATTERN = new RegExp(
-  `^(?:animatic|video|reference):patch\\.(${VARIANT_ID_BODY})\\.[a-zA-Z0-9_-]+$`,
+  `^(?:${ASSET_STAGE_BODY}):patch\\.(${VARIANT_ID_BODY})\\.[a-zA-Z0-9_-]+$`,
 );
 // The brief's fields, in the order the review page reads them — each is its own feedback target, so
 // a note on the tone is not aged out by a logline rewrite. Mirrors `DirectionBrief` (dsl/direction);
@@ -352,8 +330,10 @@ export function parseAddress(address: string): ParsedAddress {
 // `parseAddress`, it does not parse the suffix, so it also accepts bare feedback targets
 // (e.g. `video:shot.01`, whole-shot feedback), direction parts (`direction:sequence`) and a bare
 // stage (`video`, the overall comment on a review of it).
+const STAGE_PREFIX_PATTERN = new RegExp(`^(${STAGE_BODY})(?::|$)`);
+
 export function parseAddressStream(address: string): { stage: Stage } {
-  const m = /^(animatic|video|reference|direction)(?::|$)/.exec(address);
+  const m = STAGE_PREFIX_PATTERN.exec(address);
   if (!m) {
     throw new KonteError(
       "INVALID_ADDRESS",
@@ -366,7 +346,7 @@ export function parseAddressStream(address: string): { stage: Stage } {
 // A bare stage as a feedback-only target: it holds the overall comment a review of that stage
 // carries.
 export function parseStageAddress(address: string): Stage | null {
-  return /^(animatic|video|reference|direction)$/.test(address) ? (address as Stage) : null;
+  return isStageScope(address) ? (address as Stage) : null;
 }
 
 // The stage of an ASSET address. `getStage` reads the direction's feedback paths too, so it returns
@@ -383,8 +363,10 @@ export function getAssetStage(address: string): AssetStage {
   return m[1] as AssetStage;
 }
 
+const STAGE_COLON_PATTERN = new RegExp(`^(${STAGE_BODY}):`);
+
 export function getStage(address: string): Stage {
-  const m = /^(animatic|video|reference|direction):/.exec(address);
+  const m = STAGE_COLON_PATTERN.exec(address);
   if (!m) {
     throw new KonteError(
       "INVALID_ADDRESS",
@@ -415,7 +397,7 @@ export function getStage(address: string): Stage {
 // that built a malformed scope should fail loud.
 const PATCH_SCOPE_BODY = `patch(\\.${VARIANT_ID_BODY}(\\.[a-zA-Z0-9_-]+)?)?`;
 const ADDRESS_SCOPE_PATTERN = new RegExp(
-  `^(?:(?:animatic|video)(?::(?:shot\\.${NAME_BODY}(?:${NAME_SLOT}(?:#delivery)?)?|timeline(?:${NAME_SLOT}(?:#delivery)?)?|${PATCH_SCOPE_BODY}))?|animatic:plate(?:\\.${NAME_BODY})?|video:thumbnail${NAME_SLOT}?)$`,
+  `^(?:(?:${SHOT_STAGE_BODY})(?::(?:shot\\.${NAME_BODY}(?:${NAME_SLOT}(?:#delivery)?)?|timeline(?:${NAME_SLOT}(?:#delivery)?)?|${PATCH_SCOPE_BODY}))?|animatic:plate(?:\\.${NAME_BODY})?|video:thumbnail${NAME_SLOT}?)$`,
 );
 
 // A reference scope: the whole stage `reference`, one asset `reference:<name>`, a location's views
@@ -479,7 +461,7 @@ export function assertValidAddressScope(scope: string): void {
 // is a per-shot concept, so the commands that take this scope (`reel-audio`, `contact-sheet`)
 // never accept an individual asset or a timeline scope (both of which pass assertValidAddressScope
 // yet are rejected here).
-const REEL_SCOPE_PATTERN = /^(animatic|video)(?::shot\.([a-zA-Z0-9_-]+))?$/;
+const REEL_SCOPE_PATTERN = new RegExp(`^(${SHOT_STAGE_BODY})(?::shot\\.(${NAME_BODY}))?$`);
 
 export function parseReelScope(scope: string): { stage: ShotStage; shotId?: string } {
   assertValidAddressScope(scope);
@@ -494,14 +476,6 @@ export function parseReelScope(scope: string): { stage: ShotStage; shotId?: stri
   }
   const stage = m[1] as ShotStage;
   return m[2] ? { stage, shotId: m[2] } : { stage };
-}
-
-const SHOT_SCOPE_PATTERN = new RegExp(`^(animatic|video):shot\\.(${NAME_BODY})$`);
-
-// `<stage>:shot.<id>` with no name slot, else null.
-export function parseShotScope(value: string): { stage: ShotStage; shotId: string } | null {
-  const m = SHOT_SCOPE_PATTERN.exec(value);
-  return m ? { stage: m[1] as ShotStage, shotId: m[2]! } : null;
 }
 
 // A stage is grouped by the SHAPE of the addresses it owns, which is what decides whether a given
@@ -527,7 +501,7 @@ type StageScope = { stage: Stage };
 // A stage-scope names a single stage — the granularity at which reviews and generation operate.
 // Unlike an address-scope (a prefix that *filters* many addresses and can narrow to a shot or
 // asset), it resolves to exactly one stage.
-const STAGE_SCOPE_PATTERN = /^(animatic|video|reference|direction)$/;
+const STAGE_SCOPE_PATTERN = new RegExp(`^(${STAGE_BODY})$`);
 
 // Whether a string names a stage konte can be told to act on. The pattern above is the one source
 // of truth for that.
@@ -570,24 +544,6 @@ export const THUMBNAIL_FRAME_ADDRESS = formatThumbnailAddress(FRAME_ASSET_NAME);
 
 export const THUMBNAIL_STILL_ADDRESS = formatThumbnailAddress(STILL_ASSET_NAME);
 
-// The addresses the thumbnail is made of: its frame, its still and its own assets.
-export function thumbnailOwnAddresses(thumbnail: {
-  frame: unknown;
-  compose: unknown;
-  assets: Record<string, unknown>;
-}): string[] {
-  return [
-    ...(thumbnail.frame ? [THUMBNAIL_FRAME_ADDRESS] : []),
-    ...(thumbnail.compose ? [THUMBNAIL_STILL_ADDRESS] : []),
-    ...Object.keys(thumbnail.assets).map(formatThumbnailAddress),
-  ];
-}
-
-// The take whose accept signs the thumbnail off: its still when it composes one, else its frame.
-export function thumbnailCoverAddress(thumbnail: { compose: unknown }): string {
-  return thumbnail.compose ? THUMBNAIL_STILL_ADDRESS : THUMBNAIL_FRAME_ADDRESS;
-}
-
 export function isThumbnailAddress(address: string): boolean {
   return tryParseAddress(address)?.kind === "thumbnail";
 }
@@ -609,8 +565,10 @@ export function isPatchAddress(address: string): boolean {
 // Whether a scope narrows to the patch axis — the whole axis, one chain, or one step. Unlike every
 // other scope this one names nothing a stage definition declares, so callers that validate a scope
 // against the definition must let it through and let state answer.
+const PATCH_SCOPE_PATTERN = new RegExp(`^(?:${ASSET_STAGE_BODY}):${PATCH_SCOPE_BODY}$`);
+
 export function isPatchScope(scope: string): boolean {
-  return new RegExp(`^(?:animatic|video|reference):${PATCH_SCOPE_BODY}$`).test(scope);
+  return PATCH_SCOPE_PATTERN.test(scope);
 }
 
 // The variant whose patch script declares this step, i.e. which `patches/<id>.ts` owns it.
@@ -651,7 +609,7 @@ export function formatShotAddress(stage: ShotStage, shotId: string): string {
   return `${stage}:shot.${shotId}`;
 }
 
-const BARE_SHOT_PATTERN = /^(animatic|video):shot\.([a-zA-Z0-9_-]+)$/;
+const BARE_SHOT_PATTERN = new RegExp(`^(${SHOT_STAGE_BODY}):shot\\.(${NAME_BODY})$`);
 
 // The inverse of `formatShotAddress`: the stage and shot of a bare shot-level target, or null for
 // anything else. `parseAddress` rejects these (they name no asset), so a reader that has to act on
@@ -918,118 +876,6 @@ export function isMaterializedLeafAddress(address: string): boolean {
   return isCompositionAddress(address) || isStemAddress(address) || isOverlayAddress(address);
 }
 
-interface StemShotLike {
-  id: string;
-  stemRefs?: readonly string[];
-  narrationStemRefs?: readonly string[];
-  offFrameStemRefs?: readonly string[];
-  songCue?: { src: string };
-  songStem?: unknown;
-}
-
-interface StemVideoLike {
-  stage: ShotStage;
-  shots: readonly StemShotLike[];
-  timelineSoundtracks?: readonly unknown[];
-}
-
-/**
- * One shot's stem leaves and the cues each is mixed from: `#stem`, then the board's
- * `#narrationStem`, `#offFrameStem` and `#songStem`.
- */
-export function listShotStems(
-  stage: ShotStage,
-  shot: StemShotLike,
-): Array<{ address: string; refs: readonly string[] }> {
-  const stems: Array<{ address: string; refs: readonly string[] }> = [];
-  const refs = [...(shot.stemRefs ?? []), ...(shot.songCue ? [shot.songCue.src] : [])];
-  if (refs.length > 0) stems.push({ address: formatShotStemAddress(stage, shot.id), refs });
-  if (stage === "animatic" && (shot.narrationStemRefs?.length ?? 0) > 0) {
-    stems.push({ address: formatNarrationStemAddress(shot.id), refs: shot.narrationStemRefs! });
-  }
-  if (stage === "animatic" && (shot.offFrameStemRefs?.length ?? 0) > 0) {
-    stems.push({ address: formatOffFrameStemAddress(shot.id), refs: shot.offFrameStemRefs! });
-  }
-  if (stage === "animatic" && shot.songCue && shot.songStem) {
-    stems.push({ address: formatSongStemAddress(shot.id), refs: [shot.songCue.src] });
-  }
-  return stems;
-}
-
-/** The reserved stem names a shot of this stage can carry. */
-export function shotStemAssetNames(stage: ShotStage): string[] {
-  return stage === "animatic"
-    ? [STEM_ASSET_NAME, NARRATION_STEM_ASSET_NAME, OFF_FRAME_STEM_ASSET_NAME, SONG_STEM_ASSET_NAME]
-    : [STEM_ASSET_NAME];
-}
-
-/** Every audio cue a shot plays, across its stems. */
-export function shotCueRefs(shot: StemShotLike): string[] {
-  return [
-    ...(shot.stemRefs ?? []),
-    ...(shot.narrationStemRefs ?? []),
-    ...(shot.offFrameStemRefs ?? []),
-  ];
-}
-
-type ShownShotLike = StemShotLike & {
-  assets: Record<string, unknown>;
-  shotFn?: unknown;
-  compositionRefs?: readonly string[];
-};
-
-const placedByShots = new WeakMap<object, { length: number; placed: Set<string> }>();
-
-function placedRefs(shots: readonly ShownShotLike[]): Set<string> {
-  let entry = placedByShots.get(shots);
-  if (!entry || entry.length !== shots.length) {
-    const placed = new Set<string>();
-    for (const s of shots) {
-      for (const ref of [...(s.compositionRefs ?? []), ...shotCueRefs(s)]) placed.add(ref);
-    }
-    entry = { length: shots.length, placed };
-    placedByShots.set(shots, entry);
-  }
-  return entry.placed;
-}
-
-/**
- * The shot's own assets the stage's review shows: what any of its compositions places — a sibling
- * shot may draw one — or its stems mix. A shot with no composition, or one never discovered, shows
- * every one.
- */
-export function shownShotAssetNames(
-  stage: ShotStage,
-  shots: readonly ShownShotLike[],
-  shot: ShownShotLike,
-): string[] {
-  const names = Object.keys(shot.assets);
-  if (!shot.shotFn || !shot.compositionRefs) return names;
-  const placed = placedRefs(shots);
-  return names.filter((name) => placed.has(formatAddress(stage, shot.id, name)));
-}
-
-// The stem leaves a stage declares: each shot's stems (`listShotStems`), plus the timeline stem
-// when the stage has soundtrack beds.
-export function listStemAddresses(video: StemVideoLike): string[] {
-  const addresses: string[] = [];
-  for (const s of video.shots) {
-    for (const stem of listShotStems(video.stage, s)) addresses.push(stem.address);
-  }
-  if ((video.timelineSoundtracks?.length ?? 0) > 0) {
-    addresses.push(formatTimelineStemAddress(video.stage));
-  }
-  return addresses;
-}
-
-interface CompositionShotLike {
-  id: string;
-  shotFn?: unknown;
-  assets?: Record<string, { kind?: string }>;
-}
-
-// Composition addresses for every developed shot of a stage — both composition stages build one per
-// shot, so this takes the stage along with the shots rather than assuming video.
 export function formatTimelineOverlayAddress(stage: ShotStage): string {
   return formatTimelineAddress(stage, OVERLAY_ASSET_NAME);
 }
@@ -1037,168 +883,7 @@ export function formatTimelineOverlayAddress(stage: ShotStage): string {
 // The file an overlay's variant is rendered to.
 export const OVERLAY_HTML_FILE = "overlay.html";
 
-// The overlay leaf a stage declares, if any.
-export function listOverlayAddresses(def: { stage: ShotStage; overlay?: unknown }): string[] {
-  return def.overlay ? [formatTimelineOverlayAddress(def.stage)] : [];
-}
-
-export function listCompositionAddresses(video: {
-  stage: ShotStage;
-  shots: readonly CompositionShotLike[];
-}): string[] {
-  const addresses: string[] = [];
-  for (const s of video.shots) {
-    if (s.shotFn) addresses.push(formatCompositionAddress(video.stage, s.id));
-  }
-  return addresses;
-}
-
-// The existence half of `getAssetEntry`; delegate so the lookup logic lives in exactly one place.
-export function validateAddress(address: string, definition: DefinitionLike): void {
-  void getAssetEntry(definition, address);
-}
-
-export function listAddresses(definition: DefinitionLike, stage: AssetStage): string[] {
-  const paths: string[] = [];
-  // A reference asset lives in `topLevelAssets` with no shot axis, keyed by its bare name.
-  if (stage === "reference") {
-    for (const assetName of Object.keys(definition.topLevelAssets ?? {})) {
-      paths.push(formatReferenceAddress(assetName));
-    }
-    return paths;
-  }
-  if (definition.topLevelAssets) {
-    for (const assetName of Object.keys(definition.topLevelAssets)) {
-      paths.push(formatTimelineAddress(stage, assetName));
-    }
-  }
-  if (stage === "animatic") {
-    for (const setupId of Object.keys(definition.plates ?? {})) {
-      paths.push(formatPlateAddress(setupId));
-    }
-  }
-  if (stage === "video") {
-    for (const assetName of Object.keys(definition.thumbnail?.assets ?? {})) {
-      paths.push(formatThumbnailAddress(assetName));
-    }
-    if (definition.thumbnail?.frame) paths.push(THUMBNAIL_FRAME_ADDRESS);
-    if (definition.thumbnail?.compose) paths.push(THUMBNAIL_STILL_ADDRESS);
-  }
-  for (const s of definition.shots) {
-    for (const assetName of Object.keys(s.assets)) {
-      paths.push(formatAddress(stage, s.id, assetName));
-    }
-  }
-  return paths;
-}
-
-// A reference definition's assets, as addresses.
-export function listReferenceAddresses(definition: DefinitionLike): string[] {
-  return listAddresses(definition, "reference");
-}
-
-// The reference assets the stage published — the ones its callback returned (`exposedAssetNames`).
-// A declared-but-unreturned asset is an intermediate another reference asset consumes: generated and
-// tracked like any other, but never review work — it is read through the asset that consumes it, the
-// way a patch chain's earlier step is, and no accept is ever owed on it. The review surfaces and the
-// accept accounting list this; `doctor`/`generate` keep listing them all.
-export function listExposedReferenceAddresses(definition: DefinitionLike): string[] {
-  const exposed = definition.exposedAssetNames;
-  // Only a definition that never went through `defineReference` lacks the field; it published all.
-  if (!exposed) return listReferenceAddresses(definition);
-  const names = new Set(exposed.map(formatReferenceAddress));
-  return listReferenceAddresses(definition).filter((p) => names.has(p));
-}
-
-// A plate the `plates` callback declared without returning it under a setup id: an intermediate the
-// plates are built from, read through the plate that consumes it — an unexposed reference asset's
-// terms.
-export function isUnexposedPlateAddress(
-  definition: DefinitionLike | null | undefined,
-  address: string,
-): boolean {
-  const exposed = definition?.exposedPlateIds;
-  // Only a definition that never went through `defineAnimatic` lacks the field; it filed all.
-  if (!exposed) return false;
-  const parsed = tryParseAddress(address);
-  return parsed?.kind === "plate" && !exposed.includes(parsed.assetName);
-}
-
 // A plate: judged inside the panels drawn on it, never on its own.
 export function isPlateAddress(address: string): boolean {
   return tryParseAddress(address)?.kind === "plate";
-}
-
-// The assets a review shows: every one but an intermediate read through what consumes it and a
-// plate.
-export function listReviewableAddresses(definition: DefinitionLike, stage: AssetStage): string[] {
-  return stage === "reference"
-    ? listExposedReferenceAddresses(definition)
-    : listAddresses(definition, stage).filter((p) => !isPlateAddress(p));
-}
-
-export function getAssetEntry(definition: DefinitionLike, address: string): AssetDefinition {
-  const parsed = parseAddress(address);
-
-  if (parsed.kind === "plate") {
-    const plate = definition.plates?.[parsed.assetName];
-    if (!plate) {
-      throw new KonteError(
-        "ADDRESS_NOT_FOUND",
-        `Setup "${parsed.assetName}" has no plate in animatic.tsx — declare it in \`plates\``,
-      );
-    }
-    return plate;
-  }
-
-  if (parsed.kind === "thumbnail") {
-    const asset =
-      address === THUMBNAIL_STILL_ADDRESS
-        ? definition.thumbnail?.compose?.still
-        : address === THUMBNAIL_FRAME_ADDRESS
-          ? definition.thumbnail?.frame?.asset
-          : definition.thumbnail?.assets[parsed.assetName];
-    if (!asset) {
-      throw new KonteError(
-        "ADDRESS_NOT_FOUND",
-        `Thumbnail asset "${parsed.assetName}" not found in video.tsx's thumbnail`,
-      );
-    }
-    return asset;
-  }
-
-  if (parsed.kind === "timeline" || parsed.kind === "reference") {
-    const topLevelAsset = definition.topLevelAssets?.[parsed.assetName];
-    if (!topLevelAsset) {
-      throw new KonteError(
-        "ADDRESS_NOT_FOUND",
-        `Timeline asset "${parsed.assetName}" not found in definition`,
-      );
-    }
-    return topLevelAsset;
-  }
-
-  // A patch step is declared by `patches/<variantId>.ts`, never by a stage definition — its
-  // definition comes from the patch catalog.
-  if (parsed.kind === "patch") {
-    throw new KonteError(
-      "ADDRESS_NOT_FOUND",
-      `"${address}" is a patch step — its definition lives in patches/${parsed.sourceVariantId}.ts`,
-    );
-  }
-
-  const foundShot = shotById(definition.shots, parsed.shotId);
-  if (!foundShot) {
-    throw new KonteError("ADDRESS_NOT_FOUND", `Shot "${parsed.shotId}" not found in definition`);
-  }
-
-  const shotAsset = foundShot.assets[parsed.assetName];
-  if (!shotAsset) {
-    throw new KonteError(
-      "ADDRESS_NOT_FOUND",
-      `Asset "${parsed.assetName}" not found in shot "${parsed.shotId}" of definition`,
-    );
-  }
-
-  return shotAsset;
 }

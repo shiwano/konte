@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  assertValidAddressScope,
-  formatViewAddress,
-  listReviewableAddresses,
-  parseAddress,
-} from "../address.js";
+import { assertValidAddressScope, formatViewAddress, parseAddress } from "../address.js";
+import { listReviewableAddresses } from "../definition-addresses.js";
 import { parseViewName } from "../view.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { adapters, asset, defineReference } from "../dsl/index.js";

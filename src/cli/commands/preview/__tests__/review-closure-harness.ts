@@ -6,12 +6,16 @@ import { loadPreviewDefinitions } from "../load-definitions.js";
 import { handleGetReelState, remixTakenOverBoardStems } from "../reel-review.js";
 import { handleSubmit, type ReviewContext } from "../submit.js";
 import { buildAssetStatus } from "../../../../core/status-report.js";
-import { type DefinitionLike, getAssetEntry, listAddresses } from "../../../../core/address.js";
+import { getAssetEntry, listAddresses } from "../../../../core/definition-addresses.js";
+import type {
+  AssetStageDefinition,
+  AssetDefinition,
+  StageDefinition,
+} from "../../../../core/types/index.js";
 import { compositionInputFingerprints } from "../../../../core/leaf-hash.js";
 import { computeDefinitionHash } from "../../../../core/definition-hash.js";
 import { extractRefs } from "../../../../core/graph.js";
 import { stableStringify } from "../../../../core/stable-stringify.js";
-import type { AssetDefinition, StageDefinition } from "../../../../core/types/index.js";
 import { StateManager } from "../../../../core/state/index.js";
 import { applyDirectionSectionDecisions } from "../../../../core/direction-acceptance.js";
 import { DIRECTION_SECTIONS } from "../../../../core/address.js";
@@ -253,7 +257,7 @@ export async function generateAll(videoRoot: string): Promise<void> {
     reload: true,
   });
   const manager = await StateManager.load(videoRoot);
-  const stages: Array<{ stage: "animatic" | "video"; definition: DefinitionLike | null }> = [
+  const stages: Array<{ stage: "animatic" | "video"; definition: AssetStageDefinition | null }> = [
     { stage: "animatic", definition: defs.animatic },
     { stage: "video", definition: defs.video! },
   ];

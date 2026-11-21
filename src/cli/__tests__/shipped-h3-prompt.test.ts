@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { getAssetEntry } from "../../core/address.js";
+import { getAssetEntry } from "../../core/definition-addresses.js";
 import { checkPrompts } from "../../core/prompt-check.js";
 import type { ComfyAssetDefinition } from "../../core/types/index.js";
 import type { PromptOccurrence } from "../../core/types/stage-build.js";

@@ -7,10 +7,10 @@ import {
   THUMBNAIL_STILL_ADDRESS,
   THUMBNAIL_TARGET,
   parseStageAddress,
-  shotStemAssetNames,
   type ShotStage,
   type Stage,
 } from "../address.js";
+import { shotStemAssetNames } from "../definition-addresses.js";
 import { shortId } from "../short-id.js";
 import { StalenessView } from "../staleness.js";
 import type { FeedbackEntry, KonteState } from "../types/index.js";

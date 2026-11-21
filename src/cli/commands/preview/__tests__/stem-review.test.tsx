@@ -98,6 +98,7 @@ describe("materializedLeafContentHash", () => {
   const bgm = "reference:bgm";
   const stemAddr = "video:timeline#stem";
   const video = {
+    stage: "video",
     profiles: { main: { size: { width: 100, height: 100 } } },
     shots: [],
     timelineSoundtracks: [

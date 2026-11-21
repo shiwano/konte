@@ -83,6 +83,7 @@ export {
   type ManifestVariant,
 } from "./export-manifest.js";
 export { type ReferenceDefinition, ReferenceDefinitionSchema } from "./reference.js";
+export { type AssetStageDefinition, isShotStageDefinition } from "./asset-stage-definition.js";
 export {
   isPendingAnimaticShot,
   type AnimaticDefinition,

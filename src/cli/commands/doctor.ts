@@ -17,7 +17,7 @@ import {
   listAddresses,
   listReferenceAddresses,
   listReviewableAddresses,
-} from "../../core/address.js";
+} from "../../core/definition-addresses.js";
 import {
   backendSetupAdvice,
   configuredVendorBackends,

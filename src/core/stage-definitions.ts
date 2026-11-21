@@ -1,4 +1,10 @@
-import { type AssetStage, type DefinitionLike, getStage } from "./address.js";
+import { type AssetStage, getStage } from "./address.js";
+import type {
+  AssetStageDefinition,
+  AnimaticDefinition,
+  ReferenceDefinition,
+  VideoDefinition,
+} from "./types/index.js";
 import { assertNever } from "./assert.js";
 import type { Direction } from "./dsl/direction.js";
 import { KonteError } from "./errors.js";
@@ -12,7 +18,6 @@ import {
 } from "./loader.js";
 import { stageEntryPath } from "./roots.js";
 import { type LoadedDefinitions, loadShotStages } from "./select-definition.js";
-import type { AnimaticDefinition, ReferenceDefinition, VideoDefinition } from "./types/index.js";
 
 export type LoadOptions = { reload?: boolean };
 
@@ -88,7 +93,7 @@ export function loadDirectionIfPresent(videoRoot: string): Promise<Direction | n
 export async function loadDefinitionForAddress(
   videoRoot: string,
   address: string,
-): Promise<DefinitionLike> {
+): Promise<AssetStageDefinition> {
   const stage = getStage(address);
   switch (stage) {
     case "reference":

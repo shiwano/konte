@@ -3,12 +3,9 @@ import * as path from "node:path";
 import { acceptedVariant } from "./accepted-variant.js";
 import { holdsHumanVerdict } from "./accept-cascade.js";
 import {
-  type DefinitionLike,
-  getAssetEntry,
   getStage,
   isDeliveryAddress,
   isPlateAddress,
-  listExposedReferenceAddresses,
   isMaterializedLeafAddress,
   isOverlayAddress,
   isPatchAddress,
@@ -17,18 +14,34 @@ import {
   formatReferenceAddress,
   formatTimelineOverlayAddress,
   formatTimelineStemAddress,
-  listCompositionAddresses,
-  listOverlayAddresses,
-  listStemAddresses,
   type Stage,
   assertValidAddressScope,
   matchesAddressScope,
-  listAddresses,
-  listReferenceAddresses,
   formatAddress,
   formatShotAddress,
   parseAddress,
 } from "./address.js";
+import {
+  getAssetEntry,
+  listExposedReferenceAddresses,
+  listCompositionAddresses,
+  listOverlayAddresses,
+  listStemAddresses,
+  listAddresses,
+  listReferenceAddresses,
+} from "./definition-addresses.js";
+import {
+  type AssetStageDefinition,
+  type AssetDefinition,
+  type GenerationJob,
+  type JobRecord,
+  type VideoDefinition,
+  type ReferenceDefinition,
+  type AnimaticDefinition,
+  isPendingShot,
+  isShotStageDefinition,
+  isPendingAnimaticShot,
+} from "./types/index.js";
 import { assertNever } from "./assert.js";
 import { staleSettledLeaves } from "./board-leaves.js";
 import { loadCheckContext } from "./check-context.js";
@@ -120,16 +133,6 @@ import {
   type SourceGaps,
 } from "./suggested-actions.js";
 import { ERROR_GLIMPSE_WIDTH, truncateSingleLine } from "./truncate.js";
-import {
-  type AssetDefinition,
-  type GenerationJob,
-  type JobRecord,
-  type VideoDefinition,
-  type ReferenceDefinition,
-  type AnimaticDefinition,
-  isPendingShot,
-  isPendingAnimaticShot,
-} from "./types/index.js";
 
 export interface StatusReport {
   infos: AddressInfo[];
@@ -155,9 +158,9 @@ export interface StatusReport {
 // so the two surfaces report one number.
 function reelProgressByStage(
   manager: StateManager,
-  leafStages: ReadonlyMap<string, VideoDefinition>,
+  leafStages: ReadonlyMap<string, AnimaticDefinition | VideoDefinition>,
   videoDefinition: VideoDefinition | null,
-  counterpartOf: (stage: string) => VideoDefinition | null,
+  counterpartOf: (stage: string) => AnimaticDefinition | VideoDefinition | null,
   waiverShotIds: ReadonlySet<string> | undefined,
 ): Partial<Record<Stage, ReelProgress>> {
   const stages = new Map(leafStages);
@@ -227,7 +230,7 @@ async function buildStatusReport(
   addresses: string[],
   manager: StateManager,
   jobManager: JobManager,
-  getDefinition: (addr: string) => DefinitionLike | null,
+  getDefinition: (addr: string) => AssetStageDefinition | null,
   options?: {
     videoRoot?: string;
     unacceptedCast?: readonly string[];
@@ -301,16 +304,16 @@ async function buildStatusReport(
   // The stage definition behind a leaf, PER STAGE: both composition stages carry leaves, and one
   // stage's definition read for another reports its leaves against the wrong shots.
   const isLeafAddress = isMaterializedLeafAddress;
-  const leafStages = new Map<string, VideoDefinition>();
+  const leafStages = new Map<string, AnimaticDefinition | VideoDefinition>();
   for (const addr of addresses) {
     if (!isLeafAddress(addr)) continue;
     const stage = getStage(addr);
     if (leafStages.has(stage)) continue;
-    const def = getDefinition(addr) as unknown as VideoDefinition | null;
-    if (def) leafStages.set(stage, def);
+    const def = getDefinition(addr);
+    if (def && isShotStageDefinition(def)) leafStages.set(stage, def);
   }
   // The other shot stage, whose accept may settle a leaf of this one (`leafSettledAcross`).
-  const counterpartOf = (stage: string): VideoDefinition | null =>
+  const counterpartOf = (stage: string): AnimaticDefinition | VideoDefinition | null =>
     stage === "animatic"
       ? (options?.videoDefinition ?? null)
       : stage === "video"
@@ -357,6 +360,7 @@ async function buildStatusReport(
     let missingFilePath: string | null = null;
     let leafReady = false;
     const def = getDefinition(addr);
+    const shotStageDef = def && isShotStageDefinition(def) ? def : null;
     // An asset the stage declared without returning it is an intermediate: it is generated and
     // tracked, but no review surface lists it and no accept is owed on it (see
     // `listExposedReferenceAddresses`). A plate is judged inside the panels drawn on it, whose
@@ -366,18 +370,13 @@ async function buildStatusReport(
     const overlayStage = isOverlayAddress(addr) ? (leafStages.get(getStage(addr)) ?? null) : null;
     const settledAcross = leafSettledAcross(
       manager,
-      def as unknown as VideoDefinition | null,
+      shotStageDef,
       counterpartOf(getStage(addr)),
       addr,
     );
     // Reviewed on the video's page; status never sends anyone to the board's.
     const awaitsVideo = [boardCompositionAwaitsVideo, boardStemAwaitsVideo].some((awaits) =>
-      awaits(
-        manager,
-        def as unknown as VideoDefinition | null,
-        options?.videoDefinition ?? null,
-        addr,
-      ),
+      awaits(manager, shotStageDef, options?.videoDefinition ?? null, addr),
     );
     const reviewTarget =
       (getStage(addr) !== "reference" || isDeliveryAddress(addr) || exposedReferences.has(addr)) &&

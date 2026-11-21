@@ -1,7 +1,7 @@
 import type { MediaAsset } from "../types/media.js";
 import { describe, expect, it } from "vitest";
 import type React from "react";
-import { listShotStems } from "../address.js";
+import { listShotStems } from "../definition-addresses.js";
 import { audioLevelling } from "../audio-level.js";
 import { harvestShotPictureCues } from "../composition-builder.js";
 import { stemDefinitionHash } from "../leaf-hash.js";

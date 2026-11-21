@@ -5,13 +5,8 @@ import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import * as jsxRuntime from "react/jsx-runtime";
 import * as jsxDevRuntime from "react/jsx-dev-runtime";
-import {
-  formatPatchAddress,
-  listAddresses,
-  listReferenceAddresses,
-  parseAddress,
-  patchSourceVariantIdOf,
-} from "./address.js";
+import { formatPatchAddress, parseAddress, patchSourceVariantIdOf } from "./address.js";
+import { listAddresses, listReferenceAddresses } from "./definition-addresses.js";
 import type { Direction } from "./dsl/direction.js";
 import * as dsl from "./dsl/index.js";
 import type { PatchBuild, PatchBuildContext, PatchDefinition } from "./dsl/patch.js";

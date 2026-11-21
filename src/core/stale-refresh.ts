@@ -1,17 +1,11 @@
 import { holdsHumanVerdict } from "./accept-cascade.js";
-import {
-  type DefinitionLike,
-  type Stage,
-  getStage,
-  isMaterializedLeafAddress,
-  isUnexposedPlateAddress,
-  tryParseAddress,
-} from "./address.js";
+import { type Stage, getStage, isMaterializedLeafAddress, tryParseAddress } from "./address.js";
+import { isUnexposedPlateAddress } from "./definition-addresses.js";
+import type { AssetStageDefinition, AnimaticDefinition } from "./types/index.js";
 import { findAllUnmetPrerequisites } from "./review-prerequisites.js";
 import { STAGE_ENTRY_FILE } from "./roots.js";
 import type { StateManager } from "./state/index.js";
 import type { PatchHashes, StalenessView } from "./staleness.js";
-import type { AnimaticDefinition } from "./types/index.js";
 
 /** A plate's setup and every shot standing on it. */
 export type SetupFork = { setupId: string; shotIds: readonly string[] };
@@ -25,7 +19,7 @@ export type SetupFork = { setupId: string; shotIds: readonly string[] };
 export function plateFork(
   address: string,
   cascade: ReadonlyArray<{ address: string }>,
-  definition?: DefinitionLike,
+  definition?: AssetStageDefinition,
 ): SetupFork | null {
   const parsed = tryParseAddress(address);
   if (parsed?.kind !== "plate") return null;

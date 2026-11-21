@@ -1,4 +1,5 @@
-import { type DefinitionLike, getStage, listAddresses, parseAddress } from "./address.js";
+import { getStage, parseAddress } from "./address.js";
+import { listAddresses } from "./definition-addresses.js";
 import { parsePlaceholder } from "./dsl/shot-context.js";
 import { type DependencyGraph, listUnusedAddresses } from "./graph.js";
 import { isJobTerminal } from "./job-manager.js";
@@ -68,7 +69,7 @@ export function findStrandedTakes(opts: {
     ["video", opts.video],
   ] as const) {
     if (!def) continue;
-    const defined = new Set(listAddresses(def as DefinitionLike, stage));
+    const defined = new Set(listAddresses(def, stage));
     const drawn = new Set([
       ...def.shots.flatMap((shot) => shot.compositionRefs ?? []),
       ...(def.timelineSoundtracks ?? []).map((st) => parsePlaceholder(st.src.src) ?? st.src.src),

@@ -6,12 +6,11 @@ import type { Command } from "commander";
 import {
   addressToCacheSegments,
   assertValidAddressScope,
-  getAssetEntry,
   isPatchAddress,
-  listAddresses,
   matchesAddressScope,
   parseAddress,
 } from "../../../core/address.js";
+import { getAssetEntry, listAddresses } from "../../../core/definition-addresses.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
 import { KonteError } from "../../../core/errors.js";
 import { jsxDocumentHtml } from "../../../core/dsl/adapters/jsx-document.js";

@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
-import { type DefinitionLike, getAssetEntry, getStage, isDeliveryAddress } from "./address.js";
+import { getStage, isDeliveryAddress } from "./address.js";
+import { getAssetEntry } from "./definition-addresses.js";
 import { synthesizeDeliveryAssetDefinition } from "./delivery.js";
 import { variantDir } from "./variant-dir.js";
 import { BACKEND_CAPS, type GenerationBackend } from "./backend.js";
@@ -399,7 +400,7 @@ async function trySubmitJob(
         : getAssetEntry(
             // A board or video job while the song it is cut to has no read take fails on
             // `SONG_UNREAD`.
-            selectDefinition(getStage(job.address), definitions).def as DefinitionLike,
+            selectDefinition(getStage(job.address), definitions).def,
             job.address,
           ));
 

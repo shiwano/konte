@@ -1,4 +1,5 @@
-import { formatShotAddress, listShotStems } from "./address.js";
+import { formatShotAddress } from "./address.js";
+import { listShotStems } from "./definition-addresses.js";
 import { MAX_RETIME_RATE } from "./audio-retime.js";
 import { cueLeadIn, type CueKind } from "./audio-level.js";
 import { harvestShotAudioStructure, type StemAudioEntry } from "./composition-builder.js";

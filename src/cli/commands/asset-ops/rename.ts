@@ -1,12 +1,12 @@
 import type { Command } from "commander";
 import {
-  getAssetEntry,
   isCompositionAddress,
   isOverlayAddress,
   isStemAddress,
   parseAddress,
   patchSourceVariantIdOf,
 } from "../../../core/address.js";
+import { getAssetEntry } from "../../../core/definition-addresses.js";
 import {
   carryDefinitionHashes,
   carryPatchHashes,

@@ -1,10 +1,5 @@
-import {
-  getAssetEntry,
-  getStage,
-  isDeliveryAddress,
-  isStemAddress,
-  tryParseAddress,
-} from "./address.js";
+import { getStage, isDeliveryAddress, isStemAddress, tryParseAddress } from "./address.js";
+import { getAssetEntry } from "./definition-addresses.js";
 import { definitionHashForAddress } from "./leaf-hash.js";
 import { diffDefinitions, readDefinitionSnapshot } from "./definition-snapshot.js";
 import { stableStringify } from "./stable-stringify.js";

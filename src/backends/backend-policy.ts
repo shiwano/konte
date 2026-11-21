@@ -1,20 +1,17 @@
 import { resolveHeaderTokens } from "../comfyui/token-resolver.js";
-import {
-  type AssetStage,
-  type DefinitionLike,
-  getAssetEntry,
-  listAddresses,
-} from "../core/address.js";
-import { KonteError } from "../core/errors.js";
-import { isVendorBackendAsset } from "../core/vendor-backend.js";
-import { backendCredential } from "../core/types/credentials.js";
-import { VendorBackendKindSchema } from "../core/types/job.js";
+import { type AssetStage } from "../core/address.js";
+import { getAssetEntry, listAddresses } from "../core/definition-addresses.js";
 import type {
+  AssetStageDefinition,
   AssetDefinition,
   ComfyTarget,
   KonteConfig,
   VendorBackendKind,
 } from "../core/types/index.js";
+import { KonteError } from "../core/errors.js";
+import { isVendorBackendAsset } from "../core/vendor-backend.js";
+import { backendCredential } from "../core/types/credentials.js";
+import { VendorBackendKindSchema } from "../core/types/job.js";
 import { type DeploymentReadiness, deploymentReadiness } from "../comfy-api/deployment.js";
 import {
   COMFY_API_KEY_ENV,
@@ -74,7 +71,7 @@ export function backendSetupHint(kind: VendorBackendKind): string {
 // definition level (every declared asset, not just what a run would submit) so the result is
 // deterministic.
 export function unconfiguredBackendAssets(
-  def: DefinitionLike,
+  def: AssetStageDefinition,
   stage: AssetStage,
   config: KonteConfig,
 ): UnconfiguredBackendAsset[] {

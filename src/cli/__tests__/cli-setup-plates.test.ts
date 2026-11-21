@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { getAssetEntry } from "../../core/address.js";
+import { getAssetEntry } from "../../core/definition-addresses.js";
 import { computeDefinitionHash } from "../../core/definition-hash.js";
 import { StateManager } from "../../core/state/manager.js";
 import { loadStageDefinitions } from "../../core/stage-definitions.js";

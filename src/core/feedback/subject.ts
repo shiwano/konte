@@ -4,11 +4,10 @@ import {
   formatCompositionAddress,
   formatTimelineOverlayAddress,
   formatTimelineStemAddress,
-  listShotStems,
   parseShotAddress,
-  thumbnailCoverAddress,
   THUMBNAIL_TARGET,
 } from "../address.js";
+import { listShotStems, thumbnailCoverAddress } from "../definition-addresses.js";
 import { thumbnailOf } from "../graph.js";
 import { timelineStemRefs } from "../leaf-hash.js";
 import { shotById } from "../shot-index.js";

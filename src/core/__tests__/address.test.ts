@@ -3,7 +3,6 @@ import {
   classifyTargetArg,
   parseTakeArg,
   assetNameOf,
-  type DefinitionLike,
   addressFromCacheSegments,
   addressToCacheSegments,
   assertValidAddressScope,
@@ -16,7 +15,6 @@ import {
   formatShotStemAddress,
   formatTimelineAddress,
   formatTimelineStemAddress,
-  getAssetEntry,
   getAssetStage,
   getStage,
   isCompositionAddress,
@@ -24,18 +22,22 @@ import {
   isMaterializedLeafAddress,
   isPatchAddress,
   isStemAddress,
-  listAddresses,
-  listCompositionAddresses,
-  listStemAddresses,
-  listReviewableAddresses,
   matchesAddressScope,
   parseAddress,
   patchSourceVariantIdOf,
   parseStageScope,
   parseReelScope,
   sourceAddressOfDelivery,
-  validateAddress,
 } from "../address.js";
+import {
+  getAssetEntry,
+  listAddresses,
+  listCompositionAddresses,
+  listStemAddresses,
+  listReviewableAddresses,
+  validateAddress,
+} from "../definition-addresses.js";
+import type { AssetStageDefinition, VideoDefinition } from "../types/index.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { defineVideo, asset, defineReference } from "../dsl/index.js";
 import { Composition } from "../dsl/composition/composition.js";
@@ -43,7 +45,6 @@ import { shot, videoTimeline } from "./helpers/shot.js";
 import { testDirection, plainDirection } from "./helpers/direction.js";
 import { imageFile } from "../dsl/adapters/index.js";
 import { KonteError } from "../errors.js";
-import type { VideoDefinition } from "../types/index.js";
 import { ASSET_SITES } from "../dsl/adapter.js";
 
 function el(): React.ReactElement {
@@ -670,7 +671,7 @@ describe("setup addresses", () => {
   });
 
   it("looks a plate up in plates, not the timeline pool", () => {
-    const definition: DefinitionLike = {
+    const definition: AssetStageDefinition = {
       shots: [],
       topLevelAssets: { deskWide: { kind: "file", path: "timeline.png" } },
       plates: { deskWide: { kind: "file", path: "plate.png" } },
@@ -686,7 +687,7 @@ describe("setup addresses", () => {
 describe("plate review", () => {
   // A plate is judged inside the panels drawn on it; no review lists it on its own.
   it("is listed as an asset but never as review work", () => {
-    const definition: DefinitionLike = {
+    const definition: AssetStageDefinition = {
       shots: [],
       plates: { front: { kind: "file", path: "front.png" } },
       exposedPlateIds: ["front"],

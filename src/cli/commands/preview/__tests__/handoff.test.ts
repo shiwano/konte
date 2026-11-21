@@ -2,7 +2,6 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { DefinitionLike } from "../../../../core/address.js";
 import {
   compositionDefinitionHashForAddress,
   definitionHashForAddress,
@@ -13,7 +12,11 @@ import type { Direction } from "../../../../core/dsl/direction.js";
 import type { ReviewRecord } from "../../../../core/review-record.js";
 import { handoffNotesForShot, unroutedReelHandoffNotes } from "../review-shared.js";
 import { StateManager } from "../../../../core/state/manager.js";
-import type { ReferenceDefinition, VideoDefinition } from "../../../../core/types/index.js";
+import type {
+  ReferenceDefinition,
+  StageDefinition,
+  VideoDefinition,
+} from "../../../../core/types/index.js";
 import {
   collectAllAddresses,
   collectAllDirectionAddresses,
@@ -37,7 +40,10 @@ afterEach(async () => {
 // The address is absent from this stub, so definitionHashForAddress resolves to
 // null — definition-staleness is out of scope here; input-stale and pending
 // detection don't need it.
-const STAGE_DEF: DefinitionLike = {
+const STAGE_DEF: StageDefinition = {
+  stage: "video",
+  format: { size: { width: 1920, height: 1080 }, fps: 30 },
+  typography: { lang: "en" },
   shots: [],
   topLevelAssets: {},
 };
@@ -45,8 +51,7 @@ const STAGE_DEF: DefinitionLike = {
 const SHOTS = [{ id: "02", assets: { motion: {} } }];
 
 // A def whose shot 02 carries a real shotFn, so composition definition-staleness
-// can be computed against its live hash. Cast because DefinitionLike's shot type
-// omits shotFn (read only by the composition-hash path, which sees a VideoDefinition).
+// can be computed against its live hash. Cast because its `motion` asset is a stub.
 function makeVideoDef(shotFn: () => unknown[]): VideoDefinition {
   return {
     shots: [
@@ -253,7 +258,7 @@ describe("collectChangedAddresses", () => {
       stage: "video" as const,
       format: { size: { width: 1920, height: 1080 }, fps: 30 },
       typography: { lang: "en" as const },
-    } as unknown as DefinitionLike;
+    } as unknown as StageDefinition;
     const record: ReviewRecord = {
       mode: "video-preview",
       stage: "video",
@@ -290,7 +295,7 @@ describe("collectChangedAddresses", () => {
     stage: "video" as const,
     format: { size: { width: 1920, height: 1080 }, fps: 30 },
     typography: { lang: "en" as const },
-  } as unknown as DefinitionLike;
+  } as unknown as StageDefinition;
 
   function makeStemRecord(contentHashes?: Record<string, string>): ReviewRecord {
     return {
@@ -417,7 +422,7 @@ describe("collectAllAddresses", () => {
       bgm: { deterministic: false },
       sizzle: { deterministic: false },
       logo: { kind: "file" },
-    } as unknown as DefinitionLike["topLevelAssets"];
+    } as unknown as StageDefinition["topLevelAssets"];
     expect(collectAllAddresses([{ id: "01" }], "video", topLevelAssets)).toEqual([
       "video:timeline.bgm",
       "video:timeline.sizzle",

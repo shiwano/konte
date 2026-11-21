@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { loadWorkflow, parameterizeWorkflow } from "../../comfyui/workflow.js";
-import { getAssetEntry } from "../../core/address.js";
+import { getAssetEntry } from "../../core/definition-addresses.js";
 import { workflowContentHash } from "../../core/workflow-content-hash.js";
 import { setWorkspaceRoot } from "../../core/workspace-context.js";
 import type { ComfyAssetDefinition } from "../../core/types/index.js";

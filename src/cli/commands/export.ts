@@ -1,12 +1,11 @@
 import * as path from "node:path";
 import type { Command } from "commander";
+import { formatShotAddress, parseStageScope } from "../../core/address.js";
 import {
   listCompositionAddresses,
   listOverlayAddresses,
-  formatShotAddress,
   listStemAddresses,
-  parseStageScope,
-} from "../../core/address.js";
+} from "../../core/definition-addresses.js";
 import { remakeSettledLeaves } from "../../core/board-leaves.js";
 import { leafSignedOff } from "../../core/leaf-review.js";
 import { deliveryUpscalerMissing } from "../../core/delivery.js";

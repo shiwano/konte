@@ -10,10 +10,6 @@ import {
   getStage,
   THUMBNAIL_FRAME_ADDRESS,
   THUMBNAIL_STILL_ADDRESS,
-  thumbnailCoverAddress,
-  listAddresses,
-  listReferenceAddresses,
-  listShotStems,
   NARRATION_STEM_ASSET_NAME,
   OFF_FRAME_STEM_ASSET_NAME,
   SONG_STEM_ASSET_NAME,
@@ -21,15 +17,18 @@ import {
   OVERLAY_ASSET_NAME,
   STEM_ASSET_NAME,
   assetNameOf,
-  type DefinitionLike,
-  getAssetEntry,
   isMaterializedLeafAddress,
   isHeardStemAddress,
 } from "./address.js";
-import { isVendorBackendAsset } from "./vendor-backend.js";
-import { parsePlaceholder } from "./dsl/shot-context.js";
-import { KonteError } from "./errors.js";
 import {
+  thumbnailCoverAddress,
+  listAddresses,
+  listReferenceAddresses,
+  listShotStems,
+  getAssetEntry,
+} from "./definition-addresses.js";
+import {
+  type AssetStageDefinition,
   type AssetDefinition,
   isPendingAnimaticShot,
   isPendingShot,
@@ -41,6 +40,9 @@ import {
   type ThumbnailDefinition,
   type VideoDefinition,
 } from "./types/index.js";
+import { isVendorBackendAsset } from "./vendor-backend.js";
+import { parsePlaceholder } from "./dsl/shot-context.js";
+import { KonteError } from "./errors.js";
 
 export interface DependencyGraph {
   dependencies: ReadonlyMap<string, readonly string[]>;
@@ -533,7 +535,7 @@ export function videoDependentsHoldVerdicts(
 export function collectRerollCascade(
   graph: DependencyGraph,
   address: string,
-  definition: DefinitionLike,
+  definition: AssetStageDefinition,
   holdsVerdict: (address: string) => boolean,
 ): Array<{ address: string; def: AssetDefinition }> {
   const stage = getStage(address);

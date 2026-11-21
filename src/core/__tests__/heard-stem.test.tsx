@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { inBuild } from "./helpers/build.js";
-import { listStemAddresses } from "../address.js";
+import { listStemAddresses } from "../definition-addresses.js";
 import { stemDefinitionHash } from "../leaf-hash.js";
 import { commitShotStem, prepareShotStem } from "../stem-resource.js";
 import { Audio, Composition, Panel, Video } from "../dsl/composition/index.js";

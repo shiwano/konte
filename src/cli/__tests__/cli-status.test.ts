@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { StateManager } from "../../core/state/manager.js";
-import { getAssetEntry } from "../../core/address.js";
+import { getAssetEntry } from "../../core/definition-addresses.js";
 import { writeDefinitionSnapshot } from "../../core/definition-snapshot.js";
 import { loadDefinitionForAddress } from "../../core/stage-definitions.js";
 import type { ComfyAssetDefinition } from "../../core/types/index.js";

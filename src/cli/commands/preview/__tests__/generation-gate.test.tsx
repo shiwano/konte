@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { getAssetEntry } from "../../../../core/address.js";
+import { getAssetEntry } from "../../../../core/definition-addresses.js";
 import { writeDefinitionSnapshot } from "../../../../core/definition-snapshot.js";
 import type { AssetDefinition } from "../../../../core/types/index.js";
 import { computeDefinitionHash } from "../../../../core/definition-hash.js";

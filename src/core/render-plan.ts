@@ -21,10 +21,9 @@ import {
   formatAddress,
   formatTimelineAddress,
   isThumbnailAddress,
-  shownShotAssetNames,
-  thumbnailCoverAddress,
   tryParseAddress,
 } from "./address.js";
+import { shownShotAssetNames, thumbnailCoverAddress } from "./definition-addresses.js";
 import { resolveCompositionRef } from "./composition-refs.js";
 import { KonteError } from "./errors.js";
 import { variantMediaKind } from "./media-type.js";

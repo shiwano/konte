@@ -3,7 +3,11 @@ import { assertNever } from "../../core/assert.js";
 import { loadAnimatic, loadReference } from "../../core/loader.js";
 import { loadVideoAndAnimatic } from "../../core/stage-definitions.js";
 import type { Respelling } from "../../core/types/definition.js";
-import type { AssetDefinition, ShotDefinition } from "../../core/types/index.js";
+import type {
+  AssetDefinition,
+  AssetStageDefinition,
+  ShotDefinition,
+} from "../../core/types/index.js";
 import type { PromptOccurrence } from "../../core/types/stage-build.js";
 
 export interface ShotLike {
@@ -37,7 +41,7 @@ export interface DefinitionWithDuration {
 export async function loadDefinitionWithDuration(
   videoRoot: string,
   stage: AssetStage,
-): Promise<DefinitionWithDuration> {
+): Promise<AssetStageDefinition> {
   switch (stage) {
     case "reference":
       return loadReference(videoRoot);

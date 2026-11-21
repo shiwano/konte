@@ -6,8 +6,8 @@ import {
   isThumbnailAddress,
   parseAddress,
   THUMBNAIL_FRAME_ADDRESS,
-  thumbnailCoverAddress,
 } from "./address.js";
+import { thumbnailCoverAddress } from "./definition-addresses.js";
 import { resolveCompositionRef } from "./composition-refs.js";
 import { runFfmpeg } from "./ffmpeg-exec.js";
 import { extractFrameWithin } from "./frame-extract.js";

@@ -1,13 +1,11 @@
+import { formatShotAddress, patchSourceVariantIdOf, THUMBNAIL_TARGET } from "./address.js";
 import {
-  formatShotAddress,
   listAddresses,
   listCompositionAddresses,
   listOverlayAddresses,
   listReferenceAddresses,
   listStemAddresses,
-  patchSourceVariantIdOf,
-  THUMBNAIL_TARGET,
-} from "./address.js";
+} from "./definition-addresses.js";
 import { listRemovedShotStemAddresses } from "./stem-resource.js";
 import { deliveryAddressIsValid } from "./delivery.js";
 import { listVariantDirsOnDisk, variantDir } from "./variant-dir.js";

@@ -1,9 +1,5 @@
-import {
-  listOverlayAddresses,
-  formatCompositionAddress,
-  formatTimelineStemAddress,
-  listShotStems,
-} from "../address.js";
+import { formatCompositionAddress, formatTimelineStemAddress } from "../address.js";
+import { listOverlayAddresses, listShotStems } from "../definition-addresses.js";
 import { compositionDefinitionHashForAddress, definitionHashForAddress } from "../leaf-hash.js";
 import { panelMoveHashes } from "../panel-move-hash.js";
 import type { VideoDefinition } from "../types/index.js";

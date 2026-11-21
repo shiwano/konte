@@ -14,11 +14,10 @@ import {
   formatTimelineOverlayAddress,
   parseAddress,
   assetNameOf,
-  shownShotAssetNames,
   formatThumbnailAddress,
-  thumbnailCoverAddress,
   THUMBNAIL_TARGET,
 } from "../../../core/address.js";
+import { shownShotAssetNames, thumbnailCoverAddress } from "../../../core/definition-addresses.js";
 import {
   buildFullCompositionHtml,
   buildShotClips,
