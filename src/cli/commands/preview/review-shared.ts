@@ -35,7 +35,6 @@ import {
 import {
   type ReviewDecisionEntry,
   type ReviewRecord,
-  reviewStage,
   saveReviewRecord,
 } from "../../../core/review-record.js";
 import type { ReviewContext } from "./submit.js";
@@ -328,7 +327,7 @@ export async function persistReview(
   record: ReviewRecord,
   force: boolean,
 ): Promise<string | null> {
-  const stage = reviewStage(record);
+  const stage = record.stage;
   const filePath = await saveReviewRecord(ctx.videoRoot, record, { force });
   if (filePath && record.overallComment) {
     const text = record.overallComment;

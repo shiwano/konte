@@ -8,6 +8,7 @@ function makeRecord(
 ): ReviewRecord {
   return {
     mode: "video-preview",
+    stage: "video",
     createdAt: "2026-01-01T00:00:00.000Z",
     context: {
       shots: shots.map((s, i) => ({
@@ -55,13 +56,13 @@ describe("computeChangeInfo", () => {
     const last = makeRecord(
       [{ shotId: "01", variants: { motion: "v-1" } }],
       [
-        { time: 1, shotId: "01", text: "too fast" },
-        { time: 2, shotId: "02", text: "other shot" },
+        { time: 1, shotId: "01", address: "video:shot.01", text: "too fast" },
+        { time: 2, shotId: "02", address: "video:shot.02", text: "other shot" },
       ],
     );
     const result = computeChangeInfo(new Map([["01", { motion: "v-2" }]]), last);
     expect(result?.changedShots[0]!.previousNotes).toEqual([
-      { time: 1, shotId: "01", text: "too fast" },
+      { time: 1, shotId: "01", address: "video:shot.01", text: "too fast" },
     ]);
   });
 });

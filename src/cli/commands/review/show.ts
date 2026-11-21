@@ -19,7 +19,6 @@ import {
   type ReviewRecord,
   reviewAcceptedVariants,
   reviewNoteFrameTargets,
-  reviewStage,
   toReviewFileId,
 } from "../../../core/review-record.js";
 import {
@@ -49,7 +48,7 @@ async function resolveNoteFrames(
   const frames = new Map<string, string>();
   const problems: string[] = [];
   const targets = reviewNoteFrameTargets(record);
-  const stage = reviewStage(record);
+  const stage = record.stage;
   if (targets.length === 0 || (stage !== "animatic" && stage !== "video")) {
     return { frames, problems };
   }

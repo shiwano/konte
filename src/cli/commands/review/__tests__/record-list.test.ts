@@ -12,6 +12,7 @@ let projectDir: string;
 function record(overrides: Partial<ReviewRecord> = {}): ReviewRecord {
   return {
     mode: "video-preview",
+    stage: "video",
     createdAt: "2026-05-16T12:00:00.000Z",
     context: {
       shots: [{ shotId: "01", start: 0, duration: 5, variants: { motion: "v-0001" } }],
@@ -51,7 +52,7 @@ describe("review record list", () => {
       record({
         createdAt: "2026-05-16T12:00:00.000Z",
         // A video review's feedback rides on its timed notes.
-        notes: [{ time: 1.5, shotId: "01", text: "too dark" }],
+        notes: [{ time: 1.5, shotId: "01", address: "video:shot.01", text: "too dark" }],
         handoffSummary: "first pass",
       }),
     ]);
@@ -100,6 +101,7 @@ describe("review record list", () => {
       record({ createdAt: "2026-05-16T12:00:00.000Z" }),
       record({
         mode: "animatic-preview",
+        stage: "animatic",
         createdAt: "2026-05-16T13:00:00.000Z",
         decisions: [],
       }),

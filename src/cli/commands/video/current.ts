@@ -3,7 +3,7 @@ import { resolveDirectionTimeline } from "../../../core/dsl/direction.js";
 import { formatSeconds } from "../../../core/format-duration.js";
 import { formatRelativeTime } from "../../../core/format-timestamp.js";
 import { JobManager } from "../../../core/job-manager.js";
-import { loadLatestReviewRecord, reviewStage } from "../../../core/review-record.js";
+import { loadLatestReviewRecord } from "../../../core/review-record.js";
 import { listVideos } from "../../../core/roots.js";
 import { currentRoots, requireWorkspaceRoot } from "../../context.js";
 import { loadDirectionIfPresent } from "../../../core/stage-definitions.js";
@@ -44,7 +44,7 @@ async function buildDigest(videoRoot: string, name: string): Promise<VideoDigest
     runtime: timings.every((shot) => shot.duration !== null)
       ? { seconds: timings.reduce((total, shot) => total + shot.duration!, 0) }
       : { beats: timings.reduce((total, shot) => total + (shot.beats ?? 0), 0) },
-    lastReview: review ? { scope: reviewStage(review), at: review.createdAt } : null,
+    lastReview: review ? { scope: review.stage, at: review.createdAt } : null,
     lastExport: lastExport
       ? { scope: "video", at: lastExport.completedAt ?? lastExport.createdAt }
       : null,

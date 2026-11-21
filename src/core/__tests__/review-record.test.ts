@@ -14,7 +14,6 @@ import {
   loadReviewRecordFile,
   reviewNoteFrameTargets,
   reviewShowedHandoff,
-  reviewStage,
   saveReviewRecord,
   toReviewFileId,
   type ReviewRecord,
@@ -41,6 +40,7 @@ describe("hasFeedback", () => {
   it("returns false for video-preview with decisions but no notes", () => {
     const record: ReviewRecord = {
       mode: "video-preview",
+      stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: { "01": "accepted", "02": "none" },
@@ -51,10 +51,11 @@ describe("hasFeedback", () => {
   it("returns true for video-preview with notes", () => {
     const record: ReviewRecord = {
       mode: "video-preview",
+      stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: { "01": "accepted" },
-      notes: [{ time: 5, text: "Fix this" }],
+      notes: [{ time: 5, address: "video", text: "Fix this" }],
     };
     expect(hasFeedback(record)).toBe(true);
   });
@@ -62,6 +63,7 @@ describe("hasFeedback", () => {
   it("returns false for video-preview with only accepted decisions and no notes", () => {
     const record: ReviewRecord = {
       mode: "video-preview",
+      stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: { "01": "accepted" },
@@ -72,6 +74,7 @@ describe("hasFeedback", () => {
   it("returns true for reference-preview with decisions array", () => {
     const record: ReviewRecord = {
       mode: "reference-preview",
+      stage: "reference",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: [
@@ -84,6 +87,7 @@ describe("hasFeedback", () => {
   it("returns false for reference-preview with empty decisions array", () => {
     const record: ReviewRecord = {
       mode: "reference-preview",
+      stage: "reference",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: [],
@@ -94,6 +98,7 @@ describe("hasFeedback", () => {
   it("returns false for reference-preview with null decisions", () => {
     const record: ReviewRecord = {
       mode: "reference-preview",
+      stage: "reference",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: null,
@@ -106,6 +111,7 @@ describe("hasFeedback", () => {
   it("returns true for direction-preview accepting a section with no feedback", () => {
     const record: ReviewRecord = {
       mode: "direction-preview",
+      stage: "direction",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: [],
@@ -117,6 +123,7 @@ describe("hasFeedback", () => {
   it("returns true for direction-preview revoking a section's acceptance", () => {
     const record: ReviewRecord = {
       mode: "direction-preview",
+      stage: "direction",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: [],
@@ -128,6 +135,7 @@ describe("hasFeedback", () => {
   it("returns false for direction-preview that touched neither the acceptance nor feedback", () => {
     const record: ReviewRecord = {
       mode: "direction-preview",
+      stage: "direction",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: [],
@@ -140,6 +148,7 @@ describe("reviewShowedHandoff", () => {
   const save = (createdAt: string, handoffId?: string) =>
     saveReviewRecord(tmpDir, {
       mode: "video-preview",
+      stage: "video",
       createdAt,
       context: { shots: [] },
       decisions: {},
@@ -169,10 +178,11 @@ describe("saveReviewRecord", () => {
   it("saves a record with feedback to review/<stage>/records/", async () => {
     const record: ReviewRecord = {
       mode: "video-preview",
+      stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [{ shotId: "01", start: 0, duration: 5, variants: { motion: "v-xxx" } }] },
       decisions: { "01": "none" },
-      notes: [{ time: 5, text: "Fix this" }],
+      notes: [{ time: 5, address: "video", text: "Fix this" }],
     };
 
     const filePath = await saveReviewRecord(tmpDir, record);
@@ -189,10 +199,11 @@ describe("saveReviewRecord", () => {
   it("nests records under <stage> and derives the stage from the mode", async () => {
     const record: ReviewRecord = {
       mode: "animatic-preview",
+      stage: "animatic",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: { "01": "accepted" },
-      notes: [{ time: 0, shotId: "01", text: "hold on the last frame" }],
+      notes: [{ time: 0, shotId: "01", address: "video:shot.01", text: "hold on the last frame" }],
     };
 
     const filePath = await saveReviewRecord(tmpDir, record);
@@ -204,6 +215,7 @@ describe("saveReviewRecord", () => {
   it("returns null when record has no feedback", async () => {
     const record: ReviewRecord = {
       mode: "video-preview",
+      stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: { "01": "accepted" },
@@ -216,6 +228,7 @@ describe("saveReviewRecord", () => {
   it("saves an accept-only record when force is set", async () => {
     const record: ReviewRecord = {
       mode: "video-preview",
+      stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: { "01": "accepted" },
@@ -231,6 +244,7 @@ describe("saveReviewRecord", () => {
   it("saves a direction record that only accepts a section", async () => {
     const record: ReviewRecord = {
       mode: "direction-preview",
+      stage: "direction",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [], directionParts: { "direction:brief.logline": "h1" } },
       decisions: [],
@@ -253,11 +267,18 @@ describe("findReviewRecordSince", () => {
       stage === "video"
         ? {
             mode: "video-preview",
+            stage: "video",
             createdAt,
             context: { shots: [] },
             decisions: { "01": "accepted" },
           }
-        : { mode: "reference-preview", createdAt, context: { shots: [] }, decisions: [] };
+        : {
+            mode: "reference-preview",
+            stage: "reference",
+            createdAt,
+            context: { shots: [] },
+            decisions: [],
+          };
     const filePath = await saveReviewRecord(tmpDir, record, { force: true });
     if (!filePath) throw new Error("record not saved");
     return filePath;
@@ -297,6 +318,7 @@ describe("formatReviewRecord", () => {
   it("reports each accepted direction section under Accepted", () => {
     const record: ReviewRecord = {
       mode: "direction-preview",
+      stage: "direction",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: [],
@@ -314,6 +336,7 @@ describe("formatReviewRecord", () => {
   it("indents a skip reason's own detail lines under its address", () => {
     const record: ReviewRecord = {
       mode: "video-preview",
+      stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: [],
@@ -342,6 +365,7 @@ describe("formatReviewRecord", () => {
   it("reports a direction section by its code key, with no UI-label parenthetical", () => {
     const record: ReviewRecord = {
       mode: "direction-preview",
+      stage: "direction",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: [],
@@ -358,6 +382,7 @@ describe("formatReviewRecord", () => {
   it("reports an un-accepted direction section under Accept withdrawn", () => {
     const record: ReviewRecord = {
       mode: "direction-preview",
+      stage: "direction",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: [],
@@ -373,6 +398,7 @@ describe("formatReviewRecord", () => {
   it("reports how many parts the direction gate still blocked at submit", () => {
     const record: ReviewRecord = {
       mode: "direction-preview",
+      stage: "direction",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: [],
@@ -388,6 +414,7 @@ describe("formatReviewRecord", () => {
   it("reports an open direction gate", () => {
     const record: ReviewRecord = {
       mode: "direction-preview",
+      stage: "direction",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: [],
@@ -403,6 +430,7 @@ describe("formatReviewRecord", () => {
   it("omits the gate line for a stage that has none", () => {
     const record: ReviewRecord = {
       mode: "reference-preview",
+      stage: "reference",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: [],
@@ -419,18 +447,21 @@ describe("loadLatestReviewRecord", () => {
 
     const older: ReviewRecord = {
       mode: "video-preview",
+      stage: "video",
       createdAt: "2026-05-15T10:00:00.000Z",
       context: { shots: [] },
       decisions: { "01": "none" },
     };
     const newer: ReviewRecord = {
       mode: "video-preview",
+      stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: { "02": "none" },
     };
     const other: ReviewRecord = {
       mode: "reference-preview",
+      stage: "reference",
       createdAt: "2026-05-17T15:00:00.000Z",
       context: { shots: [] },
       decisions: [],
@@ -457,6 +488,7 @@ describe("loadLatestReviewRecord", () => {
 
     const record: ReviewRecord = {
       mode: "reference-preview",
+      stage: "reference",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: [],
@@ -473,12 +505,14 @@ describe("loadLatestReviewRecord", () => {
 
     const older: ReviewRecord = {
       mode: "video-preview",
+      stage: "video",
       createdAt: "2026-05-15T10:00:00.000Z",
       context: { shots: [] },
       decisions: { "01": "none" },
     };
     const newer: ReviewRecord = {
       mode: "reference-preview",
+      stage: "reference",
       createdAt: "2026-05-17T15:00:00.000Z",
       context: { shots: [] },
       decisions: [
@@ -500,6 +534,7 @@ describe("countReviewFeedback", () => {
   it("sums feedback across an entry-array stage's decisions", () => {
     const record: ReviewRecord = {
       mode: "reference-preview",
+      stage: "reference",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: [
@@ -519,6 +554,7 @@ describe("countReviewFeedback", () => {
   it("skips carried-over stale feedback so the count matches what `record show` prints", () => {
     const record: ReviewRecord = {
       mode: "reference-preview",
+      stage: "reference",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: [
@@ -538,12 +574,13 @@ describe("countReviewFeedback", () => {
   it("counts notes for video-preview", () => {
     const record: ReviewRecord = {
       mode: "video-preview",
+      stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: { "01": "none" },
       notes: [
-        { time: 1, text: "a" },
-        { time: 2, text: "b" },
+        { time: 1, address: "video", text: "a" },
+        { time: 2, address: "video", text: "b" },
       ],
     };
     expect(countReviewFeedback(record)).toBe(2);
@@ -552,6 +589,7 @@ describe("countReviewFeedback", () => {
   it("returns 0 for video-preview without notes", () => {
     const record: ReviewRecord = {
       mode: "video-preview",
+      stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: { "01": "accepted" },
@@ -562,6 +600,7 @@ describe("countReviewFeedback", () => {
   it("returns 0 for animatic-preview with null decisions", () => {
     const record: ReviewRecord = {
       mode: "animatic-preview",
+      stage: "animatic",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: null,
@@ -574,6 +613,7 @@ describe("countReviewAssets", () => {
   it("sums variant counts across shots", () => {
     const record: ReviewRecord = {
       mode: "animatic-preview",
+      stage: "animatic",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: {
         shots: [
@@ -589,44 +629,12 @@ describe("countReviewAssets", () => {
   it("returns 0 when there are no shots", () => {
     const record: ReviewRecord = {
       mode: "video-preview",
-      createdAt: "2026-05-16T12:00:00.000Z",
-      context: { shots: [] },
-      decisions: {},
-    };
-    expect(countReviewAssets(record)).toBe(0);
-  });
-});
-
-describe("reviewStage", () => {
-  it("returns the explicit stage when present", () => {
-    const record: ReviewRecord = {
-      mode: "video-preview",
       stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: {},
     };
-    expect(reviewStage(record)).toBe("video");
-  });
-
-  it("falls back to animatic for animatic-preview without a stage", () => {
-    const record: ReviewRecord = {
-      mode: "animatic-preview",
-      createdAt: "2026-05-16T12:00:00.000Z",
-      context: { shots: [] },
-      decisions: [],
-    };
-    expect(reviewStage(record)).toBe("animatic");
-  });
-
-  it("falls back to video for video-preview without a stage", () => {
-    const record: ReviewRecord = {
-      mode: "video-preview",
-      createdAt: "2026-05-16T12:00:00.000Z",
-      context: { shots: [] },
-      decisions: {},
-    };
-    expect(reviewStage(record)).toBe("video");
+    expect(countReviewAssets(record)).toBe(0);
   });
 });
 
@@ -648,12 +656,14 @@ describe("loadAllReviewRecords", () => {
 
     const older: ReviewRecord = {
       mode: "video-preview",
+      stage: "video",
       createdAt: "2026-05-15T10:00:00.000Z",
       context: { shots: [] },
       decisions: { "01": "none" },
     };
     const newer: ReviewRecord = {
       mode: "animatic-preview",
+      stage: "animatic",
       createdAt: "2026-05-17T15:00:00.000Z",
       context: { shots: [] },
       decisions: [],
@@ -673,6 +683,7 @@ describe("loadAllReviewRecords", () => {
 
     const valid: ReviewRecord = {
       mode: "video-preview",
+      stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: { "01": "none" },
@@ -691,6 +702,7 @@ describe("loadAllReviewRecords", () => {
 
     const valid: ReviewRecord = {
       mode: "animatic-preview",
+      stage: "animatic",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: [{ address: "animatic:shot.01.first", feedback: [] }],
@@ -702,6 +714,7 @@ describe("loadAllReviewRecords", () => {
       path.join(dir, "20260516T130000000.json"),
       JSON.stringify({
         mode: "animatic-preview",
+        stage: "animatic",
         createdAt: "2026-05-16T13:00:00.000Z",
         context: { shots: [] },
         decisions: [{ address: "animatic:shot.01.first" }],
@@ -720,6 +733,7 @@ describe("loadAllReviewRecords", () => {
   it("reads a record an earlier konte wrote with a brief decision, dropping that decision", async () => {
     const filePath = (await saveReviewRecord(tmpDir, {
       mode: "direction-preview",
+      stage: "direction",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: [],
@@ -736,17 +750,19 @@ describe("loadAllReviewRecords", () => {
   it("ids nested records by their stream-qualified path and round-trips through loadReviewRecordFile", async () => {
     const animatic: ReviewRecord = {
       mode: "animatic-preview",
+      stage: "animatic",
       createdAt: "2026-05-15T10:00:00.000Z",
       context: { shots: [] },
       decisions: { "01": "accepted" },
-      notes: [{ time: 0, shotId: "01", text: "hold the last frame" }],
+      notes: [{ time: 0, shotId: "01", address: "video:shot.01", text: "hold the last frame" }],
     };
     const video: ReviewRecord = {
       mode: "video-preview",
+      stage: "video",
       createdAt: "2026-05-17T15:00:00.000Z",
       context: { shots: [] },
       decisions: { "01": "none" },
-      notes: [{ time: 1, text: "x" }],
+      notes: [{ time: 1, address: "video", text: "x" }],
     };
     await saveReviewRecord(tmpDir, animatic);
     await saveReviewRecord(tmpDir, video);
@@ -777,6 +793,7 @@ describe("loadAllReviewRecords", () => {
     await fs.mkdir(videoRoot, { recursive: true });
     await saveReviewRecord(videoRoot, {
       mode: "direction-preview",
+      stage: "direction",
       createdAt: "2026-05-18T09:00:00.000Z",
       context: { shots: [] },
       decisions: [{ address: "direction:brief.logline", feedback: [] }],
@@ -804,6 +821,7 @@ describe("loadAllReviewRecords", () => {
       outside,
       JSON.stringify({
         mode: "video-preview",
+        stage: "video",
         createdAt: "2026-05-19T09:00:00.000Z",
         context: { shots: [] },
         decisions: {},
@@ -824,6 +842,7 @@ describe("loadAllReviewRecords", () => {
       outside,
       JSON.stringify({
         mode: "video-preview",
+        stage: "video",
         createdAt: "2026-05-20T09:00:00.000Z",
         context: { shots: [] },
         decisions: {},
@@ -1027,23 +1046,6 @@ describe("formatReviewRecord", () => {
     expect(out).toContain("Feedback:");
     expect(out).toContain("  video:shot.03#composition");
     expect(out).toContain("    8.2s (shot.03 +8.2s) 全体的に文字が小さい");
-  });
-
-  it("derives a note's feedback address from its shotId when no address is stored", () => {
-    const record: ReviewRecord = {
-      mode: "video-preview",
-      stage: "video",
-      createdAt: "2026-05-16T12:00:00.000Z",
-      context: {
-        shots: [{ shotId: "01", start: 0, duration: 3, variants: { motion: "v-UI5zkvU6" } }],
-      },
-      decisions: {},
-      notes: [{ time: 1.0, shotId: "01", text: "legacy note" }],
-    };
-
-    const out = formatReviewRecord(record);
-    expect(out).toContain("  video:shot.01");
-    expect(out).toContain("    1s (shot.01 +1s) legacy note");
   });
 
   it("renders timeline video assets, accepted only when every shot is accepted", () => {
@@ -1416,6 +1418,7 @@ describe("formatReviewRecord", () => {
   it("derives the stage for the header when the record omits it", () => {
     const record: ReviewRecord = {
       mode: "video-preview",
+      stage: "video",
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [] },
       decisions: { "01": "accepted" },
@@ -1434,8 +1437,14 @@ describe("formatReviewRecord", () => {
       context: { shots: [] },
       decisions: {},
       notes: [
-        { id: "fb-1", time: 1, shotId: "01", text: "here" },
-        { id: "fb-2", time: 2, shotId: "01", text: "no frame for this one" },
+        { id: "fb-1", time: 1, shotId: "01", address: "video:shot.01", text: "here" },
+        {
+          id: "fb-2",
+          time: 2,
+          shotId: "01",
+          address: "video:shot.01",
+          text: "no frame for this one",
+        },
       ],
     };
 
@@ -1454,7 +1463,15 @@ describe("formatReviewRecord note ids", () => {
       createdAt: "2026-05-16T12:00:00.000Z",
       context: { shots: [{ shotId: "01", start: 0, duration: 3, variants: {} }] },
       decisions: {},
-      notes: [{ id: "fb-24G1HFL3", time: 1.5, shotId: "01", text: "face is wrong" }],
+      notes: [
+        {
+          id: "fb-24G1HFL3",
+          time: 1.5,
+          shotId: "01",
+          address: "video:shot.01",
+          text: "face is wrong",
+        },
+      ],
     };
 
     expect(formatReviewRecord(record)).toContain(
@@ -1476,8 +1493,8 @@ describe("reviewNoteFrameTargets", () => {
     },
     decisions: {},
     notes: [
-      { id: "fb-late", time: 12.5, shotId: "02", text: "second" },
-      { id: "fb-early", time: 3.5, shotId: "01", text: "first" },
+      { id: "fb-late", time: 12.5, shotId: "02", address: "video:shot.02", text: "second" },
+      { id: "fb-early", time: 3.5, shotId: "01", address: "video:shot.01", text: "first" },
     ],
   };
 
@@ -1509,7 +1526,9 @@ describe("reviewNoteFrameTargets", () => {
           { shotId: "02", start: 91.8, duration: 2, variants: {} },
         ],
       },
-      notes: [{ id: "fb-cut", time: 91.8, shotId: "02", text: "at the cut" }],
+      notes: [
+        { id: "fb-cut", time: 91.8, shotId: "02", address: "video:shot.02", text: "at the cut" },
+      ],
     };
     expect(reviewNoteFrameTargets(offGrid)[0]).toMatchObject({
       localTime: 0,
@@ -1520,7 +1539,17 @@ describe("reviewNoteFrameTargets", () => {
   it("carries a pinned note's reticle, so the rendered frame is marked", () => {
     const pinned: ReviewRecord = {
       ...record,
-      notes: [{ id: "fb-pin", time: 1, shotId: "01", x: 0.25, y: 0.75, text: "here" }],
+      notes: [
+        {
+          id: "fb-pin",
+          time: 1,
+          shotId: "01",
+          x: 0.25,
+          y: 0.75,
+          address: "video:shot.01",
+          text: "here",
+        },
+      ],
     };
     expect(reviewNoteFrameTargets(pinned)[0]!.annotation).toEqual({
       kind: "pin",
@@ -1533,8 +1562,8 @@ describe("reviewNoteFrameTargets", () => {
     const skipped: ReviewRecord = {
       ...record,
       notes: [
-        { id: "fb-bed", time: 6.25, text: "bgm too loud" },
-        { time: 2, shotId: "01", text: "no id" },
+        { id: "fb-bed", time: 6.25, address: "video", text: "bgm too loud" },
+        { time: 2, shotId: "01", address: "video:shot.01", text: "no id" },
       ],
     };
     expect(reviewNoteFrameTargets(skipped)).toEqual([]);

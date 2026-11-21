@@ -4,7 +4,6 @@ import {
   countReviewAssets,
   countReviewFeedback,
   loadAllReviewRecords,
-  reviewStage,
 } from "../../../core/review-record.js";
 import {
   addListLimitOptions,
@@ -28,7 +27,7 @@ export function registerReviewListCommand(program: Command): void {
       file,
       createdAt: record.createdAt,
       mode: record.mode,
-      stage: reviewStage(record),
+      stage: record.stage,
       shots: record.context.shots.length,
       assets: countReviewAssets(record),
       feedback: countReviewFeedback(record),

@@ -148,7 +148,13 @@ describe("status command", () => {
     const reviewAt = (createdAt: string) =>
       saveReviewRecord(
         projectDir,
-        { mode: "reference-preview", createdAt, context: { shots: [] }, decisions: {} },
+        {
+          mode: "reference-preview",
+          stage: "reference",
+          createdAt,
+          context: { shots: [] },
+          decisions: {},
+        },
         { force: true },
       );
     await reviewAt("2026-01-01T00:00:00.000Z");
@@ -1162,6 +1168,7 @@ describe("review record show command", () => {
           id: "fb-9conrpVY",
           time: 1,
           shotId: "03",
+          address: "animatic:shot.03",
           x: 0.74,
           y: 0.67,
           text: "hand position looks unnatural",

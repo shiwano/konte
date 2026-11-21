@@ -11,8 +11,8 @@ describe("review record show --contact-sheet", () => {
     await saveReviewRecord(
       projectDir,
       record([
-        { id: "fb-second", time: 4, shotId: "01", text: "later" },
-        { id: "fb-first", time: 1, shotId: "01", text: "earlier" },
+        { id: "fb-second", time: 4, shotId: "01", address: "video:shot.01", text: "later" },
+        { id: "fb-first", time: 1, shotId: "01", address: "video:shot.01", text: "earlier" },
       ]),
       { force: true },
     );
@@ -35,9 +35,9 @@ describe("review record show --contact-sheet", () => {
     await saveReviewRecord(
       projectDir,
       record([
-        { id: "fb-kept", time: 1, shotId: "01", text: "kept" },
+        { id: "fb-kept", time: 1, shotId: "01", address: "video:shot.01", text: "kept" },
         // A shot the definition no longer has: nothing to compose, so nothing to render.
-        { id: "fb-gone", time: 2, shotId: "99", text: "gone" },
+        { id: "fb-gone", time: 2, shotId: "99", address: "video:shot.99", text: "gone" },
       ]),
       { force: true },
     );
@@ -55,7 +55,7 @@ describe("review record show --contact-sheet", () => {
     await saveReviewRecord(
       projectDir,
       // A note on no shot of its own (a timeline-level one) is not a frame target at all.
-      record([{ id: "fb-audio", time: 1, text: "voice is flat" }]),
+      record([{ id: "fb-audio", time: 1, address: "video", text: "voice is flat" }]),
       { force: true },
     );
 
@@ -69,8 +69,8 @@ describe("review record show --contact-sheet", () => {
     await saveReviewRecord(
       projectDir,
       record([
-        { id: "fb-second", time: 4, shotId: "01", text: "later" },
-        { id: "fb-first", time: 1, shotId: "01", text: "earlier" },
+        { id: "fb-second", time: 4, shotId: "01", address: "video:shot.01", text: "later" },
+        { id: "fb-first", time: 1, shotId: "01", address: "video:shot.01", text: "earlier" },
       ]),
       { force: true },
     );

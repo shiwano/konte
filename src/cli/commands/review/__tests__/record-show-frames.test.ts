@@ -199,7 +199,9 @@ describe("review record show", () => {
     await saveReviewRecord(
       projectDir,
       {
-        ...record([{ id: "fb-board", time: 1, shotId: "01", text: "board" }]),
+        ...record([
+          { id: "fb-board", time: 1, shotId: "01", address: "video:shot.01", text: "board" },
+        ]),
         mode: "animatic-preview",
         stage: "animatic",
       },

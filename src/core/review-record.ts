@@ -19,7 +19,7 @@ import { KonteError } from "./errors.js";
 import { isWithinRootRealAsync } from "./path-containment.js";
 import { type FeedbackAnnotation, NormalizedCoordSchema } from "./types/feedback.js";
 import { formatSeconds, formatSecondsRange } from "./format-duration.js";
-import { REVIEW_MODES, REVIEW_STAGES, reviewStageOf } from "./review-mode.js";
+import { REVIEW_MODES, REVIEW_STAGES } from "./review-mode.js";
 
 const ReviewDecisionEntrySchema = z.object({
   address: z.string(),
@@ -65,7 +65,7 @@ const ReviewDecisionsSchema = z
 
 export const ReviewRecordSchema = z.object({
   mode: z.enum(REVIEW_MODES),
-  stage: z.enum(REVIEW_STAGES).optional(),
+  stage: z.enum(REVIEW_STAGES),
   // ISO 8601 (e.g. "2026-05-16T12:00:00.000Z"). The compact file id is derived
   // from this via `toReviewFileId`.
   createdAt: z.string(),
@@ -165,18 +165,18 @@ export const ReviewRecordSchema = z.object({
   notes: z
     .array(
       z.object({
-        // The feedback id the note was stored under. Present on records written by current clients.
+        // The feedback id the note was stored under. Absent when the submit could not pair the note
+        // with the feedback it stored.
         id: z.string().optional(),
         time: z.number(),
         shotId: z.string().optional(),
         // The target address the note is attached to (e.g. video:shot.03#composition).
-        // Present on records written by current clients; older records derive it from shotId.
-        address: z.string().optional(),
+        address: z.string(),
         x: z.number().optional(),
         y: z.number().optional(),
         text: z.string(),
         // The takes the note was written against — its subject's `displayedVariants`, as the
-        // feedback stream stores them. Present on records written by current clients.
+        // feedback stream stores them. Absent when its subject showed no take.
         displayedVariants: z.record(z.string(), z.string()).optional(),
       }),
     )
@@ -357,7 +357,7 @@ export async function saveReviewRecord(
   // the review would vanish. Writing the parsed value also strips unknown keys.
   const validated = ReviewRecordSchema.parse(record);
 
-  const dir = reviewRecordsDir(videoRoot, reviewStage(validated));
+  const dir = reviewRecordsDir(videoRoot, validated.stage);
   await fs.mkdir(dir, { recursive: true });
 
   const filename = `${toReviewFileId(validated.createdAt)}.json`;
@@ -385,7 +385,7 @@ export async function loadLatestReviewRecord(
   for (const { filePath } of await listReviewFiles(dir)) {
     try {
       const record = parseReviewRecord(await fs.readFile(filePath, "utf-8"));
-      if (stage !== undefined && reviewStage(record) !== stage) continue;
+      if (stage !== undefined && record.stage !== stage) continue;
       return record;
     } catch {
       continue;
@@ -500,10 +500,6 @@ export function countReviewAssets(record: ReviewRecord): number {
   return shotAssets + Object.keys(record.context.timeline ?? {}).length;
 }
 
-export function reviewStage(record: ReviewRecord): Stage {
-  return record.stage ?? reviewStageOf(record.mode);
-}
-
 // Single renderer for a review's content, used by `review record show`. Every mode
 // (video/animatic/reference/direction) funnels through here, so the recap reads the same
 // wherever it comes from: what was accepted (directly or by cascade), what was un-accepted, and
@@ -521,7 +517,7 @@ export function formatReviewRecord(
   } = {},
 ): string {
   const lines: string[] = [];
-  lines.push(`Review: ${record.mode} (${reviewStage(record)}) ${record.createdAt}`);
+  lines.push(`Review: ${record.mode} (${record.stage}) ${record.createdAt}`);
   if (opts.filePath) lines.push(`File: ${opts.filePath}`);
 
   if (record.overallComment) {
@@ -673,7 +669,7 @@ export function reviewAcceptedVariants(
 ): Array<{ address: string; variantId: string }> {
   const variants: Array<{ address: string; variantId: string }> = [];
   if (record.mode === "animatic-preview" || record.mode === "video-preview") {
-    const stage = reviewStage(record) === "animatic" ? "animatic" : "video";
+    const stage = record.stage === "animatic" ? "animatic" : "video";
     const shotDecisions = (record.decisions as Record<string, "accepted" | "none"> | null) ?? {};
     for (const shot of record.context.shots) {
       if (shotDecisions[shot.shotId] !== "accepted") continue;
@@ -698,7 +694,7 @@ function summarizeReelDecisions(
   record: ReviewRecord,
 ): { accepted: string | null; unaccepted: string | null } | null {
   if (record.mode !== "animatic-preview" && record.mode !== "video-preview") return null;
-  const stage = reviewStage(record) === "animatic" ? "animatic" : "video";
+  const stage = record.stage === "animatic" ? "animatic" : "video";
   const shotDecisions = (record.decisions as Record<string, "accepted" | "none"> | null) ?? {};
   const order = reelShotOrder(record);
   const total = record.context.shots.length;
@@ -808,7 +804,7 @@ function collectReviewSections(
     // `<address> (<variantId>)` lines of the shot's own takes: an accept's as the reviewer saw or
     // heard them, an un-accept's as it released them. The rest of an accepted shot's takes are
     // upstream of it.
-    const stage = reviewStage(record) === "animatic" ? "animatic" : "video";
+    const stage = record.stage === "animatic" ? "animatic" : "video";
     const shotDecisions = (record.decisions as Record<string, "accepted" | "none"> | null) ?? {};
     const shotsById = new Map(record.context.shots.map((s) => [s.shotId, s]));
     for (const shotId of reelShotOrder(record)) {
@@ -876,11 +872,9 @@ function collectReviewSections(
 
     const shotStartById = shotStarts(record);
     for (const note of record.notes ?? []) {
-      const address =
-        note.address ?? (note.shotId ? formatShotAddress("video", note.shotId) : "video");
       const shotStart = note.shotId ? shotStartById.get(note.shotId) : undefined;
       const frame = note.id ? noteFrames?.get(note.id) : undefined;
-      pushFeedback(address, formatVideoNoteItem(note, note.shotId, shotStart, frame));
+      pushFeedback(note.address, formatVideoNoteItem(note, note.shotId, shotStart, frame));
     }
   }
 
@@ -960,10 +954,7 @@ function formatVideoNoteItem(
   const image = frame ? ` [image: ${frame}]` : "";
   const local =
     shotStart !== undefined ? ` (shot.${shotId} +${formatSeconds(note.time - shotStart)})` : "";
-  const saw = formatSawVariants(
-    note.address ?? (shotId ? formatShotAddress("video", shotId) : "video"),
-    note.displayedVariants,
-  );
+  const saw = formatSawVariants(note.address, note.displayedVariants);
   return `${id}${formatSeconds(note.time)}${local}${pin} ${note.text}${saw}${image}`;
 }
 

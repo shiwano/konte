@@ -788,7 +788,9 @@ describe("submit payload schemas", () => {
           },
         ],
         feedbackPatches: [{ op: "edit", id: "fb-1", address: "video:shot.01", text: "x" }],
-        notes: [{ time: 1.5, shotId: "01", text: "too dark", x: 0.4, y: 0.6 }],
+        notes: [
+          { time: 1.5, shotId: "01", address: "video:shot.01", text: "too dark", x: 0.4, y: 0.6 },
+        ],
       }),
     ).toBe(true);
 

@@ -132,6 +132,7 @@ export async function seedManyNotes(count: number): Promise<NonNullable<ReviewRe
       id,
       time: i + 1,
       shotId: "01",
+      address: "video:shot.01",
       text: `note ${i}`,
     });
   }

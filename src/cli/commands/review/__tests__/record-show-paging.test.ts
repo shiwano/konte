@@ -67,9 +67,9 @@ describe("review record show --contact-sheet", () => {
     await saveReviewRecord(
       projectDir,
       record([
-        { id: "fb-a", time: 1, shotId: "01", text: "one" },
-        { id: "fb-b", time: 2, shotId: "02", text: "two" },
-        { id: "fb-c", time: 3, shotId: "01", text: "three" },
+        { id: "fb-a", time: 1, shotId: "01", address: "video:shot.01", text: "one" },
+        { id: "fb-b", time: 2, shotId: "02", address: "video:shot.02", text: "two" },
+        { id: "fb-c", time: 3, shotId: "01", address: "video:shot.01", text: "three" },
       ]),
       { force: true },
     );
@@ -107,7 +107,7 @@ describe("review record show --contact-sheet", () => {
   it("renders no sheet without the flag", async () => {
     await saveReviewRecord(
       projectDir,
-      record([{ id: "fb-a", time: 1, shotId: "01", text: "note" }]),
+      record([{ id: "fb-a", time: 1, shotId: "01", address: "video:shot.01", text: "note" }]),
       { force: true },
     );
     await writeFrame("fb-a", 1);
