@@ -6,9 +6,7 @@ import { normalizedPointIn } from "../review/normalized-point.js";
 import { ReviewShell, type ShortcutRows } from "../review/review-shell.js";
 import {
   referenceAcceptUnits,
-  referenceBulkAccept,
   referenceDecisionFor,
-  referenceEffectiveStatus,
   referenceUndecidedAssets,
 } from "../review/reference-decisions.js";
 import {
@@ -34,17 +32,12 @@ import {
   EMPTY_KEEP_GRAPH,
   keepDecisions,
   keepPrompt,
-  keepPromptFor,
-  keepContext,
   regenerateDecisions,
-  regenerateMarks,
   regenerateSummary,
-  withoutUnits,
-  type KeepChoice,
-  type KeepContext,
   type RegenerateMark,
 } from "../review/keep-or-regenerate.js";
 import { useKeepChoices } from "../review/use-keep-choices.js";
+import { type ReferenceMarks, useReferenceDecisions } from "../review/use-reference-decisions.js";
 import type {
   FeedbackInfo,
   ReferenceAssetInfo,
@@ -57,7 +50,7 @@ import type {
 import { AcceptButton } from "./accept-button.js";
 import { CheckIcon, CommentIcon, FilmIcon, GridIcon, MenuIcon, VolumeIcon } from "./icons.js";
 import { AuditionAudio } from "./audition-audio.js";
-import { SongLineEditsContext, SongSummary, SongTrack, unplacedLineCount } from "./song-track.js";
+import { SongLineEditsContext, SongSummary, SongTrack } from "./song-track.js";
 import { buildPinIndex, CommentThread } from "./comment-thread.js";
 import { FrameOverlay } from "./frame-overlay.js";
 import { Modal } from "./modal.js";
@@ -109,9 +102,7 @@ function pageScroller(el: Element | null): Element | null {
 }
 
 export function ReferencePreview({ state }: { state: ReferencePreviewState }): React.ReactElement {
-  const [statusOverrides, setStatusOverrides] = useState<
-    Record<string, { variantId: string; status: VariantStatus }>
-  >({});
+  const [statusOverrides, setStatusOverrides] = useState<ReferenceMarks>({});
   // The asset whose enlarged detail modal is open. Pins and notes are authored there against
   // the same per-address feedback state as the inline row.
   const [detail, setDetail] = useState<{ address: string } | null>(null);
@@ -120,15 +111,14 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
   const [focusIdx, setFocusIdx] = useState(0);
   const [highlightedFeedbackId, setHighlightedFeedbackId] = useHighlightedFeedback();
   const containerRef = useRef<HTMLDivElement>(null);
+  const keep = useKeepChoices();
   const {
     choices: keepChoices,
     asking: keepAsking,
-    request: requestKeep,
     answer: answerKeep,
-    dropUnits: dropKeepUnits,
     keepUnit: keepUnitAfterAll,
     reset: resetKeep,
-  } = useKeepChoices();
+  } = keep;
   const keepGraph = state.keep ?? EMPTY_KEEP_GRAPH;
   const [songLines, setSongLines] = useState<SongLineEdit[]>([]);
   const songLineEdits = useMemo(() => {
@@ -153,14 +143,9 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
     [sections],
   );
 
-  // Accept is per-variant: a row is "accepted" only when the variant currently shown is the
-  // accepted one. Switching to another variant in the gallery flips the row back to "none"
-  // until that variant is explicitly accepted — so the badge and the accept button always
-  // reflect what submit would actually persist.
-  const getEffectiveStatus = useCallback(
-    (asset: ReferenceAssetInfo, selected: string | null): VariantStatus =>
-      referenceEffectiveStatus(asset, selected, statusOverrides[asset.address]),
-    [statusOverrides],
+  const assetByAddress = useMemo(
+    () => new Map(state.assets.map((a) => [a.address, a])),
+    [state.assets],
   );
 
   // The minimal set of accept/un-accept decisions to send — see `referenceDecisionFor` for what
@@ -168,26 +153,13 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
   const pendingDecisions = useMemo(() => {
     const out: Array<{ address: string; variantId: string; status: VariantStatus }> = [];
     for (const [address, o] of Object.entries(statusOverrides)) {
-      const asset = state.assets.find((a) => a.address === address);
+      const asset = assetByAddress.get(address);
       if (!asset) continue;
       const decision = referenceDecisionFor(asset, o);
       if (decision) out.push(decision);
     }
     return out;
-  }, [statusOverrides, state.assets]);
-
-  // Why the take shown at an asset cannot be accepted: a take of the song with a lyric line nobody
-  // placed on it, as this review would leave it.
-  const acceptBlockedOf = useCallback(
-    (asset: ReferenceAssetInfo, variantId: string | null): string | null => {
-      const song = asset.variants.find((v) => v.variantId === variantId)?.song;
-      const unplaced = song ? unplacedLineCount(song, songLines) : 0;
-      return unplaced > 0
-        ? `${unplaced} lyric line(s) are not placed — open the song and drag them onto the track`
-        : null;
-    },
-    [songLines],
-  );
+  }, [statusOverrides, assetByAddress]);
 
   const session = useReviewSession({
     hasExtraChanges: pendingDecisions.length > 0 || keepChoices.length > 0 || songLines.length > 0,
@@ -195,119 +167,26 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
   const effectiveVariants = useEffectiveVariants(state.assets, session.selectedVariants);
   const pin = usePendingPin(session);
 
-  // What a Keep-or-regenerate prompt reads, under the accept marks the accept being asked about leaves.
-  const keepContextFor = useCallback(
-    (
-      overrides: Record<string, { variantId: string; status: VariantStatus }>,
-      choices: readonly KeepChoice[],
-    ): KeepContext =>
-      keepContext(keepGraph, choices, {
-        accepted: (address) => {
-          const mark = overrides[address];
-          return mark ? mark.status === "accepted" : undefined;
-        },
-        shown: (address) => {
-          const asset = state.assets.find((a) => a.address === address);
-          return asset ? (effectiveVariants[address] ?? asset.variantId) : undefined;
-        },
-      }),
-    [keepGraph, state.assets, effectiveVariants],
-  );
-
-  // Accept is a toggle on the shown variant: accept it, or clear an already-accepted one.
-  const handleAcceptRow = useCallback(
-    (asset: ReferenceAssetInfo, selected: string) => {
-      const next: VariantStatus =
-        getEffectiveStatus(asset, selected) === "accepted" ? "none" : "accepted";
-      if (next === "accepted" && acceptBlockedOf(asset, selected)) return;
-      const mark = { variantId: selected, status: next };
-      const apply = () => setStatusOverrides((prev) => ({ ...prev, [asset.address]: mark }));
-      if (next === "none") {
-        dropKeepUnits([asset.address]);
-        apply();
-        return;
-      }
-      const entries = keepPromptFor(
-        keepContextFor(
-          { ...statusOverrides, [asset.address]: mark },
-          withoutUnits(keepChoices, [asset.address]),
-        ),
-        [{ unit: asset.address, chosen: { [asset.address]: selected } }],
-      );
-      requestKeep(entries, apply, [asset.address]);
-    },
-    [
-      getEffectiveStatus,
-      acceptBlockedOf,
-      dropKeepUnits,
-      keepContextFor,
-      statusOverrides,
-      keepChoices,
-      requestKeep,
-    ],
-  );
-
-  const regenerateByAddress = useMemo(
-    () => regenerateMarks(keepGraph, keepChoices, "reference"),
-    [keepChoices, keepGraph],
-  );
-
-  // The one answer behind every review affordance here — the unreviewed count, the N jump and
-  // Accept all's label. See bulk-accept.ts.
-  const { unaccepted: unacceptedAddresses, done: everythingAccepted } = useMemo(
-    () => referenceBulkAccept(state.assets, effectiveVariants, statusOverrides),
-    [state.assets, effectiveVariants, statusOverrides],
-  );
-
-  // The "Needs review" filter reads the server's accepts alone: a mark is recorded only on Submit,
-  // so a row marked here stays in view until then.
-  const persistedUnaccepted = useMemo(
-    () => referenceBulkAccept(state.assets, {}, {}).unaccepted,
-    [state.assets],
-  );
-
-  // Nothing persists until Submit, so no confirm dialog — each mark stays individually reversible.
-  // Every asset it accepts asks through one prompt.
-  const acceptMany = useCallback(
-    (assets: ReferenceAssetInfo[]) => {
-      const next = {
-        ...referenceBulkAccept(assets, effectiveVariants, statusOverrides).acceptAll(
-          statusOverrides,
-        ),
-      };
-      for (const a of assets) {
-        const mark = next[a.address];
-        if (mark?.status !== "accepted" || !acceptBlockedOf(a, mark.variantId)) continue;
-        if (statusOverrides[a.address]) next[a.address] = statusOverrides[a.address]!;
-        else delete next[a.address];
-      }
-      const origins = assets
-        .filter((a) => {
-          const shown = effectiveVariants[a.address] ?? a.variantId;
-          return (
-            shown !== null &&
-            next[a.address]?.status === "accepted" &&
-            getEffectiveStatus(a, shown) !== "accepted"
-          );
-        })
-        .map((a) => ({ unit: a.address, chosen: { [a.address]: next[a.address]!.variantId } }));
-      const units = origins.map((o) => o.unit);
-      const entries = keepPromptFor(
-        keepContextFor(next, withoutUnits(keepChoices, units)),
-        origins,
-      );
-      requestKeep(entries, () => setStatusOverrides(next), units);
-    },
-    [
-      acceptBlockedOf,
-      statusOverrides,
-      effectiveVariants,
-      getEffectiveStatus,
-      keepContextFor,
-      keepChoices,
-      requestKeep,
-    ],
-  );
+  const {
+    getEffectiveStatus,
+    acceptBlockedOf,
+    toggleAccept: handleAcceptRow,
+    acceptMany,
+    showVariant: handleUseVariant,
+    regenerateByAddress,
+    unaccepted: unacceptedAddresses,
+    everythingAccepted,
+    persistedUnaccepted,
+  } = useReferenceDecisions({
+    state,
+    assetByAddress,
+    marks: statusOverrides,
+    setMarks: setStatusOverrides,
+    songLines,
+    keep,
+    effectiveVariants,
+    session,
+  });
 
   // With no readable variant on the page there is nothing to accept, jump to, or sign off — only
   // notes reach the server.
@@ -336,22 +215,6 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
       (a) => labels.get(a.address) ?? a.assetName,
     );
   }, [state.assets, rows, effectiveVariants, statusOverrides, commented]);
-
-  // Switching the shown variant resets any pending accept/un-accept intent for that asset, so
-  // the badge (and what submit persists) can never disagree with what is on screen.
-  const handleUseVariant = useCallback(
-    (address: string, variantId: string) => {
-      session.useVariant(address, variantId);
-      dropKeepUnits([address]);
-      setStatusOverrides((prev) => {
-        if (!(address in prev)) return prev;
-        const next = { ...prev };
-        delete next[address];
-        return next;
-      });
-    },
-    [session, dropKeepUnits],
-  );
 
   const scrollTo = useCallback((attr: "address" | "row" | "group", value: string) => {
     containerRef.current
@@ -446,10 +309,8 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
     },
   });
 
-  const galleryAsset = session.gallery
-    ? state.assets.find((a) => a.address === session.gallery!.address)
-    : null;
-  const detailAsset = detail ? state.assets.find((a) => a.address === detail.address) : null;
+  const galleryAsset = session.gallery ? assetByAddress.get(session.gallery.address) : null;
+  const detailAsset = detail ? assetByAddress.get(detail.address) : null;
   const focusedRow = rows[focusIdx] ?? null;
   const visibleSections = sections.flatMap((section) => {
     const subjects = section.subjects.flatMap((subject) => {
@@ -735,7 +596,7 @@ export function ReferencePreview({ state }: { state: ReferencePreviewState }): R
 
           {infoVariant &&
             (() => {
-              const asset = state.assets.find((a) => a.address === infoVariant.address);
+              const asset = assetByAddress.get(infoVariant.address);
               const info = asset && variantInfo(asset.variants, infoVariant.variantId);
               if (!asset || !info) return null;
               return (
