@@ -57,6 +57,7 @@ import { contactSheetDir } from "../../core/contact-sheet.js";
 import { requireVideoRoot, requireWorkspaceRoot } from "../context.js";
 import { listVideos, VIDEOS_DIR } from "../../core/roots.js";
 import { declareScope } from "../scope.js";
+import { KonteError } from "../../core/errors.js";
 import { currentPoolVariant } from "../patch-orchestrator.js";
 import { thumbnailCacheDir } from "../../core/video-cache.js";
 import { variantOwnedPaths } from "../../core/variant-owned-paths.js";
@@ -237,7 +238,8 @@ function countByCategory(entries: { category: CleanCategory }[]): Record<CleanCa
   return counts;
 }
 
-async function executeClean(videoRoot: string, opts: CleanOptions): Promise<void> {
+// False when `opts.addressScope` matches nothing in this video.
+async function executeClean(videoRoot: string, opts: CleanOptions): Promise<boolean> {
   const manager = await StateManager.load(videoRoot);
   // Lineage is judged on the recorded state: an absent child still holds its parent. Only
   // --delete-undecided makes an absent variant a candidate — left out, it would be a state row
@@ -313,9 +315,7 @@ async function executeClean(videoRoot: string, opts: CleanOptions): Promise<void
     orphanTotal(planned) === 0 &&
     plan.skippedActivePatches.length === 0
   ) {
-    console.warn(`No assets matching "${opts.addressScope}"`);
-    process.exitCode = 1;
-    return;
+    return false;
   }
 
   // Pass 1: collect candidates
@@ -376,7 +376,7 @@ async function executeClean(videoRoot: string, opts: CleanOptions): Promise<void
     });
     if (!confirmed) {
       printAborted();
-      return;
+      return true;
     }
   }
 
@@ -538,6 +538,7 @@ async function executeClean(videoRoot: string, opts: CleanOptions): Promise<void
       `Orphaned targets not checked: ${orphanDefs.unloaded.join(", ")} does not load — fix it and rerun.`,
     );
   }
+  return true;
 }
 
 async function listContactSheetFiles(videoRoot: string): Promise<string[]> {
@@ -627,8 +628,10 @@ Examples:
         addressScope: string | undefined,
         { allVideos, ...opts }: Omit<CleanOptions, "addressScope"> & { allVideos?: boolean },
       ) => {
+        const noMatch = () =>
+          new KonteError("ADDRESS_NOT_FOUND", `No assets matching "${addressScope}"`);
         if (!allVideos) {
-          await executeClean(requireVideoRoot(), { addressScope, ...opts });
+          if (!(await executeClean(requireVideoRoot(), { addressScope, ...opts }))) throw noMatch();
           return;
         }
         if (addressScope) assertValidAddressScope(addressScope);
@@ -638,10 +641,14 @@ Examples:
           console.log(`This workspace has no videos.`);
           return;
         }
+        let matched = false;
         for (const [i, name] of names.entries()) {
           console.log(`${i > 0 ? "\n" : ""}Video: ${name}`);
-          await executeClean(path.join(workspaceRoot, VIDEOS_DIR, name), { addressScope, ...opts });
+          const root = path.join(workspaceRoot, VIDEOS_DIR, name);
+          if (await executeClean(root, { addressScope, ...opts })) matched = true;
+          else console.log(`No assets matching "${addressScope}"`);
         }
+        if (!matched) throw noMatch();
       },
     );
   declareScope(clean, { scope: "workspace" });

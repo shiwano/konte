@@ -528,6 +528,7 @@ describe("clean command", () => {
       stderr: string;
     };
     expect(err.code).toBe(1);
+    expect(err.stderr).toContain("ADDRESS_NOT_FOUND");
     expect(err.stderr).toContain("video:shot.99");
   });
 
@@ -658,5 +659,29 @@ describe("clean command (--all-videos)", () => {
       const after = await StateManager.load(root);
       expect(after.tryGetAssetState(address)?.variants?.[seeded[i]!]).toBeUndefined();
     }
+  });
+  it("goes on past a video the scope matches nothing in, and refuses only when none matched", async () => {
+    const projectDir = await initWithTestVideo();
+    const workspace = path.dirname(path.dirname(projectDir));
+    await run(
+      ["video", "copy", path.basename(projectDir), "second", "--through", "video"],
+      workspace,
+    );
+    const address = "video:shot.01.motion";
+    const sm = await StateManager.load(projectDir);
+    const seeded = sm.reserveVariantId(address);
+    await sm.save();
+
+    const { stdout } = await run(["clean", "video:shot.01", "--all-videos", "--yes"], workspace);
+    expect(stdout).toContain("Removed 1 variant(s).");
+    expect(stdout).toContain('No assets matching "video:shot.01"');
+    const after = await StateManager.load(projectDir);
+    expect(after.tryGetAssetState(address)?.variants?.[seeded]).toBeUndefined();
+
+    const err = (await run(["clean", "video:shot.99", "--all-videos", "--yes"], workspace).catch(
+      (e) => e,
+    )) as { code: number; stderr: string };
+    expect(err.code).toBe(1);
+    expect(err.stderr).toContain("ADDRESS_NOT_FOUND");
   });
 });
