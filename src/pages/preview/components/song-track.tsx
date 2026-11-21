@@ -19,7 +19,7 @@ import {
   useTimelineZoom,
 } from "../review/use-timeline-zoom.js";
 import { formatSongTempo, songBeatAt, songGridBeats, songTempo } from "../../../core/song-grid.js";
-import type { SongLineEdit, SongReadingInfo } from "../types.js";
+import type { SongLineEdit, SongReadingInfo } from "../../../core/types/review-state.js";
 import { FitIcon, PauseIcon, PlayIcon, SkipToStartIcon, VolumeIcon } from "./icons.js";
 import { PlayheadLine } from "./scrub-preview.js";
 import { formatSeconds, formatSecondsRange } from "../../../core/format-duration.js";

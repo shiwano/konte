@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchCompositionHtml } from "../api.js";
-import type { ShotInfo } from "../types.js";
+import type { ShotInfo } from "../../../core/types/review-state.js";
 
 function reelCompositionKey(
   pinned: Readonly<Record<string, string>>,

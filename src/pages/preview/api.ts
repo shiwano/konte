@@ -9,7 +9,7 @@ import type {
   SkippedDecision,
 } from "../../core/types/review-submit.js";
 import { jsonBody, request, requestJson } from "../shared/http.js";
-import type { PreviewState } from "./types.js";
+import type { PreviewState } from "../../core/types/review-state.js";
 
 export function fetchState(signal?: AbortSignal): Promise<PreviewState> {
   return requestJson<PreviewState>("/api/state", { signal });

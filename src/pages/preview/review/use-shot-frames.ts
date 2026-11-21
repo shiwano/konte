@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ShotInfo } from "../types.js";
+import type { ShotInfo } from "../../../core/types/review-state.js";
 
 type ShotFrames = { first: string | null; last: string | null };
 

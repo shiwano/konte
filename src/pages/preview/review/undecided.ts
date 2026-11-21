@@ -1,4 +1,4 @@
-import type { FeedbackInfo } from "../types.js";
+import type { FeedbackInfo } from "../../../core/types/review-state.js";
 import { liveFeedback } from "./live-feedback.js";
 import type { ReviewSession } from "./use-review-session.js";
 

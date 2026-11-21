@@ -1,5 +1,5 @@
 import type React from "react";
-import type { VariantInfo } from "../types.js";
+import type { VariantInfo } from "../../../core/types/review-state.js";
 import { isNewVariant } from "../review/new-variant.js";
 import { CheckIcon, GridIcon } from "./icons.js";
 

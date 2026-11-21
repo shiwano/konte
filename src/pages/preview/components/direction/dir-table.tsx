@@ -1,6 +1,6 @@
 import type React from "react";
 
-import type { DirectionPartInfo } from "../../types.js";
+import type { DirectionPartInfo } from "../../../../core/types/review-state.js";
 import { PartMarkTag } from "./marks.js";
 
 export type NotesRenderer = (part: DirectionPartInfo) => React.ReactElement;

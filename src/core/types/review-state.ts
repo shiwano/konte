@@ -1,19 +1,15 @@
-import type { RoleFunction } from "../../core/direction-check.js";
-import type {
-  DirectionPartStatus,
-  DirectionSectionStatus,
-} from "../../core/direction-acceptance.js";
-import type { PanelRole } from "../../core/direction.js";
-import type { Framing } from "../../core/dsl/direction.js";
-import type { ShotJoin } from "../../core/types/definition.js";
-import type { SongLineBody } from "../../core/types/review-submit.js";
-import type { HeardTake } from "../../core/line-marks.js";
-import type { ScriptLineView } from "../../core/types/script.js";
-import type { View } from "../../core/view.js";
-import type { DirectionSection } from "../../core/address.js";
+import type { RoleFunction } from "../direction-check.js";
+import type { DirectionPartStatus, DirectionSectionStatus } from "../direction-acceptance.js";
+import type { PanelRole } from "../direction.js";
+import type { Framing } from "../dsl/direction.js";
+import type { ShotJoin } from "./definition.js";
+import type { SongLineBody } from "./review-submit.js";
+import type { HeardTake } from "../line-marks.js";
+import type { ScriptLineView } from "./script.js";
+import type { View } from "../view.js";
+import type { DirectionSection } from "../address.js";
 
-export { DIRECTION_SECTIONS, type DirectionSection } from "../../core/address.js";
-export type { PanelRole, RoleFunction, ScriptLineView };
+export type { DirectionSection, PanelRole, RoleFunction, ScriptLineView };
 
 export type VariantStatus = "none" | "accepted";
 
@@ -109,7 +105,7 @@ export interface ClipInfo {
 // placement in the timeline; `shotId` is the shot whose composition placed it, absent
 // only for a timeline bed. Accept and focus route through the cue's shot, so a reused asset needs
 // no single owning shot.
-interface AudioCueInfo {
+export interface AudioCueInfo {
   start: number;
   end: number;
   cueId: string | null;
@@ -246,7 +242,7 @@ export type PreviewSocketMessage =
   | { type: "error"; payload: { error: string } }
   | { type: "session-ended" };
 
-export interface VideoPreviewState {
+export interface ReelPreviewState {
   // One page for both composition stages; the mode says which reel it is playing.
   mode: "video-preview" | "animatic-preview";
   fps: number;
@@ -452,15 +448,17 @@ export interface ReferenceAssetInfo {
   // that no part claims. More than one when a sample is cast twice (a narrator who is the
   // protagonist, twins): each cast slot brings its own brief for the same audio. A voice kind carries
   // the voice brief, not the character's visual one.
-  directionRoster?: {
-    kind: DirectionRosterKind;
-    name: string;
-    description: string;
-    // The part's own acceptance standing. True when its prose is stale or was never signed off —
-    // the accept decision is keyed on the variant, so a reword against an unchanged image would
-    // otherwise leave the row reading "accepted" with nothing to press and no decision to send.
-    needsReview: boolean;
-  }[];
+  directionRoster?: DirectionRosterEntryInfo[];
+}
+
+export interface DirectionRosterEntryInfo {
+  kind: DirectionRosterKind;
+  name: string;
+  description: string;
+  // The part's own acceptance standing. True when its prose is stale or was never signed off —
+  // the accept decision is keyed on the variant, so a reword against an unchanged image would
+  // otherwise leave the row reading "accepted" with nothing to press and no decision to send.
+  needsReview: boolean;
 }
 
 // What a reference asset anchors in the direction: a roster entry's look, a cast voice's sample, or
@@ -813,4 +811,4 @@ export interface DirectionPreviewState {
   sequences?: DirectionSequenceInfo[];
 }
 
-export type PreviewState = VideoPreviewState | ReferencePreviewState | DirectionPreviewState;
+export type PreviewState = ReelPreviewState | ReferencePreviewState | DirectionPreviewState;

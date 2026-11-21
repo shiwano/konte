@@ -1,6 +1,6 @@
 import type React from "react";
 
-import type { DirectionWaiverInfo } from "../../types.js";
+import type { DirectionWaiverInfo } from "../../../../core/types/review-state.js";
 import type { NotesRenderer } from "./dir-table.js";
 import { PartMarkTag } from "./marks.js";
 

@@ -1,5 +1,5 @@
 import type React from "react";
-import type { PreviewState } from "../types.js";
+import type { PreviewState } from "../../../core/types/review-state.js";
 
 export function Layout({
   state,

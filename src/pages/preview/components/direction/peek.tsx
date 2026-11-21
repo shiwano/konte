@@ -9,7 +9,7 @@ import type {
   DirectionSequenceInfo,
   DirectionSetupInfo,
   DirectionShotInfo,
-} from "../../types.js";
+} from "../../../../core/types/review-state.js";
 import { DirectionMap } from "../direction-map.js";
 import { ChevronsRightIcon } from "../icons.js";
 import type { NotesRenderer } from "./dir-table.js";

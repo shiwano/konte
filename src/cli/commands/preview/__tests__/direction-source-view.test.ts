@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { handleGetDirectionState } from "../direction-review.js";
 import { loadDirectionIfPresent } from "../../../../core/stage-definitions.js";
-import type { DirectionPreviewState } from "../../../../pages/preview/types.js";
+import type { DirectionPreviewState } from "../../../../core/types/review-state.js";
 import { ctx, initWorkspace, useTempWorkspace } from "../../../__tests__/cli-fixtures.js";
 
 vi.setConfig({ testTimeout: 30000 });

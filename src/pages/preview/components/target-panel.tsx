@@ -3,7 +3,11 @@ import { useRef, useState } from "react";
 import { formatTimecode } from "../format-time.js";
 import { type QuoteKind, markFragments, quoteLines, quotedFragments } from "../review/quote.js";
 import { QuoteTip } from "../review/quote-composer.js";
-import type { ScriptLineView, ShotMoveInfo, ShotWaiverInfo } from "../types.js";
+import type {
+  ScriptLineView,
+  ShotMoveInfo,
+  ShotWaiverInfo,
+} from "../../../core/types/review-state.js";
 import type { LineMarks } from "../../../core/line-marks.js";
 import {
   CommentCard,

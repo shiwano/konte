@@ -1,4 +1,4 @@
-import type { StandInCause } from "../types.js";
+import type { StandInCause } from "../../../core/types/review-state.js";
 
 export function standInLabel(cause: StandInCause | null): string {
   switch (cause) {

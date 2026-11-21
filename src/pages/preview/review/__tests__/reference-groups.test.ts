@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { ReferenceAssetInfo, ReferenceGroupInfo } from "../../types.js";
+import type {
+  ReferenceAssetInfo,
+  ReferenceGroupInfo,
+} from "../../../../core/types/review-state.js";
 import { referenceRowLabel, referenceSections } from "../reference-groups.js";
 
 const asset = (name: string): ReferenceAssetInfo => ({

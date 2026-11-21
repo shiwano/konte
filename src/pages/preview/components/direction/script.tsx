@@ -11,7 +11,7 @@ import type {
   DirectionSequenceInfo,
   DirectionShotInfo,
   DirectionShotRoster,
-} from "../../types.js";
+} from "../../../../core/types/review-state.js";
 import { ChevronRightIcon, ForwardIcon, RewindIcon } from "../icons.js";
 import type { NotesRenderer } from "./dir-table.js";
 import { PartMarkTag } from "./marks.js";

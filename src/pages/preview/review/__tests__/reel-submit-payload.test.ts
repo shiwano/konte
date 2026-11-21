@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ShotInfo, VideoPreviewState } from "../../types.js";
+import type { ShotInfo, ReelPreviewState } from "../../../../core/types/review-state.js";
 import { buildReelSubmitPayload } from "../reel-submit-payload.js";
 import { NO_REEL_MARKS } from "../use-reel-decisions.js";
 
@@ -28,7 +28,7 @@ describe("buildReelSubmitPayload", () => {
         audioAssets: [
           asset("video:timeline.bed", "v-s", [
             "v-s",
-          ]) as unknown as VideoPreviewState["audioAssets"][number],
+          ]) as unknown as ReelPreviewState["audioAssets"][number],
         ],
         compositionRefVariants: { "reference:hero": "v-r", "video:shot.01.motion": "v-a" },
       },
@@ -103,7 +103,7 @@ describe("buildReelSubmitPayload", () => {
           needsReview: true,
           assets: [asset("video:thumbnail.cover", "v-c1", ["v-c1", "v-c2"])],
           feedback: [],
-        } as unknown as NonNullable<VideoPreviewState["thumbnail"]>,
+        } as unknown as NonNullable<ReelPreviewState["thumbnail"]>,
       },
       marks: { ...NO_REEL_MARKS, thumbnail: "accepted" },
       keepChoices: [],

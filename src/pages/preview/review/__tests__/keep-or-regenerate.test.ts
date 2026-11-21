@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { KeepGraphInfo } from "../../types.js";
+import type { KeepGraphInfo } from "../../../../core/types/review-state.js";
 import {
   keepDecisions,
   keepPrompt,

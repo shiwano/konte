@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { formatPlayerTime } from "../format-time.js";
 import { type Playhead, usePlayheadTime } from "../review/playhead.js";
 import type { ScrubState } from "../review/use-scrub-preview.js";
-import type { ShotInfo } from "../types.js";
+import type { ShotInfo } from "../../../core/types/review-state.js";
 
 // The YouTube-style thumbnail above the bar while scrubbing: the first frame of the shot under
 // the pointer, with the time and the shot's id. Portaled to the body so no scroll container clips it.

@@ -5,7 +5,7 @@ import type {
   AssetGenerationInfo,
   AssetInfo,
   AssetPatchInfo,
-} from "../../../../pages/preview/types.js";
+} from "../../../../core/types/review-state.js";
 import { type PatchChainVariants, createAssetInfoBuilder } from "../asset-info.js";
 
 const PROMPT = "a girl at a desk";

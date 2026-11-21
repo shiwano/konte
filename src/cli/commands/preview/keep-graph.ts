@@ -15,7 +15,7 @@ import { type DependencyGraph, thumbnailOf } from "../../../core/graph.js";
 import type { StateManager } from "../../../core/state/index.js";
 import { isPendingShot, type StageDefinition } from "../../../core/types/index.js";
 import { isReviewLeaf } from "../../../core/variant-lineage.js";
-import type { KeepGraphInfo, KeepVariantInfo } from "../../../pages/preview/types.js";
+import type { KeepGraphInfo, KeepVariantInfo } from "../../../core/types/review-state.js";
 
 /**
  * What the Keep-or-regenerate prompt reads: every take an accept on a review page can change, and

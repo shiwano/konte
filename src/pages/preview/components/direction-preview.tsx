@@ -7,7 +7,7 @@ import { liveFeedback } from "../review/live-feedback.js";
 import { commentedAddresses } from "../review/undecided.js";
 import { type SubmitInput, useReviewSession } from "../review/use-review-session.js";
 import { useReviewShortcuts } from "../review/use-review-shortcuts.js";
-import { DIRECTION_SECTIONS } from "../types.js";
+import { DIRECTION_SECTIONS } from "../../../core/address.js";
 import type {
   DirectionPartInfo,
   DirectionPreviewState,
@@ -15,7 +15,7 @@ import type {
   DirectionSequenceInfo,
   DirectionShotInfo,
   DirectionShotRoster,
-} from "../types.js";
+} from "../../../core/types/review-state.js";
 import { CommentThread } from "./comment-thread.js";
 import { DirectionBrief } from "./direction/brief.js";
 import { DirectionLyrics } from "./direction/lyrics.js";

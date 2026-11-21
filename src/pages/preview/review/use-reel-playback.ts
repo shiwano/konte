@@ -2,7 +2,7 @@ import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { HyperFramesPlayerRef } from "../components/hyperframes-player-wrapper.js";
 import type { NoteDraft } from "../components/target-panel.js";
-import type { ShotInfo } from "../types.js";
+import type { ShotInfo } from "../../../core/types/review-state.js";
 import { Playhead } from "./playhead.js";
 
 type LoopMode = "off" | "all" | "shot";

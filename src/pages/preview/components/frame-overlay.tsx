@@ -1,5 +1,5 @@
 import type React from "react";
-import type { VariantInfo } from "../types.js";
+import type { VariantInfo } from "../../../core/types/review-state.js";
 import { FitIcon, InfoIcon } from "./icons.js";
 import { VariantSummaryLabel } from "./variant-summary-button.js";
 

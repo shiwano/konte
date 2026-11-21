@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ReferenceAssetInfo } from "../../types.js";
+import type { ReferenceAssetInfo } from "../../../../core/types/review-state.js";
 import {
   reacceptIsMeaningful,
   referenceDecisionFor,

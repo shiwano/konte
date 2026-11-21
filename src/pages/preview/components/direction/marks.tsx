@@ -1,7 +1,7 @@
 import type React from "react";
 import { createContext, useContext } from "react";
 
-import type { DirectionPartInfo } from "../../types.js";
+import type { DirectionPartInfo } from "../../../../core/types/review-state.js";
 
 // What sets a part apart on a direction some of which is signed off: reworded since, or never read.
 export type PartMark = "changed" | "new";

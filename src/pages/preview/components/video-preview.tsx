@@ -36,9 +36,9 @@ import type {
   FeedbackInfo,
   MediaKind,
   VariantInfo,
-  VideoPreviewState,
+  ReelPreviewState,
   ShotInfo,
-} from "../types.js";
+} from "../../../core/types/review-state.js";
 import { HyperFramesPlayerWrapper } from "./hyperframes-player-wrapper.js";
 import { AcceptButton } from "./accept-button.js";
 import {
@@ -133,7 +133,7 @@ function ThumbnailCoverOverlay({
   );
 }
 
-export function VideoPreview({ state }: { state: VideoPreviewState }): React.ReactElement {
+export function VideoPreview({ state }: { state: ReelPreviewState }): React.ReactElement {
   // What the feedback panel is pointed at. "shot" follows the playhead; "soundtrack" and an overlay
   // are sticky picks (each spans shots, so seeking to hear or watch one must not snap the panel back
   // to whatever shot the playhead landed in). Only an explicit shot gesture — picking a card, J/K/N,

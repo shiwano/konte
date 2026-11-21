@@ -2,7 +2,12 @@ import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatTimecode } from "../format-time.js";
 import type { LineMarks } from "../../../core/line-marks.js";
-import type { DirectionRosterKind, FeedbackInfo, PanelRole, ScriptLineView } from "../types.js";
+import type {
+  DirectionRosterKind,
+  FeedbackInfo,
+  PanelRole,
+  ScriptLineView,
+} from "../../../core/types/review-state.js";
 import {
   CommentIcon,
   FilmIcon,

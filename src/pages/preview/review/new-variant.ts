@@ -1,4 +1,4 @@
-import type { VariantInfo } from "../types.js";
+import type { VariantInfo } from "../../../core/types/review-state.js";
 
 // A variant still awaiting a verdict, accepted beside it or not — badged and counted "new".
 export function isNewVariant(

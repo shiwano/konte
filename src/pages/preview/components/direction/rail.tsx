@@ -8,7 +8,7 @@ import type {
   DirectionSection,
   DirectionSequenceInfo,
   DirectionShotInfo,
-} from "../../types.js";
+} from "../../../../core/types/review-state.js";
 import { ChevronRightIcon, CommentIcon, JumpIcon, PanelRightIcon } from "../icons.js";
 import { PartMarkTag, PartMarksContext } from "./marks.js";
 

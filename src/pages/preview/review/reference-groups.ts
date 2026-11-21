@@ -3,7 +3,7 @@ import type {
   ReferenceGroupInfo,
   ReferenceGroupKind,
   ReferenceGroupMemberInfo,
-} from "../types.js";
+} from "../../../core/types/review-state.js";
 
 export interface ReferenceRowInfo {
   // Unique on the page: a sample cast twice is a row in each of its groups.

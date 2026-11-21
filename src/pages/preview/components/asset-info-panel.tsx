@@ -6,7 +6,7 @@ import type {
   AssetPromptInfo,
   AssetRefInfo,
   VariantInfo,
-} from "../types.js";
+} from "../../../core/types/review-state.js";
 import { Modal } from "./modal.js";
 
 const PROMPT_LABEL: Record<AssetPromptInfo["kind"], string> = {

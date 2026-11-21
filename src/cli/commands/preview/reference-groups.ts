@@ -2,7 +2,10 @@ import { collectArcShots } from "../../../core/direction.js";
 import type { Direction } from "../../../core/dsl/direction.js";
 import type { ScriptLine } from "../../../core/types/script.js";
 import { IMAGED_VIEWS, viewAssetName } from "../../../core/view.js";
-import type { ReferenceGroupInfo, ReferenceGroupMemberInfo } from "../../../pages/preview/types.js";
+import type {
+  ReferenceGroupInfo,
+  ReferenceGroupMemberInfo,
+} from "../../../core/types/review-state.js";
 
 type Line = NonNullable<ReferenceGroupMemberInfo["lines"]>[number];
 

@@ -1,7 +1,7 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { formatRelativeTime } from "../format-time.js";
-import type { MediaKind, VariantInfo } from "../types.js";
+import type { MediaKind, VariantInfo } from "../../../core/types/review-state.js";
 import { isNewVariant } from "../review/new-variant.js";
 import { AuditionAudio } from "./audition-audio.js";
 import { CheckIcon, InfoIcon, VolumeIcon } from "./icons.js";

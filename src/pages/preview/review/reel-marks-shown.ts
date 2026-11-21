@@ -1,10 +1,10 @@
-import type { VideoPreviewState } from "../types.js";
+import type { ReelPreviewState } from "../../../core/types/review-state.js";
 import { reelTakes, servedTakes } from "./reel-takes.js";
 import { effectiveVariantsOf } from "./use-effective-variants.js";
 import type { ReelMarks } from "./use-reel-decisions.js";
 
 type ReelState = Pick<
-  VideoPreviewState,
+  ReelPreviewState,
   "shots" | "audioAssets" | "timelineStem" | "overlay" | "thumbnail" | "compositionRefVariants"
 >;
 

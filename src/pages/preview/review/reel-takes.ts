@@ -1,7 +1,7 @@
-import type { VideoPreviewState } from "../types.js";
+import type { ReelPreviewState } from "../../../core/types/review-state.js";
 
 export type ReelTakesState = Pick<
-  VideoPreviewState,
+  ReelPreviewState,
   "shots" | "audioAssets" | "thumbnail" | "compositionRefVariants"
 >;
 

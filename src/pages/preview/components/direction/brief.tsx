@@ -6,7 +6,7 @@ import type {
   DirectionBriefField,
   DirectionBriefFieldInfo,
   DirectionBriefListField,
-} from "../../types.js";
+} from "../../../../core/types/review-state.js";
 import { DirTable, type NotesRenderer } from "./dir-table.js";
 
 const BRIEF_FIELD_LABELS: Record<DirectionBriefField, string> = {

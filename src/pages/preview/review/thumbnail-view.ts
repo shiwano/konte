@@ -1,6 +1,6 @@
-import type { VideoPreviewState } from "../types.js";
+import type { ReelPreviewState } from "../../../core/types/review-state.js";
 
-type Thumbnail = NonNullable<VideoPreviewState["thumbnail"]>;
+type Thumbnail = NonNullable<ReelPreviewState["thumbnail"]>;
 
 /**
  * The thumbnail's own assets whose take on screen is not the one its still was made from: an accept
@@ -21,7 +21,7 @@ export function thumbnailSwitched(
 
 /** Whether the thumbnail stands accepted as the page shows it. */
 export function thumbnailShownAccepted(
-  thumbnail: VideoPreviewState["thumbnail"],
+  thumbnail: ReelPreviewState["thumbnail"],
   effectiveVariants: Record<string, string>,
 ): boolean {
   if (!thumbnail || thumbnail.needsReview || thumbnail.cover.variantStatus !== "accepted") {

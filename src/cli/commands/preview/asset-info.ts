@@ -9,7 +9,7 @@ import type {
   AssetPatchStepInfo,
   AssetPromptInfo,
   AssetRefInfo,
-} from "../../../pages/preview/types.js";
+} from "../../../core/types/review-state.js";
 
 function refOf(def: AssetDefinition): string {
   switch (def.kind) {

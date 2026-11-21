@@ -15,7 +15,14 @@ import { resolveLens } from "../../../core/direction.js";
 import { ROLE_FUNCTION_LABEL } from "../../../core/lenses.js";
 import type { Direction, DirectionNode, Framing } from "../../../core/dsl/direction.js";
 import { isAsideShot, isGraphicShot } from "../../../core/dsl/direction.js";
-import type { AssetInfo, ShotInfo, SongReadingInfo } from "../../../pages/preview/types.js";
+import type {
+  AssetInfo,
+  FeedbackInfo,
+  ShotInfo,
+  SongReadingInfo,
+  VariantInfo,
+  VariantStatus,
+} from "../../../core/types/review-state.js";
 import { scriptLinesToView, type ScriptLineView } from "../../../core/types/script.js";
 import type { Handoff, AnimaticDefinition } from "../../../core/types/index.js";
 import {
@@ -49,48 +56,6 @@ import { readVariantThumbnails } from "../../../core/variant-thumbnails.js";
 import { inferMediaType } from "../../../core/media-type.js";
 import { auditionGain, type LevelKind } from "../../../core/audio-level.js";
 
-type VariantCandidate = {
-  variantId: string;
-  variantStatus: "none" | "accepted";
-  stale: boolean;
-  // An undecided, non-stale variant standing beside an accepted one (a reroll or a patch output
-  // nobody has settled) — the take the reel shows in place of the accepted one until a verdict.
-  undecidedBesideAccepted: boolean;
-  // The reviewer decided against this take. Kept in the gallery — a decision can be revisited by
-  // selecting it and accepting — but sorted after the live candidates.
-  dismissed: boolean;
-  createdAt: string;
-  imageUrl: string | null;
-  fileUrl: string | null;
-  // The take this one corrects, when it came from a patch — the "before" of a before/after
-  // comparison. The ancestor is not a candidate of its own (see buildVariantCandidates), so this
-  // is the only place it is reachable in the gallery.
-  before: {
-    variantId: string;
-    variantStatus: "none" | "accepted";
-    imageUrl: string | null;
-    fileUrl: string | null;
-    auditionGain?: number;
-  } | null;
-  size?: { width: number; height: number };
-  info?: AssetInfo;
-  song?: SongReadingInfo;
-  auditionGain?: number;
-};
-
-type AddressFeedback = {
-  id: string;
-  address: string;
-  displayedVariants: Record<string, string>;
-  annotation: { kind: "pin"; x: number; y: number } | null;
-  text: string;
-  time?: number;
-  imageUrl?: string;
-  createdAt: string;
-  createdBy: string;
-  stale: boolean;
-};
-
 /**
  * Switchable variant candidates for an address: recommended (non-stale) first in
  * newest-first order, then de-emphasized (stale).
@@ -113,8 +78,8 @@ export function buildVariantCandidates(
   levelKind?: LevelKind,
   // The view the page's own resolution uses, or the gallery calls current what it is not showing.
   view: StalenessView = manager.stalenessView(),
-): VariantCandidate[] {
-  const variants: VariantCandidate[] = [];
+): VariantInfo[] {
+  const variants: VariantInfo[] = [];
   try {
     const target = manager.getAssetState(addr);
     const staleState = manager.getState();
@@ -131,7 +96,7 @@ export function buildVariantCandidates(
         const sourceGain = auditionGain(levelKind, source?.media);
         return {
           variantId: vid,
-          variantStatus: (vid === acceptedId ? "accepted" : "none") as "none" | "accepted",
+          variantStatus: (vid === acceptedId ? "accepted" : "none") as VariantStatus,
           stale,
           undecidedBesideAccepted:
             hasAccepted && vid !== acceptedId && !stale && v.status === "none",
@@ -143,9 +108,9 @@ export function buildVariantCandidates(
             v.derivedFrom && source?.file
               ? {
                   variantId: v.derivedFrom,
-                  variantStatus: (v.derivedFrom === acceptedId ? "accepted" : "none") as
-                    | "none"
-                    | "accepted",
+                  variantStatus: (v.derivedFrom === acceptedId
+                    ? "accepted"
+                    : "none") as VariantStatus,
                   imageUrl: buildVariantUrl(v.derivedFrom, source),
                   fileUrl: buildFileUrl ? buildFileUrl(v.derivedFrom, source) : null,
                   ...(sourceGain !== undefined ? { auditionGain: sourceGain } : {}),
@@ -158,7 +123,7 @@ export function buildVariantCandidates(
         };
       })
       .reverse();
-    const isRecommended = (e: VariantCandidate) => !e.stale && !e.dismissed;
+    const isRecommended = (e: VariantInfo) => !e.stale && !e.dismissed;
     variants.push(...entries.filter(isRecommended), ...entries.filter((e) => !isRecommended(e)));
   } catch {
     // no state
@@ -264,7 +229,7 @@ export function buildAddressFeedback(
   state: KonteState,
   addr: string,
   ctx?: FeedbackStaleContext,
-): AddressFeedback[] {
+): FeedbackInfo[] {
   const withStaleness = getFeedbackWithStaleness(feedbackMgr.getFeedback(addr), addr, state, {
     ...ctx,
     reviewerView: true,

@@ -55,12 +55,17 @@ import { KonteError, errorMessage } from "../../../core/errors.js";
 import { errorResponse, htmlResponse, jsonResponse } from "../../page-host/http.js";
 import type { Direction } from "../../../core/dsl/direction.js";
 import type {
+  AudioCueInfo,
+  AudioTrackAssetInfo,
   ClipInfo,
+  FeedbackInfo,
   ShotMoveInfo,
   ShotWaiverInfo,
   StandInCause,
-  VideoPreviewState,
-} from "../../../pages/preview/types.js";
+  ReelPreviewState,
+  VariantInfo,
+  VariantStatus,
+} from "../../../core/types/review-state.js";
 import { buildReelReviewPlan, reelShotAcceptability } from "../../../core/review-acceptability.js";
 import {
   continuousFrameKeys,
@@ -103,26 +108,6 @@ import {
 import { createAssetInfoBuilder } from "./asset-info.js";
 import { buildKeepGraph } from "./keep-graph.js";
 
-interface AudioTrackAsset {
-  address: string;
-  assetName: string;
-  kind: "sound" | "soundtrack";
-  variantId: string | null;
-  variantStatus: "none" | "accepted";
-  hasUndecidedBesideAccepted: boolean;
-  fileUrl?: string;
-  variants: ReturnType<typeof buildVariantCandidates>;
-  // Each cue carries the shot that placed it (absent for a timeline bed), so accept and focus
-  // route per cue — an asset reused across shots has no single owner, but every cue does.
-  cues: Array<{
-    start: number;
-    end: number;
-    cueId: string | null;
-    volume: number | null;
-    shotId?: string;
-  }>;
-}
-
 // Collect every audio placement on the timeline into per-asset rows for the audio track.
 // Per-shot `<Audio>`/`<Sound>` cues come from the already-harvested per-shot clips (lifted
 // from shot-local to absolute time); timeline `<Soundtrack>` beds come from the definition,
@@ -133,10 +118,10 @@ export function buildAudioAssets<
     assetName: string;
     address: string;
     variantId: string | null;
-    variantStatus: "none" | "accepted";
+    variantStatus: VariantStatus;
     hasUndecidedBesideAccepted: boolean;
     fileUrl?: string;
-    variants: ReturnType<typeof buildVariantCandidates>;
+    variants: VariantInfo[];
   },
 >(opts: {
   manager: StateManager;
@@ -148,22 +133,10 @@ export function buildAudioAssets<
   // accept/variant info matches what the render plan resolved (no second resolution).
   preBuilt: Map<string, A>;
   buildAsset: (assetName: string, addr: string, resolvedVariantId: string | undefined) => A;
-}): AudioTrackAsset[] {
+}): AudioTrackAssetInfo[] {
   const { manager, video, clipsByShot, totalDuration, shotOffsets, preBuilt, buildAsset } = opts;
 
-  type RawCue = {
-    address: string;
-    kind: "sound" | "soundtrack";
-    cue: {
-      start: number;
-      end: number;
-      cueId: string | null;
-      volume: number | null;
-      // The shot whose composition placed this cue. Always known for a per-shot cue —
-      // it is the shot the placement was lifted from — and absent for a timeline bed.
-      shotId?: string;
-    };
-  };
+  type RawCue = { address: string; kind: AudioTrackAssetInfo["kind"]; cue: AudioCueInfo };
   const raw: RawCue[] = [];
 
   for (const s of shotOffsets) {
@@ -204,14 +177,14 @@ export function buildAudioAssets<
     });
   }
 
-  const byAddress = new Map<string, { kind: "sound" | "soundtrack"; cues: RawCue["cue"][] }>();
+  const byAddress = new Map<string, { kind: AudioTrackAssetInfo["kind"]; cues: AudioCueInfo[] }>();
   for (const r of raw) {
     const group = byAddress.get(r.address) ?? { kind: r.kind, cues: [] };
     group.cues.push(r.cue);
     byAddress.set(r.address, group);
   }
 
-  const out: AudioTrackAsset[] = [];
+  const out: AudioTrackAssetInfo[] = [];
   for (const [address, group] of byAddress) {
     let base = preBuilt.get(address);
     if (!base) {
@@ -431,7 +404,7 @@ export async function handleGetReelState(
       stage,
       shots.map((s) => s.shotId),
     ),
-  } satisfies VideoPreviewState);
+  } satisfies ReelPreviewState);
 }
 
 // Each shot with where the reel is heard to say its lines. Best-effort, like the clips: a hearing
@@ -625,7 +598,7 @@ function reelShotStates(
       return {
         ...common,
         assets: [] as ReelAsset[],
-        feedback: [] as ReturnType<typeof buildAddressFeedback>,
+        feedback: [] as FeedbackInfo[],
         allAccepted: false,
         // Fails closed: this shot's plan or hashes would not compute, so nothing here says it is
         // settled — and a checked toggle on a shot Accept all then skips is the exact shape that

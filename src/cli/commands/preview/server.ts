@@ -50,7 +50,7 @@ import {
 } from "./reel-review.js";
 import { handleSubmit, type ReviewContext } from "./submit.js";
 import { SUBMIT_PATH } from "../../../core/review-mode.js";
-import type { PreviewSocketMessage } from "../../../pages/preview/types.js";
+import type { PreviewSocketMessage } from "../../../core/types/review-state.js";
 
 export interface PreviewServerOptions {
   videoRoot: string;

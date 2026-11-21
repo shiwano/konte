@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ShotInfo, VideoPreviewState } from "../../types.js";
+import type { ShotInfo, ReelPreviewState } from "../../../../core/types/review-state.js";
 import {
   auditioning,
   leafShownAccepted,
@@ -8,7 +8,7 @@ import {
   type ReelTakesState,
 } from "../reel-takes.js";
 
-type AudioAsset = VideoPreviewState["audioAssets"][number];
+type AudioAsset = ReelPreviewState["audioAssets"][number];
 
 const shot = { shotId: "01", assets: [{ address: "video:shot.01.motion", variantId: "v-m" }] };
 const bed = { address: "video:timeline.bgm", kind: "soundtrack", variantId: "v-old" };

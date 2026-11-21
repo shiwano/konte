@@ -1,4 +1,4 @@
-import type { KeepGraphInfo } from "../types.js";
+import type { KeepGraphInfo } from "../../../core/types/review-state.js";
 
 // The Keep-or-regenerate model: which accepted takes an accept on this page leaves standing against
 // the upstream it changes, and what the reviewer answered for each.

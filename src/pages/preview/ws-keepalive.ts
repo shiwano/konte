@@ -1,5 +1,5 @@
 import { request } from "../shared/http.js";
-import type { PreviewSocketMessage } from "./types.js";
+import type { PreviewSocketMessage } from "../../core/types/review-state.js";
 
 const RECONNECT_DELAY_MS = 1000;
 

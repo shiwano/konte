@@ -7,7 +7,11 @@ import {
   tickLabel,
   useTimelineZoom,
 } from "../review/use-timeline-zoom.js";
-import type { RoleFunction, DirectionSequenceInfo, DirectionShotInfo } from "../types.js";
+import type {
+  RoleFunction,
+  DirectionSequenceInfo,
+  DirectionShotInfo,
+} from "../../../core/types/review-state.js";
 import { CommentIcon, FitIcon } from "./icons.js";
 import { formatSeconds } from "../../../core/format-duration.js";
 

@@ -1,4 +1,4 @@
-import type { ReferenceAssetInfo, VariantStatus } from "../types.js";
+import type { ReferenceAssetInfo, VariantStatus } from "../../../core/types/review-state.js";
 import { bulkAcceptState } from "./bulk-accept.js";
 
 // The reference review's decision model, kept out of the component so the rule below is testable.

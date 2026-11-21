@@ -19,7 +19,12 @@ import {
   tickLabel,
   useTimelineZoom,
 } from "../review/use-timeline-zoom.js";
-import type { AudioTrackAssetInfo, ShotInfo, VariantInfo, TimelineNote } from "../types.js";
+import type {
+  AudioTrackAssetInfo,
+  ShotInfo,
+  VariantInfo,
+  TimelineNote,
+} from "../../../core/types/review-state.js";
 import { FilmIcon, FitIcon, GridIcon, ImageIcon, InfoIcon, VolumeIcon } from "./icons.js";
 import { PlayheadLine, ScrubPreview } from "./scrub-preview.js";
 import { StatusBadge } from "./status-badge.js";

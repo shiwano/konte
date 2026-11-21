@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { VariantInfo } from "../types.js";
+import type { VariantInfo } from "../../../core/types/review-state.js";
 
 type ShownAsset = {
   address: string;

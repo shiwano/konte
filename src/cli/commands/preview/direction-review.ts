@@ -63,7 +63,7 @@ import type {
   DirectionPreviewState,
   DirectionSequenceInfo,
   DirectionVoiceInfo,
-} from "../../../pages/preview/types.js";
+} from "../../../core/types/review-state.js";
 import { scriptLinesToView } from "../../../core/types/script.js";
 import type { Handoff } from "../../../core/types/index.js";
 import type { ReviewDecisionEntry, ReviewRecord } from "../../../core/review-record.js";

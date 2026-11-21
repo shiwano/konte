@@ -1,6 +1,6 @@
 import type React from "react";
 
-import type { DirectionLyricsInfo } from "../../types.js";
+import type { DirectionLyricsInfo } from "../../../../core/types/review-state.js";
 import { DirTable, type NotesRenderer } from "./dir-table.js";
 
 // The song's words as one part: the box takes one note and one Accept.

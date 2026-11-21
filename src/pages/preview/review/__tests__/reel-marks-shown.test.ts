@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ShotInfo, VideoPreviewState } from "../../types.js";
+import type { ShotInfo, ReelPreviewState } from "../../../../core/types/review-state.js";
 import { marksStillShown } from "../reel-marks-shown.js";
 import { NO_REEL_MARKS, type ReelMarks } from "../use-reel-decisions.js";
 
@@ -23,8 +23,8 @@ const shot = (shotId: string, variantId: string, variants: string[], o: Partial<
     ...o,
   }) as unknown as ShotInfo;
 
-const reel = (shots: ShotInfo[], o: Partial<VideoPreviewState> = {}) =>
-  ({ shots, audioAssets: [], compositionRefVariants: {}, ...o }) as unknown as VideoPreviewState;
+const reel = (shots: ShotInfo[], o: Partial<ReelPreviewState> = {}) =>
+  ({ shots, audioAssets: [], compositionRefVariants: {}, ...o }) as unknown as ReelPreviewState;
 
 const marked: ReelMarks = { ...NO_REEL_MARKS, shots: { "01": "accepted", "02": "accepted" } };
 
@@ -68,7 +68,7 @@ describe("marksStillShown", () => {
         needsReview: true,
         verdictAddresses: [],
         feedback: [],
-      }) as VideoPreviewState["timelineStem"];
+      }) as ReelPreviewState["timelineStem"];
     const marks: ReelMarks = { ...NO_REEL_MARKS, stem: "accepted" };
     const before = reel([], { timelineStem: stem("h1") });
     expect(marksStillShown(marks, before, reel([], { timelineStem: stem("h1") }), {}).marks).toBe(
@@ -88,7 +88,7 @@ describe("marksStillShown", () => {
         needsReview: false,
         verdictAddresses: [],
         feedback: [],
-      }) as VideoPreviewState["timelineStem"];
+      }) as ReelPreviewState["timelineStem"];
     const marks: ReelMarks = {
       ...NO_REEL_MARKS,
       shots: { "01": "none" },
@@ -113,7 +113,7 @@ describe("marksStillShown", () => {
       offered: true,
       verdictAddresses: ["video:timeline.logo"],
       feedback: [],
-    } as VideoPreviewState["overlay"];
+    } as ReelPreviewState["overlay"];
     const marks: ReelMarks = { ...NO_REEL_MARKS, overlay: "accepted" };
     const at = (variantId: string) =>
       reel([], { overlay, compositionRefVariants: { "video:timeline.logo": variantId } });

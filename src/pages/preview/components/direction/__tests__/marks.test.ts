@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { DirectionPartInfo } from "../../../types.js";
+import type { DirectionPartInfo } from "../../../../../core/types/review-state.js";
 import { partMarks, rowMark } from "../marks.js";
 
 const part = (address: string, status: DirectionPartInfo["status"]): DirectionPartInfo => ({

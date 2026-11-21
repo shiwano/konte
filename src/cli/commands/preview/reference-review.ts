@@ -26,10 +26,11 @@ import { KonteError } from "../../../core/errors.js";
 import { songAnalysisOf } from "../../../core/song-reading.js";
 import { setSongLines, songAddressOf } from "../../../core/song-variant.js";
 import type {
+  DirectionRosterEntryInfo,
   DirectionRosterKind,
   ReferencePreviewState,
   SongReadingInfo,
-} from "../../../pages/preview/types.js";
+} from "../../../core/types/review-state.js";
 import type {
   DirectionAcceptance,
   Handoff,
@@ -78,33 +79,21 @@ function handoffNoteForReference(handoff: Handoff | null, assetName: string): st
 // feedback, accept state, and staleness. Reference has no shots/compositions, so this is a flat
 // list — no shot timeline, no composition targets. Mirrors handleGetAnimaticState's per-asset
 // shape, reusing buildVariantCandidates/buildAddressFeedback.
-// The roster entry each reference asset id anchors, keyed by id. A `characters`/`props`/`locations`
-// entry is prose about the very image the card shows, so the card prints it — that is what makes
-// accepting the image a real read of `direction:<roster>.<id>`, and what the roster cascade on
-// submit stands on. The three rosters share the id namespace, so an id resolves to one entry.
-//
-// `needsReview` is the part's own acceptance standing (stale or never signed off). The card needs it
-// because the accept decision is otherwise keyed on the VARIANT: prose reworded against an unchanged,
-// already-accepted image moves no variant, so without this the row would read "accepted", offer
-// nothing to press, and the cascade would never fire — the exact loop this feature exists to close.
-type ReferenceRosterEntry = {
-  kind: DirectionRosterKind;
-  name: string;
-  description: string;
-  needsReview: boolean;
-};
-
-function voiceLevelKind(entries: ReferenceRosterEntry[] | undefined): LevelKind | undefined {
+function voiceLevelKind(entries: DirectionRosterEntryInfo[] | undefined): LevelKind | undefined {
   if (entries?.some((e) => e.kind === "character-voice")) return "voice";
   if (entries?.some((e) => e.kind === "narrator-voice")) return "narration";
   return undefined;
 }
 
+// The roster entry each reference asset id anchors, keyed by id. A `characters`/`props`/`locations`
+// entry is prose about the very image the card shows, so the card prints it — that is what makes
+// accepting the image a real read of `direction:<roster>.<id>`, and what the roster cascade on
+// submit stands on. The three rosters share the id namespace, so an id resolves to one entry.
 function referenceRosterEntries(
   direction: Direction | null,
   acceptance: DirectionAcceptance | null,
-): Map<string, ReferenceRosterEntry[]> {
-  const out = new Map<string, ReferenceRosterEntry[]>();
+): Map<string, DirectionRosterEntryInfo[]> {
+  const out = new Map<string, DirectionRosterEntryInfo[]>();
   if (!direction) return out;
   const parts = directionAcceptanceView(direction, acceptance).parts;
   const add = (

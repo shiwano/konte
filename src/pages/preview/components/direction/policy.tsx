@@ -1,6 +1,6 @@
 import type React from "react";
 
-import type { DirectionPolicyFieldInfo } from "../../types.js";
+import type { DirectionPolicyFieldInfo } from "../../../../core/types/review-state.js";
 import { DirTable, type NotesRenderer } from "./dir-table.js";
 
 // The value cell for one policy field, rendered from its structured shape. Each pairs a plain

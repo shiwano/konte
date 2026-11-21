@@ -1,5 +1,5 @@
 import type { ReelSubmitBody } from "../../../core/types/review-submit.js";
-import type { VideoPreviewState } from "../types.js";
+import type { ReelPreviewState } from "../../../core/types/review-state.js";
 import { keepDecisions, regenerateDecisions, type KeepChoice } from "./keep-or-regenerate.js";
 import type { SubmitInput } from "./use-review-session.js";
 import type { ReelMarks } from "./use-reel-decisions.js";
@@ -13,7 +13,7 @@ export function buildReelSubmitPayload({
   input: { addedFeedback, feedbackPatches, overallComment },
 }: {
   state: Pick<
-    VideoPreviewState,
+    ReelPreviewState,
     "shots" | "audioAssets" | "timelineStem" | "overlay" | "thumbnail" | "compositionRefVariants"
   >;
   marks: ReelMarks;

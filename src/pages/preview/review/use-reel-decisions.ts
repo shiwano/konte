@@ -2,7 +2,7 @@ import type React from "react";
 import { useCallback, useMemo } from "react";
 import { formatShotAddress } from "../../../core/address.js";
 import { shotAcceptable } from "../../../core/shot-acceptable.js";
-import type { ShotInfo, VideoPreviewState } from "../types.js";
+import type { ShotInfo, ReelPreviewState } from "../../../core/types/review-state.js";
 import { bulkAcceptState } from "./bulk-accept.js";
 import {
   EMPTY_KEEP_GRAPH,
@@ -59,7 +59,7 @@ export function useReelDecisions({
   effectiveVariants,
   takes,
 }: {
-  state: VideoPreviewState;
+  state: ReelPreviewState;
   reelStage: "animatic" | "video";
   marks: ReelMarks;
   setMarks: React.Dispatch<React.SetStateAction<ReelMarks>>;

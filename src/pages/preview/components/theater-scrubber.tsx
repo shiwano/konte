@@ -3,7 +3,7 @@ import { useCallback, useRef } from "react";
 import { formatTimecode } from "../format-time.js";
 import type { Playhead } from "../review/playhead.js";
 import { useScrubPreview } from "../review/use-scrub-preview.js";
-import type { ShotInfo, TimelineNote } from "../types.js";
+import type { ShotInfo, TimelineNote } from "../../../core/types/review-state.js";
 import { PlayheadLine, ScrubPreview } from "./scrub-preview.js";
 
 /**

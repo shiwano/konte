@@ -5,7 +5,11 @@ import { VideoPreview } from "./components/video-preview.js";
 import { DirectionPreview } from "./components/direction-preview.js";
 import { Layout } from "./components/layout.js";
 import { ReferencePreview } from "./components/reference-preview.js";
-import type { DirectionPreviewState, PreviewState, ReferencePreviewState } from "./types.js";
+import type {
+  DirectionPreviewState,
+  PreviewState,
+  ReferencePreviewState,
+} from "../../core/types/review-state.js";
 
 type BannerInfo = { type: "reload" | "error" | "update" | "ended"; message: string };
 

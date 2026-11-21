@@ -53,7 +53,7 @@ import type {
   VariantStatus,
   SongLineEdit,
   SongReadingInfo,
-} from "../types.js";
+} from "../../../core/types/review-state.js";
 import { AcceptButton } from "./accept-button.js";
 import { CheckIcon, CommentIcon, FilmIcon, GridIcon, MenuIcon, VolumeIcon } from "./icons.js";
 import { AuditionAudio } from "./audition-audio.js";

@@ -1,6 +1,6 @@
 import type React from "react";
 import { type LiveFeedbackFilter, liveFeedback } from "../review/live-feedback.js";
-import type { FeedbackInfo } from "../types.js";
+import type { FeedbackInfo } from "../../../core/types/review-state.js";
 import { PinMarker } from "./pin-marker.js";
 
 // A draft comment as the layer needs it: pinned ones are drawn, the rest skipped.

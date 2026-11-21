@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { VideoPreviewState } from "../../types.js";
+import type { ReelPreviewState } from "../../../../core/types/review-state.js";
 import { thumbnailShownAccepted, thumbnailSwitched } from "../thumbnail-view.js";
 
-type Thumbnail = NonNullable<VideoPreviewState["thumbnail"]>;
+type Thumbnail = NonNullable<ReelPreviewState["thumbnail"]>;
 
 const thumbnail = (over: Partial<Thumbnail> = {}): Thumbnail => ({
   target: "video:thumbnail",

@@ -1,6 +1,6 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
-import type { MediaKind, VariantInfo } from "../types.js";
+import type { MediaKind, VariantInfo } from "../../../core/types/review-state.js";
 import { ChevronLeftIcon, ChevronRightIcon } from "./icons.js";
 import { Modal } from "./modal.js";
 import { VariantDetail } from "./variant-detail.js";
