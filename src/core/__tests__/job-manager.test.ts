@@ -24,10 +24,12 @@ afterEach(async () => {
 // A row written past the manager's validation, as a crafted or damaged database would hold.
 function insertRaw(id: string, data: string): void {
   const db = new Database(jobsDbPath(tmpDir));
-  db.run(
-    "INSERT INTO jobs (id, kind, status, address, created_at, data) VALUES (?, ?, ?, ?, ?, ?)",
-    [id, "generation", "queued", null, "2026-01-01T00:00:00.000Z", data],
-  );
+  db.run("INSERT INTO jobs (id, status, created_at, data) VALUES (?, ?, ?, ?)", [
+    id,
+    "queued",
+    "2026-01-01T00:00:00.000Z",
+    data,
+  ]);
   db.close();
 }
 
@@ -37,6 +39,53 @@ describe("ensureDirs", () => {
 
     await fs.access(jobsDbPath(tmpDir));
     await fs.access(path.join(tmpDir, ".konte", "logs"));
+  });
+
+  // SUNSET(0.6.0): jobs kind and address columns
+  it("drops the kind and address columns of an earlier jobs database", async () => {
+    const legacy = new Database(jobsDbPath(tmpDir), { create: true });
+    legacy.run(`CREATE TABLE jobs (
+      id TEXT PRIMARY KEY, kind TEXT NOT NULL, status TEXT NOT NULL, address TEXT,
+      created_at TEXT NOT NULL, data TEXT NOT NULL)`);
+    legacy.run("CREATE INDEX jobs_status ON jobs(status)");
+    legacy.run("CREATE INDEX jobs_address ON jobs(address)");
+    legacy.close();
+    const old = await new JobManager(path.join(tmpDir, "scratch")).createExportJob({
+      outputDir: "dist/video/a",
+      allowUnaccepted: false,
+    });
+    const before = new Database(jobsDbPath(tmpDir));
+    before.run(
+      "INSERT INTO jobs (id, kind, status, address, created_at, data) VALUES (?, ?, ?, ?, ?, ?)",
+      [
+        old.id,
+        old.kind,
+        old.status,
+        null,
+        "2026-01-01T00:00:00.000Z",
+        JSON.stringify({ ...old, createdAt: "2026-01-01T00:00:00.000Z" }),
+      ],
+    );
+    before.close();
+
+    const created = await manager.createExportJob({
+      outputDir: "dist/video/b",
+      allowUnaccepted: false,
+    });
+
+    expect((await manager.listJobs()).map((job) => job.id)).toEqual([old.id, created.id]);
+    const db = new Database(jobsDbPath(tmpDir));
+    const columns = db
+      .query<{ name: string }, []>("PRAGMA table_info(jobs)")
+      .all()
+      .map((column) => column.name);
+    const indexes = db
+      .query<{ name: string }, []>("PRAGMA index_list(jobs)")
+      .all()
+      .map((index) => index.name);
+    db.close();
+    expect(columns).toEqual(["id", "status", "created_at", "data"]);
+    expect(indexes).not.toContain("jobs_address");
   });
 });
 

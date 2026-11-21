@@ -201,15 +201,33 @@ export function closeJobDatabase(videoRoot: string): void {
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS jobs (
   id TEXT PRIMARY KEY,
-  kind TEXT NOT NULL,
   status TEXT NOT NULL,
-  address TEXT,
   created_at TEXT NOT NULL,
   data TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS jobs_status ON jobs(status);
-CREATE INDEX IF NOT EXISTS jobs_address ON jobs(address);
 `;
+
+// SUNSET(0.6.0): jobs kind and address columns
+function legacyColumns(db: Database): Set<string> {
+  const names = db
+    .query<{ name: string }, []>("PRAGMA table_info(jobs)")
+    .all()
+    .map((column) => column.name);
+  return new Set(names.filter((name) => name === "kind" || name === "address"));
+}
+
+// SUNSET(0.6.0): jobs kind and address columns
+function dropLegacyColumns(db: Database): void {
+  if (legacyColumns(db).size === 0) return;
+  db.transaction(() => {
+    const columns = legacyColumns(db);
+    if (columns.size === 0) return;
+    db.run("DROP INDEX IF EXISTS jobs_address");
+    if (columns.has("kind")) db.run("ALTER TABLE jobs DROP COLUMN kind");
+    if (columns.has("address")) db.run("ALTER TABLE jobs DROP COLUMN address");
+  }).immediate();
+}
 
 function openDatabase(dbPath: string): Database {
   const cached = connections.get(dbPath);
@@ -236,6 +254,7 @@ function openDatabase(dbPath: string): Database {
     db.run("PRAGMA busy_timeout = 10000");
     db.run("PRAGMA journal_mode = WAL");
     db.run(SCHEMA);
+    dropLegacyColumns(db);
     connections.set(dbPath, { db, ino: statSync(dbPath).ino });
     return db;
   } catch (err) {
@@ -247,6 +266,8 @@ function openDatabase(dbPath: string): Database {
 }
 
 type JobRow = { data: string };
+
+const ORDER = "ORDER BY created_at, id";
 
 function parseRow(row: JobRow): JobRecord | null {
   try {
@@ -869,15 +890,15 @@ export class JobManager {
     try {
       rows = filter?.status
         ? this.db
-            .query<JobRow, [string]>("SELECT data FROM jobs WHERE status = ?")
+            .query<JobRow, [string]>(`SELECT data FROM jobs WHERE status = ? ${ORDER}`)
             .all(filter.status)
         : filter?.active
           ? this.db
               .query<JobRow, []>(
-                "SELECT data FROM jobs WHERE status NOT IN ('completed', 'failed', 'cancelled')",
+                `SELECT data FROM jobs WHERE status NOT IN ('completed', 'failed', 'cancelled') ${ORDER}`,
               )
               .all()
-          : this.db.query<JobRow, []>("SELECT data FROM jobs").all();
+          : this.db.query<JobRow, []>(`SELECT data FROM jobs ${ORDER}`).all();
     } catch (err) {
       throw new KonteError("STATE_READ_FAILED", `Failed to read jobs: ${errorMessage(err)}`);
     }
@@ -886,11 +907,7 @@ export class JobManager {
       const job = parseRow(row);
       if (job) jobs.push(job);
     }
-    return jobs.sort(
-      (a, b) =>
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() ||
-        a.id.localeCompare(b.id),
-    );
+    return jobs;
   }
 
   // --- Logs ---
@@ -1001,19 +1018,11 @@ export class JobManager {
     const job = result.data;
     try {
       this.db.run(
-        `INSERT INTO jobs (id, kind, status, address, created_at, data)
-         VALUES (?, ?, ?, ?, ?, ?)
+        `INSERT INTO jobs (id, status, created_at, data)
+         VALUES (?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
-           kind = excluded.kind, status = excluded.status, address = excluded.address,
-           created_at = excluded.created_at, data = excluded.data`,
-        [
-          job.id,
-          job.kind,
-          job.status,
-          job.kind === "generation" ? job.address : null,
-          job.createdAt,
-          JSON.stringify(job),
-        ],
+           status = excluded.status, created_at = excluded.created_at, data = excluded.data`,
+        [job.id, job.status, job.createdAt, JSON.stringify(job)],
       );
     } catch (err) {
       throw new KonteError("STATE_WRITE_FAILED", `Failed to write job: ${errorMessage(err)}`);

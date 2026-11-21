@@ -112,34 +112,29 @@ describe("JobWatcher fs.watch fast path", () => {
 
     const now = new Date().toISOString();
     const db = new Database(jobsDbPath(tmpDir));
-    db.run(
-      "INSERT INTO jobs (id, kind, status, address, created_at, data) VALUES (?, ?, ?, ?, ?, ?)",
-      [
-        "v-evt00001",
-        "generation",
-        "queued",
-        "video:shot.01.motion",
-        now,
-        JSON.stringify({
-          kind: "generation",
-          id: "v-evt00001",
-          address: "video:shot.01.motion",
-          variantId: "v-evt00001",
-          status: "queued",
-          dependsOnAssets: [],
-          backendKind: "comfy",
-          backendJobId: null,
-          progress: null,
-          error: null,
-          outputFiles: [],
-          metadata: {},
-          provenance: { workflowHash: null, inputHash: null, resolvedDependencies: {} },
-          createdAt: now,
-          updatedAt: now,
-          completedAt: null,
-        }),
-      ],
-    );
+    db.run("INSERT INTO jobs (id, status, created_at, data) VALUES (?, ?, ?, ?)", [
+      "v-evt00001",
+      "queued",
+      now,
+      JSON.stringify({
+        kind: "generation",
+        id: "v-evt00001",
+        address: "video:shot.01.motion",
+        variantId: "v-evt00001",
+        status: "queued",
+        dependsOnAssets: [],
+        backendKind: "comfy",
+        backendJobId: null,
+        progress: null,
+        error: null,
+        outputFiles: [],
+        metadata: {},
+        provenance: { workflowHash: null, inputHash: null, resolvedDependencies: {} },
+        createdAt: now,
+        updatedAt: now,
+        completedAt: null,
+      }),
+    ]);
     db.close();
 
     try {
