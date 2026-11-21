@@ -304,9 +304,9 @@ export function summarizeDirectionAcceptance(
   };
 }
 
-// The spend gate's question, answered without walking the tree when it can be: `whole.hash` is
-// stamped only while `parts` covers the live set exactly, and `projectDirection` subsumes every part
-// hash, so a matching whole-direction hash means no part has moved since. A mismatch proves nothing
+// The spend gate's question, answered without the per-part comparison when it can be: `whole.hash`
+// is stamped only while `parts` covers the live set exactly, and `directionHash` is the part hashes
+// themselves, so a matching whole-direction hash means no part has moved since. A mismatch proves nothing
 // on its own (any edit changes it, including one to a part already re-accepted), so it falls through
 // to the full comparison rather than reporting a verdict.
 //

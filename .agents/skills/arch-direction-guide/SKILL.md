@@ -44,7 +44,7 @@ A structural error (`validateDirectionStructure`, `DirectionErrorCode`) is a fix
 - `buildArcNode`'s `items` holds the arc shots only, so every role, `fn` and share check skips an aside, and `nodeDuration` sums `items` — an aside's span is outside the share denominator at every scale.
 - Readers: `collectArcShots` (narrative + graphic; the default), `collectCameraShots` (narrative; for `setup` / `lineup` / `join`), `collectShots` (every shot; the clock, the id namespace, the stage's coverage).
 - Structural: `aside-empty-label`.
-- A reviewable part: `projectShotShape` hashes `kind` and `duration`, `projectShot` adds its label, `directionPartContents` emits a `kind: "aside"` content with the arc's columns absent. `directionShotCascadeTargets` gives it only its own part (no setup, no act chain).
+- A reviewable part: `projectShotShape` hashes `kind` and `duration`, `projectShot` adds its label, `directionParts` emits a `kind: "aside"` content with the arc's columns absent. `directionShotCascadeTargets` gives it only its own part (no setup, no act chain).
 
 ## Graphic shots and cutins
 
@@ -243,16 +243,16 @@ A `song-analysis` job reads a take into `song.json` beside it, hashed in the var
 
 ## Per-part hashing
 
-`directionPartHashes` (`direction-hash.ts`) is the set of reviewable parts: what it emits is what the review page shows and takes notes on, and — bar the brief's (`isSignedDirectionPart`) — what its Accept signs and the gate demands.
+`directionParts` (`direction-parts.ts`) is the set of reviewable parts, one walk emitting each part's `hashInput` and `content`; `directionPartHashes` (`direction-hash.ts`) hashes the one, `directionPartContents` reads the other. What it emits is what the review page shows and takes notes on, and — bar the brief's (`isSignedDirectionPart`) — what its Accept signs and the gate demands.
 
 - Key: the part's `direction:<field-path>`; value: everything a reviewer sees on it.
 - One part per: the root arc (`sequence`), each filled brief field, each policy field (`policy.format`/`policy.lang`/`policy.fonts`, always), each shot, each non-root node, each waiver, each roster entry (`setups` included), each cast character voice (`characters.<id>.voice`, only while cast) and `narrator`.
 - A character's hash excludes `voice` — look and voice are two assets accepted separately, each aging out on its own edit.
 - A shot's hash excludes its setup's framing/location and hashes the `setup` id — re-pointing a shot ages it out, re-describing a frame ages out only that setup's part.
 - The root `sequence` hashes `projectShape` (shots, order, lengths, the roster ids), not prose, so an arc note survives a brief reword. `setups` enters as `projectSetupShape` — ids plus `location`/`framing`, the piece's size and space cadence. Every other part hashes its prose too.
-- `directionPartContents` (`direction-parts.ts`) is the read side over the same key set; a part with a hash and no content is one the gate demands and no reader renders — keep the two walks in step.
 - A media-less comment and an acceptance both snapshot the part's hash and age out on the same edit (comments: `arch-review-system-guide`).
-- `directionHash` (`projectDirection`) is the whole-direction short-circuit; it holds only because `projectDirection` is a superset of every part hash's input. When adding a part hash, extend `projectDirection` too — otherwise an edit can leave an acceptance standing that no human gave.
+- `directionHash` is the hash of the part-hash map, the whole-direction short-circuit; a part added to `directionParts` reaches it with nothing else to extend.
+- Changing any part's `hashInput` ages out every accept and comment on that part; the golden test in `direction-hash.test.ts` pins them.
 
 ## Human acceptance
 

@@ -804,11 +804,205 @@ describe("directionPartHashes voices", () => {
     );
   });
 
-  // directionHash is the acceptance short-circuit, so it must be a superset of every part hash's
-  // input — a voice edit no human re-read must never leave it standing.
   it("moves directionHash on a voice edit", () => {
     const d = cast();
     (d as { narrator: { description: string } }).narrator.description = "clipped";
     expect(directionHash(d)).not.toBe(directionHash(cast()));
+  });
+});
+
+// Every part a direction can hold, so a refactor of the projections is held to the exact hashes
+// earlier accepts and comments were stamped with.
+function everyPart(): Direction {
+  return {
+    brief: {
+      logline: "a girl wakes and leaves",
+      hook: "the door is open",
+      audience: "teens",
+      tone: "quiet",
+      look: "pastel",
+      outOfScope: ["no dialogue"],
+      tolerances: ["soft focus"],
+      references: [
+        { clip: "studies/ref.mp4", link: "https://example.com", take: "cuts", avoid: "captions" },
+      ],
+      source: { span: "ch1", keep: ["the door"], drop: ["the dog"] },
+    },
+    characters: {
+      cat: { name: "Cat", description: "a black cat", promptDepiction: "cat" },
+      alice: {
+        name: "Alice",
+        description: "a girl in red",
+        promptDepiction: "alice",
+        voice: { id: "aliceVoice", description: "bright" },
+      },
+    },
+    narrator: { id: "narratorVoice", description: "warm" },
+    props: { key: { name: "the key", promptDepiction: "key", description: "a brass key" } },
+    locations: {
+      bedroom: {
+        name: "the bedroom",
+        description: "a sunlit bedroom",
+        landmarks: {
+          window: { name: "window", promptDepiction: "window", description: "a tall window" },
+          bedroomMark: { name: "the mark", promptDepiction: "mark", description: "a mark" },
+        },
+        views: { front: { holds: ["window", "bedroomMark"] }, reverse: { holds: ["bedroomMark"] } },
+      },
+    },
+    setups: {
+      ...structuredClone(setups),
+      "bedroom-window": {
+        name: "the window",
+        description: "in on the glass",
+        location: "bedroom",
+        framing: "close",
+        holds: ["window"],
+        within: "bedroom-wide",
+      },
+      "bedroom-root": {
+        name: "the root",
+        description: "a root",
+        location: "bedroom",
+        framing: "wide",
+        view: "reverse",
+        holds: [],
+        within: null,
+      },
+    },
+    lenses: [
+      { name: "zz-custom", roles: ["a", "b"] },
+      { name: "aa-custom", roles: ["c"] },
+    ],
+    policy: {
+      format: { fps: 24, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } },
+      lang: "ja",
+      fonts: ["Noto Sans JP", "M PLUS 1p"],
+      song: "song",
+    },
+    lyrics: [
+      {
+        label: "verse",
+        singer: "alice",
+        lines: ["la la", { text: "lu lu", singer: ["alice", "cat"] }],
+      },
+    ],
+    waivers: { "empty-synopsis_s1": "deliberate", "multi-sentence-action_03": "quiet" },
+    sequence: {
+      lens: "three-act",
+      pleasure: "emotional",
+      sequences: [
+        {
+          id: "s1",
+          role: "setup-act",
+          synopsis: "ordinary world",
+          lens: "kishotenketsu",
+          pleasure: "emotional",
+          shots: [
+            { id: "00", kind: "aside", label: "title", beats: 8, telop: ["第一話"] },
+            {
+              id: "01",
+              role: "hero",
+              action: "she wakes",
+              setup: "bedroom-medium",
+              beats: 4,
+              lineup: ["alice", "cat"],
+              lineupTo: ["cat", "alice"],
+              passing: ["cat"],
+              props: ["key"],
+              join: "continuous",
+              coverage: true,
+              script: [{ character: "alice", text: "morning", acting: "sleepy" }],
+              telop: ["朝"],
+              cutin: {
+                setup: "bedroom-window",
+                lineup: ["cat"],
+                lineupTo: ["cat"],
+                passing: ["cat"],
+                props: ["key"],
+                join: "continuous",
+              },
+            },
+          ],
+        },
+        {
+          id: "s2",
+          role: "climax-act",
+          synopsis: "the door",
+          lens: "mini-drama",
+          pleasure: "cute",
+          sequences: [
+            {
+              id: "s2a",
+              role: "hook",
+              synopsis: "inner act",
+              lens: "mini-drama",
+              pleasure: "cute",
+              shots: [
+                {
+                  id: "02",
+                  kind: "graphic",
+                  role: "hero",
+                  action: "a map",
+                  beats: 2,
+                  script: [{ narration: "far away" }],
+                  cutin: { setup: "bedroom-close", lineup: ["alice"] },
+                },
+                {
+                  id: "03",
+                  role: "hero",
+                  action: "she leaves. the door shuts.",
+                  setup: "bedroom-root",
+                  duration: 3,
+                  lineup: [],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  } as unknown as Direction;
+}
+
+describe("direction hashes", () => {
+  it("hash every part as they were stamped", () => {
+    expect(Object.fromEntries(directionPartHashes(everyPart()))).toEqual({
+      "direction:brief.audience": "0e2f87db917a",
+      "direction:brief.hook": "08cb6f2faf7f",
+      "direction:brief.logline": "5a53642a8ea4",
+      "direction:brief.look": "4df3b614ea3f",
+      "direction:brief.outOfScope": "53408cd07821",
+      "direction:brief.references": "3ba29b096d33",
+      "direction:brief.source": "bb8c380e6e22",
+      "direction:brief.tolerances": "c25630587bb6",
+      "direction:brief.tone": "7024344971a6",
+      "direction:characters.alice": "ce95ecbb6a04",
+      "direction:characters.alice.voice": "c4afe95fbc22",
+      "direction:characters.cat": "84906acb09b4",
+      "direction:locations.bedroom": "bd963c677a26",
+      "direction:lyrics": "05a2878a7ca2",
+      "direction:narrator": "1b97fd6e7b18",
+      "direction:policy.fonts": "6e471ce68112",
+      "direction:policy.format": "5d06507a2664",
+      "direction:policy.lang": "4a86a3eca477",
+      "direction:policy.song": "89b6baca4b55",
+      "direction:props.key": "1a63a212d8eb",
+      "direction:sequence": "154706ae79ab",
+      "direction:sequence.sequences.s1": "7a10e4632cbb",
+      "direction:sequence.sequences.s1.shots.00": "0ea18c459bfd",
+      "direction:sequence.sequences.s1.shots.01": "bd1d428d40f0",
+      "direction:sequence.sequences.s2": "86514ab42412",
+      "direction:sequence.sequences.s2.sequences.s2a": "9fbf7a327146",
+      "direction:sequence.sequences.s2.sequences.s2a.shots.02": "4f27de7a7cd7",
+      "direction:sequence.sequences.s2.sequences.s2a.shots.03": "4f00c977f9e0",
+      "direction:setups.bedroom-close": "1c85183c06c5",
+      "direction:setups.bedroom-medium": "3a9421ae9921",
+      "direction:setups.bedroom-root": "5edd4a739bce",
+      "direction:setups.bedroom-wide": "f4a6ee58954e",
+      "direction:setups.bedroom-window": "58d9dfee2de4",
+      "direction:waivers.empty-synopsis_s1": "85fc30a052fc",
+      "direction:waivers.multi-sentence-action_03": "0871bca310a6",
+    });
   });
 });

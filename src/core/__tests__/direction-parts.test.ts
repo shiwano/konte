@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { directionPartHashes } from "../direction-hash.js";
 import { directionPartContents } from "../direction-parts.js";
 import type { Direction } from "../dsl/direction.js";
 
@@ -76,56 +75,6 @@ function flat(): Direction {
   } as Direction;
 }
 
-function sequenced(): Direction {
-  return {
-    brief: { logline: "an act of acts" },
-    characters: {},
-    locations: {
-      bedroom: {
-        name: "the bedroom",
-        description: "a sunlit bedroom",
-        landmarks: {
-          bedroomMark: {
-            name: "the mark",
-            promptDepiction: "mark",
-            description: "a mark only this place has",
-          },
-        },
-        views: { front: { holds: ["bedroomMark"] } },
-      },
-    },
-    setups,
-    policy: {
-      format: { fps: 24, size: { megapixels: 0.589824, delivery: { width: 1024, height: 576 } } },
-      lang: "en",
-    },
-    sequence: {
-      lens: "three-act",
-      pleasure: "emotional",
-      sequences: [
-        {
-          id: "s1",
-          role: "setup-act",
-          synopsis: "ordinary world",
-          lens: "kishotenketsu",
-          pleasure: "emotional",
-          shots: [
-            {
-              id: "01",
-              role: "hero",
-              action: "intro",
-              setup: "bedroom-medium",
-              duration: 5,
-              lineup: [],
-            },
-          ],
-        },
-      ],
-    },
-    waivers: { "empty-synopsis_s1": "deliberate" },
-  } as Direction;
-}
-
 // The same piece with its cast voiced: a character's voice and the narrator's, the two parts that
 // exist only when something is cast.
 function voiced(): Direction {
@@ -136,20 +85,7 @@ function voiced(): Direction {
 }
 
 describe("directionPartContents", () => {
-  // The two walks are the same part set seen from two sides — a part the gate demands and this
-  // cannot show would be unreadable, and one it shows that has no hash is unreviewable.
-  it.each([
-    ["flat", flat],
-    ["sequenced", sequenced],
-    ["voiced", voiced],
-  ])("covers exactly the parts directionPartHashes emits (%s)", (_name, build) => {
-    const direction = build();
-    expect([...directionPartContents(direction).keys()].sort()).toEqual(
-      [...directionPartHashes(direction).keys()].sort(),
-    );
-  });
-
-  it("carries the brief's references, keyed like their hash", () => {
+  it("carries the brief's references", () => {
     const direction = flat();
     const references = [{ clip: "studies/ref.mp4", take: "the cut rate", avoid: "the captions" }];
     (direction as { brief: { references?: unknown[] } }).brief.references = references;
@@ -157,9 +93,6 @@ describe("directionPartContents", () => {
       kind: "references",
       references,
     });
-    expect([...directionPartContents(direction).keys()].sort()).toEqual(
-      [...directionPartHashes(direction).keys()].sort(),
-    );
   });
 
   it("carries each part's content", () => {
