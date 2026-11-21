@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { writeFileAtomic } from "../atomic-write.js";
+import { writeAtomically, writeFileAtomic } from "../atomic-write.js";
 
 vi.mock("node:fs/promises", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs/promises")>();
@@ -94,5 +94,33 @@ describe("writeFileAtomic", () => {
       expect(fs.rename).toHaveBeenCalledTimes(1);
       expect(await fs.readdir(tmpDir)).toEqual([]);
     });
+  });
+});
+
+describe("writeAtomically", () => {
+  it("hands the writer a temp ending in the destination's extension, named apart from it", async () => {
+    const target = path.join(tmpDir, "frame-%03d.jpg");
+    let temp = "";
+    await writeAtomically(target, async (tmp) => {
+      temp = tmp;
+      await fs.writeFile(tmp, "jpeg");
+    });
+    expect(path.dirname(temp)).toBe(tmpDir);
+    expect(temp.endsWith(".jpg")).toBe(true);
+    expect(temp).not.toContain("%");
+    expect(await fs.readdir(tmpDir)).toEqual(["frame-%03d.jpg"]);
+  });
+
+  it("keeps the file already at the destination when the writer fails", async () => {
+    const target = path.join(tmpDir, "frame.jpg");
+    await fs.writeFile(target, "old");
+    await expect(
+      writeAtomically(target, async (tmp) => {
+        await fs.writeFile(tmp, "partial");
+        throw new Error("ffmpeg failed");
+      }),
+    ).rejects.toThrow("ffmpeg failed");
+    expect(await fs.readFile(target, "utf-8")).toBe("old");
+    expect(await fs.readdir(tmpDir)).toEqual(["frame.jpg"]);
   });
 });

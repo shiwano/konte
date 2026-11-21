@@ -5,8 +5,7 @@ import { writeFileAtomic } from "./atomic-write.js";
 import { FFMPEG_CONCURRENCY, mapConcurrent } from "./concurrency.js";
 import { hashFile, sha256Hex } from "./content-hash.js";
 import { KonteError } from "./errors.js";
-import { SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "./ffmpeg-binary.js";
-import { ffmpegCanDrawText, runFfmpeg } from "./ffmpeg-exec.js";
+import { ffmpegCanDrawText, tileFrames, writeFrame } from "./ffmpeg-exec.js";
 import { makeWorkTmpDir } from "./exec-file.js";
 import { videoCacheDir } from "./video-cache.js";
 
@@ -298,49 +297,25 @@ async function renderCell(
   labelFile: string | null,
   workDir: string,
 ): Promise<void> {
-  await runFfmpeg(
-    [
-      "-y",
-      ...SINGLE_FRAME_INPUT_ARGS,
-      "-i",
-      cell.file,
-      ...SINGLE_FRAME_OUTPUT_ARGS,
-      "-vf",
-      cellFilters(layout, labelFile),
-      "-frames:v",
-      "1",
-      "-q:v",
-      "3",
-      outputPath,
-    ],
-    `Failed to render contact sheet cell for ${cell.label}`,
-    { cwd: workDir },
-  );
-  if (!existsSync(outputPath)) {
-    throw new KonteError("FFMPEG_ERROR", `ffmpeg produced no cell for ${cell.label}`);
-  }
+  await writeFrame({
+    input: cell.file,
+    filters: cellFilters(layout, labelFile),
+    quality: 3,
+    output: outputPath,
+    what: `Failed to render contact sheet cell for ${cell.label}`,
+    cwd: workDir,
+  });
 }
 
 async function renderBlankCell(outputPath: string, layout: ContactSheetLayout): Promise<void> {
-  await runFfmpeg(
-    [
-      "-y",
-      ...SINGLE_FRAME_INPUT_ARGS,
-      "-f",
-      "lavfi",
-      "-i",
-      `color=c=${BACKGROUND}:s=${layout.cellWidth}x${layout.cellHeight}`,
-      ...SINGLE_FRAME_OUTPUT_ARGS,
-      "-vf",
-      `format=${CELL_PIX_FMT}`,
-      "-frames:v",
-      "1",
-      "-q:v",
-      "3",
-      outputPath,
-    ],
-    "Failed to render contact sheet padding",
-  );
+  await writeFrame({
+    input: `color=c=${BACKGROUND}:s=${layout.cellWidth}x${layout.cellHeight}`,
+    inputArgs: ["-f", "lavfi"],
+    filters: `format=${CELL_PIX_FMT}`,
+    quality: 3,
+    output: outputPath,
+    what: "Failed to render contact sheet padding",
+  });
 }
 
 interface ContactSheetResult {
@@ -521,28 +496,17 @@ export async function drawContactSheet(
     );
 
     const tiled = path.join(tmpDir, "sheet.jpg");
-    await runFfmpeg(
-      [
-        "-y",
-        ...SINGLE_FRAME_INPUT_ARGS,
-        "-framerate",
-        "1",
-        "-start_number",
-        "1",
-        "-i",
-        "cell-%03d.jpg",
-        ...SINGLE_FRAME_OUTPUT_ARGS,
-        "-vf",
-        `tile=${layout.columns}x${layout.rows}:padding=${TILE_PADDING}:margin=${TILE_MARGIN}:color=${BACKGROUND}`,
-        "-frames:v",
-        "1",
-        "-q:v",
-        "3",
-        tiled,
-      ],
-      "Failed to tile contact sheet",
-      { cwd: tmpDir },
-    );
+    await tileFrames({
+      dir: tmpDir,
+      pattern: "cell-%03d.jpg",
+      columns: layout.columns,
+      rows: layout.rows,
+      padding: TILE_PADDING,
+      margin: TILE_MARGIN,
+      color: BACKGROUND,
+      output: tiled,
+      what: "Failed to tile contact sheet",
+    });
 
     return { bytes: await fs.readFile(tiled), labelled };
   } finally {

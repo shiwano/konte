@@ -1,5 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { writeAtomically } from "./atomic-write.js";
 import { KonteError } from "./errors.js";
 import { runFfmpeg } from "./ffmpeg-exec.js";
 
@@ -34,25 +35,27 @@ export async function writePng(image: RgbImage, file: string): Promise<void> {
   const raw = `${file}.${process.pid}.rgb`;
   try {
     await fs.writeFile(raw, image.data);
-    await runFfmpeg(
-      [
-        "-v",
-        "error",
-        "-y",
-        "-f",
-        "rawvideo",
-        "-pix_fmt",
-        "rgb24",
-        "-s",
-        `${image.width}x${image.height}`,
-        "-i",
-        raw,
-        "-frames:v",
-        "1",
-        file,
-      ],
-      `ffmpeg could not write ${file}`,
-    );
+    await writeAtomically(file, async (tmp) => {
+      await runFfmpeg(
+        [
+          "-v",
+          "error",
+          "-y",
+          "-f",
+          "rawvideo",
+          "-pix_fmt",
+          "rgb24",
+          "-s",
+          `${image.width}x${image.height}`,
+          "-i",
+          raw,
+          "-frames:v",
+          "1",
+          tmp,
+        ],
+        `ffmpeg could not write ${file}`,
+      );
+    });
   } finally {
     await fs.rm(raw, { force: true });
   }

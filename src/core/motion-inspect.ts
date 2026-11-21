@@ -2,9 +2,8 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { FFMPEG_CONCURRENCY, mapConcurrent } from "./concurrency.js";
-import { KonteError, errorMessage } from "./errors.js";
-import { ffmpegBin, SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "./ffmpeg-binary.js";
-import { ffmpegCanDrawText, hasBytes, runFfmpeg } from "./ffmpeg-exec.js";
+import { KonteError } from "./errors.js";
+import { ffmpegCanDrawText, hasBytes, runFfmpeg, tileFrames, writeFrame } from "./ffmpeg-exec.js";
 import { inferMediaType } from "./media-type.js";
 import { shotById } from "./shot-index.js";
 import type { StateManager } from "./state/index.js";
@@ -18,7 +17,7 @@ import { frameInterval, lastSeekableTime } from "./frame-extract.js";
 import { shotFrameDir } from "./feedback-frames.js";
 import { probeVideo, type VideoProbeResult } from "./video-probe.js";
 import type { StageDefinition } from "./types/index.js";
-import { execFileAsync, makeWorkTmpDir } from "./exec-file.js";
+import { makeWorkTmpDir } from "./exec-file.js";
 import { formatSeconds } from "./format-duration.js";
 import { motionVariantCacheDir } from "./video-cache.js";
 
@@ -701,6 +700,7 @@ async function extractStripFrame(
   timestamp: number | null,
   outputPath: string,
   label: string | null,
+  what: string,
 ): Promise<void> {
   const filters = [`scale=${STRIP_FRAME_WIDTH}:-2`];
   if (label) {
@@ -709,59 +709,29 @@ async function extractStripFrame(
       `drawtext=text='${label}':x=6:y=6:fontsize=${fontsize}:fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=4`,
     );
   }
-  const args = [
-    "-y",
-    ...SINGLE_FRAME_INPUT_ARGS,
-    ...(timestamp == null ? [] : ["-ss", String(timestamp)]),
-    "-i",
-    sourcePath,
-    ...SINGLE_FRAME_OUTPUT_ARGS,
-    "-frames:v",
-    "1",
-    "-vf",
-    filters.join(","),
-    "-q:v",
-    "3",
-    outputPath,
-  ];
-  const ffmpeg = await ffmpegBin();
-  await execFileAsync(ffmpeg, args);
+  await writeFrame({
+    input: sourcePath,
+    seek: timestamp ?? undefined,
+    filters: filters.join(","),
+    quality: 3,
+    output: outputPath,
+    what,
+  });
 }
 
-// Tile `frame-001.jpg`… in `framesDir` into one sheet at `tilePath`. The caller writes `tilePath`
-// beside its destination and moves it into place: a strip cache is keyed by the file's existence
-// alone, so a half-written sheet left by a failed run would be served forever.
-async function tileStripFrames(
-  framesDir: string,
-  count: number,
-  tilePath: string,
-  outDir: string,
-): Promise<void> {
-  const cols = Math.ceil(Math.sqrt(count));
-  const rows = Math.ceil(count / cols);
-  mkdirSync(outDir, { recursive: true });
-  const tileArgs = [
-    "-y",
-    ...SINGLE_FRAME_INPUT_ARGS,
-    "-framerate",
-    "1",
-    "-start_number",
-    "1",
-    "-i",
-    "frame-%03d.jpg",
-    ...SINGLE_FRAME_OUTPUT_ARGS,
-    "-vf",
-    `tile=${cols}x${rows}:padding=6:margin=6:color=0x111111`,
-    "-frames:v",
-    "1",
-    "-q:v",
-    "3",
-    tilePath,
-  ];
-  await runFfmpeg(tileArgs, "Failed to tile motion strip", { cwd: framesDir });
-  if (!hasBytes(tilePath)) {
-    throw new KonteError("FFMPEG_ERROR", "ffmpeg wrote no motion strip");
-  }
+async function tileStripFrames(framesDir: string, count: number, outFile: string): Promise<void> {
+  const columns = Math.ceil(Math.sqrt(count));
+  await tileFrames({
+    dir: framesDir,
+    pattern: "frame-%03d.jpg",
+    columns,
+    rows: Math.ceil(count / columns),
+    padding: 6,
+    margin: 6,
+    color: "0x111111",
+    output: outFile,
+    what: "Failed to tile motion strip",
+  });
 }
 
 // Render a tiled contact sheet of frames around a window (or the whole clip) into the variant's
@@ -836,39 +806,8 @@ export async function renderMotionStrip(opts: {
   }
 
   const tmpDir = await makeWorkTmpDir("konte-strip-");
-  const tilePath = path.join(outDir, `.${path.basename(tmpDir)}.jpg`);
   try {
     const useLabel = await ffmpegCanDrawText();
-    let lastFailure = "";
-
-    // ffmpeg reports "this seek found no frame" two ways — a non-zero exit, and exit 0 with nothing
-    // written — and leaves whatever was already at the path untouched when it fails. So an attempt
-    // clears its target first and then judges by the bytes that came back, and neither form escapes
-    // as a raw ffmpeg dump.
-    //
-    // `seekAt` is where the frame is read from, `labelAt` what gets burned in — they part only when a
-    // step-back rescues a tile, and the label follows the *requested* moment so it agrees with the
-    // timestamp this function returns (and returns again from cache on every later run).
-    const tryFrameAt = async (
-      seekAt: number,
-      labelAt: number,
-      framePath: string,
-    ): Promise<boolean> => {
-      rmSync(framePath, { force: true });
-      try {
-        await extractStripFrame(
-          videoPath,
-          seekAt,
-          framePath,
-          useLabel ? formatSeconds(labelAt, 2) : null,
-        );
-      } catch (err) {
-        lastFailure = errorMessage(err);
-        return false;
-      }
-      return hasBytes(framePath);
-    };
-
     const interval = frameInterval(waveform.nativeFps);
     // Each tile is its own ffmpeg seek writing its own file, so they run several at a time.
     await mapConcurrent(timestamps, FFMPEG_CONCURRENCY, async (at, i) => {
@@ -877,25 +816,29 @@ export async function renderMotionStrip(opts: {
       // timestamp is what gets reported and burned in either way: it is a pure function of the spec,
       // and the cached strip is returned with it on every later run, so a rescued tile must not make
       // this run's numbers disagree with the next one's over at most two frames.
-      let landed = false;
-      for (let back = 0; back <= MAX_SEEK_STEPBACK && !landed; back++) {
+      let failure: unknown;
+      for (let back = 0; back <= MAX_SEEK_STEPBACK; back++) {
         const t = Math.max(0, at - back * interval);
-        landed = await tryFrameAt(t, at, framePath);
-        if (!landed && t === 0) break;
+        try {
+          await extractStripFrame(
+            videoPath,
+            t,
+            framePath,
+            useLabel ? formatSeconds(at, 2) : null,
+            `ffmpeg produced no frame at ${at}s`,
+          );
+          return;
+        } catch (err) {
+          failure = err;
+        }
+        if (t === 0) break;
       }
-      if (!landed) {
-        throw new KonteError(
-          "FFMPEG_ERROR",
-          `ffmpeg produced no frame at ${at}s${lastFailure ? `: ${lastFailure}` : ""}`,
-        );
-      }
+      throw failure;
     });
 
-    await tileStripFrames(tmpDir, timestamps.length, tilePath, outDir);
-    await fs.rename(tilePath, outFile);
+    await tileStripFrames(tmpDir, timestamps.length, outFile);
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
-    await fs.rm(tilePath, { force: true });
   }
 
   return { path: outFile, timestamps, window };
@@ -988,25 +931,22 @@ export async function renderCompositionMotionStrip(opts: {
   if (hasBytes(outFile)) return { path: outFile, timestamps, window };
 
   const tmpDir = await makeWorkTmpDir("konte-strip-");
-  const tilePath = path.join(outDir, `.${path.basename(tmpDir)}.jpg`);
   try {
     const useLabel = await ffmpegCanDrawText();
     await mapConcurrent(framePaths, FFMPEG_CONCURRENCY, async (source, i) => {
       const framePath = path.join(tmpDir, `frame-${String(i + 1).padStart(3, "0")}.jpg`);
       const label = useLabel ? formatSeconds(timestamps[i]!, 2) : null;
-      const what = `ffmpeg could not scale the frame at ${timestamps[i]}s`;
-      try {
-        await extractStripFrame(source, null, framePath, label);
-      } catch (err) {
-        throw new KonteError("FFMPEG_ERROR", `${what}: ${errorMessage(err)}`);
-      }
-      if (!hasBytes(framePath)) throw new KonteError("FFMPEG_ERROR", what);
+      await extractStripFrame(
+        source,
+        null,
+        framePath,
+        label,
+        `ffmpeg could not scale the frame at ${timestamps[i]}s`,
+      );
     });
-    await tileStripFrames(tmpDir, framePaths.length, tilePath, outDir);
-    await fs.rename(tilePath, outFile);
+    await tileStripFrames(tmpDir, framePaths.length, outFile);
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
-    await fs.rm(tilePath, { force: true });
   }
   return { path: outFile, timestamps, window };
 }

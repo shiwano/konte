@@ -1,5 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { writeAtomically } from "./atomic-write.js";
 import { KonteError } from "./errors.js";
 import { duckVolumeExpr, type DuckStep } from "./audio-duck.js";
 import { atempoChain } from "./audio-retime.js";
@@ -359,30 +360,25 @@ export async function tagDeliverable(options: {
 }): Promise<void> {
   const { file, tags } = options;
 
-  // ffmpeg picks the muxer off the output extension, so the temp keeps the deliverable's own.
-  const ext = path.extname(file);
-  const tmpFile = path.join(path.dirname(file), `.${path.basename(file, ext)}.tagging${ext}`);
-  const args = [
-    "-y",
-    "-i",
-    file,
-    // Every stream, untouched — the default selection would drop a second audio track.
-    "-map",
-    "0",
-    "-c",
-    "copy",
-    "-movflags",
-    "use_metadata_tags+faststart",
-    ...Object.entries(tags).flatMap(([key, value]) => ["-metadata", `${key}=${value}`]),
-    tmpFile,
-  ];
-
-  try {
-    await runFfmpeg(args, "ffmpeg tagDeliverable failed");
-    await fs.rename(tmpFile, file);
-  } finally {
-    await fs.rm(tmpFile, { force: true });
-  }
+  await writeAtomically(file, async (tmpFile) => {
+    await runFfmpeg(
+      [
+        "-y",
+        "-i",
+        file,
+        // Every stream, untouched — the default selection would drop a second audio track.
+        "-map",
+        "0",
+        "-c",
+        "copy",
+        "-movflags",
+        "use_metadata_tags+faststart",
+        ...Object.entries(tags).flatMap(([key, value]) => ["-metadata", `${key}=${value}`]),
+        tmpFile,
+      ],
+      "ffmpeg tagDeliverable failed",
+    );
+  });
 }
 
 /**

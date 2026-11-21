@@ -1,11 +1,9 @@
-import { randomBytes } from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { FFMPEG_CONCURRENCY, mapConcurrent } from "./concurrency.js";
-import { KonteError } from "./errors.js";
 import { execFileAsync } from "./exec-file.js";
-import { ffmpegBin, SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "./ffmpeg-binary.js";
-import { hasBytes, runFfmpeg } from "./ffmpeg-exec.js";
+import { ffmpegBin } from "./ffmpeg-binary.js";
+import { writeFrame } from "./ffmpeg-exec.js";
 import { probeVideo } from "./video-probe.js";
 
 export interface ExtractKeyframesOptions {
@@ -244,44 +242,13 @@ export async function extractFrameAt(
   outputPath: string,
   quality = 2,
 ): Promise<void> {
-  await fs.mkdir(path.dirname(outputPath), { recursive: true });
-
-  // Write beside the destination and move the finished frame into place. ffmpeg leaves whatever was
-  // already at its output path untouched when it fails, so writing direct would let a previous
-  // frame's bytes pass for this one's — and every caller here treats the path's existence as a
-  // cache, so a truncated file would be served as a finished frame forever after.
-  const tmpPath = path.join(
-    path.dirname(outputPath),
-    `.konte-frame-${process.pid}-${randomBytes(4).toString("hex")}${path.extname(outputPath)}`,
-  );
-
-  const args = [
-    "-y",
-    ...SINGLE_FRAME_INPUT_ARGS,
-    "-ss",
-    String(timestamp),
-    "-i",
-    videoPath,
-    ...SINGLE_FRAME_OUTPUT_ARGS,
-    "-frames:v",
-    "1",
-    "-q:v",
-    String(quality),
-    tmpPath,
-  ];
-
-  try {
-    await runFfmpeg(args, `Frame extraction failed at ${timestamp}s`);
-    if (!hasBytes(tmpPath)) {
-      throw new KonteError(
-        "FFMPEG_ERROR",
-        `Frame extraction produced no frame at ${timestamp}s (seek past end of clip?)`,
-      );
-    }
-    await fs.rename(tmpPath, outputPath);
-  } finally {
-    await fs.rm(tmpPath, { force: true });
-  }
+  await writeFrame({
+    input: videoPath,
+    seek: timestamp,
+    quality,
+    output: outputPath,
+    what: `Frame extraction failed at ${timestamp}s`,
+  });
 }
 
 /** The frame `at` seconds into `videoPath`, held to its last frame. */

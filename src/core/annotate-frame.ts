@@ -1,10 +1,6 @@
-import { existsSync } from "node:fs";
-import * as fs from "node:fs/promises";
-import * as path from "node:path";
-import { SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "./ffmpeg-binary.js";
 import { clampUnit } from "./types/feedback.js";
 import { probeVideoDimensions } from "./video-probe.js";
-import { runFfmpeg } from "./ffmpeg-exec.js";
+import { writeFrame } from "./ffmpeg-exec.js";
 
 // The reticle is sized against the frame's short edge so it reads the same on any canvas, and wide
 // enough to survive the downscale a contact-sheet cell applies (a 1920-wide frame lands at 384).
@@ -88,35 +84,16 @@ export async function annotateFrameWithPin(options: {
   const dimensions = await probeVideoDimensions(sourceFile);
   if (!dimensions) return false;
 
-  const filters = pinReticleFilters(planPinReticle(dimensions.width, dimensions.height, x, y));
-  // This path is cached by existence alone, so a run killed mid-encode would otherwise leave a
-  // truncated frame that is never re-rendered. The extension stays last: ffmpeg picks the muxer
-  // off it, and a `.partial` tail leaves it guessing.
-  const ext = path.extname(outputFile);
-  const tmpFile = `${outputFile.slice(0, outputFile.length - ext.length)}.partial${ext}`;
   try {
-    await runFfmpeg(
-      [
-        "-y",
-        ...SINGLE_FRAME_INPUT_ARGS,
-        "-i",
-        sourceFile,
-        ...SINGLE_FRAME_OUTPUT_ARGS,
-        "-vf",
-        filters,
-        "-frames:v",
-        "1",
-        "-q:v",
-        "3",
-        tmpFile,
-      ],
-      "ffmpeg pin reticle failed",
-    );
-    if (!existsSync(tmpFile)) return false;
-    await fs.rename(tmpFile, outputFile);
+    await writeFrame({
+      input: sourceFile,
+      filters: pinReticleFilters(planPinReticle(dimensions.width, dimensions.height, x, y)),
+      quality: 3,
+      output: outputFile,
+      what: "ffmpeg pin reticle failed",
+    });
     return true;
   } catch {
-    await fs.rm(tmpFile, { force: true }).catch(() => {});
     return false;
   }
 }

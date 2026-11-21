@@ -12,13 +12,11 @@ import type { ReadableStream as NodeWebReadableStream } from "node:stream/web";
 async function withAtomicTemp(
   filePath: string,
   write: (tmpPath: string) => Promise<void>,
+  tmpName = (unique: string) => `.${path.basename(filePath)}.${unique}.tmp`,
 ): Promise<void> {
   const dir = path.dirname(filePath);
   await fs.mkdir(dir, { recursive: true });
-  const tmp = path.join(
-    dir,
-    `.${path.basename(filePath)}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`,
-  );
+  const tmp = path.join(dir, tmpName(`${process.pid}.${randomBytes(4).toString("hex")}`));
   try {
     await write(tmp);
     await renameOverwriting(tmp, filePath);
@@ -63,6 +61,19 @@ export function writeFileAtomic(
   return withAtomicTemp(filePath, (tmp) =>
     fs.writeFile(tmp, data, options.mode === undefined ? undefined : { mode: options.mode }),
   );
+}
+
+/**
+ * Have `write` produce `filePath` through the same unique-temp + rename discipline as
+ * `writeFileAtomic`. The temp is named apart from `filePath`, which ffmpeg would read a `%d` in as
+ * an image sequence, and ends in `ext` (default `filePath`'s own), which ffmpeg picks its muxer off.
+ */
+export function writeAtomically(
+  filePath: string,
+  write: (tmpPath: string) => Promise<void>,
+  ext = path.extname(filePath),
+): Promise<void> {
+  return withAtomicTemp(filePath, write, (unique) => `.konte-${unique}.tmp${ext}`);
 }
 
 /**

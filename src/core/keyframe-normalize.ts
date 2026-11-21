@@ -1,6 +1,5 @@
-import { randomBytes } from "node:crypto";
-import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { writeAtomically } from "./atomic-write.js";
 import { x264Args } from "./ffmpeg.js";
 import { ffprobeBin } from "./ffmpeg-binary.js";
 import { runFfmpeg } from "./ffmpeg-exec.js";
@@ -139,43 +138,35 @@ export async function normalizeKeyframesIfSparse(
 
   const gop = Math.max(1, Math.round(probe?.fps ?? 30));
 
-  // Unique per process so concurrent normalizers (two workers
-  // both waiting the same job) never write the same temp or delete each other's,
-  // mirroring writeFileAtomic's temp naming.
-  const ext = path.extname(absPath) || ".mp4";
-  const tmpPath = path.join(
-    path.dirname(absPath),
-    `.konte-reencode-${path.basename(absPath, ext)}.${process.pid}.${randomBytes(4).toString("hex")}${ext}`,
+  // -map 0 + default -c copy keeps every audio/subtitle/data track (multi-language audio,
+  // captions); only the video stream is re-encoded for denser keyframes. Output keeps the
+  // source container (same extension), so copying the other streams back is always valid.
+  await writeAtomically(
+    absPath,
+    async (tmpPath) => {
+      await runFfmpeg(
+        [
+          "-y",
+          "-i",
+          absPath,
+          "-map",
+          "0",
+          "-c",
+          "copy",
+          ...x264Args({ crf: 18 }),
+          "-g",
+          String(gop),
+          "-keyint_min",
+          String(gop),
+          "-movflags",
+          "+faststart",
+          tmpPath,
+        ],
+        "ffmpeg keyframe normalization failed",
+      );
+    },
+    path.extname(absPath) || ".mp4",
   );
-
-  try {
-    // -map 0 + default -c copy keeps every audio/subtitle/data track (multi-language audio,
-    // captions); only the video stream is re-encoded for denser keyframes. Output keeps the
-    // source container (same extension), so copying the other streams back is always valid.
-    await runFfmpeg(
-      [
-        "-y",
-        "-i",
-        absPath,
-        "-map",
-        "0",
-        "-c",
-        "copy",
-        ...x264Args({ crf: 18 }),
-        "-g",
-        String(gop),
-        "-keyint_min",
-        String(gop),
-        "-movflags",
-        "+faststart",
-        tmpPath,
-      ],
-      "ffmpeg keyframe normalization failed",
-    );
-    await fs.rename(tmpPath, absPath);
-  } finally {
-    await fs.rm(tmpPath, { force: true });
-  }
 
   return { normalized: true, maxIntervalSeconds: maxInterval };
 }
