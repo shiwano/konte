@@ -85,7 +85,7 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
   // The stage the reel pages play: each review loads its own entry fatally, so it is there whenever
   // a reel route can be reached.
   const currentReel = (): StageDefinition => {
-    const reel = stage === "animatic" ? animatic : video;
+    const reel = stage === "animatic" ? animatic : stage === "video" ? video : null;
     if (!reel)
       throw new KonteError("ADDRESS_NOT_FOUND", `No reel is loaded in the ${stage} review`);
     return reel;

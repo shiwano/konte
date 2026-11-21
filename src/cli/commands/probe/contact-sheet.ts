@@ -51,7 +51,10 @@ import { requireVideoRoot } from "../../context.js";
 import { resolveProbeTargets } from "./resolve-arg.js";
 import { compareNatural, openCompositionStages } from "./shared.js";
 import { printResolutionNotices, type ResolvedVariant } from "../../resolution-notice.js";
-import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
+import {
+  applyResolutionDefinitions,
+  shotStageDefinitionForAddress,
+} from "../../../core/definition-hashes.js";
 import { formatSeconds } from "../../../core/format-duration.js";
 import { thumbnailCacheDir } from "../../../core/video-cache.js";
 
@@ -128,7 +131,7 @@ async function buildCompositionCells(
 ): Promise<{ cells: ContactSheetCell[]; skipped: string[]; groups: number[] }> {
   const { stages: loaded, manager } = await openCompositionStages(videoRoot);
   const stage = parseReelScope(args[0]!).stage;
-  const video = stage === "animatic" ? loaded.animatic : loaded.video;
+  const video = loaded[stage];
 
   const ordered: { id: string; named: boolean }[] = [];
   const seen = new Map<string, { id: string; named: boolean }>();
@@ -413,10 +416,7 @@ async function buildNeedsReviewCells(
         continue;
       }
       const parsed = parseAddress(item.address);
-      // Rendered from the stage the address names. Both composition stages have this leaf and their
-      // shot ids coincide, so reading the video definition drew the delivered picture in the
-      // board's place — and skipped the board's shot whenever the video's was still undeveloped.
-      const leafStage = parsed.stage === "animatic" ? animatic : video;
+      const leafStage = shotStageDefinitionForAddress({ video, animatic }, item.address);
       const shot =
         parsed.kind === "shot" ? leafStage?.shots.find((s) => s.id === parsed.shotId) : undefined;
       if (!leafStage || !shot?.shotFn) {

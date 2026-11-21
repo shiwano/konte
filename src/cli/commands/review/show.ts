@@ -49,7 +49,10 @@ async function resolveNoteFrames(
   const frames = new Map<string, string>();
   const problems: string[] = [];
   const targets = reviewNoteFrameTargets(record);
-  if (targets.length === 0) return { frames, problems };
+  const stage = reviewStage(record);
+  if (targets.length === 0 || (stage !== "animatic" && stage !== "video")) {
+    return { frames, problems };
+  }
 
   let loaded: Awaited<ReturnType<typeof loadVideoAndAnimatic>>;
   try {
@@ -57,7 +60,7 @@ async function resolveNoteFrames(
   } catch (err) {
     return { frames, problems: [`definitions did not load: ${errorMessage(err)}`] };
   }
-  const stage = reviewStage(record) === "animatic" ? loaded.animatic : loaded.video;
+  const reel = loaded[stage];
   const manager = await StateManager.load(videoRoot);
   await applyResolutionDefinitions({ videoRoot, state: manager.getState() });
 
@@ -72,7 +75,7 @@ async function resolveNoteFrames(
 
   for (const [shotId, shotTargets] of byShot) {
     const results = await resolveShotFeedbackFrames({
-      video: stage,
+      video: reel,
       manager,
       videoRoot,
       shotId,

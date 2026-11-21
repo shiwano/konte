@@ -420,7 +420,7 @@ export async function writeHandoff(
       return collectChangedReferenceAddresses(reference, manager, record);
     };
   } else {
-    const reel = subject.stage === "animatic" ? subject.animatic : subject.video;
+    const reel = subject[subject.stage];
     const reelStage = subject.stage;
     allAddresses = collectAllAddresses(
       reel.shots,

@@ -1,4 +1,10 @@
-import { getAssetEntry, getStage, isDeliveryAddress, isStemAddress } from "./address.js";
+import {
+  getAssetEntry,
+  getStage,
+  isDeliveryAddress,
+  isStemAddress,
+  tryParseAddress,
+} from "./address.js";
 import { definitionHashForAddress } from "./composition-resource.js";
 import { diffDefinitions, readDefinitionSnapshot } from "./definition-snapshot.js";
 import { stableStringify } from "./stable-stringify.js";
@@ -41,6 +47,17 @@ export function definitionForAddress(definitions: StageDefinitions, address: str
       : stage === "video"
         ? (definitions.video ?? null)
         : null;
+}
+
+/** The composition stage's entry an address belongs to; null for a reference address or an unloaded stage. */
+export function shotStageDefinitionForAddress(
+  definitions: StageDefinitions,
+  address: string,
+): AnimaticDefinition | VideoDefinition | null {
+  const stage = tryParseAddress(address)?.stage;
+  if (stage === "animatic") return definitions.animatic ?? null;
+  if (stage === "video") return definitions.video ?? null;
+  return null;
 }
 
 function definitionDrift(

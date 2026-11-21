@@ -75,6 +75,7 @@ import {
 import {
   applyResolutionDefinitions,
   definitionForAddress,
+  shotStageDefinitionForAddress,
   type StageDefinitions,
 } from "../../core/definition-hashes.js";
 import {
@@ -196,9 +197,7 @@ function formatAssetSummary(
 
 async function inspectComposition(videoRoot: string, address: string): Promise<void> {
   const { video, animatic, reference } = await loadStageDefinitions(videoRoot);
-  // The hash is read from the stage the address names: asking the video definition for a board leaf
-  // reports another shot's hash, or none.
-  const stageDef = parseAddress(address).stage === "animatic" ? animatic : video;
+  const stageDef = shotStageDefinitionForAddress({ video, animatic }, address);
   const leafKind = isStemAddress(address)
     ? "stem"
     : isOverlayAddress(address)

@@ -34,7 +34,7 @@ import {
   listUnusedAddresses,
 } from "../../core/graph.js";
 import { JobManager } from "../../core/job-manager.js";
-import { applyResolutionDefinitions } from "../../core/definition-hashes.js";
+import { applyResolutionDefinitions, definitionForAddress } from "../../core/definition-hashes.js";
 import { loadStageDefinitions, loadDirectionIfPresent } from "../../core/stage-definitions.js";
 import { readAssetsGitignore } from "../../core/assets-gitignore.js";
 import { buildOrphanContext, listStrayVariantDirs } from "../../core/orphans.js";
@@ -775,11 +775,8 @@ async function checkWorkflowFiles(
   }
 
   for (const addr of addresses) {
-    const def = addr.startsWith("animatic:")
-      ? (animatic ?? video)
-      : addr.startsWith("reference:")
-        ? (reference ?? video)
-        : video;
+    const def = definitionForAddress({ video, animatic, reference }, addr);
+    if (!def) continue;
     const entry = getAssetEntry(def, addr);
     if (entry.kind !== "comfy") continue;
 

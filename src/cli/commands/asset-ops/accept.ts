@@ -32,7 +32,6 @@ import {
   thumbnailOwnAddresses,
   THUMBNAIL_TARGET,
   matchesAddressScope,
-  parseAddress,
   parseDirectionScope,
   parseShotScope,
   parseTakeArg,
@@ -76,7 +75,10 @@ import { closeSignedOffFeedback } from "./close-feedback.js";
 import { resolveVariantArg } from "./resolve-variant-arg.js";
 import { commitWithStaleConsent, printAddresses, staleFrom } from "./stale-consent.js";
 import { requireVideoRoot } from "../../context.js";
-import type { StageDefinitions } from "../../../core/definition-hashes.js";
+import {
+  shotStageDefinitionForAddress,
+  type StageDefinitions,
+} from "../../../core/definition-hashes.js";
 import {
   isPendingShot,
   type StageDefinition,
@@ -391,7 +393,7 @@ function shotScopeDecision(
 ): ShotDecision | null {
   const scope = parseShotScope(target);
   if (!scope) return null;
-  const def = scope.stage === "animatic" ? stages.animatic : stages.video;
+  const def = stages[scope.stage];
   const decision = def ? shotDecision(manager, def, scope.shotId) : { leaves: [], released: [] };
   if (decision.leaves.length === 0 && decision.released.length === 0) {
     throw new KonteError("ADDRESS_NOT_FOUND", `"${target}" has no composition or stem to accept`);
@@ -475,7 +477,7 @@ function stageUnits(
       };
     });
   }
-  const def = stage === "animatic" ? definitions.animatic : definitions.video;
+  const def = definitions[stage];
   if (!def) throw new KonteError("ADDRESS_NOT_FOUND", `No ${stage}.tsx found in the video root`);
   const leafUnit = (
     label: string,
@@ -547,7 +549,7 @@ function stageOverlay(
   stages: Pick<StageDefinitions, "video" | "animatic">,
   stage: VariantStage,
 ): string[] {
-  const def = stage === "animatic" ? stages.animatic : stage === "video" ? stages.video : null;
+  const def = stage === "reference" ? null : stages[stage];
   return def ? listOverlayAddresses(def) : [];
 }
 
@@ -564,7 +566,7 @@ function stageAddresses(
     }
     return listExposedReferenceAddresses(definitions.reference);
   }
-  const def = stage === "animatic" ? definitions.animatic : definitions.video;
+  const def = definitions[stage];
   if (!def) throw new KonteError("ADDRESS_NOT_FOUND", `No ${stage}.tsx found in the video root`);
   return [
     ...listCompositionAddresses(def),
@@ -613,9 +615,7 @@ function stageScopeTargets(
 }
 
 function leafStage(stages: ShotStages, address: string): StageDefinition {
-  // Rendered from the stage the address names: handing the video definition a board address writes
-  // to the wrong stage's shot, or finds nothing there.
-  const stage = parseAddress(address).stage === "animatic" ? stages.animatic : stages.video;
+  const stage = shotStageDefinitionForAddress(stages, address);
   if (!stage) {
     throw new KonteError(
       "ADDRESS_NOT_FOUND",

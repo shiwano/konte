@@ -97,7 +97,7 @@ export function shotScopeComposition(
   } catch (err) {
     if (!(err instanceof KonteError) || err.code !== "VARIANT_NOT_FOUND") throw err;
   }
-  const stage = scope.stage === "animatic" ? stages.animatic : stages.video;
+  const stage = stages[scope.stage];
   if (!stage || !shotById(stage.shots, scope.shotId)?.shotFn) return null;
   return formatCompositionAddress(scope.stage, scope.shotId);
 }

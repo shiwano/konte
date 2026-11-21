@@ -138,7 +138,7 @@ Examples:
 
       const videoRoot = requireVideoRoot();
       const loaded = await loadVideoAndAnimatic(videoRoot);
-      const video = stage === "animatic" ? loaded.animatic : loaded.video;
+      const video = loaded[stage];
 
       if (shotId && !video.shots.some((s) => s.id === shotId)) {
         throw new KonteError("SHOT_NOT_FOUND", `Shot "${shotId}" not found`);
