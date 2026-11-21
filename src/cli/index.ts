@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { closeSync, openSync } from "node:fs";
 import { superviseChild } from "./supervise.js";
-import { TRANSPILER_CACHE_ENV, resolveTranspilerCachePath } from "./transpiler-cache.js";
+import { TRANSPILER_CACHE_ENV, resolveTranspilerCachePath } from "../core/transpiler-cache.js";
 
 // Replaced by `true` when bun builds the standalone binary; absent under `bun run`.
 declare const KONTE_COMPILED: boolean | undefined;

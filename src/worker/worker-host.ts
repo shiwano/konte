@@ -1,5 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
-import { resolveTranspilerCachePath, TRANSPILER_CACHE_ENV } from "../cli/transpiler-cache.js";
+import { resolveTranspilerCachePath, TRANSPILER_CACHE_ENV } from "../core/transpiler-cache.js";
 import { environmentWithoutCredentials } from "../core/credentials.js";
 import {
   claimWorker,

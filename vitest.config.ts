@@ -3,7 +3,7 @@ import { availableParallelism } from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { configDefaults, defineConfig, type Plugin } from "vitest/config";
-import { TRANSPILER_CACHE_DISABLED, TRANSPILER_CACHE_ENV } from "./src/cli/transpiler-cache.js";
+import { TRANSPILER_CACHE_DISABLED, TRANSPILER_CACHE_ENV } from "./src/core/transpiler-cache.js";
 
 // An adapter imports its craft guide, and a served page its markup, via
 // `import x from "./y.md" with { type: "text" }` — Bun's runtime and bundler inline the file as a

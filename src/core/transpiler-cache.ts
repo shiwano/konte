@@ -1,7 +1,7 @@
-import { sha256Hex } from "../core/content-hash.js";
+import { sha256Hex } from "./content-hash.js";
 import { accessSync, constants, existsSync, mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
-import { WORKSPACE_MARKER } from "../core/roots.js";
+import { WORKSPACE_MARKER } from "./roots.js";
 
 // Bun caches its transpile of every source file over ~50KB — in a konte workspace, the definition
 // entries — keyed by the file's CONTENT ALONE, never its location. A definition reaches an adapter
