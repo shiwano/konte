@@ -17,6 +17,7 @@ import {
 } from "./generated/template-assets.js";
 import { writeFileAtomic } from "./atomic-write.js";
 import { KonteError } from "./errors.js";
+import { WORKSPACE_MARKER } from "./roots.js";
 import { compareVersions, isReleaseVersion } from "./version.js";
 
 declare const KONTE_COMPILED: boolean | undefined;
@@ -137,8 +138,6 @@ const RETIRABLE_PREFIXES = ["adapters/", ".konte/guides/", ...RETIRABLE_AGENT_PR
 function isRetirable(key: string): boolean {
   return path.posix.normalize(key) === key && RETIRABLE_PREFIXES.some((p) => key.startsWith(p));
 }
-const CONFIG_FILE = "konte.config.json";
-
 async function listSourceFiles(workspaceRoot: string, dir = ""): Promise<string[]> {
   let dirents: import("node:fs").Dirent[];
   try {
@@ -188,7 +187,7 @@ async function partitionRetired(
 ): Promise<{ unused: string[]; used: string[] }> {
   if (retired.length === 0) return { unused: [], used: [] };
   const sources = new Map<string, string>();
-  const keys = [CONFIG_FILE, ...(await listSourceFiles(workspaceRoot))];
+  const keys = [WORKSPACE_MARKER, ...(await listSourceFiles(workspaceRoot))];
   for (const key of keys) {
     const content = await readFileOrNull(path.join(workspaceRoot, key));
     if (content !== null) sources.set(key, content);

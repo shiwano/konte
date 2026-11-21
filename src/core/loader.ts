@@ -19,7 +19,7 @@ import { KonteError, errorMessage } from "./errors.js";
 import { withSongVariants } from "./dsl/song-context.js";
 import { readSongTakes, type SongVariant } from "./song-variant.js";
 import { extractRefs } from "./graph.js";
-import { STAGE_ENTRY_FILE, findWorkspaceRootSync, stageEntryPath } from "./roots.js";
+import { STAGE_ENTRY_FILE, VIDEO_MARKER, findWorkspaceRootSync, stageEntryPath } from "./roots.js";
 import { type Handoff, HandoffSchema } from "./types/handoff.js";
 import {
   type AssetDefinition,
@@ -270,7 +270,7 @@ export async function loadIfPresent<T>(
 function videoRootOf(filePath: string): string | null {
   let dir = path.dirname(filePath);
   for (let depth = 0; depth < 3; depth++) {
-    if (existsSync(path.join(dir, "konte.state.json"))) return dir;
+    if (existsSync(path.join(dir, VIDEO_MARKER))) return dir;
     const parent = path.dirname(dir);
     if (parent === dir) return null;
     dir = parent;

@@ -17,6 +17,7 @@ import {
   StalenessView,
   type VariantStaleness,
 } from "../staleness.js";
+import { VIDEO_MARKER } from "../roots.js";
 import { resolutionDefinitionsFor } from "./resolution-definitions.js";
 import { generateVariantId } from "../variant-id.js";
 import { isReviewLeaf } from "../variant-lineage.js";
@@ -30,12 +31,10 @@ import {
   type VariantState,
 } from "../types/index.js";
 
-const STATE_FILE = "konte.state.json";
-
 function stateFile(videoRoot: string): LockedJsonFile<KonteState> {
   return new LockedJsonFile({
-    filePath: path.join(videoRoot, STATE_FILE),
-    lockPath: path.join(videoRoot, `${STATE_FILE}.lock`),
+    filePath: path.join(videoRoot, VIDEO_MARKER),
+    lockPath: path.join(videoRoot, `${VIDEO_MARKER}.lock`),
     schema: KonteStateSchema,
     label: "state file",
     onMissing: (filePath) => {

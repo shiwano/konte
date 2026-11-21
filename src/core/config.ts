@@ -2,6 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { writeFileAtomic } from "./atomic-write.js";
 import { KonteError } from "./errors.js";
+import { WORKSPACE_MARKER } from "./roots.js";
 import type { KonteConfig } from "./types/config.js";
 import { KonteConfigSchema } from "./types/config.js";
 
@@ -9,10 +10,8 @@ const DEFAULT_CONFIG: KonteConfig = {
   comfy: {},
 };
 
-const CONFIG_FILE = "konte.config.json";
-
 function konteConfigPath(workspaceRoot: string): string {
-  return path.join(workspaceRoot, CONFIG_FILE);
+  return path.join(workspaceRoot, WORKSPACE_MARKER);
 }
 
 export async function saveKonteConfig(

@@ -21,6 +21,7 @@ import { findLatestHandoff, loadHandoff } from "../../../core/loader.js";
 import { loadPreviewDefinitions } from "./load-definitions.js";
 import { KonteStateSchema, type Handoff, type KonteState } from "../../../core/types/index.js";
 import { readSongTakes } from "../../../core/song-variant.js";
+import { VIDEO_MARKER } from "../../../core/roots.js";
 import { REVIEW_DIR, reviewShowedHandoff } from "../../../core/review-record.js";
 import { StateManager } from "../../../core/state/index.js";
 import { syncFileAssets } from "../../../core/file-sync.js";
@@ -379,7 +380,7 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
     // page reload (which would drop the WS and trip the auto-close). The direction
     // review is media-less, so no state write can change what it shows — its own
     // feedback/accept writes would be the only thing the prompt ever announced.
-    if (normalized === "konte.state.json") {
+    if (normalized === VIDEO_MARKER) {
       if (stage === "direction") return;
       if (stateDebounceTimer) clearTimeout(stateDebounceTimer);
       stateDebounceTimer = setTimeout(async () => {
@@ -467,7 +468,7 @@ async function readSongReading(videoRoot: string): Promise<string> {
 // Null while the file is absent or half-written in place; the write's next event settles it.
 export async function readStateSignature(videoRoot: string): Promise<string | null> {
   try {
-    const raw = await fs.promises.readFile(path.join(videoRoot, "konte.state.json"), "utf-8");
+    const raw = await fs.promises.readFile(path.join(videoRoot, VIDEO_MARKER), "utf-8");
     return sha256Hex(JSON.stringify(JSON.parse(raw)));
   } catch {
     return null;
@@ -512,7 +513,7 @@ export function parseAssetUrlPath(
  * the file has changed.
  */
 export function createStateReader(videoRoot: string): () => Promise<KonteState> {
-  const file = path.join(videoRoot, "konte.state.json");
+  const file = path.join(videoRoot, VIDEO_MARKER);
   let cached: { key: string; state: KonteState } | null = null;
   return async () => {
     const { ino, ctimeMs, mtimeMs, size } = await fs.promises.stat(file);
