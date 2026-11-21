@@ -20,7 +20,7 @@ import {
 import { findLatestHandoff, loadHandoff } from "../../../core/loader.js";
 import { loadPreviewDefinitions } from "./load-definitions.js";
 import { KonteStateSchema, type Handoff, type KonteState } from "../../../core/types/index.js";
-import { songReadingsOf } from "../../../core/song-variant.js";
+import { readSongTakes } from "../../../core/song-variant.js";
 import { REVIEW_DIR, reviewShowedHandoff } from "../../../core/review-record.js";
 import { StateManager } from "../../../core/state/index.js";
 import { syncFileAssets } from "../../../core/file-sync.js";
@@ -461,13 +461,7 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
 }
 
 async function readSongReading(videoRoot: string): Promise<string> {
-  try {
-    const raw = await fs.promises.readFile(path.join(videoRoot, "konte.state.json"), "utf-8");
-    const parsed = KonteStateSchema.safeParse(JSON.parse(raw));
-    return parsed.success ? songReadingsOf(videoRoot, parsed.data) : "";
-  } catch {
-    return "";
-  }
+  return (await readSongTakes(videoRoot))?.reading ?? "";
 }
 
 // Null while the file is absent or half-written in place; the write's next event settles it.

@@ -17,8 +17,7 @@ import * as dsl from "./dsl/index.js";
 import type { PatchBuild, PatchBuildContext, PatchDefinition } from "./dsl/patch.js";
 import { KonteError, errorMessage } from "./errors.js";
 import { withSongVariants } from "./dsl/song-context.js";
-import { resolveSongVariant, songReadingsOf, type SongVariant } from "./song-variant.js";
-import { KonteStateSchema } from "./types/state.js";
+import { readSongTakes, type SongVariant } from "./song-variant.js";
 import { extractRefs } from "./graph.js";
 import { STAGE_ENTRY_FILE, findWorkspaceRootSync, stageEntryPath } from "./roots.js";
 import { type Handoff, HandoffSchema } from "./types/handoff.js";
@@ -279,28 +278,16 @@ function videoRootOf(filePath: string): string | null {
   return null;
 }
 
-// The video's song takes as its state holds them now, for `defineDirection` to place its lyrics
-// with, and their reading (`songReadingsOf`). No state (a fresh video, a test fixture) is no take.
+// The video's song takes, for `defineDirection` to place its lyrics with, and their reading. No
+// state (a fresh video, a test fixture) is no take.
 async function songVariantsFor(filePath: string): Promise<{
   videoRoot: string | null;
   variants: ((address: string) => SongVariant | null) | null;
   reading: string;
 }> {
   const videoRoot = videoRootOf(filePath);
-  if (!videoRoot) return { videoRoot, variants: null, reading: "" };
-  try {
-    const raw = await fs.readFile(path.join(videoRoot, "konte.state.json"), "utf-8");
-    const parsed = KonteStateSchema.safeParse(JSON.parse(raw));
-    if (!parsed.success) return { videoRoot, variants: null, reading: "" };
-    const state = parsed.data;
-    return {
-      videoRoot,
-      variants: (address) => resolveSongVariant(videoRoot, state, address),
-      reading: songReadingsOf(videoRoot, state),
-    };
-  } catch {
-    return { videoRoot, variants: null, reading: "" };
-  }
+  const takes = videoRoot ? await readSongTakes(videoRoot) : null;
+  return { videoRoot, variants: takes?.variants ?? null, reading: takes?.reading ?? "" };
 }
 
 // The song reading each video's modules were last evaluated under. A cached module placed its lyrics

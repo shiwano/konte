@@ -1,3 +1,5 @@
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
 import { acceptedVariant } from "./accepted-variant.js";
 import { formatReferenceAddress } from "./address.js";
 import { KonteError } from "./errors.js";
@@ -5,7 +7,13 @@ import type { Direction } from "./dsl/direction.js";
 import { stableStringify } from "./stable-stringify.js";
 import { readSongReading, songAnalysisOf } from "./song-reading.js";
 import { nearestBeatIndex, type SongGridSource } from "./song-grid.js";
-import type { KonteState, SongAnalysis, SongRecord } from "./types/index.js";
+import { VIDEO_MARKER } from "./roots.js";
+import {
+  type KonteState,
+  KonteStateSchema,
+  type SongAnalysis,
+  type SongRecord,
+} from "./types/index.js";
 import type { SongVariantState } from "./direction.js";
 import type { StateManager } from "./state/index.js";
 import { mediaDurationSec } from "./variant-media.js";
@@ -81,6 +89,26 @@ export function songReadingsOf(videoRoot: string, state: KonteState): string {
     }
   }
   return readings.sort().join("\n");
+}
+
+// The video's song takes as its state holds them now, and their reading (`songReadingsOf`); null
+// where the state is absent or does not parse.
+export async function readSongTakes(videoRoot: string): Promise<{
+  variants: (address: string) => SongVariant | null;
+  reading: string;
+} | null> {
+  try {
+    const raw = await fs.readFile(path.join(videoRoot, VIDEO_MARKER), "utf-8");
+    const parsed = KonteStateSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) return null;
+    const state = parsed.data;
+    return {
+      variants: (address) => resolveSongVariant(videoRoot, state, address),
+      reading: songReadingsOf(videoRoot, state),
+    };
+  } catch {
+    return null;
+  }
 }
 
 // A take's record with lyric line `key` placed on it by a person, or no longer placed by one
