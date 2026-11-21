@@ -5,7 +5,7 @@ import {
   THUMBNAIL_FRAME_ADDRESS,
   THUMBNAIL_STILL_ADDRESS,
 } from "./address.js";
-import { definitionHashForAddress, overlayDefinitionHash } from "./composition-resource.js";
+import { definitionHashForAddress, overlayDefinitionHash } from "./leaf-hash.js";
 import { shortHash } from "./content-hash.js";
 import type { VideoDefinition } from "./types/index.js";
 

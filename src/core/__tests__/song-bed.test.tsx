@@ -3,7 +3,7 @@ import type React from "react";
 import { listShotStems } from "../address.js";
 import { audioLevelling } from "../audio-level.js";
 import { harvestShotPictureCues } from "../composition-builder.js";
-import { stemDefinitionHash } from "../composition-resource.js";
+import { stemDefinitionHash } from "../leaf-hash.js";
 import { Audio, Composition, Image, Panel, Video } from "../dsl/composition/index.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { defineDirection } from "../dsl/direction.js";

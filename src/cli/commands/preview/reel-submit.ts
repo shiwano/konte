@@ -29,24 +29,25 @@ import {
   type ShotStage,
 } from "../../../core/address.js";
 import { resolveCompositionRef } from "../../../core/composition-refs.js";
+import { timelineStemRefs } from "../../../core/leaf-hash.js";
 import {
   commitShotStem,
   discardPreparedStem,
-  leafReadyForReview,
-  leafSignedOff,
-  materializeCompositionVariant,
-  materializedLeafContentHash,
-  materializeOverlayVariant,
   materializeTimelineStem,
-  overlayAwaitsAccept,
-  overlayTimelineRefs,
   prepareShotStem,
   removedShotStemAddresses,
-  timelineStemRefs,
-  unresolvedLeafRefs,
   type PreparedShotStem,
+} from "../../../core/stem-resource.js";
+import { materializeOverlayVariant, overlayTimelineRefs } from "../../../core/overlay-resource.js";
+import { materializeCompositionVariant } from "../../../core/composition-resource.js";
+import {
+  leafReadyForReview,
+  leafSignedOff,
+  materializedLeafContentHash,
+  overlayAwaitsAccept,
+  unresolvedLeafRefs,
   type UnresolvedLeafRef,
-} from "../../../core/composition-resource.js";
+} from "../../../core/leaf-review.js";
 import { shotAcceptTargets } from "../../../core/shot-accept-targets.js";
 import { Semaphore } from "../../../core/semaphore.js";
 import { formatStaleCause } from "../../../core/staleness.js";

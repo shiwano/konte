@@ -39,19 +39,18 @@ import {
   collectFindings,
   waiverCoverageOf,
 } from "./checks.js";
+import { definitionHashForAddress } from "./leaf-hash.js";
+import { collectDeadStemVariants, listRemovedShotStemAddresses } from "./stem-resource.js";
+import { collectDeadCompositionVariants } from "./composition-resource.js";
 import {
   boardCompositionAwaitsVideo,
   boardStemAwaitsVideo,
   leafSettledAcross,
-  collectDeadCompositionVariants,
-  collectDeadStemVariants,
-  definitionHashForAddress,
   leafReadyForReview,
   leafSignedOff,
   materializedLeafReviewStatus,
   shotAcceptsStand,
-  listRemovedShotStemAddresses,
-} from "./composition-resource.js";
+} from "./leaf-review.js";
 import { computeDefinitionHash } from "./definition-hash.js";
 import { applyResolutionDefinitions, definitionDriftFields } from "./definition-hashes.js";
 import { deliveryUpscalerMissing } from "./delivery.js";

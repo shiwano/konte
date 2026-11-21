@@ -3,13 +3,15 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  collectDeadCompositionVariants,
   compositionCacheKey,
   compositionDefinitionHash,
   compositionDefinitionHashForAddress,
   compositionInputFingerprints,
-  materializeCompositionVariant,
   unresolvedPictureRefs,
+} from "../leaf-hash.js";
+import {
+  collectDeadCompositionVariants,
+  materializeCompositionVariant,
 } from "../composition-resource.js";
 import { compositionStructureHtml } from "../composition-builder.js";
 import { COMPOSITION_SCRIPTS } from "../composition-scripts.js";

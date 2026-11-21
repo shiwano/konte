@@ -234,7 +234,7 @@ export async function resolveCompositionCacheDir(options: {
   const { buildShotCompositionHtml, compositionDrawsSomething } =
     await import("./composition-builder.js");
   const { compositionInputFingerprints, pictureRefsOf, unresolvedPictureRefs } =
-    await import("./composition-resource.js");
+    await import("./leaf-hash.js");
   const target = shotById(video.shots, shotId);
   const compositionResult = await buildShotCompositionHtml({
     video,
@@ -284,7 +284,7 @@ export async function assertCompositionLayersResolve(
 ): Promise<void> {
   const shot = shotById(video.shots, shotId);
   if (!shot) return;
-  const { unresolvedPictureRefs } = await import("./composition-resource.js");
+  const { unresolvedPictureRefs } = await import("./leaf-hash.js");
   const unresolved = unresolvedPictureRefs(manager, shot);
   if (unresolved.length === 0) return;
   const { distinctScopes } = await import("./suggested-actions.js");

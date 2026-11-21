@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { deliveryAddressOf, formatCompositionAddress } from "../../core/address.js";
 import { deploymentNameOf } from "../../comfy-api/routing.js";
 import { loadKonteConfig } from "../../core/config.js";
-import { compositionCacheKey } from "../../core/composition-resource.js";
+import { compositionCacheKey } from "../../core/leaf-hash.js";
 import {
   computeDeliveryTarget,
   findFreshDeliveryVariant,

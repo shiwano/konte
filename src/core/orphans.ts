@@ -8,7 +8,7 @@ import {
   patchSourceVariantIdOf,
   THUMBNAIL_TARGET,
 } from "./address.js";
-import { listRemovedShotStemAddresses } from "./composition-resource.js";
+import { listRemovedShotStemAddresses } from "./stem-resource.js";
 import { deliveryAddressIsValid } from "./delivery.js";
 import { listVariantDirsOnDisk, variantDir } from "./variant-dir.js";
 import { acceptedConsumers, type VariantRef } from "./variant-lineage.js";

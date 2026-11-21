@@ -4,10 +4,7 @@ import {
   formatTimelineStemAddress,
   listShotStems,
 } from "../address.js";
-import {
-  compositionDefinitionHashForAddress,
-  definitionHashForAddress,
-} from "../composition-resource.js";
+import { compositionDefinitionHashForAddress, definitionHashForAddress } from "../leaf-hash.js";
 import { panelMoveHashes } from "../panel-move-hash.js";
 import type { VideoDefinition } from "../types/index.js";
 import type { AnimaticDefinition } from "../types/animatic.js";

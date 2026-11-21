@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { deliveryAddressOf, parseAddress } from "./address.js";
-import { definitionHashForAddress } from "./composition-resource.js";
+import { definitionHashForAddress } from "./leaf-hash.js";
 import { computeDefinitionHash } from "./definition-hash.js";
 import { readDefinitionSnapshot, writeDefinitionSnapshot } from "./definition-snapshot.js";
 import { definitionForAddress, type StageDefinitions } from "./definition-hashes.js";

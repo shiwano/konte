@@ -10,7 +10,7 @@ import {
   THUMBNAIL_TARGET,
 } from "../address.js";
 import { thumbnailOf } from "../graph.js";
-import { timelineStemRefs } from "../composition-resource.js";
+import { timelineStemRefs } from "../leaf-hash.js";
 import { shotById } from "../shot-index.js";
 import type { StageDefinition } from "../types/index.js";
 

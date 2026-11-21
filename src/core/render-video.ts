@@ -26,7 +26,7 @@ import {
 } from "./composition-refs.js";
 import { planShotById } from "./shot-index.js";
 import { assertTailwindClasses } from "./tailwind-classes.js";
-import { compositionCacheKey } from "./composition-resource.js";
+import { compositionCacheKey } from "./leaf-hash.js";
 import {
   computeDeliveryTarget,
   deliveryCoverSize,

@@ -5,7 +5,7 @@ import {
   isStemAddress,
   tryParseAddress,
 } from "./address.js";
-import { definitionHashForAddress } from "./composition-resource.js";
+import { definitionHashForAddress } from "./leaf-hash.js";
 import { diffDefinitions, readDefinitionSnapshot } from "./definition-snapshot.js";
 import { stableStringify } from "./stable-stringify.js";
 import { loadPatchCatalog, patchHashesOf } from "./patch.js";

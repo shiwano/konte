@@ -3,7 +3,7 @@ import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { defineReference, defineAnimatic, asset, Composition, Panel } from "../dsl/index.js";
 import { moves, shot, animaticTimeline } from "./helpers/shot.js";
 import { testDirection, plainDirection } from "./helpers/direction.js";
-import { definitionHashForAddress } from "../composition-resource.js";
+import { definitionHashForAddress } from "../leaf-hash.js";
 import { ASSET_SITES } from "../dsl/adapter.js";
 
 const imageComfy = defineComfyAsset({

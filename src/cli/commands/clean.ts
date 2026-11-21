@@ -7,10 +7,8 @@ import {
   matchesAddressScope,
   patchSourceVariantIdOf,
 } from "../../core/address.js";
-import {
-  collectDeadCompositionVariants,
-  collectDeadStemVariants,
-} from "../../core/composition-resource.js";
+import { collectDeadStemVariants } from "../../core/stem-resource.js";
+import { collectDeadCompositionVariants } from "../../core/composition-resource.js";
 import {
   listPatchVariantIds,
   loadPatchCatalog,

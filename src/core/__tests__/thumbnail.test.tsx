@@ -13,7 +13,7 @@ vi.mock("../still-capture.js", () => ({
 }));
 
 import { cascadeAcceptConsumedDeps } from "../accept-cascade.js";
-import { definitionHashForAddress } from "../composition-resource.js";
+import { definitionHashForAddress } from "../leaf-hash.js";
 import { makeAddressPlaceholder } from "../dsl/shot-context.js";
 import { commentSubjectAddresses } from "../feedback/subject.js";
 import { buildDependencyGraph, listUnusedAddresses } from "../graph.js";

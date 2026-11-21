@@ -4,14 +4,13 @@ import * as path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { remakeSettledLeaves } from "../../../../core/board-leaves.js";
 import { compositionPictureNodes } from "../../../../core/composition-builder.js";
+import { commitShotStem, prepareShotStem } from "../../../../core/stem-resource.js";
+import { materializeCompositionVariant } from "../../../../core/composition-resource.js";
 import {
   boardStemAwaitsVideo,
-  commitShotStem,
   leafSettledAcross,
   leafSignedOff,
-  materializeCompositionVariant,
-  prepareShotStem,
-} from "../../../../core/composition-resource.js";
+} from "../../../../core/leaf-review.js";
 import { Audio, Composition, Image, Panel } from "../../../../core/dsl/composition/index.js";
 import { defineComfyAsset } from "../../../../core/dsl/comfy-asset.js";
 import {

@@ -19,11 +19,7 @@ import {
   formatSilentTail,
 } from "../animatic-overflow.js";
 import { harvestShotAudioStructure } from "../composition-builder.js";
-import {
-  compositionDefinitionHash,
-  stemDefinitionHash,
-  timelineStemRefs,
-} from "../composition-resource.js";
+import { compositionDefinitionHash, stemDefinitionHash, timelineStemRefs } from "../leaf-hash.js";
 import { Audio, Composition, Image, Panel, Video } from "../dsl/composition/index.js";
 import { defineDirection } from "../dsl/direction.js";
 import { asset, defineAnimatic, defineVideo, soundtrack } from "../dsl/index.js";

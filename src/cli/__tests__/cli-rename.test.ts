@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { definitionHashForAddress } from "../../core/composition-resource.js";
+import { definitionHashForAddress } from "../../core/leaf-hash.js";
 import { computeDefinitionHash } from "../../core/definition-hash.js";
 import { JobManager } from "../../core/job-manager.js";
 import {

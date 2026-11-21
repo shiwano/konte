@@ -30,7 +30,7 @@ import type { AnimaticSetupState } from "./direction-check.js";
 import { collectShotFrames, setupView, type StagingStageState } from "./direction.js";
 import type { Direction } from "./dsl/direction.js";
 import { extractRefs, exposedPlateIdsOf, LANES, lanePanels, platesOf } from "./graph.js";
-import { definitionHashForAddress } from "./composition-resource.js";
+import { definitionHashForAddress } from "./leaf-hash.js";
 import type { Accepted } from "./sign-off.js";
 import type { StateManager } from "./state/index.js";
 

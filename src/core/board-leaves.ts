@@ -1,15 +1,17 @@
 import { formatAddress, getStage, isStemAddress, shotStemAssetNames } from "./address.js";
 import {
-  boardStemAwaitsVideo,
   commitShotStem,
   discardPreparedStem,
-  leafSettledAcross,
-  materializeCompositionVariant,
-  materializedLeafReviewStatus,
   prepareShotStem,
   type PreparedShotStem,
   shotStemIdentityFor,
-} from "./composition-resource.js";
+} from "./stem-resource.js";
+import { materializeCompositionVariant } from "./composition-resource.js";
+import {
+  boardStemAwaitsVideo,
+  leafSettledAcross,
+  materializedLeafReviewStatus,
+} from "./leaf-review.js";
 import { errorMessage } from "./errors.js";
 import type { DependencyGraph } from "./graph.js";
 import { shotAcceptTargets } from "./shot-accept-targets.js";

@@ -21,7 +21,7 @@ import {
   THUMBNAIL_TARGET,
 } from "../../../core/address.js";
 import { thumbnailOf } from "../../../core/graph.js";
-import { materializedLeafContentHash } from "../../../core/composition-resource.js";
+import { materializedLeafContentHash } from "../../../core/leaf-review.js";
 import { directionPartHashes } from "../../../core/direction-hash.js";
 import type { Direction } from "../../../core/dsl/direction.js";
 import { KonteError } from "../../../core/errors.js";

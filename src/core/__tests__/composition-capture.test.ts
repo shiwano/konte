@@ -32,7 +32,7 @@ vi.mock("../composition-builder.js", async (importOriginal) => ({
   compositionDrawsSomething: () => true,
 }));
 
-vi.mock("../composition-resource.js", () => ({
+vi.mock("../leaf-hash.js", () => ({
   compositionInputFingerprints: () => ({}),
   pictureRefsOf: () => [],
   unresolvedPictureRefs: () => [],

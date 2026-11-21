@@ -20,11 +20,8 @@ import {
   shownShotAssetNames,
   tryParseAddress,
 } from "./address.js";
-import {
-  leafSettledAcross,
-  materializedLeafReviewStatus,
-  removedShotStemAddresses,
-} from "./composition-resource.js";
+import { removedShotStemAddresses } from "./stem-resource.js";
+import { leafSettledAcross, materializedLeafReviewStatus } from "./leaf-review.js";
 import { parsePlaceholder } from "./dsl/shot-context.js";
 import { extractRefs, thumbnailOf } from "./graph.js";
 import { variantMediaKind } from "./media-type.js";

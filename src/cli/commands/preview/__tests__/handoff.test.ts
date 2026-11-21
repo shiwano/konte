@@ -6,8 +6,8 @@ import type { DefinitionLike } from "../../../../core/address.js";
 import {
   compositionDefinitionHashForAddress,
   definitionHashForAddress,
-  materializedLeafContentHash,
-} from "../../../../core/composition-resource.js";
+} from "../../../../core/leaf-hash.js";
+import { materializedLeafContentHash } from "../../../../core/leaf-review.js";
 import { directionPartHashes } from "../../../../core/direction-hash.js";
 import type { Direction } from "../../../../core/dsl/direction.js";
 import type { ReviewRecord } from "../../../../core/review-record.js";

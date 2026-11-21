@@ -8,7 +8,7 @@ import {
   parseStageScope,
 } from "../../core/address.js";
 import { remakeSettledLeaves } from "../../core/board-leaves.js";
-import { leafSignedOff } from "../../core/composition-resource.js";
+import { leafSignedOff } from "../../core/leaf-review.js";
 import { deliveryUpscalerMissing } from "../../core/delivery.js";
 import { KonteError } from "../../core/errors.js";
 import { computeExportPlanDigest } from "../../core/export-signature.js";

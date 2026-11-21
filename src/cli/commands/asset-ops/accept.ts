@@ -36,18 +36,20 @@ import {
   parseShotScope,
   parseTakeArg,
 } from "../../../core/address.js";
+import { findMatchingCompositionVariant } from "../../../core/leaf-hash.js";
+import {
+  listRemovedShotStemAddresses,
+  removedShotStemAddresses,
+} from "../../../core/stem-resource.js";
 import {
   commitLeafForAddress,
   discardPreparedLeaf,
-  findMatchingCompositionVariant,
   leafReadyForReview,
-  listRemovedShotStemAddresses,
   overlayAwaitsAccept,
   prepareLeafForAddress,
-  removedShotStemAddresses,
   shotAcceptsStand,
   unresolvedLeafRefs,
-} from "../../../core/composition-resource.js";
+} from "../../../core/leaf-review.js";
 import { type Finding, formatFindingLine } from "../../../core/finding.js";
 import { shotAcceptTargets } from "../../../core/shot-accept-targets.js";
 import { thumbnailOf } from "../../../core/graph.js";

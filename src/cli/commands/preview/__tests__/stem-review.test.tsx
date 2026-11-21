@@ -2,13 +2,12 @@ import * as fs from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
+import { definitionHashForAddress } from "../../../../core/leaf-hash.js";
+import { commitShotStem, prepareShotStem } from "../../../../core/stem-resource.js";
 import {
-  commitShotStem,
-  definitionHashForAddress,
   materializedLeafContentHash,
   materializedLeafReviewStatus,
-  prepareShotStem,
-} from "../../../../core/composition-resource.js";
+} from "../../../../core/leaf-review.js";
 import { writeSilentWav } from "../../../../core/__tests__/helpers/wav.js";
 import { JobManager } from "../../../../core/job-manager.js";
 import { StateManager } from "../../../../core/state/index.js";

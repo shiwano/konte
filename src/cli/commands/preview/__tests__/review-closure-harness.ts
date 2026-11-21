@@ -7,7 +7,7 @@ import { handleGetReelState, remixTakenOverBoardStems } from "../reel-review.js"
 import { handleSubmit, type ReviewContext } from "../submit.js";
 import { buildAssetStatus } from "../../../../core/status-report.js";
 import { type DefinitionLike, getAssetEntry, listAddresses } from "../../../../core/address.js";
-import { compositionInputFingerprints } from "../../../../core/composition-resource.js";
+import { compositionInputFingerprints } from "../../../../core/leaf-hash.js";
 import { computeDefinitionHash } from "../../../../core/definition-hash.js";
 import { extractRefs } from "../../../../core/graph.js";
 import { stableStringify } from "../../../../core/stable-stringify.js";

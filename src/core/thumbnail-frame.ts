@@ -3,7 +3,7 @@ import {
   compositionDefinitionHash,
   overlayDefinitionHash,
   overlayFingerprintRefs,
-} from "./composition-resource.js";
+} from "./leaf-hash.js";
 import { makeAddressPlaceholder, parsePlaceholder } from "./dsl/shot-context.js";
 import type { VideoDefinition } from "./types/index.js";
 

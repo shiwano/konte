@@ -31,14 +31,16 @@ import {
 } from "../../../core/generation-selection.js";
 import { JobManager } from "../../../core/job-manager.js";
 import {
-  leafSettledAcross,
   compositionDefinitionHashForAddress,
   definitionHashForAddress,
   timelineStemRefs,
+} from "../../../core/leaf-hash.js";
+import { overlayTimelineRefs } from "../../../core/overlay-resource.js";
+import {
+  leafSettledAcross,
   materializedLeafReviewStatus,
   overlayAwaitsAccept,
-  overlayTimelineRefs,
-} from "../../../core/composition-resource.js";
+} from "../../../core/leaf-review.js";
 import { variantMediaKind } from "../../../core/media-type.js";
 import {
   applyVideoPreroll,

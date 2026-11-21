@@ -24,7 +24,7 @@ import {
   assetNameOf,
 } from "../../core/address.js";
 import { acceptedVariant, acceptedVariantId } from "../../core/accepted-variant.js";
-import { definitionHashForAddress } from "../../core/composition-resource.js";
+import { definitionHashForAddress } from "../../core/leaf-hash.js";
 import { shotById } from "../../core/shot-index.js";
 import { computeDefinitionHash } from "../../core/definition-hash.js";
 import {
