@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { KonteError } from "../errors.js";
 import {
+  parseMediaDetail,
   parseVideoProbe,
   pickVideoFps,
   probeHasAudio,
@@ -222,6 +223,20 @@ describe("parseVideoProbe", () => {
 
     const result = parseVideoProbe(output);
     expect(result.fps).toBe(30);
+  });
+});
+
+describe("parseMediaDetail", () => {
+  it("reads the audio stream's duration past a video stream's unreadable one", () => {
+    const detail = parseMediaDetail({
+      format: {},
+      streams: [
+        { codec_type: "video", width: 64, height: 36, duration: "N/A" },
+        { codec_type: "audio", duration: "2.5" },
+      ],
+    });
+
+    expect(detail.durationSec).toBe(2.5);
   });
 });
 

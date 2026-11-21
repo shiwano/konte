@@ -5,7 +5,7 @@ import { execFileAsync } from "./exec-file.js";
 import { ffmpegBin } from "./ffmpeg-binary.js";
 import { writeFrame } from "./ffmpeg-exec.js";
 import { attrOf, timedElements } from "./html-attr.js";
-import { probeVideo } from "./video-probe.js";
+import { FALLBACK_FPS, probeVideo } from "./video-probe.js";
 
 export interface ExtractKeyframesOptions {
   threshold?: number;
@@ -26,8 +26,6 @@ export interface ThumbnailInfo {
 // failed"), blaming the encoder for a seek. A constant-rate clip runs `lastPts + one frame` long, so
 // aiming half a frame *before* the last timestamp lands on it whichever way the rounding went.
 const LAST_FRAME_MARGIN = 1.5;
-// Assumed rate when a source declares none usable — the same value the motion probe caps decoding at.
-const FALLBACK_FPS = 30;
 
 // Seconds between frames on the source's own grid. A rate is only nonsense when it is non-positive
 // or non-finite — 0.2fps is a legitimate rate, and clamping it to 1 would put every margin and

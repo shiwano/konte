@@ -61,6 +61,23 @@ interface RawProbe {
   streams?: Array<Record<string, unknown>>;
 }
 
+type RawStream = Record<string, unknown>;
+
+// One ffprobe dump as its container and its first video and audio streams.
+function splitProbe(raw: unknown): {
+  format: NonNullable<RawProbe["format"]>;
+  video: RawStream | undefined;
+  audio: RawStream | undefined;
+} {
+  const probe = (raw ?? {}) as RawProbe;
+  const streams = Array.isArray(probe.streams) ? probe.streams : [];
+  return {
+    format: probe.format ?? {},
+    video: streams.find((s) => s.codec_type === "video"),
+    audio: streams.find((s) => s.codec_type === "audio"),
+  };
+}
+
 // Reduce one ffprobe dump to the record konte stores on the variant (`VariantMediaSchema`). `kind`
 // is the caller's (`inferMediaType`), so this fills in the fields that kind promises and returns
 // null the moment one of them is unreadable. A video's missing audio stream is the one legitimate
@@ -69,13 +86,10 @@ export function buildVariantMedia(
   kind: "image" | "video" | "audio",
   raw: unknown,
 ): VariantMedia | null {
-  const probe = (raw ?? {}) as RawProbe;
-  const streams = Array.isArray(probe.streams) ? probe.streams : [];
-  const video = streams.find((s) => s.codec_type === "video");
-  const audio = streams.find((s) => s.codec_type === "audio");
+  const { format, video, audio } = splitProbe(raw);
   // A container that declares no duration can still carry it on the stream (some WAV/MKV muxes).
-  const durationOf = (stream: Record<string, unknown> | undefined): number | null =>
-    positive(probe.format?.duration) ?? positive(stream?.duration);
+  const durationOf = (stream: RawStream | undefined): number | null =>
+    positive(format.duration) ?? positive(stream?.duration);
 
   if (kind === "image") {
     const width = positive(video?.width);
@@ -121,8 +135,8 @@ async function ffprobeJson(absPath: string): Promise<RawProbe | null> {
   }
 }
 
-// Assumed rate when a source declares none usable.
-const FALLBACK_FPS = 30;
+// Assumed rate when a source declares none usable — the same value the motion probe caps decoding at.
+export const FALLBACK_FPS = 30;
 
 export interface VideoProbeResult {
   duration: number;
@@ -145,12 +159,10 @@ export async function probeVideo(absPath: string): Promise<VideoProbeResult> {
 }
 
 export function parseVideoProbe(raw: unknown): VideoProbeResult {
-  const probe = (raw ?? {}) as RawProbe;
-  const streams = Array.isArray(probe.streams) ? probe.streams : [];
-  const video = streams.find((s) => s.codec_type === "video");
+  const { format, video } = splitProbe(raw);
   if (!video) throw new KonteError("FFPROBE_ERROR", "No video stream found");
 
-  const duration = positive(probe.format?.duration) ?? positive(video.duration) ?? 0;
+  const duration = positive(format.duration) ?? positive(video.duration) ?? 0;
   // A stream that declares no duration leaves only the container's, which a longer audio track
   // overstates — callers that must stay inside the picture treat the excess as best-effort.
   const videoDuration = positive(video.duration) ?? duration;
@@ -228,14 +240,16 @@ interface MediaDetail {
 // live read of the real artifact.
 export async function probeMediaDetail(absPath: string): Promise<MediaDetail | null> {
   const raw = await ffprobeJson(absPath);
-  if (!raw) return null;
-  const streams = Array.isArray(raw.streams) ? raw.streams : [];
-  const video = streams.find((s) => s.codec_type === "video");
-  const audio = streams.find((s) => s.codec_type === "audio");
+  return raw ? parseMediaDetail(raw) : null;
+}
+
+export function parseMediaDetail(raw: unknown): MediaDetail {
+  const { format, video, audio } = splitProbe(raw);
   const width = positive(video?.width);
   const height = positive(video?.height);
   return {
-    durationSec: positive(raw.format?.duration) ?? positive(video?.duration ?? audio?.duration),
+    durationSec:
+      positive(format.duration) ?? positive(video?.duration) ?? positive(audio?.duration),
     video:
       width && height
         ? {
