@@ -3,6 +3,7 @@ import { workspaceRootOrNull } from "./workspace-context.js";
 import * as path from "node:path";
 import { writeFileAtomic } from "./atomic-write.js";
 import { fetchWithRetry } from "./http-retry.js";
+import { compareVersions, normalizeVersion } from "./version.js";
 
 /**
  * Is a newer konte release out? Asked by `konte doctor` only — `status` and every other
@@ -99,30 +100,4 @@ async function fetchLatestReleaseTag(): Promise<string> {
   const tag = location.split("/").filter(Boolean).at(-1);
   if (!tag || tag === "releases" || tag === "latest") throw new Error(`no release found`);
   return tag;
-}
-
-function normalizeVersion(version: string): string {
-  return version.trim().replace(/^v/, "");
-}
-
-/** Positive when `a` is newer than `b`; dotted numeric parts, a pre-release suffix ranks below its release. */
-export function compareVersions(a: string, b: string): number {
-  const [aMain, aPre] = splitPre(normalizeVersion(a));
-  const [bMain, bPre] = splitPre(normalizeVersion(b));
-  const aParts = aMain.split(".").map((n) => Number.parseInt(n, 10) || 0);
-  const bParts = bMain.split(".").map((n) => Number.parseInt(n, 10) || 0);
-  const length = Math.max(aParts.length, bParts.length);
-  for (let i = 0; i < length; i++) {
-    const diff = (aParts[i] ?? 0) - (bParts[i] ?? 0);
-    if (diff !== 0) return diff;
-  }
-  if (aPre === bPre) return 0;
-  if (aPre === null) return 1;
-  if (bPre === null) return -1;
-  return aPre < bPre ? -1 : 1;
-}
-
-function splitPre(version: string): [string, string | null] {
-  const i = version.indexOf("-");
-  return i === -1 ? [version, null] : [version.slice(0, i), version.slice(i + 1)];
 }

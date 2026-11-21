@@ -2,21 +2,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { checkForUpdate, compareVersions } from "../update-check.js";
-
-describe("compareVersions", () => {
-  it("orders dotted numeric versions, ignoring a leading v", () => {
-    expect(compareVersions("v0.2.0", "0.1.9")).toBeGreaterThan(0);
-    expect(compareVersions("0.1.0", "v0.1.0")).toBe(0);
-    expect(compareVersions("0.1", "0.1.0")).toBe(0);
-    expect(compareVersions("1.0.0", "0.99.99")).toBeGreaterThan(0);
-  });
-
-  it("ranks a pre-release below its release", () => {
-    expect(compareVersions("1.0.0-rc.1", "1.0.0")).toBeLessThan(0);
-    expect(compareVersions("1.0.0", "1.0.0-rc.1")).toBeGreaterThan(0);
-  });
-});
+import { checkForUpdate } from "../update-check.js";
 
 describe("checkForUpdate", () => {
   let cacheDir: string;

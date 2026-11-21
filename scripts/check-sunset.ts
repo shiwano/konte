@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import pkg from "../package.json" with { type: "json" };
-import { compareVersions } from "../src/core/update-check.js";
+import { compareVersions } from "../src/core/version.js";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const TAG = "SUNSET" + "(";

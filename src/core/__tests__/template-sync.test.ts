@@ -360,6 +360,25 @@ describe("syncWorkspace agent settings", () => {
     expect(ignore).toContain(".codex/config.toml\n");
   });
 
+  it("appends missing .gitignore lines through a symlink to its target", async () => {
+    await synced(tmpDir);
+    await writeFileAt(tmpDir, "shared-ignore", "my-cache/\n");
+    await fs.rm(path.join(tmpDir, ".gitignore"), { force: true });
+    await fs.symlink(path.join(tmpDir, "shared-ignore"), path.join(tmpDir, ".gitignore"));
+    await writeLock(tmpDir, { hash: "stale" });
+    await syncWorkspace(tmpDir);
+    expect((await fs.lstat(path.join(tmpDir, ".gitignore"))).isSymbolicLink()).toBe(true);
+    expect(await readFileAt(tmpDir, "shared-ignore")).toContain(".codex/config.toml\n");
+  });
+
+  it("keeps a managed file's mode when it rewrites it", async () => {
+    await writeFileAt(tmpDir, AGENT_KEY, "old agent");
+    await fs.chmod(path.join(tmpDir, AGENT_KEY), 0o600);
+    await syncWorkspace(tmpDir);
+    expect((await fs.stat(path.join(tmpDir, AGENT_KEY))).mode & 0o777).toBe(0o600);
+    expect(await readFileAt(tmpDir, AGENT_KEY)).not.toBe("old agent");
+  });
+
   it("writes the version marker at the workspace root", async () => {
     await synced(tmpDir);
     expect(await readFileAt(tmpDir, VERSION_FILE)).toBe(`${pkg.version}\n`);
@@ -426,6 +445,12 @@ describe("assertWorkspaceSynced", () => {
     const [major, minor, patch] = pkg.version.split(".").map(Number);
     await writeFileAt(tmpDir, VERSION_FILE, `${major}.${minor}.${patch! + 1}\n`);
     await expect(assertWorkspaceSynced(tmpDir)).rejects.toMatchObject({ code: "KONTE_OUTDATED" });
+    await expect(assertKonteCurrent(tmpDir)).rejects.toMatchObject({ code: "KONTE_OUTDATED" });
+  });
+
+  it("refuses a pre-release konte.version of a newer konte", async () => {
+    const [major, minor] = pkg.version.split(".").map(Number);
+    await writeFileAt(tmpDir, VERSION_FILE, `${major}.${minor! + 1}.0-rc.1+sha.abc\n`);
     await expect(assertKonteCurrent(tmpDir)).rejects.toMatchObject({ code: "KONTE_OUTDATED" });
   });
 

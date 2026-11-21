@@ -15,7 +15,9 @@ import {
   MANAGED_TEMPLATES,
   TEMPLATE_HASH,
 } from "./generated/template-assets.js";
+import { writeFileAtomic } from "./atomic-write.js";
 import { KonteError } from "./errors.js";
+import { compareVersions, isReleaseVersion } from "./version.js";
 
 declare const KONTE_COMPILED: boolean | undefined;
 
@@ -44,6 +46,15 @@ interface WorkspaceSyncResult {
 function isUnwritable(err: unknown): boolean {
   const code = (err as NodeJS.ErrnoException).code;
   return code === "EPERM" || code === "EACCES" || code === "EROFS";
+}
+
+// A rename would replace a symlink, ignore a read-only file and drop its mode.
+async function writeWorkspaceFile(filePath: string, data: string): Promise<void> {
+  const target = await fs.realpath(filePath).catch(() => null);
+  if (target === null) return writeFileAtomic(filePath, data);
+  await fs.access(target, fs.constants.W_OK);
+  const { mode } = await fs.stat(target);
+  await writeFileAtomic(target, data, { mode: mode & 0o7777 });
 }
 
 async function readFileOrNull(filePath: string): Promise<string | null> {
@@ -87,11 +98,7 @@ async function writeLock(workspaceRoot: string, files: string[]): Promise<void> 
     updatedAt: new Date().toISOString(),
     files: [...files].sort(),
   };
-  const lockPath = path.join(workspaceRoot, LOCK_FILE);
-  await fs.mkdir(path.dirname(lockPath), { recursive: true });
-  const tmpPath = `${lockPath}.tmp`;
-  await fs.writeFile(tmpPath, `${JSON.stringify(lock, null, 2)}\n`, "utf-8");
-  await fs.rename(tmpPath, lockPath);
+  await writeFileAtomic(path.join(workspaceRoot, LOCK_FILE), `${JSON.stringify(lock, null, 2)}\n`);
 }
 
 /**
@@ -105,28 +112,17 @@ async function readVersionFile(workspaceRoot: string): Promise<string | null> {
 
 async function writeVersionFile(workspaceRoot: string, previous: string | null): Promise<void> {
   if (previous === pkg.version) return;
-  await fs.writeFile(path.join(workspaceRoot, VERSION_FILE), `${pkg.version}\n`, "utf-8");
-}
-
-function parseVersion(version: string): number[] | null {
-  const parts = version.split(".").map(Number);
-  return parts.length === 3 && parts.every(Number.isInteger) ? parts : null;
+  await writeFileAtomic(path.join(workspaceRoot, VERSION_FILE), `${pkg.version}\n`);
 }
 
 function isNewer(version: string, than: string): boolean {
-  const a = parseVersion(version);
-  const b = parseVersion(than);
-  if (a === null || b === null) return false;
-  for (let i = 0; i < 3; i++) {
-    if (a[i] !== b[i]) return a[i]! > b[i]!;
-  }
-  return false;
+  return isReleaseVersion(version) && isReleaseVersion(than) && compareVersions(version, than) > 0;
 }
 
 /** Whether a bundled adapter missing from the workspace shipped after the konte that last synced it. */
 function shippedSince(introducedIn: string | null, previous: string | null): boolean {
-  if (previous === null || parseVersion(previous) === null) return false;
-  if (introducedIn === null || parseVersion(introducedIn) === null) return true;
+  if (previous === null || !isReleaseVersion(previous)) return false;
+  if (introducedIn === null || !isReleaseVersion(introducedIn)) return true;
   return isNewer(introducedIn, previous);
 }
 
@@ -234,7 +230,7 @@ async function appendMissingIgnores(workspaceRoot: string, template: string): Pr
   const lines = new Set(current.split(/\r?\n/));
   const missing = template.split("\n").filter((line) => line && !lines.has(line));
   if (missing.length === 0) return;
-  await fs.writeFile(
+  await writeWorkspaceFile(
     ignorePath,
     `${current}${current && !current.endsWith("\n") ? "\n" : ""}${missing.join("\n")}\n`,
   );
@@ -308,8 +304,7 @@ export async function syncWorkspace(workspaceRoot: string): Promise<WorkspaceSyn
     }
 
     try {
-      await fs.mkdir(path.dirname(fullPath), { recursive: true });
-      await fs.writeFile(fullPath, desired, "utf-8");
+      await writeWorkspaceFile(fullPath, desired);
     } catch (err) {
       if (!isUnwritable(err)) throw err;
       unwritable.push(key);

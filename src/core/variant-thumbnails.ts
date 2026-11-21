@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { addressFromCacheSegments, addressToCacheSegments } from "./address.js";
+import { writeFileAtomic } from "./atomic-write.js";
 import {
   extractKeyframes,
   type ExtractKeyframesOptions,
@@ -162,10 +163,9 @@ export async function ensureVariantThumbnails(
   // cache's pruneSuperseded — clean is variant-scoped and won't reclaim them otherwise.
   pruneSupersededVariantHashes(videoRoot, address, variantId, outputHash);
   try {
-    await fs.writeFile(
+    await writeFileAtomic(
       variantManifestPath(videoRoot, address, variantId, outputHash),
       JSON.stringify(thumbnails),
-      "utf-8",
     );
   } catch {
     // manifest is best-effort; its absence just means a cache miss next time
