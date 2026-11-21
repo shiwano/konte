@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { formatStaleReason, keptViaMarker, type PatchHashes, StalenessView } from "../staleness.js";
+import { keptViaMarker } from "../kept-via.js";
+import { formatStaleReason, type PatchHashes, StalenessView } from "../staleness.js";
 import type { KonteState, VariantState } from "../types/index.js";
 import { variantDir } from "../variant-dir.js";
 

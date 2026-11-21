@@ -6,7 +6,8 @@ import {
   formatShotAddress,
   patchSourceVariantIdOf,
 } from "../../../core/address.js";
-import { keptViaMarker, parseKeptVia, type StalenessView } from "../../../core/staleness.js";
+import { keptViaMarker, parseKeptVia } from "../../../core/kept-via.js";
+import type { StalenessView } from "../../../core/staleness.js";
 import { generatedOrigin, isReviewLeaf } from "../../../core/variant-lineage.js";
 import { variantOwningFile } from "../../../core/variant-dir.js";
 import { mediaVisualSize } from "../../../core/variant-media.js";

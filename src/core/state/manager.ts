@@ -10,9 +10,8 @@ import { isStageScope } from "../address.js";
 import { KonteError, errorMessage } from "../errors.js";
 import { withFileLock } from "../file-lock.js";
 import { LockedJsonFile } from "../locked-json-file.js";
+import { keptViaMarker, parseKeptVia } from "../kept-via.js";
 import {
-  keptViaMarker,
-  parseKeptVia,
   type PatchHashes,
   type ResolutionDefinitions,
   StalenessView,

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { StateManager } from "../../../../core/state/index.js";
-import { keptViaMarker } from "../../../../core/staleness.js";
+import { keptViaMarker } from "../../../../core/kept-via.js";
 import { applyKeepDecisions, applyRegenerateDecisions } from "../review-shared.js";
 
 // A board frame, a resize konte re-bakes from it, and the motion built on the resize.

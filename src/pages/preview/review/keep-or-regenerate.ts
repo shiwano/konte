@@ -1,3 +1,4 @@
+import { keptViaMarker, parseKeptVia } from "../../../core/kept-via.js";
 import type { KeepGraphInfo } from "../../../core/types/review-state.js";
 
 // The Keep-or-regenerate model: which accepted takes an accept on this page leaves standing against
@@ -92,33 +93,11 @@ export function keepContext(
 
 export const EMPTY_KEEP_GRAPH: KeepGraphInfo = { addresses: {}, units: {} };
 
-const VIA = "via:";
-
-function parseVia(value: string | undefined): Record<string, string> | null {
-  if (!value?.startsWith(VIA)) return null;
-  const out: Record<string, string> = {};
-  for (const pair of value.slice(VIA.length).split(",")) {
-    const at = pair.lastIndexOf("=");
-    if (at > 0) out[pair.slice(0, at)] = pair.slice(at + 1);
-  }
-  return out;
-}
-
-function formatVia(upstreams: Record<string, string>): string {
-  return (
-    VIA +
-    Object.keys(upstreams)
-      .sort()
-      .map((address) => `${address}=${upstreams[address]}`)
-      .join(",")
-  );
-}
-
 // Two answers about one input: markers naming upstreams merge, a plain hash is the later's.
 function mergeInput(prior: string | undefined, next: string): string {
-  const a = parseVia(prior);
-  const b = parseVia(next);
-  return a && b ? formatVia({ ...a, ...b }) : next;
+  const a = prior === undefined ? null : parseKeptVia(prior);
+  const b = parseKeptVia(next);
+  return a && b ? keptViaMarker({ ...a, ...b }) : next;
 }
 
 const bySeq = (a: KeepChoice, b: KeepChoice) => a.seq - b.seq;
@@ -355,10 +334,13 @@ function promptEntry(
       const current =
         via === upstream
           ? inputs.includes(hash) || keptInput === hash
-          : [...inputs, keptInput].some((value) => parseVia(value)?.[upstream] === hash);
+          : [...inputs, keptInput].some(
+              (value) => value !== undefined && parseKeptVia(value)?.[upstream] === hash,
+            );
       if (current) continue;
       const out = stale.get(address) ?? {};
-      out[via] = via === upstream ? hash : mergeInput(out[via], formatVia({ [upstream]: hash }));
+      out[via] =
+        via === upstream ? hash : mergeInput(out[via], keptViaMarker({ [upstream]: hash }));
       stale.set(address, out);
     }
   }
