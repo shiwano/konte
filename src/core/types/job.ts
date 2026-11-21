@@ -171,8 +171,7 @@ const ExportJobSchema = JobRecordBaseSchema.extend({
   // Fingerprint of the definition this export actually rendered — see computeExportSignature,
   // stamped by the worker on completion from the reloaded definition (not at submit). `status`
   // re-derives it from the current definition and flags the last export as out of date when it no
-  // longer matches. Null until completion, for a no-delivery check (not a real deliverable), and
-  // for legacy jobs predating the field (can't verify → not flagged).
+  // longer matches. Null until completion, and for a no-delivery check (not a real deliverable).
   exportSignature: z.string().nullable().default(null),
   // What the definition said the export would be when it was registered (see
   // computeExportPlanDigest): the render worker recomputes it from the definition it reloaded, and

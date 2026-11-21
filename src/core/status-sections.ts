@@ -270,7 +270,7 @@ export interface LastExport {
   // The export's stamped signature no longer matches the current definition — a render fn,
   // soundtrack, or delivery config changed since, so the delivered file is out of date and a
   // re-export is needed (see computeExportSignature). False when the signature matches, or can't be
-  // checked (no current signature, or a legacy job with none stamped).
+  // checked (no current signature, or a no-delivery check, which stamps none).
   outOfDate: boolean;
 }
 
