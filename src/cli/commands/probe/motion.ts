@@ -151,7 +151,7 @@ export function registerProbeMotionCommand(program: Command): void {
     .option("--window <sec>", "Zoom window span in seconds; implies windowed mode (default 0.6)")
     .option("--frames <n>", "Number of tiled frames (default 16 full-clip, 12 windowed)")
     .option(
-      "--verbose",
+      "-v, --verbose",
       "Print the full advisory (stats, segments, sparkline, reading note) to stderr",
     )
     .addHelpText(

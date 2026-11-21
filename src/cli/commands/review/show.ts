@@ -191,7 +191,7 @@ export function registerReviewShowCommand(program: Command): void {
     .command("show [file]")
     .description("Show the latest (or a specific) review session's decisions and feedback")
     .option("--last", "Show the most recent review (default)")
-    .option("--verbose", "Also show the AI-authored handoff notes")
+    .option("-v, --verbose", "Also show the AI-authored handoff notes")
     .option("--contact-sheet", "Also tile every note's frame into one sheet to Read")
     .option("--max-cells <n>", `Cells per sheet (default ${DEFAULT_MAX_CELLS})`)
     .addHelpText(

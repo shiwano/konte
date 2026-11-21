@@ -86,7 +86,7 @@ Examples:
   konte review feedback list video:shot.10   Standing comments on shot 10
   konte review feedback list --verbose       Every comment in full, stale ones included`,
     )
-    .option("--verbose", "Show each comment in full, and the ones that no longer stand")
+    .option("-v, --verbose", "Show each comment in full, and the ones that no longer stand")
     .action(
       async (addressScope: string | undefined, opts: ListLimitOptions & { verbose?: boolean }) => {
         const videoRoot = requireVideoRoot();

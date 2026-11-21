@@ -38,7 +38,7 @@ export function registerPathCommand(program: Command): void {
   program
     .command("path <variantOrAddress...>")
     .description("Print the file path for each asset address or variant id")
-    .option("--verbose", "Also print the resolved address and variant id to stderr")
+    .option("-v, --verbose", "Also print the resolved address and variant id to stderr")
     .addHelpText(
       "after",
       `
