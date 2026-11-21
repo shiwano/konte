@@ -352,6 +352,17 @@ describe("ComfyUIBackend", () => {
     download.mockRestore();
   });
 
+  it("leaves a finished prompt re-observable when its credential is refused", async () => {
+    const download = vi
+      .spyOn(backend.httpClient, "downloadOutputToFile")
+      .mockRejectedValue(new KonteError("COMFYUI_UNAUTHORIZED", "ComfyUI rejected (401)"));
+
+    await expect(
+      backend.waitForCompletion("test-prompt-id", path.join(tmpDir, "output")),
+    ).rejects.toBeInstanceOf(TransientPollError);
+    download.mockRestore();
+  });
+
   it("fails a prompt that succeeded with no output", async () => {
     currentHistoryEntry = { ...mockHistoryEntry, outputs: {} };
 
@@ -1592,5 +1603,46 @@ describe("ComfyUIBackend.waitForCompletion when ComfyUI is unreachable", () => {
       new Promise((resolve) => setTimeout(() => resolve("still polling"), 300)),
     ]);
     expect(raced).toBe("still polling");
+  });
+});
+
+describe("ComfyUIBackend.waitForCompletion when ComfyUI refuses the credential", () => {
+  let ws: Workspace;
+  let server: http.Server;
+  let baseUrl: string;
+
+  beforeEach(async () => {
+    ws = await makeWorkspace({ videos: ["v1"] });
+    server = http.createServer((_req, res) => {
+      res.writeHead(401);
+      res.end("unauthorized");
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    baseUrl = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+  });
+
+  afterEach(async () => {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await ws.cleanup();
+  });
+
+  it("keeps polling the prompt past the unreachable ceiling", async () => {
+    const backend = new ComfyUIBackend(
+      {
+        baseUrl,
+        headers: {},
+        autoInstallModels: false,
+        autoInstallNodes: false,
+        autoRebootAfterNodeInstall: false,
+        unreachableTimeoutMs: 1,
+        timing: FAST_TIMING,
+      },
+      ws.videos.v1!,
+    );
+    const result = await backend.waitForCompletion("p-1", path.join(ws.root, "out"), {
+      timeoutMs: 300,
+    });
+    expect(result.kind).toBe("timedOut");
   });
 });

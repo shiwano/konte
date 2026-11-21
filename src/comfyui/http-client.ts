@@ -200,14 +200,7 @@ export class ComfyUIHttpClient {
   }
 
   async getObjectInfo(): Promise<Record<string, ComfyUINodeDefinition>> {
-    // Routed through fetchWithRetry (classify-only) so a transient comms failure surfaces as a
-    // TransientHttpError rather than an opaque COMFYUI_*: callers verifying a finished install can
-    // then tell "couldn't observe" (re-observe) from "genuinely absent" (fail).
-    const res = await fetchWithRetry(
-      `${this.baseUrl}/object_info`,
-      { headers: this.authHeaders() },
-      { maxRetries: 0 },
-    );
+    const res = await this.observe("/object_info");
     if (!res.ok) {
       throw new KonteError("COMFYUI_ERROR", `ComfyUI /object_info failed (${res.status})`);
     }
@@ -220,11 +213,7 @@ export class ComfyUIHttpClient {
   // null when ComfyUI does not know the root at all, which is a different answer from "the root
   // is empty": callers fall back to the combo scan rather than reading absence into it.
   async getModelFiles(folder: string): Promise<string[] | null> {
-    const res = await fetchWithRetry(
-      `${this.baseUrl}/api/models/${encodeURIComponent(folder)}`,
-      { headers: this.authHeaders() },
-      { maxRetries: 0 },
-    );
+    const res = await this.observe(`/api/models/${encodeURIComponent(folder)}`);
     if (res.status === 404) return null;
     if (!res.ok) {
       throw new KonteError("COMFYUI_ERROR", `ComfyUI /api/models/${folder} failed (${res.status})`);
@@ -244,11 +233,7 @@ export class ComfyUIHttpClient {
   // ComfyUI 0.3.x; null means "this server won't tell us", which callers read as "not local" and
   // fall back to ComfyUI-Manager rather than guessing a path.
   async getModelFolders(): Promise<ComfyUIModelFolder[] | null> {
-    const res = await fetchWithRetry(
-      `${this.baseUrl}/api/experiment/models`,
-      { headers: this.authHeaders() },
-      { maxRetries: 0 },
-    );
+    const res = await this.observe("/api/experiment/models");
     if (res.status === 404) return null;
     if (!res.ok) return null;
     const parsed = ComfyUIModelFoldersSchema.safeParse(await res.json().catch(() => null));
@@ -327,9 +312,7 @@ export class ComfyUIHttpClient {
 
     // Unconditional, `allowErrorStatus` included: that flag lets `/prompt` read a workflow
     // validation body, and reading a 401 page as one reports it as an unparseable workflow.
-    if (res.status === 401 || res.status === 403) {
-      throw new KonteError("COMFYUI_UNAUTHORIZED", this.unauthorizedMessage(res.status));
-    }
+    this.rejectUnauthorized(res);
 
     if (!res.ok && !options?.allowErrorStatus) {
       const body = this.redactBody(await res.text().catch(() => ""));
@@ -340,6 +323,24 @@ export class ComfyUIHttpClient {
     }
 
     return res;
+  }
+
+  // A single classifying attempt: a comms failure throws `TransientHttpError`, so a caller verifying
+  // a finished install can tell "couldn't observe" from "genuinely absent".
+  private async observe(path: string): Promise<Response> {
+    const res = await fetchWithRetry(
+      `${this.baseUrl}${path}`,
+      { headers: this.authHeaders() },
+      { maxRetries: 0, timeoutMs: DEFAULT_TIMEOUT_MS },
+    );
+    this.rejectUnauthorized(res);
+    return res;
+  }
+
+  private rejectUnauthorized(res: Response): void {
+    if (res.status === 401 || res.status === 403) {
+      throw new KonteError("COMFYUI_UNAUTHORIZED", this.unauthorizedMessage(res.status));
+    }
   }
 
   private unauthorizedMessage(status: number): string {

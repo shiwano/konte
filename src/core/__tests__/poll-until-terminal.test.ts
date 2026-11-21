@@ -136,6 +136,27 @@ describe("pollUntilTerminal", () => {
       expect(observe).toHaveBeenCalledTimes(4);
     });
 
+    it("does not count a refused credential as silence", async () => {
+      let now = Date.now();
+      vi.spyOn(Date, "now").mockImplementation(() => now);
+      const refusedAfter = async (ms: number): Promise<never> => {
+        now += ms;
+        throw new TransientPollError("401", { refused: true });
+      };
+      const observe = vi
+        .fn()
+        .mockImplementationOnce(() => refusedAfter(30))
+        .mockImplementationOnce(() => refusedAfter(30))
+        .mockResolvedValueOnce({ state: "done", result: "ok" });
+
+      const result = await pollUntilTerminal(observe, {
+        ...fast,
+        unreachableTimeout: { afterMs: 50, toError: () => new Error("must not fire") },
+      });
+
+      expect(result).toEqual({ kind: "done", value: "ok" });
+    });
+
     it("does not fire while the backend is answering, however long the job runs", async () => {
       const observe = vi
         .fn()

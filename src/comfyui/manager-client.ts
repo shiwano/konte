@@ -179,6 +179,7 @@ export class ComfyUIManagerClient {
       // transient so an install job is left re-observable (the job waits for the Manager to come
       // back) rather than being failed with a misleading "not detected".
       if (err instanceof TransientPollError) throw err;
+      if (err instanceof KonteError && isAuthFailure(err)) throw err;
       return false;
     }
   }
@@ -416,11 +417,7 @@ export class ComfyUIManagerClient {
         try {
           status = await this.getQueueStatus(this.httpClient.clientId);
         } catch (err) {
-          // A rejected credential is the server ANSWERING, so it is terminal: polling on would
-          // wait out a token that has been revoked, and this waiter often runs with no deadline.
-          if (err instanceof KonteError && isAuthFailure(err)) throw err;
-          // The Manager HTTP layer being briefly unreachable is a comms problem, not an
-          // install failure — keep polling rather than failing the download.
+          // An unreachable Manager or a refused credential is not an install failure.
           throw new TransientPollError(errorMessage(err), {
             cause: err,
           });

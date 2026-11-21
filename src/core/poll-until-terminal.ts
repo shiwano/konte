@@ -6,11 +6,15 @@ import { sleep } from "./sleep.js";
  * outage. It does NOT mean the polled job failed; the job is still running. `observe`
  * throws this to tell `pollUntilTerminal` to keep waiting instead of failing the job.
  * `TransientHttpError` extends it, so a polled GET via `fetchWithRetry` is transient too.
+ * `refused` marks a refused or unset credential, which never counts toward `unreachableTimeout`.
  */
 export class TransientPollError extends Error {
-  constructor(message: string, options?: { cause?: unknown }) {
+  readonly refused: boolean;
+
+  constructor(message: string, options?: { cause?: unknown; refused?: boolean }) {
     super(message, options?.cause !== undefined ? { cause: options.cause } : undefined);
     this.name = "TransientPollError";
+    this.refused = options?.refused ?? false;
   }
 }
 
@@ -50,8 +54,9 @@ interface PollUntilTerminalOptions {
   onProgress?: (p: { value: number; max: number; node?: string }) => void;
   onLog?: (line: string) => void;
   onUnconfirmedChange?: (info: { unconfirmed: boolean; lastError: string | null }) => void;
-  // A ceiling on total unobservability: after `afterMs` with no successful check, stop polling by
-  // throwing what `toError` returns — a real terminal error, committed as a job failure.
+  // A ceiling on the server's silence: after `afterMs` with neither a successful check nor a
+  // `refused` one, stop polling by throwing what `toError` returns — a real terminal error,
+  // committed as a job failure.
   //
   // Omitted by default, and every cloud backend leaves it so: their jobs run on infrastructure
   // that outlives the outage and stay re-observable by id, so "I cannot reach the API" is never a
@@ -103,6 +108,7 @@ export async function pollUntilTerminal<T>(
   const where = options.label ? ` (${options.label})` : "";
 
   let lastOkPollAt = Date.now();
+  let lastNotSilentAt = lastOkPollAt;
   let unconfirmed = false;
   let transientStreak = 0;
 
@@ -123,6 +129,7 @@ export async function pollUntilTerminal<T>(
       if (!(err instanceof TransientPollError)) throw err;
       // Transient: the job is still running. Keep polling.
       transientStreak++;
+      if (err.refused) lastNotSilentAt = Date.now();
       const msg = err.message;
       if (transientStreak === 1) {
         onLog?.(`Status check failed transiently (${msg}); still polling.`);
@@ -138,14 +145,16 @@ export async function pollUntilTerminal<T>(
       }
       // The one transient case that IS terminal — see `unreachableTimeout`. Thrown, not returned,
       // so it travels the same path as any other real failure and commits as one.
-      if (unreachableTimeout && unobservableForMs >= unreachableTimeout.afterMs) {
-        throw unreachableTimeout.toError({ sinceMs: unobservableForMs, lastError: msg });
+      const silentForMs = Date.now() - lastNotSilentAt;
+      if (unreachableTimeout && silentForMs >= unreachableTimeout.afterMs) {
+        throw unreachableTimeout.toError({ sinceMs: silentForMs, lastError: msg });
       }
       await sleep(Math.min(pollIntervalMs * 2 ** (transientStreak - 1), maxBackoffMs));
       continue;
     }
 
     lastOkPollAt = Date.now();
+    lastNotSilentAt = lastOkPollAt;
     transientStreak = 0;
     if (unconfirmed) {
       unconfirmed = false;

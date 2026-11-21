@@ -131,6 +131,19 @@ describe("ComfyUIHttpClient with configured headers", () => {
     }
   });
 
+  it.each([
+    ["getObjectInfo", () => client().getObjectInfo()],
+    ["getModelFiles", () => client().getModelFiles("checkpoints")],
+    ["getModelFolders", () => client().getModelFolders()],
+  ])("reports a rejected %s as unauthorized", async (_name, read) => {
+    status = 401;
+    try {
+      await expect(read()).rejects.toMatchObject({ code: "COMFYUI_UNAUTHORIZED" });
+    } finally {
+      status = 200;
+    }
+  });
+
   it("reports a rejected /prompt as unauthorized, not as a workflow error", async () => {
     status = 401;
     try {
@@ -261,6 +274,9 @@ describe("ComfyUIManagerClient with configured headers", () => {
   it("reports a 401 as unauthorized rather than a missing Manager", async () => {
     reply = { status: 401, body: "unauthorized" };
     await expect(manager().getInstalledNodeIds("default")).rejects.toMatchObject({
+      code: "COMFYUI_UNAUTHORIZED",
+    });
+    await expect(manager().isAvailable()).rejects.toMatchObject({
       code: "COMFYUI_UNAUTHORIZED",
     });
   });

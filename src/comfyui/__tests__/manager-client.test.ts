@@ -31,6 +31,8 @@ interface MockHandlers {
   // Number of upcoming /queue/status requests to answer with a transient 500 before
   // resuming the statusSequence — exercises polling resilience.
   statusFailures?: number;
+  // The status those failures answer with; 500 when unset.
+  statusFailureStatus?: number;
   // Node-pack ids reported installed on disk (mode=default) and loaded at startup (mode=imported).
   installedDefault?: string[];
   installedImported?: string[];
@@ -94,7 +96,7 @@ async function startMockServer(handlers: MockHandlers): Promise<MockServer> {
       if (url.pathname === "/api/v2/manager/queue/status") {
         if (statusFailuresRemaining > 0) {
           statusFailuresRemaining -= 1;
-          respond(500, { error: "transient" });
+          respond(handlers.statusFailureStatus ?? 500, { error: "transient" });
           return;
         }
         const seq = handlers.statusSequence ?? [
@@ -537,6 +539,25 @@ describe("ComfyUIManagerClient", () => {
     it("keeps polling through transient status failures and still completes", async () => {
       mock = await startMockServer({
         statusFailures: 3,
+        statusSequence: [
+          { total_count: 0, done_count: 1, in_progress_count: 0, is_processing: false },
+        ],
+      });
+      const client = newClient(mock.baseUrl);
+
+      const result = await client.waitForQueueCompletion({
+        expectedTotal: 1,
+        pollIntervalMs: 10,
+        timeoutMs: 30_000,
+      });
+
+      expect(result.kind).toBe("done");
+    });
+
+    it("keeps polling through a refused credential and still completes", async () => {
+      mock = await startMockServer({
+        statusFailures: 2,
+        statusFailureStatus: 401,
         statusSequence: [
           { total_count: 0, done_count: 1, in_progress_count: 0, is_processing: false },
         ],

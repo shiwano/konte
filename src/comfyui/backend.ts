@@ -22,7 +22,7 @@ import type {
   JobRecord,
 } from "../core/types/index.js";
 import { type ComfyUIConfig, type ComfyUITiming, resolveComfyUITiming } from "./config.js";
-import { extractHistoryError, historyOutcome } from "./error-utils.js";
+import { extractHistoryError, historyOutcome, UNOBSERVABLE } from "./error-utils.js";
 import { ComfyUIHttpClient } from "./http-client.js";
 import { ComfyUIManagerClient, type ManagerQueueStatus } from "./manager-client.js";
 import {
@@ -173,7 +173,7 @@ export class ComfyUIBackend implements GenerationBackend {
     if (waitOutcome.kind === "timedOut") return { kind: "timedOut" };
 
     // Reads of a finished prompt repeat safely; a ComfyUI too long silent ends at the next wait.
-    const history = await observeOrTransient(["COMFYUI_UNAVAILABLE"], () =>
+    const history = await observeOrTransient(UNOBSERVABLE, () =>
       this.httpClient.getHistory(backendJobId),
     );
     if (!history) {
@@ -199,7 +199,7 @@ export class ComfyUIBackend implements GenerationBackend {
     for (const file of outputFiles) {
       options?.onLog?.(`Downloading: ${file.filename}`);
       const outputPath = uniqueOutputPath(outputDir, file.filename, savedFiles);
-      await observeOrTransient(["COMFYUI_UNAVAILABLE"], () =>
+      await observeOrTransient(UNOBSERVABLE, () =>
         this.httpClient.downloadOutputToFile(file, outputPath),
       );
       savedFiles.push(outputPath);
@@ -371,7 +371,7 @@ export class ComfyUIBackend implements GenerationBackend {
     // only to explain a model that did not arrive, so a stale entry cannot overturn a present one.
     // probeModel (strict) lets a transient comms failure here propagate so the install is
     // re-observed, not falsely reported as "still missing".
-    const probe = await this.managerClient.probeModel(decl);
+    const probe = await observeOrTransient(UNOBSERVABLE, () => this.managerClient.probeModel(decl));
     if (probe === "present") {
       log(`Installed model: ${decl.filename}`);
       return { kind: "installed" };

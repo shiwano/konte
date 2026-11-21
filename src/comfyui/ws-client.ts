@@ -434,9 +434,8 @@ export class ComfyUIWsClient {
 
     const poll = await pollUntilTerminal<void>(
       async () => {
-        // Both /history and /queue go through the same HTTP layer, whose failures
-        // (connection refused, 5xx, request timeout) are comms problems, never a job
-        // verdict — so a throw here is "couldn't observe", surfaced as transient.
+        // A failed /history or /queue read (connection refused, 5xx, request timeout, a refused
+        // credential) is never a job verdict.
         let history: Awaited<ReturnType<ComfyUIHttpClient["getHistory"]>>;
         let presence: PromptPresence = "absent";
         try {
@@ -450,12 +449,9 @@ export class ComfyUIWsClient {
             );
           }
         } catch (err) {
-          // A rejected credential is the server ANSWERING, so it is terminal — retrying it until
-          // the unreachable ceiling (absent by default on a remote server) would poll forever
-          // against a token that has been revoked or rotated.
-          if (err instanceof KonteError && isAuthFailure(err)) throw err;
           throw new TransientPollError(errorMessage(err), {
             cause: err,
+            refused: err instanceof KonteError && isAuthFailure(err),
           });
         }
 

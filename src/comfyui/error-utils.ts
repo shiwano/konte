@@ -38,7 +38,11 @@ export function extractHistoryError(history: ComfyUIHistoryEntry): string | null
   return "ComfyUI execution failed";
 }
 
-/** Whether this failure is the server rejecting who we are, rather than a comms problem. */
+const AUTH_FAILURES = ["COMFYUI_UNAUTHORIZED", "MISSING_TOKEN"] as const;
+
+// A refused or unset credential says nothing of a prompt or install already running on the server.
+export const UNOBSERVABLE = ["COMFYUI_UNAVAILABLE", ...AUTH_FAILURES] as const;
+
 export function isAuthFailure(err: KonteError): boolean {
-  return err.code === "COMFYUI_UNAUTHORIZED" || err.code === "MISSING_TOKEN";
+  return (AUTH_FAILURES as readonly string[]).includes(err.code);
 }
