@@ -36,6 +36,7 @@ import { Composition, CompositionHead } from "./dsl/composition/composition.js";
 import type { LineTimer, LineTiming } from "./subtitle-timing.js";
 import { injectOverlay, OVERLAY_COMPOSITION_ID, renderOverlayBody } from "./overlay-render.js";
 import { resolveCompositionRef, substituteAssetPlaceholders } from "./composition-refs.js";
+import { attrOf, numAttr, setAttr, timedElements, toNum } from "./html-attr.js";
 import {
   parsePlaceholder,
   runInDiscoveryMode,
@@ -269,35 +270,30 @@ function buildEmbeddedAudioTags(
   duckUnder?: ClipDuck,
 ): string[] {
   const tags: string[] = [];
-  for (const [tag] of html.matchAll(/<video\b[^>]*>/g)) {
+  for (const { tag, start: localStart, duration: declared } of timedElements(html, "video")) {
     if (!HAS_CLIP_AUDIO.test(tag)) continue;
-    const src = tag.match(/\ssrc="([^"]*)"/)?.[1];
+    const src = attrOf(tag, "src");
     if (!src) continue;
-    const attr = (name: string) => tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1];
-    const localStart = attr("data-start");
-    if (localStart == null) continue;
-    const start = parseFloat(localStart) + offset;
-    const declared = attr("data-duration");
-    const duration = Math.max(
-      0,
-      Math.min(declared != null ? parseFloat(declared) : Infinity, shotEnd - start),
-    );
+    const start = localStart + offset;
+    const duration = Math.max(0, Math.min(declared ?? Infinity, shotEnd - start));
     const automation = duckUnder?.({
       src,
       start,
       duration,
-      volume: attr("data-volume") != null ? parseFloat(attr("data-volume")!) : 1,
+      volume: numAttr(tag, "data-volume") ?? 1,
     });
+    const copied = (name: string) => {
+      const value = attrOf(tag, name);
+      return value !== null ? `${name}="${value}"` : "";
+    };
     const attrs = [
       `data-konte-track="embedded"`,
       `src="${src}"`,
       `data-start="${start}"`,
       `data-duration="${duration}"`,
-      attr("data-media-start") != null ? `data-media-start="${attr("data-media-start")}"` : "",
-      attr("data-playback-rate") != null
-        ? `data-playback-rate="${attr("data-playback-rate")}"`
-        : "",
-      attr("data-volume") != null ? `data-volume="${attr("data-volume")}"` : "",
+      copied("data-media-start"),
+      copied("data-playback-rate"),
+      copied("data-volume"),
       automation ? `data-automation="${escapeAttr(JSON.stringify(automation))}"` : "",
     ].filter(Boolean);
     tags.push(`<audio ${attrs.join(" ")}></audio>`);
@@ -311,12 +307,8 @@ function buildEmbeddedAudioTags(
 function liftShotAudio(html: string, offset: number): { html: string; tags: string[] } {
   const tags: string[] = [];
   const rest = html.replace(/<audio\b[^>]*>[\s\S]*?<\/audio>/g, (el) => {
-    tags.push(
-      el.replace(
-        /\sdata-start="([^"]*)"/,
-        (_, value: string) => ` data-start="${parseFloat(value) + offset}"`,
-      ),
-    );
+    const start = numAttr(el, "data-start");
+    tags.push(start === null ? el : setAttr(el, "data-start", start + offset));
     return "";
   });
   return { html: rest, tags };
@@ -420,15 +412,15 @@ export function parseServedAssetUrl(
 function boundOpenAudio(html: string, manager: StateManager, assetBaseUrl: string): string {
   const assets = manager.getState().assets;
   return html.replace(/<audio\b[^>]*>/g, (tag) => {
-    if (/\sdata-duration="/.test(tag)) return tag;
-    const src = tag.match(/\ssrc="([^"]*)"/)?.[1];
+    if (attrOf(tag, "data-duration") !== null) return tag;
+    const src = attrOf(tag, "src");
     const served = src ? parseServedAssetUrl(src, assetBaseUrl) : null;
     if (!served?.variantId) return tag;
     const sourceSec = mediaDurationSec(
       assets[served.address]?.variants?.[served.variantId]?.media ?? null,
     );
     if (sourceSec == null) return tag;
-    const mediaStart = toNum(tag.match(/\sdata-media-start="([^"]*)"/)?.[1]) ?? 0;
+    const mediaStart = numAttr(tag, "data-media-start") ?? 0;
     return `<audio data-duration="${Math.max(0, sourceSec - mediaStart)}"${tag.slice("<audio".length)}`;
   });
 }
@@ -1707,15 +1699,6 @@ function prepareShotInputs(
         ),
       ).shots
     : null;
-}
-
-function toNum(value: unknown): number | null {
-  if (typeof value === "number") return Number.isFinite(value) ? value : null;
-  if (typeof value === "string" && value !== "") {
-    const n = parseFloat(value);
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
 }
 
 // Recover the owning address from a clip's `src`. A shot asset resolves to an HTTP URL of the

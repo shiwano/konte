@@ -6,6 +6,7 @@ import { addressFromCacheSegments } from "./address.js";
 import { FFMPEG_CONCURRENCY, mapConcurrent } from "./concurrency.js";
 import { errorMessage } from "./errors.js";
 import { padVideoClip } from "./ffmpeg.js";
+import { attrOf, numAttr, setAttr } from "./html-attr.js";
 import type { StateManager } from "./state/index.js";
 import { prerollCacheDir } from "./video-cache.js";
 
@@ -91,18 +92,8 @@ const VIDEO_TAG = /<video\b[^>]*>/g;
 const SHOT_HOST = /<div\b[^>]*\sdata-composition-id="shot-([^"]+)"[^>]*>/g;
 const SHOT_TEMPLATE = /<template id="shot-([^"]+)-template">/g;
 
-function attr(tag: string, name: string): string | null {
-  return tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1] ?? null;
-}
-
 function ms(seconds: number): number {
   return Math.round(seconds * 1000);
-}
-
-function num(value: string | null): number | null {
-  if (value === null) return null;
-  const n = parseFloat(value);
-  return Number.isFinite(n) ? n : null;
 }
 
 /** The address/variant a served asset URL (`buildAssetUrl`) names; null for any other src. */
@@ -139,7 +130,7 @@ function contentStamp(outputHash: string | null | undefined): string | null {
 function shotHostStarts(html: string): Map<string, number> {
   const starts = new Map<string, number>();
   for (const m of html.matchAll(SHOT_HOST)) {
-    const start = num(attr(m[0], "data-start"));
+    const start = numAttr(m[0], "data-start");
     if (start !== null) starts.set(m[1]!, start);
   }
   return starts;
@@ -177,11 +168,11 @@ function shotOpeningClipTags(html: string): ClipTag[] {
 
     VIDEO_TAG.lastIndex = 0;
     for (const v of html.slice(from, to).matchAll(VIDEO_TAG)) {
-      const src = attr(v[0], "src");
-      const dataStart = num(attr(v[0], "data-start"));
+      const src = attrOf(v[0], "src");
+      const dataStart = numAttr(v[0], "data-start");
       // Without an explicit duration the runtime falls back to the host's remaining span, which the
       // shift would stretch by the lead — and nothing bounds how much source a copy would cover.
-      const dataDuration = num(attr(v[0], "data-duration"));
+      const dataDuration = numAttr(v[0], "data-duration");
       if (!src || dataStart === null || dataDuration === null) continue;
       if (dataStart !== 0) continue;
       // A looping clip replays its whole source every cycle, padding included — the run-up would
@@ -190,7 +181,7 @@ function shotOpeningClipTags(html: string): ClipTag[] {
       // The runtime reads a clip's position as `(t - start) * rate + mediaStart`, so a rate other
       // than 1 scales the shift and the window with it — and the frame alignment the padding needs
       // is then a whole source frame at that rate.
-      const rate = num(attr(v[0], "data-playback-rate"));
+      const rate = numAttr(v[0], "data-playback-rate");
       if (rate !== null && rate > 0 && rate !== 1) continue;
       clips.push({
         tag: v[0],
@@ -198,7 +189,7 @@ function shotOpeningClipTags(html: string): ClipTag[] {
         src,
         hostStart,
         dataDuration,
-        mediaStart: num(attr(v[0], "data-media-start")) ?? 0,
+        mediaStart: numAttr(v[0], "data-media-start") ?? 0,
       });
     }
   }
@@ -341,21 +332,16 @@ export async function ensurePrerollClips(
 }
 
 function shiftedVideoTag(tag: string, clip: PrerollClip): string | null {
-  const start = num(attr(tag, "data-start"));
-  const duration = num(attr(tag, "data-duration"));
+  const start = numAttr(tag, "data-start");
+  const duration = numAttr(tag, "data-duration");
   if (start === null || duration === null) return null;
 
-  let out = tag
-    .replace(/\sdata-start="[^"]*"/, ` data-start="${start - clip.leadSec}"`)
-    .replace(/\sdata-duration="[^"]*"/, ` data-duration="${duration + clip.leadSec}"`);
-  if (clip.cachePath) {
-    out = out.replace(/\ssrc="[^"]*"/, ` src="${PREROLL_ASSET_BASE}/${clip.cachePath}"`);
-  }
+  let out = setAttr(tag, "data-start", start - clip.leadSec);
+  out = setAttr(out, "data-duration", duration + clip.leadSec);
+  if (clip.cachePath) out = setAttr(out, "src", `${PREROLL_ASSET_BASE}/${clip.cachePath}`);
   // A copy starts a lead before the clip's own in-point, so its offset is zero; a take used as is
   // runs up through its own frames, so the offset moves back by exactly the shift.
-  return /\sdata-media-start="/.test(out)
-    ? out.replace(/\sdata-media-start="[^"]*"/, ` data-media-start="${clip.mediaStartAfter}"`)
-    : out.replace(/>$/, ` data-media-start="${clip.mediaStartAfter}">`);
+  return setAttr(out, "data-media-start", clip.mediaStartAfter);
 }
 
 /**

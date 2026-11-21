@@ -21,6 +21,7 @@ import { recognizesSpeechIn } from "./sherpa-binary.js";
 import type { StateManager } from "./state/index.js";
 import type { AnimaticDefinition, StageDefinition, VideoDefinition } from "./types/index.js";
 import { loadDirectionDefinition } from "./loader.js";
+import { attrOf } from "./html-attr.js";
 import { renderOverlayBody } from "./overlay-render.js";
 import { buildRenderPlan, type RenderPlan, shotStarts } from "./render-plan.js";
 import { stageEntryPath } from "./roots.js";
@@ -159,8 +160,6 @@ function mergeClips(a: LineTiming, b: LineTiming): LineTiming {
   };
 }
 
-const LINE_ATTR = /\sdata-konte-line="([^"]+)"/g;
-
 /**
  * Each script-line `<Subtitle>` entry of the stage's overlay as `[shotId, line, take]`, read off its render
  * from the definition alone; `take` is where the entry splits at that take's pauses.
@@ -178,10 +177,10 @@ function overlaySubtitleLines(
     resolvedFiles: {},
   });
   const seen = new Map<string, { shotId: string; line: number; take: string | null }>();
-  for (const m of html.matchAll(/<div\b[^>]*>/g)) {
-    const line = new RegExp(LINE_ATTR.source).exec(m[0])?.[1];
+  for (const [tag] of html.matchAll(/<div\b[^>]*>/g)) {
+    const line = attrOf(tag, "data-konte-line");
     if (!line) continue;
-    const take = /\sdata-konte-take="([^"]+)"/.exec(m[0])?.[1] ?? null;
+    const take = attrOf(tag, "data-konte-take") || null;
     const at = line.lastIndexOf(":");
     seen.set(`${line}|${take}`, {
       shotId: line.slice(0, at),

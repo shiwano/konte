@@ -14,6 +14,7 @@ import {
   subsampleTimestamps,
   type ThumbnailInfo,
 } from "./frame-extract.js";
+import { attrOf, numAttr } from "./html-attr.js";
 import { inferMediaType } from "./media-type.js";
 import { shotById } from "./shot-index.js";
 import { probeVideo } from "./video-probe.js";
@@ -66,21 +67,19 @@ interface CompositionVideo {
 export function harvestCompositionVideos(html: string): CompositionVideo[] {
   const videos: CompositionVideo[] = [];
   for (const [tag] of html.matchAll(/<video\b[^>]*>/g)) {
-    const attr = (name: string): string | undefined =>
-      tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1];
-    const id = attr("id");
-    const src = attr("src");
+    const id = attrOf(tag, "id");
+    const src = attrOf(tag, "src");
     if (!id || !src) continue;
-    const start = Number(attr("data-start") ?? 0);
-    const duration = Number(attr("data-duration"));
+    const start = numAttr(tag, "data-start") ?? 0;
+    const duration = numAttr(tag, "data-duration");
     videos.push({
       id,
       src,
       start,
       // No data-duration means an unbounded clip — the runtime plays it to the composition's end.
-      end: Number.isFinite(duration) ? start + duration : Infinity,
-      mediaStart: Number(attr("data-media-start") ?? 0),
-      rate: Number(attr("data-playback-rate") ?? 1),
+      end: duration !== null ? start + duration : Infinity,
+      mediaStart: numAttr(tag, "data-media-start") ?? 0,
+      rate: numAttr(tag, "data-playback-rate") ?? 1,
       loop: /\sloop\b/.test(tag),
     });
   }

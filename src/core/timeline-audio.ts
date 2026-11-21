@@ -14,6 +14,7 @@ import {
 } from "./audio-duck.js";
 import type { AudioLoudness } from "./audio-loudness.js";
 import type { MuxAudioTrack } from "./ffmpeg.js";
+import { toNum } from "./html-attr.js";
 import { renderToHtml, HARVEST_TYPOGRAPHY } from "./jsx-html.js";
 import type { VariantMedia } from "./types/index.js";
 import { mediaDurationSec, mediaHasAudio } from "./variant-media.js";
@@ -64,15 +65,6 @@ export interface ResolvedSoundtrack {
   duck: Duck;
   // The stage's song bed (`mixedSoundtracks`).
   song?: true;
-}
-
-function toNum(value: unknown): number | null {
-  if (typeof value === "number") return Number.isFinite(value) ? value : null;
-  if (typeof value === "string" && value !== "") {
-    const n = Number.parseFloat(value);
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
 }
 
 /**

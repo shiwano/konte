@@ -1,5 +1,6 @@
 import type { ShotStage } from "./address.js";
 import { injectBaseTimeline } from "./composition-builder.js";
+import { replaceTimedElements, setAttr } from "./html-attr.js";
 import { runInRenderMode, type ShotFunction } from "./dsl/shot-context.js";
 import { renderToHtml } from "./jsx-html.js";
 import type { LineTiming } from "./subtitle-timing.js";
@@ -49,12 +50,9 @@ export function renderOverlayBody(opts: {
 // where its host never shows it; one that opens before 0 opens at 0 with what is left of it.
 export function shiftTimedElements(html: string, by: number, windowEnd: number): string {
   if (by === 0) return html;
-  return html.replace(/<([a-z][a-z0-9-]*)\b([^>]*)>/gi, (tag, _name, attrs) => {
-    const start = /\sdata-start="([^"]*)"/.exec(attrs as string);
-    if (!start) return tag;
-    const duration = /\sdata-duration="([^"]*)"/.exec(attrs as string);
-    const from = round(Number(start[1]) - by);
-    const length = duration ? Number(duration[1]) : Infinity;
+  return replaceTimedElements(html, ({ tag, start, duration }) => {
+    const from = round(start - by);
+    const length = duration ?? Infinity;
     const end = round(from + length);
     let nextStart = from;
     let nextDuration = length;
@@ -65,11 +63,10 @@ export function shiftTimedElements(html: string, by: number, windowEnd: number):
       nextStart = 0;
       nextDuration = end;
     }
-    let out = tag.replace(/\sdata-start="[^"]*"/, ` data-start="${round(nextStart)}"`);
-    if (duration && Number.isFinite(nextDuration)) {
-      out = out.replace(/\sdata-duration="[^"]*"/, ` data-duration="${round(nextDuration)}"`);
-    }
-    return out;
+    const out = setAttr(tag, "data-start", round(nextStart));
+    return duration !== null && Number.isFinite(nextDuration)
+      ? setAttr(out, "data-duration", round(nextDuration))
+      : out;
   });
 }
 

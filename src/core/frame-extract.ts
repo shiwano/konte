@@ -4,6 +4,7 @@ import { FFMPEG_CONCURRENCY, mapConcurrent } from "./concurrency.js";
 import { execFileAsync } from "./exec-file.js";
 import { ffmpegBin } from "./ffmpeg-binary.js";
 import { writeFrame } from "./ffmpeg-exec.js";
+import { attrOf, timedElements } from "./html-attr.js";
 import { probeVideo } from "./video-probe.js";
 
 export interface ExtractKeyframesOptions {
@@ -104,11 +105,8 @@ export function compositionSampleTimes(durationSec: number, fps: number, count: 
 export function subtitleSampleTimes(html: string, durationSec: number, fps: number): number[] {
   const interval = frameInterval(fps);
   const times: number[] = [];
-  for (const [tag] of html.matchAll(/<[a-z][a-z0-9-]*\b[^>]*>/gi)) {
-    if (!/\sclass="[^"]*\bkonte-subtitle\b/.test(tag)) continue;
-    const start = Number(/\sdata-start="([^"]*)"/.exec(tag)?.[1]);
-    const duration = Number(/\sdata-duration="([^"]*)"/.exec(tag)?.[1]);
-    if (!Number.isFinite(start) || !Number.isFinite(duration)) continue;
+  for (const { tag, start, duration } of timedElements(html)) {
+    if (!/\bkonte-subtitle\b/.test(attrOf(tag, "class") ?? "") || duration === null) continue;
     const from = Math.max(0, start);
     const to = Math.min(durationSec, start + duration);
     // The grid frames the line is on screen for: the first at or after `from`, the last before `to`.
