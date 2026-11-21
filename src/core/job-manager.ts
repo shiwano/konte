@@ -131,6 +131,25 @@ function isStaleProvisioning(
   return status === "completed" && absenceConfirmed === true;
 }
 
+function newJobBase() {
+  const now = new Date().toISOString();
+  return {
+    lease: null,
+    progress: null,
+    error: null,
+    metadata: {},
+    sourceFingerprint: null,
+    staleReleases: 0,
+    createdAt: now,
+    startedAt: null,
+    processingStartedAt: null,
+    updatedAt: now,
+    completedAt: null,
+    reportedAt: null,
+    unconfirmedSince: null,
+  } satisfies Partial<JobRecord>;
+}
+
 // A generation job whose submitter died mid-transaction: claimed "running" but it never
 // committed a backendJobId, and its submit lease has lapsed (or was never taken). Nothing
 // re-submits a "running" job and the run-phase reclaim needs a backendJobId, so such a job
@@ -288,8 +307,8 @@ export class JobManager {
     const hasPendingDeps =
       (opts.dependsOnAssets?.length ?? 0) > 0 || (opts.dependsOnJobs?.length ?? 0) > 0;
     const sourceFingerprint = await this.definitionSourceFingerprint();
-    const now = new Date().toISOString();
     const job: GenerationJob = {
+      ...newJobBase(),
       kind: "generation",
       id: opts.variantId,
       address: opts.address,
@@ -297,15 +316,11 @@ export class JobManager {
       status: hasPendingDeps ? "pending" : "queued",
       dependsOnAssets: opts.dependsOnAssets ?? [],
       dependsOnJobs: opts.dependsOnJobs ?? [],
-      lease: null,
       sourceFingerprint,
-      staleReleases: 0,
       backendKind: opts.backendKind,
       backendJobId: null,
       comfyTarget: opts.comfyTarget ?? null,
       submissionStartedAt: null,
-      progress: null,
-      error: null,
       outputFiles: [],
       metadata: opts.metadata ?? {},
       provenance: {
@@ -314,13 +329,6 @@ export class JobManager {
         resolvedDependencies: opts.resolvedDeps,
         compositionCacheKeys: opts.compositionCacheKeys ?? {},
       },
-      createdAt: now,
-      startedAt: null,
-      processingStartedAt: null,
-      updatedAt: now,
-      completedAt: null,
-      reportedAt: null,
-      unconfirmedSince: null,
     };
     this.transaction(() => {
       if (this.read(job.id) !== undefined) {
@@ -350,17 +358,15 @@ export class JobManager {
     await this.ensureDirs();
     const id = `exp-${shortId()}`;
     const sourceFingerprint = await this.definitionSourceFingerprint();
-    const now = new Date().toISOString();
     const job: ExportJob = {
+      ...newJobBase(),
       kind: "export",
       id,
       status: "pending",
       backendKind: "local",
       dependsOnAssets: opts.dependsOnAssets ?? [],
       dependsOnJobs: opts.dependsOnJobs ?? [],
-      lease: null,
       sourceFingerprint,
-      staleReleases: 0,
       outputDir: opts.outputDir,
       outputFile: null,
       allowUnaccepted: opts.allowUnaccepted,
@@ -369,16 +375,6 @@ export class JobManager {
       // run-export-job.ts. Null until then (and `status` only ever inspects completed exports).
       exportSignature: null,
       planDigest: opts.planDigest ?? null,
-      progress: null,
-      error: null,
-      metadata: {},
-      createdAt: now,
-      startedAt: null,
-      processingStartedAt: null,
-      updatedAt: now,
-      completedAt: null,
-      reportedAt: null,
-      unconfirmedSince: null,
     };
     this.write(job);
     return job;
@@ -410,8 +406,8 @@ export class JobManager {
       ) {
         return existing;
       }
-      const now = new Date().toISOString();
       const job: SongAnalysisJob = {
+        ...newJobBase(),
         kind: "song-analysis",
         id,
         status: "pending",
@@ -422,19 +418,6 @@ export class JobManager {
         lang: opts.lang,
         again: opts.again ?? false,
         dependsOnJobs: [],
-        lease: null,
-        sourceFingerprint: null,
-        staleReleases: 0,
-        progress: null,
-        error: null,
-        metadata: {},
-        createdAt: now,
-        startedAt: null,
-        processingStartedAt: null,
-        updatedAt: now,
-        completedAt: null,
-        reportedAt: null,
-        unconfirmedSince: null,
       };
       this.write(job);
       return job;
@@ -485,27 +468,14 @@ export class JobManager {
         return { id, created: false, reset: false };
       }
 
-      const now = new Date().toISOString();
       this.write({
+        ...newJobBase(),
         kind: "comfy-model-download",
         id,
         status: "pending",
         dependsOnJobs: [],
-        lease: null,
         backendKind: "comfy",
-        progress: null,
-        error: null,
-        metadata: {},
         model,
-        createdAt: now,
-        startedAt: null,
-        processingStartedAt: null,
-        updatedAt: now,
-        completedAt: null,
-        reportedAt: null,
-        unconfirmedSince: null,
-        sourceFingerprint: null,
-        staleReleases: 0,
       });
       return { id, created: true, reset: false };
     });
@@ -536,27 +506,14 @@ export class JobManager {
         return { id, created: false, reset: false };
       }
 
-      const now = new Date().toISOString();
       this.write({
+        ...newJobBase(),
         kind: "comfy-node-install",
         id,
         status: "pending",
         dependsOnJobs: [],
-        lease: null,
         backendKind: "comfy",
-        progress: null,
-        error: null,
-        metadata: {},
         node,
-        createdAt: now,
-        startedAt: null,
-        processingStartedAt: null,
-        updatedAt: now,
-        completedAt: null,
-        reportedAt: null,
-        unconfirmedSince: null,
-        sourceFingerprint: null,
-        staleReleases: 0,
       });
       return { id, created: true, reset: false };
     });
@@ -605,27 +562,14 @@ export class JobManager {
         return { id, created: false, reset: false };
       }
 
-      const now = new Date().toISOString();
       const job: ComfyNodeActivateJob = {
+        ...newJobBase(),
         kind: "comfy-node-activate",
         id,
         status: "pending",
         backendKind: "comfy",
         dependsOnJobs: opts.dependsOnJobs,
         cnrIds: opts.cnrIds,
-        lease: null,
-        progress: null,
-        error: null,
-        metadata: {},
-        createdAt: now,
-        startedAt: null,
-        processingStartedAt: null,
-        updatedAt: now,
-        completedAt: null,
-        reportedAt: null,
-        unconfirmedSince: null,
-        sourceFingerprint: null,
-        staleReleases: 0,
       };
       this.write(job);
       return { id, created: true, reset: false };
