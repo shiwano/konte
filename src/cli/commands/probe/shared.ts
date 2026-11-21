@@ -1,11 +1,9 @@
 import * as path from "node:path";
 import type { Command } from "commander";
-import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
 import { KonteError } from "../../../core/errors.js";
-import { syncFileAssets } from "../../../core/file-sync.js";
 import { requireShotStages } from "../../../core/select-definition.js";
-import { loadStageDefinitions } from "../../../core/stage-definitions.js";
-import { StateManager } from "../../../core/state/index.js";
+import type { StateManager } from "../../../core/state/index.js";
+import { openVideoSession } from "../../../core/video-session.js";
 import { parseTimecode } from "../../../core/timecode.js";
 import type {
   AnimaticDefinition,
@@ -76,12 +74,10 @@ export async function openCompositionStages(videoRoot: string): Promise<{
   stages: { video: VideoDefinition; animatic: AnimaticDefinition };
   manager: StateManager;
 }> {
-  const definitions = await loadStageDefinitions(videoRoot);
-  const manager = await StateManager.withLock(videoRoot, async (m) => {
-    await syncFileAssets(definitions, m, { measure: true });
-    return m;
+  const { definitions, manager } = await openVideoSession(videoRoot, {
+    measure: true,
+    graph: false,
   });
-  await applyResolutionDefinitions({ videoRoot, definitions, state: manager.getState() });
   return { stages: requireShotStages(definitions), manager };
 }
 

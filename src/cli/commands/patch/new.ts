@@ -3,13 +3,11 @@ import type { Command } from "commander";
 import { isDeliveryAddress, isMaterializedLeafAddress } from "../../../core/address.js";
 import type { MediaKind } from "../../../core/dsl/builders.js";
 import { KonteError } from "../../../core/errors.js";
-import { syncFileAssets } from "../../../core/file-sync.js";
 import { inferMediaType } from "../../../core/media-type.js";
 import { assertPatchableTarget, patchFilePath, patchesDir } from "../../../core/patch.js";
-import { StateManager } from "../../../core/state/index.js";
+import { openVideoSession } from "../../../core/video-session.js";
 import { requireVideoRoots } from "../../context.js";
 import { resolveVariantArg } from "../asset-ops/resolve-variant-arg.js";
-import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
 
 // The scaffold names no adapter: which one to reach for is `konte adapter list`/`show`'s job, and
 // this workspace may not even be allowed to spend on the one a fixed default would pick. Returning
@@ -65,10 +63,9 @@ Examples:
       const roots = requireVideoRoots();
       const videoRoot = roots.video;
       // An address argument resolves to the take the correction is written from.
-      const definitions = await applyResolutionDefinitions({ videoRoot });
-      const manager = await StateManager.withLock(videoRoot, async (m) => {
-        await syncFileAssets(definitions, m);
-        return m;
+      const { definitions, manager } = await openVideoSession(videoRoot, {
+        tolerant: true,
+        graph: false,
       });
 
       // Resolve and check every target first. A scaffold is cheap to write and impossible to
