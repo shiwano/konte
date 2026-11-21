@@ -30,7 +30,8 @@ export type JobUpdate = Partial<Omit<GenerationJob, "id" | "variantId">> &
   Partial<Omit<ComfyModelDownloadJob, "id">> &
   Partial<Omit<ComfyNodeInstallJob, "id">> &
   Partial<Omit<ComfyNodeActivateJob, "id">> &
-  Partial<Omit<ExportJob, "id">>;
+  Partial<Omit<ExportJob, "id">> &
+  Partial<Omit<SongAnalysisJob, "id" | "variantId">>;
 
 const KONTE_DIR = ".konte";
 const LOGS_DIR = "logs";
