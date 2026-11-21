@@ -8,6 +8,7 @@ import { resolveComfyUIConfig } from "../comfyui/config.js";
 import { resolveUrlTokens } from "../comfyui/token-resolver.js";
 import { comfyModelJobId, type JobManager } from "../core/job-manager.js";
 import { formatNotice } from "../core/notice.js";
+import { capInline } from "./format-list.js";
 import type { VideoRoots } from "../core/roots.js";
 import type { UndecidedUpstreamVariant } from "../core/staleness.js";
 import type {
@@ -247,11 +248,7 @@ export function printSpendNotices(plan: SpendPlan): void {
 export function formatComfyDownloadNotice(notice: ComfyDownloadNotice): string | null {
   if (notice.models.length === 0 && notice.nodes.length === 0) return null;
 
-  const formatAddresses = (addresses: string[]): string => {
-    const [first, ...rest] = addresses;
-    const suffix = rest.length > 0 ? ` (+${rest.length} more)` : "";
-    return `${first}${suffix}`;
-  };
+  const formatAddresses = (addresses: string[]): string => capInline(addresses, { cap: 1 });
 
   const lines: string[] = [];
   for (const m of notice.models) {

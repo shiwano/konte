@@ -38,7 +38,7 @@ import { selectDefinition } from "../../../core/select-definition.js";
 import { openVideoSession } from "../../../core/video-session.js";
 import { spendGate } from "../../finding-gates.js";
 import { loadCheckContext } from "../../../core/check-context.js";
-import { capList } from "../../format-list.js";
+import { capInline } from "../../format-list.js";
 import { confirmAction, printAborted, NO_FLAG_DESCRIPTION } from "../../confirm.js";
 import { parsePositiveInt } from "../../parse-option.js";
 import {
@@ -485,10 +485,8 @@ Examples:
           );
         }
 
-        const capped = (addresses: string[]): string => {
-          const { shown, hidden } = capList(addresses, { verbose: opts.verbose });
-          return hidden > 0 ? `${shown.join(", ")} (+${hidden} more)` : shown.join(", ");
-        };
+        const capped = (addresses: string[]): string =>
+          capInline(addresses, { verbose: opts.verbose });
         // A sweep is priced before it runs: `konte reroll video` can be a hundred jobs, and whoever
         // typed a stage name enumerated none of them. A named address is its own enumeration.
         if (scopeTargets.length > 0 || uniqueTargets.length === 0) {

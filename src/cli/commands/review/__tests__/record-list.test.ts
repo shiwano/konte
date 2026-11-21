@@ -89,7 +89,7 @@ describe("review record list", () => {
     expect(text).toContain("video/20260516T120000000");
     expect(text).toContain("video/20260516T110000000");
     expect(text).not.toContain("video/20260516T100000000");
-    expect(text).toContain("... and 1 more (use --all)");
+    expect(text).toContain("… and 1 more (use --all)");
 
     const { stdout: all } = await run(["review", "record", "list", "--all"], projectDir);
     expect(all).toContain("video/20260516T100000000");

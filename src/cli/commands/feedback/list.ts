@@ -11,6 +11,7 @@ import {
   applyListLimit,
   type ListLimitOptions,
   listMoreLine,
+  moreLine,
 } from "../../format-list.js";
 import { renderTable } from "../../table.js";
 import { matchesAddressScope } from "../../../core/address.js";
@@ -149,7 +150,7 @@ Examples:
 
         if (hidden > 0) console.log(`\n${listMoreLine(hidden)}`);
         if (hiddenStale > 0) {
-          console.log(`\n... and ${hiddenStale} stale (use --verbose)`);
+          console.log(`\n${moreLine(hiddenStale, { what: "stale" })}`);
         }
       },
     );

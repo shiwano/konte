@@ -18,8 +18,22 @@ export function capList<T>(
   return { shown: items.slice(0, cap), hidden: items.length - cap };
 }
 
-export function moreLine(hidden: number): string {
-  return `… and ${hidden} more (use -v)`;
+// The fold line under a capped list. `flag` lifts the cap; null when the line after it names the
+// full view instead.
+export function moreLine(hidden: number, opts?: { flag?: string | null; what?: string }): string {
+  const flag = opts?.flag === undefined ? "-v" : opts.flag;
+  const line = `… and ${hidden} ${opts?.what ?? "more"}`;
+  return flag ? `${line} (use ${flag})` : line;
+}
+
+// `items` capped and joined on one line, the rest folded into a "(+N more)" suffix.
+export function capInline(
+  items: readonly string[],
+  opts?: { cap?: number; verbose?: boolean },
+): string {
+  const { shown, hidden } = capList(items, opts);
+  const joined = shown.join(", ");
+  return hidden > 0 ? `${joined} (+${hidden} more)` : joined;
 }
 
 // Print `items` capped, one indented line each, then the fold line.
@@ -59,5 +73,5 @@ export function applyListLimit<T>(
 }
 
 export function listMoreLine(hidden: number): string {
-  return `... and ${hidden} more (use --all)`;
+  return moreLine(hidden, { flag: "--all" });
 }

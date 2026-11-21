@@ -61,6 +61,7 @@ import { currentRoots, requireWorkspaceRoot } from "../context.js";
 import type { VideoRoots, VideoSelection } from "../../core/roots.js";
 import { listVideos, STAGE_ENTRY_FILE, VIDEOS_DIR } from "../../core/roots.js";
 import { declareScope } from "../scope.js";
+import { capInline } from "../format-list.js";
 
 // doctor is a quick health check; fail fast on an unreachable backend
 // instead of waiting out the client's default request timeout.
@@ -663,14 +664,13 @@ async function checkStuckComfyJobs(config: ComfyUIConfig, videoRoot: string): Pr
     }
     // Named by preview, not in full: the remedy waits on the whole queue, so a message carrying
     // every id would be a list nobody has to copy.
-    const preview = stuck.slice(0, 3).join(", ");
-    const suffix = stuck.length > 3 ? `, ... (+${stuck.length - 3} more)` : "";
+    const preview = capInline(stuck, { cap: 3 });
     return {
       name: "ComfyUI stuck jobs",
       status: "WARN",
       message:
         `${stuck.length} running job(s) absent from ComfyUI's queue and history ` +
-        `(ComfyUI likely crashed/restarted): ${preview}${suffix} — ` +
+        `(ComfyUI likely crashed/restarted): ${preview} — ` +
         "run `konte job run` to reconcile them to failed",
     };
   } catch {
@@ -857,12 +857,11 @@ function checkUnusedAssets(
   if (unused.length === 0) {
     return { name: "unused assets", status: "PASS", message: "none found" };
   }
-  const preview = unused.slice(0, 3).join(", ");
-  const suffix = unused.length > 3 ? `, ... (+${unused.length - 3} more)` : "";
+  const preview = capInline(unused, { cap: 3 });
   return {
     name: "unused assets",
     status: "WARN",
-    message: `${unused.length} asset(s) used by no composition, panel, or reference export: ${preview}${suffix} — remove from ${STAGE_ENTRY_FILE.video} / ${STAGE_ENTRY_FILE.animatic} / ${STAGE_ENTRY_FILE.reference} if unneeded`,
+    message: `${unused.length} asset(s) used by no composition, panel, or reference export: ${preview} — remove from ${STAGE_ENTRY_FILE.video} / ${STAGE_ENTRY_FILE.animatic} / ${STAGE_ENTRY_FILE.reference} if unneeded`,
   };
 }
 
@@ -895,13 +894,12 @@ async function checkOrphanedTargets(
     return { name: "orphaned targets", status: "PASS", message: "none found" };
   }
 
-  const preview = orphans.slice(0, 3).join(", ");
-  const suffix = orphans.length > 3 ? `, ... (+${orphans.length - 3} more)` : "";
+  const preview = capInline(orphans, { cap: 3 });
   return {
     name: "orphaned targets",
     status: "WARN",
     message:
-      `${orphans.length} orphaned target(s): ${preview}${suffix}` +
+      `${orphans.length} orphaned target(s): ${preview}` +
       " — run `konte clean` to remove them, or `konte clean <address-scope>` for some",
   };
 }
@@ -914,12 +912,11 @@ async function checkStrayVariantDirs(
   if (stray.length === 0) {
     return { name: "stray variant directories", status: "PASS", message: "none found" };
   }
-  const preview = stray.slice(0, 3).join(", ");
-  const suffix = stray.length > 3 ? `, ... (+${stray.length - 3} more)` : "";
+  const preview = capInline(stray, { cap: 3 });
   return {
     name: "stray variant directories",
     status: "WARN",
-    message: `${stray.length} not in state: ${preview}${suffix} — run \`konte clean\` to remove them`,
+    message: `${stray.length} not in state: ${preview} — run \`konte clean\` to remove them`,
   };
 }
 

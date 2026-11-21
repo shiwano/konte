@@ -15,6 +15,7 @@ import {
   applyListLimit,
   type ListLimitOptions,
   listMoreLine,
+  moreLine,
 } from "../../format-list.js";
 import { renderTable } from "../../table.js";
 import { requireVideoRoot } from "../../context.js";
@@ -115,7 +116,7 @@ export function registerJobListCommand(program: Command): void {
         if (selected.length === 0) {
           console.log(
             hiddenByStatus > 0
-              ? `No active jobs (${hiddenByStatus} completed/cancelled hidden, --verbose for all).`
+              ? `No active jobs (${hiddenByStatus} completed/cancelled hidden, use -v).`
               : "No jobs found.",
           );
           return;
@@ -150,7 +151,7 @@ export function registerJobListCommand(program: Command): void {
         const footer: string[] = [];
         if (hidden > 0) footer.push(listMoreLine(hidden));
         if (hiddenByStatus > 0) {
-          footer.push(`... and ${hiddenByStatus} completed/cancelled hidden (--verbose for all)`);
+          footer.push(moreLine(hiddenByStatus, { what: "completed/cancelled" }));
         }
         if (footer.length > 0) {
           console.log(`\n${footer.join("\n")}`);

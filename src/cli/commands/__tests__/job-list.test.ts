@@ -156,7 +156,7 @@ describe("job list", () => {
     expect(rows.map((row) => row.ID).sort()).toEqual([failed, running].sort());
 
     const { stdout: text } = await run(["job", "list"], projectDir);
-    expect(text).toContain("2 completed/cancelled hidden");
+    expect(text).toContain("… and 2 completed/cancelled (use -v)");
   });
 
   it("includes every status with --verbose", async () => {
@@ -199,7 +199,7 @@ describe("job list", () => {
     expect((await listRows(["--limit", "2"])).map((row) => row.ID)).toEqual([ids[2], ids[1]]);
 
     const { stdout: text } = await run(["job", "list", "--limit", "2"], projectDir);
-    expect(text).toContain("... and 1 more (use --all)");
+    expect(text).toContain("… and 1 more (use --all)");
 
     expect(await listRows(["--all"])).toHaveLength(3);
   });

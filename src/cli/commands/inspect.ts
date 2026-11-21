@@ -65,6 +65,7 @@ import {
 } from "../../core/stale-refresh.js";
 import { requireVideoRoot } from "../context.js";
 import { inspectDirection } from "./inspect-direction.js";
+import { capList, moreLine } from "../format-list.js";
 import {
   type FeedbackReader,
   type FeedbackView,
@@ -423,14 +424,13 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
             console.log(
               `    definition-stale: definition changed (${changes.length} field${changes.length === 1 ? "" : "s"})`,
             );
-            for (const c of changes.slice(0, 10)) {
+            const { shown, hidden } = capList(changes);
+            for (const c of shown) {
               console.log(
                 `      ${c.path}: ${formatDefinitionValue(c.old)} → ${formatDefinitionValue(c.new)}`,
               );
             }
-            if (changes.length > 10) {
-              console.log(`      … and ${changes.length - 10} more`);
-            }
+            if (hidden > 0) console.log(`      ${moreLine(hidden, { flag: null })}`);
             console.log(`      the definition it was made from, in full: konte inspect ${vid}`);
           } else if (!staleness.patchStale) {
             console.log(

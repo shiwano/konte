@@ -7,6 +7,7 @@ import { ensureFfmpeg, ensureFfprobe } from "../../../core/ffmpeg.js";
 import { type AudioStreamInfo, probeMediaDetail } from "../../../core/video-probe.js";
 import { buildTimeAxis, cell, normalize, resample } from "../../audio-sparkline.js";
 import { openProbeTargets } from "./resolve-arg.js";
+import { capInline } from "../../format-list.js";
 import { loadDirectionIfPresent } from "../../../core/stage-definitions.js";
 import { songAnalysisOf } from "../../../core/song-reading.js";
 import { recognizesSpeechIn } from "../../../core/sherpa-binary.js";
@@ -222,14 +223,13 @@ Examples:
         // already said.
         if (wf.spans.length > 1) {
           const audible = wf.spans.reduce((sum, sp) => sum + (sp.end - sp.start), 0);
-          const listed = wf.spans
-            .slice(0, MAX_LISTED_SPANS)
-            .map((sp) => `${formatSecondsRange(sp.start, sp.end, 2)}`)
-            .join(", ");
-          const rest = wf.spans.length - MAX_LISTED_SPANS;
+          const listed = capInline(
+            wf.spans.map((sp) => formatSecondsRange(sp.start, sp.end, 2)),
+            { cap: MAX_LISTED_SPANS },
+          );
           console.log(
             `  spans     ${wf.spans.length} audible, ${fmtOnset(audible)} of ` +
-              `${dur != null ? fmtOnset(dur) : "—"}: ${listed}${rest > 0 ? `, +${rest} more` : ""}`,
+              `${dur != null ? fmtOnset(dur) : "—"}: ${listed}`,
           );
         }
 
