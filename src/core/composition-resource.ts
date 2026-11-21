@@ -62,6 +62,7 @@ import {
 } from "./types/index.js";
 import { variantDir } from "./variant-dir.js";
 import { probeMediaInfo } from "./video-probe.js";
+import { videoCacheDir } from "./video-cache.js";
 
 // A composition variant is rendered locally (not by a backend), so its asset URLs
 // must not embed the dev server's base URL — that would make the output hash and
@@ -672,7 +673,7 @@ async function mixStemToStaging(
       fadeOut: cue.fadeOut ?? undefined,
     });
   }
-  const cacheDir = path.join(manager.videoRoot, ".konte", "cache");
+  const cacheDir = videoCacheDir(manager.videoRoot);
   await fs.mkdir(cacheDir, { recursive: true });
   const stagingDir = await fs.mkdtemp(path.join(cacheDir, "stem-"));
   const file = path.join(stagingDir, STEM_MIX_FILE);

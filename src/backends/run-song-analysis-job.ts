@@ -7,6 +7,7 @@ import { StateManager } from "../core/state/index.js";
 import { readSongReading, writeSongReading } from "../core/song-reading.js";
 import { SongReadingSchema } from "../core/types/index.js";
 import { type LeasedJobResult, runLeasedJob } from "./run-leased-job.js";
+import { videoCacheDir } from "../core/video-cache.js";
 
 // Read one take of the song under a run lease and record what it says on the variant. The record
 // is written only onto the bytes it was read from: a take whose file moved on meanwhile is left for
@@ -42,7 +43,7 @@ export async function runSongAnalysisJob(
           videoRoot,
           lang: job.lang,
           // One directory per run: a run superseded by `song analyze` may still be reading.
-          workDir: path.join(videoRoot, ".konte", "cache", "song", `${id}-${workerId}`),
+          workDir: videoCacheDir(videoRoot, "song", `${id}-${workerId}`),
           log: (line) => jobManager.appendLog(id, line),
         }),
       );

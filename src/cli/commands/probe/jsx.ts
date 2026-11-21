@@ -24,6 +24,7 @@ import type { AssetDefinition, LocalAssetDefinition } from "../../../core/types/
 import { requireVideoRoot } from "../../context.js";
 import { loadStageDefinitions } from "../../../core/stage-definitions.js";
 import { compareNatural } from "./shared.js";
+import { videoCacheDir } from "../../../core/video-cache.js";
 
 // A `render` image is a `jsxImage`; a `render` video is a `jsxVideo`, baked by `generate`.
 function isJsxRender(entry: AssetDefinition): entry is LocalAssetDefinition {
@@ -218,13 +219,7 @@ Examples:
         }
 
         const key = cacheKey(inputs, fingerprints);
-        const dir = path.join(
-          videoRoot,
-          ".konte",
-          "cache",
-          "jsx",
-          ...addressToCacheSegments(address),
-        );
+        const dir = videoCacheDir(videoRoot, "jsx", ...addressToCacheSegments(address));
         const outputFile = path.join(dir, `${key}.png`);
         const unresolved = [...files.entries()]
           .filter(([, file]) => file === null)

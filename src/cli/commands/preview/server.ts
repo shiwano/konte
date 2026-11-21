@@ -27,7 +27,8 @@ import { syncFileAssets } from "../../../core/file-sync.js";
 import { reviewGate } from "../../finding-gates.js";
 import { loadCheckContext } from "../../../core/check-context.js";
 import { isWithinRootReal } from "../../../core/path-containment.js";
-import { PREROLL_ASSET_BASE, prerollCacheDir } from "../../../core/preview-preroll.js";
+import { PREROLL_ASSET_BASE } from "../../../core/preview-preroll.js";
+import { prerollCacheDir, thumbnailCacheDir } from "../../../core/video-cache.js";
 import type { StageDefinition } from "../../../core/types/index.js";
 import {
   type ReviewOutcome,
@@ -576,7 +577,7 @@ export function handlePrerollAssetRequest(videoRoot: string, rawPath: string): R
 export function handleThumbnailAssetRequest(videoRoot: string, rawPath: string): Response {
   // Confine reads to .konte/cache/thumbnails/ — the only place legitimate thumbnail URLs
   // point. A bare project-root check would still serve e.g. the workspace credentials.
-  const thumbnailsDir = path.join(videoRoot, ".konte", "cache", "thumbnails");
+  const thumbnailsDir = thumbnailCacheDir(videoRoot);
   const rel = decodePath(rawPath);
   if (rel === null) return errorResponse("Invalid thumbnail path", "INVALID_REQUEST", 400);
   return serveContainedFile(path.resolve(videoRoot, rel), thumbnailsDir);

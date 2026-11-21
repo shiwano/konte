@@ -8,6 +8,7 @@ import { KonteError } from "./errors.js";
 import { SINGLE_FRAME_INPUT_ARGS, SINGLE_FRAME_OUTPUT_ARGS } from "./ffmpeg-binary.js";
 import { ffmpegCanDrawText, runFfmpeg } from "./ffmpeg-exec.js";
 import { makeWorkTmpDir } from "./exec-file.js";
+import { videoCacheDir } from "./video-cache.js";
 
 // A sheet exists to be Read by an agent, so its geometry is bounded by what a vision model keeps:
 // past a ~1568px long edge or ~1.15M pixels the image is downscaled on the way in, shrinking every
@@ -351,7 +352,7 @@ interface ContactSheetResult {
 }
 
 export function contactSheetDir(videoRoot: string): string {
-  return path.join(videoRoot, ".konte", "cache", "contact-sheets");
+  return videoCacheDir(videoRoot, "contact-sheets");
 }
 
 function pageBase(videoRoot: string, cacheKey: string, page: number): string {

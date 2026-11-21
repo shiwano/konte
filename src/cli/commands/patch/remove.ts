@@ -6,12 +6,12 @@ import { JobManager } from "../../../core/job-manager.js";
 import { patchChainTargets, patchFilePath } from "../../../core/patch.js";
 import { StateManager } from "../../../core/state/index.js";
 import { patchChainDir } from "../../../core/variant-dir.js";
+import { variantOwnedPaths } from "../../../core/variant-owned-paths.js";
 import { getAssetStage } from "../../../core/address.js";
 import { collectDescendants } from "../../../core/variant-lineage.js";
 import { confirmDeletion, printAborted, NO_FLAG_DESCRIPTION } from "../../confirm.js";
 import { requireVideoRoots } from "../../context.js";
 import { getPathSize, removePathSafely } from "../clean-utils.js";
-import { variantPaths } from "../clean-orphans.js";
 
 export function registerPatchRemoveCommand(parent: Command): void {
   parent
@@ -73,9 +73,10 @@ Examples:
 
       const paths = [filePath];
       if (address) {
-        for (const vid of doomed) paths.push(...variantPaths(videoRoot, address, vid));
+        for (const vid of doomed) paths.push(...variantOwnedPaths(videoRoot, address, vid));
       }
-      for (const t of stepTargets) paths.push(...variantPaths(videoRoot, t.address, t.variantId));
+      for (const t of stepTargets)
+        paths.push(...variantOwnedPaths(videoRoot, t.address, t.variantId));
       // The chain's own directory, not each step's: it holds exactly this patch's steps, so one
       // path covers them all — including a step whose state row is already gone.
       if (address) paths.push(patchChainDir(videoRoot, getAssetStage(address), variantIdArg));
@@ -134,13 +135,13 @@ Examples:
             m.removeVariant(address, vid);
             removedVariants.push(vid);
             // Reserved since the pre-flight listing, so its paths were not collected then.
-            if (!doomed.includes(vid)) paths.push(...variantPaths(videoRoot, address, vid));
+            if (!doomed.includes(vid)) paths.push(...variantOwnedPaths(videoRoot, address, vid));
           }
         }
         for (const t of steps) {
           m.removeVariant(t.address, t.variantId);
           removedVariants.push(t.variantId);
-          paths.push(...variantPaths(videoRoot, t.address, t.variantId));
+          paths.push(...variantOwnedPaths(videoRoot, t.address, t.variantId));
         }
       });
       for (const p of paths) await removePathSafely(p);

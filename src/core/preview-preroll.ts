@@ -7,6 +7,7 @@ import { FFMPEG_CONCURRENCY, mapConcurrent } from "./concurrency.js";
 import { errorMessage } from "./errors.js";
 import { padVideoClip } from "./ffmpeg.js";
 import type { StateManager } from "./state/index.js";
+import { prerollCacheDir } from "./video-cache.js";
 
 /**
  * The reel plays every shot from its own `<video>`, and the runtime starts one only when its
@@ -132,15 +133,6 @@ function safeVariantId(variantId: string): boolean {
 function contentStamp(outputHash: string | null | undefined): string | null {
   const hex = /^[A-Za-z0-9]{8,}$/.test(outputHash ?? "") ? outputHash! : null;
   return hex && hex.slice(0, 16);
-}
-
-export function prerollCacheDir(videoRoot: string): string {
-  return path.join(videoRoot, ".konte", "cache", "preroll");
-}
-
-/** A take's padded copies. Keyed by variant like the audio/motion caches, so `clean` reaches it. */
-export function prerollVariantDir(videoRoot: string, variantId: string): string {
-  return path.join(prerollCacheDir(videoRoot), variantId);
 }
 
 /** Where each shot's host sits on the reel clock, by shot id. */

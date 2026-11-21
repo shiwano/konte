@@ -12,6 +12,7 @@ import { KonteError, errorMessage } from "./errors.js";
 import type { ThumbnailInfo } from "./frame-extract.js";
 import { isWithinRoot } from "./path-containment.js";
 import { shotById } from "./shot-index.js";
+import { thumbnailCacheDir } from "./video-cache.js";
 
 // A note id is a path component of its pin frame, and it comes off schema-validated JSON that is a
 // text file a human can edit — so it is checked for the shape `generateFeedbackId` mints, not
@@ -46,7 +47,7 @@ export function shotFrameDir(
   shotId: string,
 ): string | null {
   if (!shotById(video.shots, shotId)?.shotFn) return null;
-  const root = path.join(videoRoot, ".konte", "cache", "thumbnails");
+  const root = thumbnailCacheDir(videoRoot);
   const dir = path.join(
     root,
     ...addressToCacheSegments(formatCompositionAddress(video.stage, shotId)),

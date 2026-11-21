@@ -20,6 +20,7 @@ import { inferMediaType } from "../../../core/media-type.js";
 import type { StateManager } from "../../../core/state/index.js";
 import { imageFileSize } from "../../../core/image-size.js";
 import { openProbeTargets } from "./resolve-arg.js";
+import { cropVariantDir } from "../../../core/video-cache.js";
 
 const BOX_COLORS = ["red", "lime", "cyan", "yellow", "magenta", "orange", "white", "dodgerblue"];
 
@@ -36,11 +37,6 @@ interface Rect {
   label: string;
   given: string;
   parts: { value: number; percent: boolean }[];
-}
-
-/** A take's crop renders. Keyed by variant like the audio/motion caches, so `clean` reaches it. */
-export function cropVariantDir(videoRoot: string, variantId: string): string {
-  return path.join(videoRoot, ".konte", "cache", "crops", variantId);
 }
 
 function collectRect(value: string, previous: string[]): string[] {

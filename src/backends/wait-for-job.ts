@@ -42,6 +42,7 @@ import { getBackendKindFromJob, resolveBackend } from "./resolve-backend.js";
 import type { VideoRoots } from "../core/roots.js";
 import { sleep } from "../core/sleep.js";
 import { pollUntilTerminal } from "../core/poll-until-terminal.js";
+import { videoCacheDir } from "../core/video-cache.js";
 
 // waitForJob only ever waits on generation jobs (model downloads run through
 // run-comfy-install-job). Narrow once so the body can read the generation fields.
@@ -393,7 +394,7 @@ async function runAsOwner(
         `Speech in ${lang} is not recognized; the line is not heard.`,
       );
     } else if (owesLine && outputHash && durationSec && media && mediaHasAudio(media)) {
-      const workDir = path.join(videoRoot, ".konte", "cache", "heard", `${variantId}-${workerId}`);
+      const workDir = videoCacheDir(videoRoot, "heard", `${variantId}-${workerId}`);
       try {
         const heard = await hearSpeech(
           path.resolve(videoRoot, outputFile),

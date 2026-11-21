@@ -1,11 +1,6 @@
-import * as path from "node:path";
 import { overlayLineTimer } from "../../../core/line-timing.js";
 import type { Command } from "commander";
-import {
-  addressToCacheSegments,
-  formatCompositionAddress,
-  parseReelScope,
-} from "../../../core/address.js";
+import { formatCompositionAddress, parseReelScope } from "../../../core/address.js";
 import { KonteError } from "../../../core/errors.js";
 import { buildShotCompositionHtml } from "../../../core/composition-builder.js";
 import { compositionAnimates } from "../../../core/dsl/composition/animate.js";
@@ -30,6 +25,7 @@ import {
 } from "./shared.js";
 import { formatSeconds } from "../../../core/format-duration.js";
 import { printNextSteps } from "../../next-steps.js";
+import { thumbnailCacheDir } from "../../../core/video-cache.js";
 
 async function shotAnimates(
   video: StageDefinition,
@@ -114,13 +110,7 @@ Examples:
       };
 
       const address = formatCompositionAddress(stage, shotId);
-      const outputDir = path.join(
-        videoRoot,
-        ".konte",
-        "cache",
-        "thumbnails",
-        ...addressToCacheSegments(address),
-      );
+      const outputDir = thumbnailCacheDir(videoRoot, address);
       const captured = await captureCompositionFrames({
         video,
         manager,

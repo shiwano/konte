@@ -20,6 +20,7 @@ import { probeVideo, type VideoProbeResult } from "./video-probe.js";
 import type { StageDefinition } from "./types/index.js";
 import { execFileAsync, makeWorkTmpDir } from "./exec-file.js";
 import { formatSeconds } from "./format-duration.js";
+import { motionVariantCacheDir } from "./video-cache.js";
 
 // The audio inspector decodes PCM, buckets RMS amplitude, and caches the result; motion is the exact
 // analog over the time axis — decode downscaled grayscale frames, measure the per-frame-pair diff
@@ -294,14 +295,7 @@ function motionCacheFile(
   outputHash: string,
   fps: number,
 ): string {
-  return path.join(
-    videoRoot,
-    ".konte",
-    "cache",
-    "motion",
-    variantId,
-    `${outputHash}-fps${fps}.json`,
-  );
+  return path.join(motionVariantCacheDir(videoRoot, variantId), `${outputHash}-fps${fps}.json`);
 }
 
 // Sweep sibling cache entries (superseded bytes) for this variant, keeping every entry — waveform
@@ -312,7 +306,7 @@ function pruneSupersededMotionHashes(
   variantId: string,
   currentHash: string,
 ): void {
-  const variantDir = path.join(videoRoot, ".konte", "cache", "motion", variantId);
+  const variantDir = motionVariantCacheDir(videoRoot, variantId);
   try {
     for (const entry of readdirSync(variantDir)) {
       if (entry !== currentHash && !entry.startsWith(`${currentHash}-`)) {
@@ -826,11 +820,7 @@ export async function renderMotionStrip(opts: {
   // the hash-scoped prune reclaims them when the variant's bytes change. A hashless variant (missing
   // source) can't be keyed, so it renders under a "live" dir that prune never retains.
   const outDir = path.join(
-    videoRoot,
-    ".konte",
-    "cache",
-    "motion",
-    waveform.variantId,
+    motionVariantCacheDir(videoRoot, waveform.variantId),
     waveform.outputHash ?? "live",
   );
   const outFile = path.join(outDir, `strip-${spec_str}.jpg`);

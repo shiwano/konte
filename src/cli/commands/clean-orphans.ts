@@ -1,13 +1,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import {
-  addressToCacheSegments,
-  matchesAddressScope,
-  parseAddress,
-  parseAddressStream,
-} from "../../core/address.js";
+import { matchesAddressScope, parseAddress, parseAddressStream } from "../../core/address.js";
 import { FeedbackManager, listAllFeedback } from "../../core/feedback/index.js";
-import { isJobTerminal, type JobManager } from "../../core/job-manager.js";
+import { isJobTerminal, type JobManager, jobLogPath } from "../../core/job-manager.js";
 import type {
   AnimaticDefinition,
   JobRecord,
@@ -19,25 +14,20 @@ import { buildOrphanContext, listStrayVariantDirs } from "../../core/orphans.js"
 import { StateManager } from "../../core/state/index.js";
 import { activeGenerationVariantIds } from "../../core/job-index.js";
 import { patchFilePath } from "../../core/patch.js";
-import { prerollVariantDir } from "../../core/preview-preroll.js";
-import { songPartsVariantDir } from "../../core/song-parts.js";
 import {
   assetDir,
   patchBucketDir,
   patchChainDir,
-  variantDir,
   variantsHostedBy,
 } from "../../core/variant-dir.js";
 import { collectDescendants } from "../../core/variant-lineage.js";
 import { removePathSafely } from "./clean-utils.js";
-import { cropVariantDir } from "./probe/crop.js";
-
-const KONTE_DIR = ".konte";
-const CACHE_DIR = "cache";
-const LOGS_DIR = "logs";
-const THUMBNAILS_DIR = "thumbnails";
-const AUDIO_DIR = "audio";
-const MOTION_DIR = "motion";
+import { thumbnailCacheDir } from "../../core/video-cache.js";
+import {
+  variantAssetPaths,
+  variantLeftoverPaths,
+  variantOwnedPaths,
+} from "../../core/variant-owned-paths.js";
 
 function isProvisioningJob(job: JobRecord): boolean {
   return (
@@ -88,46 +78,6 @@ type OrphanedPatch = {
   address: string | null;
   paths: string[];
 };
-
-// What one variant leaves under .konte besides its asset dir: its log, caches and patch script.
-function variantLeftoverPaths(videoRoot: string, variantId: string): string[] {
-  return [
-    path.join(videoRoot, KONTE_DIR, LOGS_DIR, `${variantId}.log`),
-    path.join(videoRoot, KONTE_DIR, CACHE_DIR, AUDIO_DIR, variantId),
-    path.join(videoRoot, KONTE_DIR, CACHE_DIR, MOTION_DIR, variantId),
-    prerollVariantDir(videoRoot, variantId),
-    songPartsVariantDir(videoRoot, variantId),
-    cropVariantDir(videoRoot, variantId),
-    patchFilePath(videoRoot, variantId),
-  ];
-}
-
-// Everything one variant owns on disk.
-export function variantPaths(videoRoot: string, address: string, variantId: string): string[] {
-  return [
-    ...variantAssetPaths(videoRoot, address, variantId),
-    ...variantLeftoverPaths(videoRoot, variantId),
-  ];
-}
-
-function variantAssetPaths(videoRoot: string, address: string, variantId: string): string[] {
-  try {
-    return [
-      variantDir(videoRoot, address, variantId),
-      path.join(
-        videoRoot,
-        KONTE_DIR,
-        CACHE_DIR,
-        THUMBNAILS_DIR,
-        ...addressToCacheSegments(address),
-        variantId,
-      ),
-    ];
-  } catch {
-    // unparseable address: no asset or thumbnail dir to name
-    return [];
-  }
-}
 
 async function removeIfEmpty(dir: string): Promise<void> {
   try {
@@ -326,7 +276,7 @@ export async function collectOrphans(opts: {
       plan.provisioningJobs.push({
         jobId: job.id,
         label: provisioningLabel(job),
-        paths: [path.join(videoRoot, KONTE_DIR, LOGS_DIR, `${job.id}.log`)],
+        paths: [jobLogPath(videoRoot, job.id)],
       });
     }
   }
@@ -366,7 +316,7 @@ export async function collectOrphans(opts: {
         variantId,
         kind: "output",
         address,
-        paths: [...variantPaths(videoRoot, address, variantId)],
+        paths: [...variantOwnedPaths(videoRoot, address, variantId)],
       });
     }
   }
@@ -424,15 +374,7 @@ export async function collectOrphans(opts: {
     } catch {
       // unparseable address: skip filesystem cleanup, still drop the state key
     }
-    paths.push(
-      path.join(
-        videoRoot,
-        KONTE_DIR,
-        CACHE_DIR,
-        THUMBNAILS_DIR,
-        ...addressToCacheSegments(address),
-      ),
-    );
+    paths.push(thumbnailCacheDir(videoRoot, address));
     for (const variantId of variantIds) paths.push(...variantLeftoverPaths(videoRoot, variantId));
     plan.targets.push({
       address,
@@ -613,7 +555,7 @@ export async function removeOrphans(opts: {
             variantId: id,
             kind: "output",
             address: patch.address,
-            paths: [...variantPaths(videoRoot, patch.address, id)],
+            paths: [...variantOwnedPaths(videoRoot, patch.address, id)],
           });
         }
       }

@@ -3,15 +3,11 @@ import * as path from "node:path";
 import { sha256Hex } from "./content-hash.js";
 import { runFfmpeg } from "./ffmpeg-exec.js";
 import { separateSong } from "./sherpa-binary.js";
+import { songPartsVariantDir } from "./video-cache.js";
 
 type SongPart = "vocals" | "instrumental";
 
 type SongParts = Record<SongPart, string>;
-
-/** A take's separations. Keyed by variant like the audio/motion caches, so `clean` reaches it. */
-export function songPartsVariantDir(videoRoot: string, variantId: string): string {
-  return path.join(videoRoot, ".konte", "cache", "song-parts", variantId);
-}
 
 // A take of the song separated into its voice and the rest, each a WAV on the take's own clock.
 // Kept under the video's cache by the take's output hash, so each take is separated once.

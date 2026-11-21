@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { addressToCacheSegments, deliveryAddressOf, parseAddress } from "./address.js";
+import { deliveryAddressOf, parseAddress } from "./address.js";
 import { definitionHashForAddress } from "./composition-resource.js";
 import { computeDefinitionHash } from "./definition-hash.js";
 import { readDefinitionSnapshot, writeDefinitionSnapshot } from "./definition-snapshot.js";
@@ -9,6 +9,7 @@ import { makeAddressPlaceholder } from "./dsl/shot-context.js";
 import { computePatchHash, listPatchVariantIds, loadPatch, patchAssetAddress } from "./patch.js";
 import type { AssetDefinition, JobRecord, KonteState } from "./types/index.js";
 import { assetDir } from "./variant-dir.js";
+import { thumbnailCacheDir } from "./video-cache.js";
 
 /** `from` → `to`, and the same for their `#delivery` derivatives where the address has one. */
 export function renameMoves(from: string, to: string): Map<string, string> {
@@ -232,8 +233,7 @@ export async function moveAssetDirs(
   videoRoot: string,
   moves: ReadonlyMap<string, string>,
 ): Promise<() => Promise<void>> {
-  const thumbnails = (address: string) =>
-    path.join(videoRoot, ".konte", "cache", "thumbnails", ...addressToCacheSegments(address));
+  const thumbnails = (address: string) => thumbnailCacheDir(videoRoot, address);
   const pairs: Array<[string, string]> = [];
   for (const [from, to] of moves) {
     pairs.push([assetDir(videoRoot, from), assetDir(videoRoot, to)]);

@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { addressFromCacheSegments, addressToCacheSegments } from "./address.js";
+import { addressFromCacheSegments } from "./address.js";
 import { writeFileAtomic } from "./atomic-write.js";
 import {
   extractKeyframes,
@@ -9,6 +9,7 @@ import {
   type ThumbnailInfo,
 } from "./frame-extract.js";
 import { inferMediaType } from "./media-type.js";
+import { thumbnailVariantCacheDir } from "./video-cache.js";
 
 // Variant thumbnails live entirely on disk, mirroring the composition-frame cache: the
 // keyframes plus a manifest.json recording the scene-detected set (whose timestamps vary
@@ -23,15 +24,7 @@ export function variantThumbnailDir(
   variantId: string,
   outputHash: string,
 ): string {
-  return path.join(
-    videoRoot,
-    ".konte",
-    "cache",
-    "thumbnails",
-    ...addressToCacheSegments(address),
-    variantId,
-    outputHash,
-  );
+  return path.join(thumbnailVariantCacheDir(videoRoot, address, variantId), outputHash);
 }
 
 // Walk the nested thumbnail cache (`<stage>/<suffix>`) and yield every address-level dir with its
@@ -180,14 +173,7 @@ function pruneSupersededVariantHashes(
   variantId: string,
   currentHash: string,
 ): void {
-  const variantDir = path.join(
-    videoRoot,
-    ".konte",
-    "cache",
-    "thumbnails",
-    ...addressToCacheSegments(address),
-    variantId,
-  );
+  const variantDir = thumbnailVariantCacheDir(videoRoot, address, variantId);
   try {
     for (const entry of readdirSync(variantDir)) {
       if (entry !== currentHash) {

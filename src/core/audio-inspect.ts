@@ -28,6 +28,7 @@ import type { StageDefinition, VariantMedia } from "./types/index.js";
 import { mediaHasAudio } from "./variant-media.js";
 import { probeMediaDuration } from "./video-probe.js";
 import { formatSeconds, formatSecondsRange } from "./format-duration.js";
+import { audioVariantCacheDir } from "./video-cache.js";
 
 // One audio track laid on the timeline, with its identity preserved (which shot/cue/bed it came
 // from) — unlike the mux's MuxAudioTrack, which is anonymous. Times are timeline-absolute and
@@ -229,7 +230,7 @@ async function getSourceProfile(
   // `file` asset) misses on the new hash, while clean still deletes by variantId.
   // A null hash (source file missing) can't be keyed, so skip the disk cache entirely.
   const cacheFile = outputHash
-    ? path.join(videoRoot, ".konte", "cache", "audio", variantId, `${outputHash}.json`)
+    ? path.join(audioVariantCacheDir(videoRoot, variantId), `${outputHash}.json`)
     : null;
 
   if (cacheFile && existsSync(cacheFile)) {
@@ -279,7 +280,7 @@ function pruneSupersededAudioHashes(
   variantId: string,
   currentHash: string,
 ): void {
-  const variantDir = path.join(videoRoot, ".konte", "cache", "audio", variantId);
+  const variantDir = audioVariantCacheDir(videoRoot, variantId);
   try {
     for (const entry of readdirSync(variantDir)) {
       if (entry !== `${currentHash}.json`) {

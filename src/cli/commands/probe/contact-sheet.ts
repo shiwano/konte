@@ -4,7 +4,6 @@ import { existsSync } from "node:fs";
 import * as path from "node:path";
 import type { Command } from "commander";
 import {
-  addressToCacheSegments,
   formatCompositionAddress,
   formatShotAddress,
   isCompositionAddress,
@@ -15,6 +14,7 @@ import {
 } from "../../../core/address.js";
 import {
   type ContactSheetCell,
+  contactSheetDir,
   DEFAULT_MAX_CELLS,
   MAX_CELLS_LIMIT,
   maxCellsForWidth,
@@ -52,6 +52,7 @@ import { compareNatural, openCompositionStages } from "./shared.js";
 import { printResolutionNotices, type ResolvedVariant } from "../../resolution-notice.js";
 import { applyResolutionDefinitions } from "../../../core/definition-hashes.js";
 import { formatSeconds } from "../../../core/format-duration.js";
+import { thumbnailCacheDir } from "../../../core/video-cache.js";
 
 // Two cells per shot: a cut is read on the outgoing frame against the next shot's incoming one.
 const DEFAULT_FRAMES_PER_SHOT = 2;
@@ -260,13 +261,7 @@ async function buildCompositionCells(
         manager,
         shotId,
         videoRoot,
-        outputDir: path.join(
-          videoRoot,
-          ".konte",
-          "cache",
-          "thumbnails",
-          ...addressToCacheSegments(address),
-        ),
+        outputDir: thumbnailCacheDir(videoRoot, address),
         captureOptions: {
           timestamps,
           format: COMPOSITION_FRAME_FORMAT,
@@ -350,10 +345,7 @@ async function clipCells(
   const timestamps = compositionSampleTimes(media.durationSec, media.fps, opts.framesPerVariant);
   // Keyed by the variant's own content hash, so a re-take never reads a previous one's frames.
   const frameDir = path.join(
-    videoRoot,
-    ".konte",
-    "cache",
-    "contact-sheets",
+    contactSheetDir(videoRoot),
     "takes",
     variantId,
     variant.outputHash ?? "live",
@@ -442,13 +434,7 @@ async function buildNeedsReviewCells(
         manager,
         shotId: shot.id,
         videoRoot,
-        outputDir: path.join(
-          videoRoot,
-          ".konte",
-          "cache",
-          "thumbnails",
-          ...addressToCacheSegments(item.address),
-        ),
+        outputDir: thumbnailCacheDir(videoRoot, item.address),
         captureOptions: {
           timestamps: compositionSampleTimes(
             shot.duration,

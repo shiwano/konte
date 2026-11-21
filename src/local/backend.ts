@@ -26,6 +26,7 @@ import { probeMediaDuration, probeVideo } from "../core/video-probe.js";
 import type { LocalAssetDefinition } from "../core/types/index.js";
 import { formatSeconds } from "../core/format-duration.js";
 import type { OrbitPose } from "../core/image-orbit.js";
+import { videoCacheDir } from "../core/video-cache.js";
 
 // A middle take carries a fade at each end, the first and last one at one.
 async function assertCrossfadeFits(
@@ -214,7 +215,7 @@ export class LocalBackend implements GenerationBackend {
       pose: inputs.pose as OrbitPose,
       size: { width: inputs.width as number, height: inputs.height as number },
       outputFile,
-      cacheDir: path.join(this.videoRoot, ".konte", "cache", "moge"),
+      cacheDir: videoCacheDir(this.videoRoot, "moge"),
     });
   }
 

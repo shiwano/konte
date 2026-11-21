@@ -9,6 +9,7 @@ import { leadPathWithFfmpeg } from "./ffmpeg-binary.js";
 import { ensureHyperFramesEnv } from "./hyperframes-env.js";
 import { redactUrls } from "./redact.js";
 import { EMOJI_FAMILY, containsEmoji } from "./typography.js";
+import { videoCacheDir } from "./video-cache.js";
 
 export async function ensureHyperFrames(): Promise<void> {
   ensureHyperFramesEnv();
@@ -67,7 +68,7 @@ const STALE_CAPTURE_WORKSPACE_MS = 24 * 60 * 60 * 1000;
  * (`linkIntoWorkspace`) stays on the volume its takes live on. Sweeps stale ones on the way.
  */
 export async function makeCaptureWorkspace(videoRoot: string, prefix: string): Promise<string> {
-  const root = path.join(videoRoot, ".konte", "cache", "capture");
+  const root = videoCacheDir(videoRoot, "capture");
   await fs.mkdir(root, { recursive: true });
   const cutoff = Date.now() - STALE_CAPTURE_WORKSPACE_MS;
   for (const entry of await fs.readdir(root).catch(() => [])) {

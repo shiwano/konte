@@ -1,8 +1,7 @@
 import * as fs from "node:fs/promises";
-import * as path from "node:path";
 import type { Command } from "commander";
 import { KonteError } from "../../../core/errors.js";
-import { isJobTerminal, JobManager } from "../../../core/job-manager.js";
+import { isJobTerminal, JobManager, jobLogPath } from "../../../core/job-manager.js";
 import { requireVideoRoot } from "../../context.js";
 
 export function registerJobLogsCommand(program: Command): void {
@@ -46,7 +45,7 @@ export function registerJobLogsCommand(program: Command): void {
       }
 
       if (opts.follow) {
-        const logPath = path.join(videoRoot, ".konte", "logs", `${jobId}.log`);
+        const logPath = jobLogPath(videoRoot, jobId);
 
         const drain = async (): Promise<void> => {
           try {

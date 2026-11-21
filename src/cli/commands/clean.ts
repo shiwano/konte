@@ -43,7 +43,6 @@ import {
   orphanTotal,
   orphanVariantKeys,
   removeOrphans,
-  variantPaths,
 } from "./clean-orphans.js";
 import {
   CLEAN_CATEGORIES,
@@ -59,10 +58,8 @@ import { requireVideoRoot, requireWorkspaceRoot } from "../context.js";
 import { listVideos, VIDEOS_DIR } from "../../core/roots.js";
 import { declareScope } from "../scope.js";
 import { currentPoolVariant } from "../patch-orchestrator.js";
-
-const KONTE_DIR = ".konte";
-const CACHE_DIR = "cache";
-const THUMBNAILS_DIR = "thumbnails";
+import { thumbnailCacheDir } from "../../core/video-cache.js";
+import { variantOwnedPaths } from "../../core/variant-owned-paths.js";
 
 const CATEGORY_LABELS: Record<CleanCategory, string> = {
   failed: "failed",
@@ -276,7 +273,7 @@ async function executeClean(videoRoot: string, opts: CleanOptions): Promise<void
   // Composition thumbnails are a pure render cache — unlike variant thumbnails, nothing reads
   // them via metadata — so clean always reclaims them within scope; the next `probe reel-thumbnails`
   // just re-renders. They carry no state, so enumerate them straight from the filesystem.
-  const thumbnailsRoot = path.join(videoRoot, KONTE_DIR, CACHE_DIR, THUMBNAILS_DIR);
+  const thumbnailsRoot = thumbnailCacheDir(videoRoot);
   const compositionCaches: string[] = [];
   for (const { address: cacheAddress, dir } of await listThumbnailAddressDirs(thumbnailsRoot)) {
     if (!isCompositionAddress(cacheAddress)) continue;
@@ -353,7 +350,7 @@ async function executeClean(videoRoot: string, opts: CleanOptions): Promise<void
   ) {
     let totalSize = 0;
     for (const p of [
-      ...collected.flatMap((c) => variantPaths(videoRoot, c.address, c.variantId)),
+      ...collected.flatMap((c) => variantOwnedPaths(videoRoot, c.address, c.variantId)),
       ...compositionCaches,
       ...contactSheetFiles,
       ...orphanPlanPaths(videoRoot, plan),
@@ -443,7 +440,7 @@ async function executeClean(videoRoot: string, opts: CleanOptions): Promise<void
 
       kept.push(...lockPlan.kept);
       for (const entry of lockPlan.remove) {
-        for (const p of variantPaths(videoRoot, entry.address, entry.variantId)) {
+        for (const p of variantOwnedPaths(videoRoot, entry.address, entry.variantId)) {
           await removePathSafely(p);
         }
         await jobManager.deleteJob(entry.variantId);
