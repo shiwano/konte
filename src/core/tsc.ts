@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { KonteError, errorMessage } from "./errors.js";
 import { VIDEO_MARKER, VIDEO_NAME_PATTERN, VIDEOS_DIR } from "./roots.js";
-import { provisionOnce, toolCacheDir, unpackTarballInto } from "./tool-cache.js";
+import { exeName, provisionOnce, toolCacheDir, unpackTarballInto } from "./tool-cache.js";
 import { toolPin } from "./tool-checksums.js";
 import { execFileAsync } from "./exec-file.js";
 
@@ -159,7 +159,7 @@ export async function ensureTsc(): Promise<string> {
 
   const url = tscDownloadUrl(process.platform, process.arch);
   const cacheDir = toolCacheDir(`tsc-${TSC_VERSION}`);
-  const tscBin = path.join(cacheDir, process.platform === "win32" ? "tsc.exe" : "tsc");
+  const tscBin = path.join(cacheDir, exeName("tsc"));
   await provisionOnce({
     dir: cacheDir,
     pin: toolPin([url]),

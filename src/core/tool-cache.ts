@@ -130,16 +130,17 @@ export async function provisionOnce(spec: ToolCacheProvision): Promise<void> {
 }
 
 /**
- * Download the tarball at `url` and move the contents of its root into `dest`: `inner` when given
- * (a path inside the archive), else the archive's one top-level directory.
+ * Download the archive at `url` into a scratch directory
+ * under `dir`, extract it, and hand `take` the extraction root; the scratch directory is removed
+ * after `take` returns. `tar` is bsdtar on Windows, so a .zip extracts too.
  */
-export async function unpackTarballInto(
+export async function downloadAndExtract(
   url: string,
-  dest: string,
+  dir: string,
   progressLabel: string,
-  inner?: string,
+  take: (extracted: string) => void,
 ): Promise<void> {
-  const tmp = fs.mkdtempSync(path.join(dest, ".dl-"));
+  const tmp = fs.mkdtempSync(path.join(dir, ".dl-"));
   try {
     const archive = path.join(tmp, path.basename(new URL(url).pathname));
     await downloadFile(url, archive, progressReporter(progressLabel));
@@ -147,14 +148,34 @@ export async function unpackTarballInto(
     const out = path.join(tmp, "out");
     fs.mkdirSync(out);
     await execFileAsync("tar", ["xf", archive, "-C", out]);
+    take(out);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Download the tarball at `url` and move the contents of its root into `dest`: `inner` when given
+ * (a path inside the archive), else the archive's one top-level directory.
+ */
+export function unpackTarballInto(
+  url: string,
+  dest: string,
+  progressLabel: string,
+  inner?: string,
+): Promise<void> {
+  return downloadAndExtract(url, dest, progressLabel, (out) => {
     const [top] = fs.readdirSync(out);
     const root = inner ? path.join(out, inner) : top ? path.join(out, top) : out;
     for (const entry of fs.readdirSync(root)) {
       fs.renameSync(path.join(root, entry), path.join(dest, entry));
     }
-  } finally {
-    fs.rmSync(tmp, { recursive: true, force: true });
-  }
+  });
+}
+
+/** `name` as an executable file name on this platform. */
+export function exeName(name: string): string {
+  return process.platform === "win32" ? `${name}.exe` : name;
 }
 
 /** Move the file called `name`, found anywhere under `dir`, to `dest`. */

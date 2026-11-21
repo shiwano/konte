@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { KonteError } from "./errors.js";
 import { execFileAsync } from "./exec-file.js";
-import { provisionOnce, toolCacheDir, unpackTarballInto } from "./tool-cache.js";
+import { exeName, provisionOnce, toolCacheDir, unpackTarballInto } from "./tool-cache.js";
 import { toolPin } from "./tool-checksums.js";
 
 // Pinned sherpa-onnx release; the version names its tool-cache dir.
@@ -68,10 +68,6 @@ export function sherpaDownloadUrl(platform: NodeJS.Platform, arch: string): stri
     `No managed sherpa-onnx build for ${platform}-${arch}. Install sherpa-onnx and set ` +
       `KONTE_SHERPA_SEPARATION_PATH to its ${SEPARATOR}.`,
   );
-}
-
-function exeName(name: string): string {
-  return process.platform === "win32" ? `${name}.exe` : name;
 }
 
 let sherpaDir: string | null = null;

@@ -5,7 +5,14 @@ import { loadKonteConfig } from "./config.js";
 import { downloadFile } from "./download.js";
 import { endProgress, progressReporter } from "./download-progress.js";
 import { type KonteErrorCode, KonteError, errorMessage } from "./errors.js";
-import { moveFoundBinary, provisionOnce, toolCacheDir, toolCacheReady } from "./tool-cache.js";
+import {
+  downloadAndExtract,
+  exeName,
+  moveFoundBinary,
+  provisionOnce,
+  toolCacheDir,
+  toolCacheReady,
+} from "./tool-cache.js";
 import { toolPin } from "./tool-checksums.js";
 import { workspaceRootOrNull } from "./workspace-context.js";
 import { execFileAsync } from "./exec-file.js";
@@ -94,7 +101,7 @@ export async function leadPathWithFfmpeg(): Promise<void> {
   ] as const;
 
   const dirs = resolved
-    .filter(([tool, bin]) => path.isAbsolute(bin) && path.basename(bin) === binName(tool))
+    .filter(([tool, bin]) => path.isAbsolute(bin) && path.basename(bin) === exeName(tool))
     .map(([, bin]) => path.dirname(bin));
 
   const current = (process.env.PATH ?? "").split(path.delimiter).filter(Boolean);
@@ -126,7 +133,7 @@ export async function ffmpegToolStatus(): Promise<{
       return { source: "unsupported", path: "", version: "" };
     }
     const dir = managedDir();
-    const managed = path.join(dir, binName(tool));
+    const managed = path.join(dir, exeName(tool));
 
     // Kept apart from the platform check above: a URL bumped without regenerating the manifest is
     // an actionable manifest error, not a platform konte has no build for.
@@ -172,19 +179,15 @@ function managedDir(): string {
   return toolCacheDir(`ffmpeg-${ffmpegSource().version}`);
 }
 
-function binName(tool: "ffmpeg" | "ffprobe"): string {
-  return process.platform === "win32" ? `${tool}.exe` : tool;
-}
-
 function managedBinNames(): string[] {
-  return [binName("ffmpeg"), binName("ffprobe")];
+  return [exeName("ffmpeg"), exeName("ffprobe")];
 }
 
 async function ensureManaged(): Promise<void> {
   if (ffmpegPath && ffprobePath) return;
   const dir = managedDir();
-  const fm = path.join(dir, binName("ffmpeg"));
-  const fp = path.join(dir, binName("ffprobe"));
+  const fm = path.join(dir, exeName("ffmpeg"));
+  const fp = path.join(dir, exeName("ffprobe"));
   const src = ffmpegSource();
   await provisionOnce({
     dir,
@@ -269,30 +272,22 @@ async function fillManaged(
   fmDest: string,
   fpDest: string,
 ): Promise<void> {
-  const tmp = fs.mkdtempSync(path.join(dir, ".dl-"));
-  try {
-    if (src.kind === "archive") {
-      const archive = path.join(tmp, path.basename(new URL(src.url).pathname));
-      await downloadFile(src.url, archive, progressReporter("ffmpeg + ffprobe"));
-      endProgress();
-      await extractArchive(archive, tmp);
-      moveFoundBinary(tmp, src.ffmpeg, fmDest, "FFMPEG_SETUP_FAILED");
-      moveFoundBinary(tmp, src.ffprobe, fpDest, "FFPROBE_SETUP_FAILED");
-    } else {
+  if (src.kind === "archive") {
+    await downloadAndExtract(src.url, dir, "ffmpeg + ffprobe", (out) => {
+      moveFoundBinary(out, src.ffmpeg, fmDest, "FFMPEG_SETUP_FAILED");
+      moveFoundBinary(out, src.ffprobe, fpDest, "FFPROBE_SETUP_FAILED");
+    });
+  } else {
+    const tmp = fs.mkdtempSync(path.join(dir, ".dl-"));
+    try {
       await extractGzipped(src.ffmpegUrl, fmDest, "ffmpeg", tmp);
       await extractGzipped(src.ffprobeUrl, fpDest, "ffprobe", tmp);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
     }
-    fs.chmodSync(fmDest, 0o755);
-    fs.chmodSync(fpDest, 0o755);
-  } finally {
-    fs.rmSync(tmp, { recursive: true, force: true });
   }
-}
-
-// bsdtar (libarchive) handles every archive konte downloads: .tar.xz on Linux and .zip on
-// Windows. Win10+ ships bsdtar as `tar`; Linux uses GNU tar (xz-capable).
-async function extractArchive(archive: string, destDir: string): Promise<void> {
-  await execFileAsync("tar", ["xf", archive, "-C", destDir]);
+  fs.chmodSync(fmDest, 0o755);
+  fs.chmodSync(fpDest, 0o755);
 }
 
 // eugeneware ships each binary as a bare gzip stream (not a tar), so inflate straight to dest.

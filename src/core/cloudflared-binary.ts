@@ -3,9 +3,14 @@ import * as path from "node:path";
 import { downloadFile } from "./download.js";
 import { endProgress, progressReporter } from "./download-progress.js";
 import { KonteError } from "./errors.js";
-import { moveFoundBinary, provisionOnce, toolCacheDir } from "./tool-cache.js";
+import {
+  downloadAndExtract,
+  exeName,
+  moveFoundBinary,
+  provisionOnce,
+  toolCacheDir,
+} from "./tool-cache.js";
 import { toolPin } from "./tool-checksums.js";
-import { execFileAsync } from "./exec-file.js";
 
 // Pinned cloudflared release; the version names its tool-cache dir.
 const CLOUDFLARED_VERSION = "2026.10.3";
@@ -21,12 +26,12 @@ export async function cloudflaredBin(): Promise<string> {
     return override;
   }
   const dir = toolCacheDir(`cloudflared-${CLOUDFLARED_VERSION}`);
-  const dest = path.join(dir, binName());
+  const dest = path.join(dir, exeName("cloudflared"));
   const src = cloudflaredDownloadSource(process.platform, process.arch);
   await provisionOnce({
     dir,
     pin: toolPin([src.url]),
-    files: [binName()],
+    files: [exeName("cloudflared")],
     label: `cloudflared ${CLOUDFLARED_VERSION}`,
     errorCode: "CLOUDFLARED_SETUP_FAILED",
     fill: () => fillManaged(dir, src, dest),
@@ -62,10 +67,6 @@ export function cloudflaredDownloadSource(
   throw unsupported(platform, arch);
 }
 
-function binName(): string {
-  return process.platform === "win32" ? "cloudflared.exe" : "cloudflared";
-}
-
 function unsupported(platform: string, arch: string): KonteError {
   return new KonteError(
     "CLOUDFLARED_SETUP_FAILED",
@@ -79,16 +80,9 @@ async function fillManaged(dir: string, src: CloudflaredSource, dest: string): P
     await downloadFile(src.url, dest, progressReporter("cloudflared"));
     endProgress();
   } else {
-    const tmp = fs.mkdtempSync(path.join(dir, ".dl-"));
-    try {
-      const archive = path.join(tmp, "cloudflared.tgz");
-      await downloadFile(src.url, archive, progressReporter("cloudflared"));
-      endProgress();
-      await execFileAsync("tar", ["xzf", archive, "-C", tmp]);
-      moveFoundBinary(tmp, "cloudflared", dest, "CLOUDFLARED_SETUP_FAILED");
-    } finally {
-      fs.rmSync(tmp, { recursive: true, force: true });
-    }
+    await downloadAndExtract(src.url, dir, "cloudflared", (out) =>
+      moveFoundBinary(out, "cloudflared", dest, "CLOUDFLARED_SETUP_FAILED"),
+    );
   }
   fs.chmodSync(dest, 0o755);
 }
