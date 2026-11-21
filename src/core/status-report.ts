@@ -104,7 +104,7 @@ import {
   type ExportReadiness,
   type LastExport,
   type ReelProgress,
-  type StatusSection,
+  type StatusSections,
   buildAddressInfo,
   computeExportReadiness,
   computeLastExports,
@@ -134,7 +134,9 @@ import {
 
 export interface StatusReport {
   infos: AddressInfo[];
-  sections: StatusSection[];
+  sections: StatusSections;
+  /** Every job record, read once for the whole report. */
+  jobs: JobRecord[];
   readiness: ExportReadiness[];
   lastExports: LastExport[];
   /**
@@ -156,18 +158,14 @@ function reelProgressByStage(
   manager: StateManager,
   leafStages: ReadonlyMap<string, VideoDefinition>,
   videoDefinition: VideoDefinition | null,
+  counterpartOf: (stage: string) => VideoDefinition | null,
   waiverShotIds: ReadonlySet<string> | undefined,
 ): Partial<Record<Stage, ReelProgress>> {
   const stages = new Map(leafStages);
   if (videoDefinition) stages.set("video", videoDefinition);
   const out: Partial<Record<Stage, ReelProgress>> = {};
   for (const [stage, def] of stages) {
-    const counterpart =
-      stage === "animatic"
-        ? videoDefinition
-        : stage === "video"
-          ? (stages.get("animatic") ?? null)
-          : null;
+    const counterpart = counterpartOf(stage);
     // A board aside carries konte's slug, nothing of the author's to sign off.
     const shots = def.shots.filter((s) => !s.pending && !(s.aside && !s.shotFn));
     const acceptedShots = shots.filter(
@@ -199,13 +197,12 @@ function reelProgressByStage(
 }
 
 // A stranded take is not on the page.
-function dropStrandedFromNeedsReview(sections: StatusSection[], findings: readonly Finding[]) {
+function dropStrandedFromNeedsReview(sections: StatusSections, findings: readonly Finding[]) {
   const stranded = new Set(
     findings.flatMap((f) => (f.code === "take-stranded" && f.variant ? [f.variant] : [])),
   );
-  const section = sections.find((s) => s.title === "Needs review");
-  if (!section || stranded.size === 0) return;
-  section.items = section.items.flatMap((item) => {
+  if (stranded.size === 0) return;
+  sections.needsReview = sections.needsReview.flatMap((item) => {
     if (!item.variantId) return [item];
     const kept = (item.variants ?? [{ variantId: item.variantId, detail: item.detail }]).filter(
       (v) => !stranded.has(v.variantId),
@@ -221,7 +218,6 @@ function dropStrandedFromNeedsReview(sections: StatusSection[], findings: readon
       },
     ];
   });
-  if (section.items.length === 0) sections.splice(sections.indexOf(section), 1);
 }
 
 // The shared computation behind `konte status`:
@@ -447,19 +443,17 @@ async function buildStatusReport(
       !isDeliveryAddress(addr) &&
       !decidable.has(addr);
 
-    const info = buildAddressInfo(
-      addr,
-      stalenessView,
+    const info = buildAddressInfo(addr, stalenessView, {
       jobsByVariantId,
       assetKind,
-      jobIndex,
-      deadByAddress.get(addr),
-      leafReady,
+      jobs: jobIndex,
+      deadVariantIds: deadByAddress.get(addr),
+      leafReadyForReview: leafReady,
       missingFilePath,
       patchHashes,
       reviewTarget,
       reviewUnreachable,
-    );
+    });
     if (settledAcross) info.staleAcceptStands = info.staleVariants.length > 0;
     return info;
   });
@@ -496,45 +490,37 @@ async function buildStatusReport(
   }
 
   const orphans = detectOrphans(state, allJobs);
-  const sections = computeStatusSections(infos, orphans, jobFailures);
-  // Declared but not yet realized — the same status as an ungenerated asset, so it gets its own
-  // block rather than hiding inside "Needs review" (there is nothing to review yet). `konte
-  // generate` picks these up, so the fix is the command the author was going to run anyway.
-  if (pendingPatches.length > 0 || patchCatalog.errors.length > 0) {
-    sections.push({
-      title: "Pending patches",
-      items: [
-        ...pendingPatches.map((p) => ({
-          address: p.sourceAddress,
-          detail:
-            p.reason === "never-applied"
-              ? `patch of ${p.sourceVariantId}`
-              : p.reason === "script-changed"
-                ? "patch script changed"
-                : "an input changed since it was applied",
-        })),
-        ...patchCatalog.errors.map((e) => ({
-          address: patchFileLabel(e.filePath),
-          detail: truncateSingleLine(e.message, ERROR_GLIMPSE_WIDTH),
-        })),
-      ],
-    });
-  }
   // A board stem the video develops past the board, aged out by an edit. The video spend that
   // consumes it re-mixes it first.
   const board = leafStages.get("animatic") ?? null;
   const developing = options?.videoDefinition ?? null;
   const remixes =
     board && developing ? staleSettledLeaves(manager, board, developing, null, "stems") : [];
-  if (remixes.length > 0) {
-    sections.push({
-      title: "Board stems to re-mix",
-      items: remixes.map(({ address }) => ({
-        address,
-        detail: "the video develops the shot past the board",
+  const sections: StatusSections = {
+    ...computeStatusSections(infos, orphans, jobFailures),
+    // Declared but not yet realized — the same status as an ungenerated asset, so it is kept apart
+    // from `needsReview` (there is nothing to review yet). `konte generate` picks these up, so the
+    // fix is the command the author was going to run anyway.
+    pendingPatches: [
+      ...pendingPatches.map((p) => ({
+        address: p.sourceAddress,
+        detail:
+          p.reason === "never-applied"
+            ? `patch of ${p.sourceVariantId}`
+            : p.reason === "script-changed"
+              ? "patch script changed"
+              : "an input changed since it was applied",
       })),
-    });
-  }
+      ...patchCatalog.errors.map((e) => ({
+        address: patchFileLabel(e.filePath),
+        detail: truncateSingleLine(e.message, ERROR_GLIMPSE_WIDTH),
+      })),
+    ],
+    boardRemixes: remixes.map(({ address }) => ({
+      address,
+      detail: "the video develops the shot past the board",
+    })),
+  };
   // Undeveloped shots (pendingShot) carry no address, so they never reach `infos` — but the stage
   // must still show its "N shots undeveloped" line even when it has no other asset. Seed the count
   // into readiness so status (the single orientation point) reports it and never reads
@@ -546,6 +532,7 @@ async function buildStatusReport(
       manager,
       leafStages,
       options?.videoDefinition ?? null,
+      counterpartOf,
       options?.waiverShotIds,
     ),
   );
@@ -580,6 +567,7 @@ async function buildStatusReport(
   return {
     infos,
     sections,
+    jobs: everyJob,
     readiness,
     lastExports,
     orphanJobIds: orphans.orphanJobs.map((j) => j.variantId),
@@ -703,11 +691,6 @@ export async function buildAssetStatus(opts: {
   return { report, addresses, graph, unusedPaths };
 }
 
-/** The "Needs review" items, in report order. */
-export function needsReviewItems(report: StatusReport): StatusSection["items"] {
-  return report.sections.find((s) => s.title === "Needs review")?.items ?? [];
-}
-
 export async function loadNeedsReviewTargets(videoRoot: string, scope?: string) {
   if (scope !== undefined) assertValidAddressScope(scope);
   const definitions = requireShotStages(await loadStageDefinitions(videoRoot));
@@ -716,7 +699,7 @@ export async function loadNeedsReviewTargets(videoRoot: string, scope?: string) 
     return m;
   });
   const { report } = await buildAssetStatus({ videoRoot, manager, ...definitions });
-  const items = needsReviewItems(report)
+  const items = report.sections.needsReview
     .filter((item) => scope === undefined || matchesAddressScope(item.address, scope))
     .flatMap((item) =>
       item.variants ? item.variants.map((variant) => ({ ...item, ...variant })) : [item],
@@ -774,6 +757,9 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
   const acceptanceView = direction
     ? directionAcceptanceView(direction, acceptance, waiverCoverage)
     : null;
+  const shotWaivers = direction
+    ? shotWaiversAwaitingAccept(direction, acceptance, waiverCoverage)
+    : [];
   // The cast gate: a character's look, plus every cast voice sample (the video stage's own
   // gate — surfaced here too, or Next steps would keep offering a `generate video` that aborts).
   // A `file` reference is satisfied by its media landing on disk, never by generating it, so
@@ -817,21 +803,13 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
     reference,
     unacceptedCast: unacceptedCast.map((c) => c.id),
     pendingShotsByStage,
-    waiverShotIds: new Set(
-      direction
-        ? shotWaiversAwaitingAccept(
-            direction,
-            manager.getDirectionAcceptance(),
-            waiverCoverage,
-          ).flatMap((w) => w.shotIds)
-        : [],
-    ),
+    waiverShotIds: new Set(shotWaivers.flatMap((w) => w.shotIds)),
   });
   // A file placed or replaced since the last write is a take only the in-memory sync above holds:
   // `accept` would refuse its id, or sign off the bytes the state still records. The review page
   // records it.
   const syncedOutputHashes = outputHashes();
-  for (const item of report.sections.flatMap((section) => section.items)) {
+  for (const item of Object.values(report.sections).flat()) {
     const id = item.variantId;
     if (
       id &&
@@ -849,13 +827,14 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
     patches: report.patchSubjects,
   };
   const findingReport = await collectFindings(checkContext);
+  const findings = findingReport.findings.filter((f) => f.code !== "empty-direction");
   dropStrandedFromNeedsReview(report.sections, findingReport.findings);
   // A spend consumes the cue takes each address resolves to.
   const spendReport = await collectFindings(
     { ...checkContext, cueTakes: "resolved" },
     (traits) => traits.holds.spend !== undefined,
   );
-  const jobs = await new JobManager(videoRoot).listJobs();
+  const { jobs } = report;
   const liveJobs = await liveGenerationVariantIds(videoRoot, jobs, state);
   const spendHeldStages = (["reference", "animatic", "video"] as const).filter((stage) => {
     const def = stage === "video" ? video : stage === "animatic" ? animatic : reference;
@@ -887,20 +866,14 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
       ...(shot.compositionRefs ?? []),
     ].every((ref) => manager.resolveReference(ref, { includeStale: true }) !== null);
   };
-  const waiverShotAddresses = direction
-    ? shotWaiversAwaitingAccept(
-        direction,
-        manager.getDirectionAcceptance(),
-        waiverCoverage,
-      ).flatMap((w) =>
-        w.shotIds.flatMap((shotId) => {
-          const stage = (["video", "animatic"] as const).find((s) => builtShot(s, shotId));
-          return stage ? [formatShotAddress(stage, shotId)] : [];
-        }),
-      )
-    : [];
+  const waiverShotAddresses = shotWaivers.flatMap((w) =>
+    w.shotIds.flatMap((shotId) => {
+      const stage = (["video", "animatic"] as const).find((s) => builtShot(s, shotId));
+      return stage ? [formatShotAddress(stage, shotId)] : [];
+    }),
+  );
   const pendingReviewAddresses = [
-    ...new Set([...needsReviewItems(report).map((i) => i.address), ...waiverShotAddresses]),
+    ...new Set([...report.sections.needsReview.map((i) => i.address), ...waiverShotAddresses]),
   ];
   // Derive clean candidates from the address infos, not the "Problems" section: the
   // section also lists orphan jobs and model-download failures, which have no state
@@ -950,9 +923,8 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
   // (`patchErrors`).
   const pendingPatchAddresses = [
     ...new Set(
-      report.sections
-        .find((s) => s.title === "Pending patches")
-        ?.items.map((i) => i.address)
+      report.sections.pendingPatches
+        .map((i) => i.address)
         .filter((addr) => {
           try {
             parseAddress(addr);
@@ -960,7 +932,7 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
           } catch {
             return false;
           }
-        }) ?? [],
+        }),
     ),
   ];
   // A patch the spend gate holds withholds `konte patch apply` for the set.
@@ -1089,7 +1061,7 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
     state,
     stalenessView: readView,
     feedbackAddresses: [...feedbackAddresses],
-    findings: findingReport.findings.filter((f) => f.code !== "empty-direction"),
+    findings,
     spendHeldStages,
     previewHeldStages,
     pendingReviewAddresses,
@@ -1099,10 +1071,7 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
     // patch, so what is offered depends on all of them, not on the appliable subset.
     pendingPatchAddresses,
     blockedPatchAddresses: heldPatchAddresses,
-    boardRemixAddresses:
-      report.sections
-        .find((s) => s.title === "Board stems to re-mix")
-        ?.items.map((i) => i.address) ?? [],
+    boardRemixAddresses: report.sections.boardRemixes.map((i) => i.address),
     staleAddresses,
     deterministicStaleAddresses,
     definitionRestores,
@@ -1133,7 +1102,7 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
     suggestedActions,
     directionAcceptance,
     directionEmpty,
-    findings: findingReport.findings.filter((f) => f.code !== "empty-direction"),
+    findings,
     staleWaivers: findingReport.staleWaivers,
   };
 }

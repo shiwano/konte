@@ -5,7 +5,7 @@ import { expect } from "vitest";
 import { loadPreviewDefinitions } from "../load-definitions.js";
 import { handleGetReelState, remixTakenOverBoardStems } from "../reel-review.js";
 import { handleSubmit, type ReviewContext } from "../submit.js";
-import { buildAssetStatus, needsReviewItems } from "../../../../core/status-report.js";
+import { buildAssetStatus } from "../../../../core/status-report.js";
 import { type DefinitionLike, getAssetEntry, listAddresses } from "../../../../core/address.js";
 import { compositionInputFingerprints } from "../../../../core/composition-resource.js";
 import { computeDefinitionHash } from "../../../../core/definition-hash.js";
@@ -559,13 +559,9 @@ export async function outstanding(
     reference: null,
   });
   return {
-    needsReview: needsReviewItems(report).map((i) => i.address),
-    problems: (report.sections.find((s) => s.title === "Problems")?.items ?? []).map(
-      (i) => `${i.address} ${i.detail}`,
-    ),
-    remixes: (report.sections.find((s) => s.title === "Board stems to re-mix")?.items ?? []).map(
-      (i) => i.address,
-    ),
+    needsReview: report.sections.needsReview.map((i) => i.address),
+    problems: report.sections.problems.map((i) => `${i.address} ${i.detail}`),
+    remixes: report.sections.boardRemixes.map((i) => i.address),
   };
 }
 

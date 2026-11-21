@@ -308,17 +308,12 @@ Examples:
           candidates = candidates.filter((address) => {
             const assetDef = getAssetEntry(definitionForAddress(address), address);
             return isProblemAddress(
-              buildAddressInfo(
-                address,
-                view,
+              buildAddressInfo(address, view, {
                 jobsByVariantId,
-                assetDef.kind,
-                jobIndex,
-                undefined,
-                false,
-                null,
+                assetKind: assetDef.kind,
+                jobs: jobIndex,
                 patchHashes,
-              ),
+              }),
             );
           });
         }

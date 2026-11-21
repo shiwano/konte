@@ -7,6 +7,7 @@ import { formatStaleWaiverLine, type StaleWaiverLine } from "../core/checks.js";
 import { type Finding, formatFindingBlocks, groupByFixIn } from "../core/finding.js";
 
 import type { StatusReport } from "../core/status-report.js";
+import type { StatusSections } from "../core/status-sections.js";
 import type { DirectionAcceptanceSummary } from "../core/direction-acceptance.js";
 
 export type { DirectionAcceptanceSummary };
@@ -53,6 +54,15 @@ export function formatDirectionRemainder(
 
 // A finding under its code's remedy is one short line.
 const FINDING_BLOCK_CAP = 30;
+
+const SECTION_TITLES: readonly (readonly [keyof StatusSections, string])[] = [
+  ["needsReview", "Needs review"],
+  ["problems", "Problems"],
+  ["needsRegenerate", "Needs regenerate"],
+  ["stale", "Stale"],
+  ["pendingPatches", "Pending patches"],
+  ["boardRemixes", "Board stems to re-mix"],
+];
 
 export function printStatusReport(
   report: StatusReport,
@@ -229,10 +239,12 @@ export function printStatusReport(
   // a command or an edit for — down to the orphan job, the failed model download and the broken
   // patch script.
   if (options?.verbose) {
-    for (const section of sections) {
+    for (const [key, title] of SECTION_TITLES) {
+      const items = sections[key];
+      if (items.length === 0) continue;
       console.log();
-      console.log(`${section.title}: ${section.items.length}`);
-      for (const item of section.items) {
+      console.log(`${title}: ${items.length}`);
+      for (const item of items) {
         // The take the item is about, when it has one — an address with several variants gives the
         // An item with nothing to add beyond its address (the plain case the section title already
         // describes) prints bare rather than trailing the separator into empty space.

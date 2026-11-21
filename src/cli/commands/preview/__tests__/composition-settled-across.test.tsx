@@ -26,7 +26,7 @@ import { StateManager } from "../../../../core/state/index.js";
 import type { StageDefinition, VideoDefinition } from "../../../../core/types/index.js";
 import { directionDefaults } from "../../../../core/__tests__/helpers/direction.js";
 import { writeSilentWav } from "../../../../core/__tests__/helpers/wav.js";
-import { buildAssetStatus, needsReviewItems } from "../../../../core/status-report.js";
+import { buildAssetStatus } from "../../../../core/status-report.js";
 import { handleGetReelState } from "../reel-review.js";
 import { ASSET_SITES } from "../../../../core/dsl/adapter.js";
 
@@ -219,7 +219,7 @@ async function needsReview(animatic: StageDefinition, video: StageDefinition) {
     reference: null,
   });
   return {
-    needsReview: needsReviewItems(report).map((i) => i.address),
+    needsReview: report.sections.needsReview.map((i) => i.address),
     board: report.infos.find((i) => i.address === BOARD)!,
   };
 }

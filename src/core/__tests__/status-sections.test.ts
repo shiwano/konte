@@ -5,6 +5,7 @@ import {
   computeExportReadiness,
   computeLastExports,
   latestFailedExport,
+  type AssetSections,
   computeStatusSections,
   detectOrphans,
 } from "../status-sections.js";
@@ -24,6 +25,10 @@ function viewOf(
     isDeterministic: () => false,
     patchHashes,
   });
+}
+
+function filled(sections: AssetSections): (keyof AssetSections)[] {
+  return (Object.keys(sections) as (keyof AssetSections)[]).filter((k) => sections[k].length > 0);
 }
 
 function makeState(assets: KonteState["assets"]): KonteState {
@@ -106,12 +111,10 @@ describe("buildAddressInfo", () => {
     });
     const jobs = new Map<string, JobRecord>();
 
-    const info = buildAddressInfo(
-      "video:shot.01.motion",
-      new StalenessView(state, undefined),
-      jobs,
-      "fal",
-    );
+    const info = buildAddressInfo("video:shot.01.motion", new StalenessView(state, undefined), {
+      jobsByVariantId: jobs,
+      assetKind: "fal",
+    });
     expect(info.address).toBe("video:shot.01.motion");
     expect(info.assetKind).toBe("fal");
     expect(info.hasAccepted).toBe(false);
@@ -152,7 +155,10 @@ describe("buildAddressInfo", () => {
       });
 
     it("reports the correction as awaiting review, and drops the source from the ready count", () => {
-      const info = buildAddressInfo(ADDR, viewOf(patched("h1"), ADDR, "d1"), new Map(), "fal");
+      const info = buildAddressInfo(ADDR, viewOf(patched("h1"), ADDR, "d1"), {
+        jobsByVariantId: new Map(),
+        assetKind: "fal",
+      });
       expect(info.patchedAwaitingReview).not.toBeNull();
       expect(info.readyCount).toBe(1);
     });
@@ -162,7 +168,10 @@ describe("buildAddressInfo", () => {
     it("clears once the correction is dismissed", () => {
       const state = patched("h1");
       state.assets[ADDR]!.variants!["v-fix"]!.status = "dismissed";
-      const info = buildAddressInfo(ADDR, viewOf(state, ADDR, "d1"), new Map(), "fal");
+      const info = buildAddressInfo(ADDR, viewOf(state, ADDR, "d1"), {
+        jobsByVariantId: new Map(),
+        assetKind: "fal",
+      });
       expect(info.patchedAwaitingReview).toBeNull();
       expect(info.undecidedVariantId).toBeNull();
       expect(info.readyCount).toBe(0);
@@ -184,7 +193,10 @@ describe("buildAddressInfo", () => {
           },
         },
       };
-      const info = buildAddressInfo(ADDR, viewOf(state, ADDR, "d1"), new Map(), "fal");
+      const info = buildAddressInfo(ADDR, viewOf(state, ADDR, "d1"), {
+        jobsByVariantId: new Map(),
+        assetKind: "fal",
+      });
       expect(info.patchedAwaitingReview).toBeNull();
     });
 
@@ -204,23 +216,21 @@ describe("buildAddressInfo", () => {
           },
         },
       };
-      const info = buildAddressInfo(
-        ADDR,
-        viewOf(state, ADDR, "d1", new Map()),
-        new Map(),
-        "fal",
-        new JobIndex(),
-        new Set(),
-        false,
-        null,
-        new Map(),
-      );
+      const info = buildAddressInfo(ADDR, viewOf(state, ADDR, "d1", new Map()), {
+        jobsByVariantId: new Map(),
+        assetKind: "fal",
+        jobs: new JobIndex(),
+        deadVariantIds: new Set(),
+        leafReadyForReview: false,
+        missingFilePath: null,
+        patchHashes: new Map(),
+      });
       expect(info.patchedAwaitingReview).toEqual({
         variantId: "v-fix",
         sourceVariantId: "v-src",
         hasScript: false,
       });
-      const items = computeStatusSections([info]).find((s) => s.title === "Needs review")?.items;
+      const items = computeStatusSections([info]).needsReview;
       expect(items?.[0]?.detail).toContain("konte clean");
     });
 
@@ -230,13 +240,15 @@ describe("buildAddressInfo", () => {
       const info = buildAddressInfo(
         ADDR,
         viewOf(patched("h1"), ADDR, "d1", new Map([["v-src", "h2"]])),
-        new Map(),
-        "fal",
-        new JobIndex(),
-        new Set(),
-        false,
-        null,
-        new Map([["v-src", "h2"]]),
+        {
+          jobsByVariantId: new Map(),
+          assetKind: "fal",
+          jobs: new JobIndex(),
+          deadVariantIds: new Set(),
+          leafReadyForReview: false,
+          missingFilePath: null,
+          patchHashes: new Map([["v-src", "h2"]]),
+        },
       );
       expect(info.patchedAwaitingReview).toBeNull();
     });
@@ -258,12 +270,10 @@ describe("buildAddressInfo", () => {
         },
       },
     });
-    const info = buildAddressInfo(
-      "video:shot.01.motion",
-      new StalenessView(state, undefined),
-      new Map(),
-      "fal",
-    );
+    const info = buildAddressInfo("video:shot.01.motion", new StalenessView(state, undefined), {
+      jobsByVariantId: new Map(),
+      assetKind: "fal",
+    });
     expect(info.hasAccepted).toBe(true);
   });
 
@@ -293,12 +303,10 @@ describe("buildAddressInfo", () => {
         },
       },
     });
-    const info = buildAddressInfo(
-      "video:shot.01.motion",
-      new StalenessView(state, undefined),
-      new Map(),
-      "fal",
-    );
+    const info = buildAddressInfo("video:shot.01.motion", new StalenessView(state, undefined), {
+      jobsByVariantId: new Map(),
+      assetKind: "fal",
+    });
     expect(info.readyVariantIds[0]).toBe(
       new StalenessView(state, undefined).resolve("video:shot.01.motion")?.variantId,
     );
@@ -330,12 +338,10 @@ describe("buildAddressInfo", () => {
         },
       },
     });
-    const info = buildAddressInfo(
-      "video:shot.01.motion",
-      new StalenessView(state, undefined),
-      new Map(),
-      "fal",
-    );
+    const info = buildAddressInfo("video:shot.01.motion", new StalenessView(state, undefined), {
+      jobsByVariantId: new Map(),
+      assetKind: "fal",
+    });
     expect(info.undecidedVariantId).not.toBeNull();
   });
 
@@ -367,8 +373,7 @@ describe("buildAddressInfo", () => {
     const info = buildAddressInfo(
       "video:shot.01.motion",
       viewOf(state, "video:shot.01.motion", "current-definition"),
-      new Map(),
-      "fal",
+      { jobsByVariantId: new Map(), assetKind: "fal" },
     );
     expect(info.undecidedVariantId).toBeNull();
   });
@@ -402,12 +407,10 @@ describe("buildAddressInfo", () => {
         },
       },
     });
-    const info = buildAddressInfo(
-      "video:shot.01.motion",
-      new StalenessView(state, undefined),
-      new Map(),
-      "fal",
-    );
+    const info = buildAddressInfo("video:shot.01.motion", new StalenessView(state, undefined), {
+      jobsByVariantId: new Map(),
+      assetKind: "fal",
+    });
     expect(info.undecidedVariantId).toBeNull();
   });
 
@@ -431,12 +434,10 @@ describe("buildAddressInfo", () => {
       ["v-abc12345", makeJob({ variantId: "v-abc12345", status: "running", progress: 45 })],
     ]);
 
-    const info = buildAddressInfo(
-      "video:shot.01.motion",
-      new StalenessView(state, undefined),
-      jobs,
-      "fal",
-    );
+    const info = buildAddressInfo("video:shot.01.motion", new StalenessView(state, undefined), {
+      jobsByVariantId: jobs,
+      assetKind: "fal",
+    });
     expect(info.generatingJobs).toEqual([
       { variantId: "v-abc12345", status: "running", progress: 45 },
     ]);
@@ -469,12 +470,10 @@ describe("buildAddressInfo", () => {
       ],
     ]);
 
-    const info = buildAddressInfo(
-      "video:shot.01.motion",
-      new StalenessView(state, undefined),
-      jobs,
-      "fal",
-    );
+    const info = buildAddressInfo("video:shot.01.motion", new StalenessView(state, undefined), {
+      jobsByVariantId: jobs,
+      assetKind: "fal",
+    });
     // waitingOn now lists the resolved, still-unsatisfied dependency address
     // (the animatic panel has no file), consistent with `generate`'s output.
     expect(info.blockedJobs).toEqual([
@@ -499,12 +498,10 @@ describe("buildAddressInfo", () => {
       },
     });
 
-    const info = buildAddressInfo(
-      "video:shot.01.motion",
-      new StalenessView(state, undefined),
-      new Map(),
-      "fal",
-    );
+    const info = buildAddressInfo("video:shot.01.motion", new StalenessView(state, undefined), {
+      jobsByVariantId: new Map(),
+      assetKind: "fal",
+    });
     expect(info.problemVariants).toEqual(["v-abc12345"]);
   });
 
@@ -528,12 +525,10 @@ describe("buildAddressInfo", () => {
       ["v-abc12345", makeJob({ variantId: "v-abc12345", status: "failed", error: "boom" })],
     ]);
 
-    const info = buildAddressInfo(
-      "video:shot.01.motion",
-      new StalenessView(state, undefined),
-      jobs,
-      "fal",
-    );
+    const info = buildAddressInfo("video:shot.01.motion", new StalenessView(state, undefined), {
+      jobsByVariantId: jobs,
+      assetKind: "fal",
+    });
     expect(info.failedJobs).toEqual([{ variantId: "v-abc12345", error: "boom" }]);
     expect(info.problemVariants).toEqual([]);
   });
@@ -586,12 +581,10 @@ describe("buildAddressInfo", () => {
       },
     });
 
-    const info = buildAddressInfo(
-      "video:shot.01.motion",
-      new StalenessView(state, undefined),
-      new Map(),
-      "fal",
-    );
+    const info = buildAddressInfo("video:shot.01.motion", new StalenessView(state, undefined), {
+      jobsByVariantId: new Map(),
+      assetKind: "fal",
+    });
     expect(info.staleVariants).toHaveLength(1);
     expect(info.staleVariants[0]!.variantId).toBe("v-acc00000");
     expect(info.staleVariants[0]!.inputStale).toBe(true);
@@ -632,12 +625,10 @@ describe("buildAddressInfo", () => {
       },
     });
 
-    const info = buildAddressInfo(
-      "video:shot.01.motion",
-      new StalenessView(state, undefined),
-      new Map(),
-      "fal",
-    );
+    const info = buildAddressInfo("video:shot.01.motion", new StalenessView(state, undefined), {
+      jobsByVariantId: new Map(),
+      assetKind: "fal",
+    });
     expect(info.staleVariants).toHaveLength(1);
     expect(info.staleVariants[0]!.changedInputs).toEqual([
       { address: "video:shot.01.bg", recorded: "old-hash", current: "current-hash" },
@@ -646,12 +637,10 @@ describe("buildAddressInfo", () => {
 
   it("handles missing target gracefully", () => {
     const state = makeState({});
-    const info = buildAddressInfo(
-      "video:shot.01.motion",
-      new StalenessView(state, undefined),
-      new Map(),
-      "fal",
-    );
+    const info = buildAddressInfo("video:shot.01.motion", new StalenessView(state, undefined), {
+      jobsByVariantId: new Map(),
+      assetKind: "fal",
+    });
     expect(info.hasAccepted).toBe(false);
     expect(info.readyCount).toBe(0);
   });
@@ -683,16 +672,18 @@ describe("buildAddressInfo", () => {
       buildAddressInfo(
         "video:shot.03#composition",
         viewOf(state, "video:shot.03#composition", definitionHash),
-        new Map(),
-        "composition",
-        new JobIndex(),
-        deadVariantIds,
-        leafReadyForReview,
+        {
+          jobsByVariantId: new Map(),
+          assetKind: "composition",
+          jobs: new JobIndex(),
+          deadVariantIds,
+          leafReadyForReview,
+        },
       );
 
     const dead = build(new Set(["v-ghost123"]));
     expect(dead.readyCount).toBe(0);
-    expect(computeStatusSections([dead])).toEqual([]);
+    expect(filled(computeStatusSections([dead]))).toEqual([]);
 
     // Not dead, and matching the live definition: a real take.
     expect(build(new Set()).readyCount).toBe(1);
@@ -704,7 +695,7 @@ describe("buildAddressInfo", () => {
     // A composition is materialized only on accept, so its first-review need is the live
     // leafReadyForReview signal (renderable, refs resolvable), not a ready variant.
     const reviewable = build(new Set(), true);
-    expect(computeStatusSections([reviewable])[0]?.title).toBe("Needs review");
+    expect(computeStatusSections([reviewable]).needsReview).not.toEqual([]);
   });
 });
 
@@ -718,7 +709,7 @@ describe("computeStatusSections", () => {
       }),
     ];
     const sections = computeStatusSections(infos);
-    expect(sections).toEqual([]);
+    expect(filled(sections)).toEqual([]);
   });
 
   it("includes Needs review for generation assets with ready variants and no accepted", () => {
@@ -731,9 +722,8 @@ describe("computeStatusSections", () => {
       }),
     ];
     const sections = computeStatusSections(infos);
-    expect(sections).toHaveLength(1);
-    expect(sections[0]!.title).toBe("Needs review");
-    expect(sections[0]!.items).toEqual([{ address: "video:shot.01.motion", detail: "" }]);
+    expect(filled(sections)).toEqual(["needsReview"]);
+    expect(sections.needsReview).toEqual([{ address: "video:shot.01.motion", detail: "" }]);
   });
 
   // A reference intermediate (declared, never returned) is on no review surface, so status must not
@@ -748,7 +738,7 @@ describe("computeStatusSections", () => {
         hasAccepted: false,
       }),
     ];
-    expect(computeStatusSections(infos)).toEqual([]);
+    expect(filled(computeStatusSections(infos))).toEqual([]);
   });
 
   it("surfaces an undecided take beside an accepted one under Needs review", () => {
@@ -762,8 +752,8 @@ describe("computeStatusSections", () => {
       }),
     ];
     const sections = computeStatusSections(infos);
-    const review = sections.find((s) => s.title === "Needs review");
-    expect(review?.items).toEqual([
+    const review = sections.needsReview;
+    expect(review).toEqual([
       {
         address: "video:shot.01.motion",
         detail: "undecided take beside the accept",
@@ -785,8 +775,8 @@ describe("computeStatusSections", () => {
         patchedAwaitingReview: { variantId: "v-patch", sourceVariantId: "v-src", hasScript: true },
       }),
     ];
-    const review = computeStatusSections(infos).find((s) => s.title === "Needs review");
-    expect(review?.items).toEqual([
+    const review = computeStatusSections(infos).needsReview;
+    expect(review).toEqual([
       {
         address: "video:shot.01.motion",
         detail: "patched — accept it, or konte patch remove v-src to drop the fix",
@@ -812,8 +802,8 @@ describe("computeStatusSections", () => {
         patchedAwaitingReview: { variantId: "v-patch", sourceVariantId: "v-src", hasScript: true },
       }),
     ];
-    const review = computeStatusSections(infos).find((s) => s.title === "Needs review");
-    expect(review?.items[0]?.variants).toEqual([
+    const review = computeStatusSections(infos).needsReview;
+    expect(review[0]?.variants).toEqual([
       {
         variantId: "v-patch",
         detail: "patched — accept it, or konte patch remove v-src to drop the fix",
@@ -835,8 +825,8 @@ describe("computeStatusSections", () => {
         patchedAwaitingReview: { variantId: "v-patch", sourceVariantId: "v-src", hasScript: true },
       }),
     ];
-    const review = computeStatusSections(infos).find((s) => s.title === "Needs review");
-    expect(review?.items).toEqual([
+    const review = computeStatusSections(infos).needsReview;
+    expect(review).toEqual([
       {
         address: "video:shot.01.motion",
         detail: "patched — accept it, or konte patch remove v-src to drop the fix",
@@ -861,7 +851,7 @@ describe("computeStatusSections", () => {
       }),
     ];
     const sections = computeStatusSections(infos);
-    expect(sections.find((s) => s.title === "Needs review")).toBeUndefined();
+    expect(sections.needsReview).toEqual([]);
   });
 
   it("surfaces a stale composition under 'Needs review', not 'Stale' — its refresh is a re-review", () => {
@@ -884,14 +874,12 @@ describe("computeStatusSections", () => {
       }),
     ];
     const sections = computeStatusSections(infos);
-    const titles = sections.map((s) => s.title);
-    expect(titles).toContain("Needs review");
-    expect(titles).not.toContain("Stale");
-    const review = sections.find((s) => s.title === "Needs review")!;
-    expect(review.items[0]!.address).toBe("video:shot.01#composition");
-    expect(review.items[0]!.detail).toBe(
-      "accepted take is stale (input-stale: video:shot.01.audio)",
-    );
+    const kinds = filled(sections);
+    expect(kinds).toContain("needsReview");
+    expect(kinds).not.toContain("stale");
+    const review = sections.needsReview;
+    expect(review[0]!.address).toBe("video:shot.01#composition");
+    expect(review[0]!.detail).toBe("accepted take is stale (input-stale: video:shot.01.audio)");
   });
 
   it("surfaces a ready, unaccepted composition under Needs review but excludes it from export readiness", () => {
@@ -906,8 +894,8 @@ describe("computeStatusSections", () => {
       }),
     ];
     const sections = computeStatusSections(infos);
-    const review = sections.find((s) => s.title === "Needs review");
-    expect(review?.items[0]?.address).toBe("video:shot.01#composition");
+    const review = sections.needsReview;
+    expect(review[0]?.address).toBe("video:shot.01#composition");
     // A materialized-but-unaccepted composition is reviewable like any variant, yet still
     // does not count toward export readiness.
     expect(computeExportReadiness(infos)).toEqual([]);
@@ -922,8 +910,8 @@ describe("computeStatusSections", () => {
         hasAccepted: false,
       }),
     ];
-    const review = computeStatusSections(infos).find((s) => s.title === "Needs review");
-    expect(review?.items[0]).toEqual({
+    const review = computeStatusSections(infos).needsReview;
+    expect(review[0]).toEqual({
       address: "video:shot.01#stem",
       detail: "audio mix",
     });
@@ -940,7 +928,7 @@ describe("computeStatusSections", () => {
         blockedJobs: [{ variantId: "v-Mn9pR4tU", waitingOn: ["animatic:shot.04.first"] }],
       }),
     ];
-    expect(computeStatusSections(infos)).toEqual([]);
+    expect(filled(computeStatusSections(infos))).toEqual([]);
   });
 
   it("includes Stale section for input-stale variants", () => {
@@ -959,10 +947,9 @@ describe("computeStatusSections", () => {
       }),
     ];
     const sections = computeStatusSections(infos);
-    expect(sections).toHaveLength(1);
-    expect(sections[0]!.title).toBe("Stale");
+    expect(filled(sections)).toEqual(["stale"]);
     // The section title already says "stale" — only the cause is news here.
-    expect(sections[0]!.items[0]!.detail).toBe("input-stale: video:shot.01.motion");
+    expect(sections.stale[0]!.detail).toBe("input-stale: video:shot.01.motion");
   });
 
   // The blind spot this section closes: an unaccepted take whose input moved counts as neither a
@@ -985,9 +972,8 @@ describe("computeStatusSections", () => {
           staleUnacceptedVariants: [staleVariant()],
         }),
       ]);
-      expect(sections).toHaveLength(1);
-      expect(sections[0]!.title).toBe("Needs regenerate");
-      expect(sections[0]!.items[0]).toEqual({
+      expect(filled(sections)).toEqual(["needsRegenerate"]);
+      expect(sections.needsRegenerate[0]).toEqual({
         address: "video:shot.01.motion",
         detail: "input-stale: animatic:shot.01.first",
       });
@@ -1010,8 +996,8 @@ describe("computeStatusSections", () => {
           ],
         }),
       ]);
-      expect(sections[0]!.items).toHaveLength(1);
-      expect(sections[0]!.items[0]!.detail).toBe("input-stale: animatic:shot.01.first");
+      expect(sections.needsRegenerate).toHaveLength(1);
+      expect(sections.needsRegenerate[0]!.detail).toBe("input-stale: animatic:shot.01.first");
     });
 
     // An edited definition puts the take here, not in "Needs review": `generate` replaces it, so
@@ -1033,8 +1019,8 @@ describe("computeStatusSections", () => {
           ],
         }),
       ]);
-      expect(sections.map((s) => s.title)).toEqual(["Needs regenerate"]);
-      expect(sections[0]!.items[0]!.detail).toBe("definition-stale");
+      expect(filled(sections)).toEqual(["needsRegenerate"]);
+      expect(sections.needsRegenerate[0]!.detail).toBe("definition-stale");
     });
 
     // A dismissed take is settled work whatever its staleness, so the reason reported is the
@@ -1058,15 +1044,12 @@ describe("computeStatusSections", () => {
       const info = buildAddressInfo(
         "video:shot.01.motion",
         viewOf(state, "video:shot.01.motion", "live-hash"),
-        new Map(),
-        "fal",
+        { jobsByVariantId: new Map(), assetKind: "fal" },
       );
       expect(info.staleUnacceptedVariants).toEqual([]);
       expect(info.dismissedCount).toBe(1);
       const sections = computeStatusSections([info]);
-      expect(sections.find((s) => s.title === "Needs regenerate")?.items[0]?.detail).toContain(
-        "dismissed",
-      );
+      expect(sections.needsRegenerate[0]?.detail).toContain("dismissed");
     });
 
     // Dismissing every take says the same thing as never generating one: there is nothing here to
@@ -1075,7 +1058,7 @@ describe("computeStatusSections", () => {
       const sections = computeStatusSections([
         makeInfo({ address: "video:shot.01.motion", hasOutputFile: true, dismissedCount: 2 }),
       ]);
-      expect(sections.map((s) => s.title)).toContain("Needs regenerate");
+      expect(filled(sections)).toContain("needsRegenerate");
     });
 
     it("stays out of it while a reviewable take remains", () => {
@@ -1087,7 +1070,7 @@ describe("computeStatusSections", () => {
           staleUnacceptedVariants: [staleVariant()],
         }),
       ]);
-      expect(sections.map((s) => s.title)).not.toContain("Needs regenerate");
+      expect(filled(sections)).not.toContain("needsRegenerate");
     });
 
     it("stays out of it once something is accepted", () => {
@@ -1099,7 +1082,7 @@ describe("computeStatusSections", () => {
           staleUnacceptedVariants: [staleVariant()],
         }),
       ]);
-      expect(sections.map((s) => s.title)).not.toContain("Needs regenerate");
+      expect(filled(sections)).not.toContain("needsRegenerate");
     });
 
     it("stays out of it while a job is already replacing it", () => {
@@ -1111,7 +1094,7 @@ describe("computeStatusSections", () => {
           generatingJobs: [{ variantId: "v-run", status: "running", progress: 10 }],
         }),
       ]);
-      expect(sections.map((s) => s.title)).not.toContain("Needs regenerate");
+      expect(filled(sections)).not.toContain("needsRegenerate");
     });
 
     it("puts it in the stage's readiness work list so Next steps offers a generate", () => {
@@ -1144,8 +1127,7 @@ describe("computeStatusSections", () => {
         ],
       }),
     ];
-    const sections = computeStatusSections(infos);
-    expect(sections[0]!.items[0]!.detail).toBe("definition-stale");
+    expect(computeStatusSections(infos).stale[0]!.detail).toBe("definition-stale");
   });
 
   it("surfaces a declared file that is not on disk under Problems, named by its path", () => {
@@ -1158,10 +1140,9 @@ describe("computeStatusSections", () => {
       }),
     ];
     const sections = computeStatusSections(infos);
-    expect(sections).toHaveLength(1);
-    expect(sections[0]!.title).toBe("Problems");
+    expect(filled(sections)).toEqual(["problems"]);
     // The path, not the address: putting media there is the entire fix.
-    expect(sections[0]!.items[0]).toEqual({
+    expect(sections.problems[0]).toEqual({
       address: "video:shot.07.bgplate",
       detail: "file not found: assets/plates/shot07.png",
     });
@@ -1171,7 +1152,7 @@ describe("computeStatusSections", () => {
     const infos: AddressInfo[] = [
       makeInfo({ address: "video:shot.07.bgplate", assetKind: "file", hasAccepted: true }),
     ];
-    expect(computeStatusSections(infos)).toEqual([]);
+    expect(filled(computeStatusSections(infos))).toEqual([]);
   });
 
   it("includes Problems section", () => {
@@ -1182,9 +1163,8 @@ describe("computeStatusSections", () => {
       }),
     ];
     const sections = computeStatusSections(infos);
-    expect(sections).toHaveLength(1);
-    expect(sections[0]!.title).toBe("Problems");
-    expect(sections[0]!.items[0]!.detail).toBe("v-Yz6uX1aB no file, no active job");
+    expect(filled(sections)).toEqual(["problems"]);
+    expect(sections.problems[0]!.detail).toBe("v-Yz6uX1aB no file, no active job");
   });
 
   it("surfaces a failed job under Problems, distinct from a never-started variant", () => {
@@ -1195,9 +1175,8 @@ describe("computeStatusSections", () => {
       }),
     ];
     const sections = computeStatusSections(infos);
-    expect(sections).toHaveLength(1);
-    expect(sections[0]!.title).toBe("Problems");
-    expect(sections[0]!.items[0]!.detail).toBe(
+    expect(filled(sections)).toEqual(["problems"]);
+    expect(sections.problems[0]!.detail).toBe(
       "v-Fa1l0001 generation job failed: FAL_ERROR: upstream 500",
     );
   });
@@ -1210,7 +1189,7 @@ describe("computeStatusSections", () => {
         failedJobs: [{ variantId: "v-Fa1l0001", error: "generation job failed" }],
       }),
     ];
-    expect(computeStatusSections(infos)).toHaveLength(0);
+    expect(filled(computeStatusSections(infos))).toEqual([]);
   });
 
   it("drops a superseded no-file variant when the address has a ready variant", () => {
@@ -1222,8 +1201,8 @@ describe("computeStatusSections", () => {
         problemVariants: ["v-Yz6uX1aB"],
       }),
     ];
-    const titles = computeStatusSections(infos).map((s) => s.title);
-    expect(titles).not.toContain("Problems");
+    const kinds = filled(computeStatusSections(infos));
+    expect(kinds).not.toContain("problems");
   });
 
   it("peeks at a long error and caps the width", () => {
@@ -1233,7 +1212,7 @@ describe("computeStatusSections", () => {
         failedJobs: [{ variantId: "v-Fa1l0001", error: `boom ${"x".repeat(200)}` }],
       }),
     ];
-    const detail = computeStatusSections(infos)[0]!.items[0]!.detail;
+    const detail = computeStatusSections(infos).problems[0]!.detail;
     expect(detail.startsWith("v-Fa1l0001 generation job failed: boom xxxx")).toBe(true);
     expect(detail.endsWith("…")).toBe(true);
   });
@@ -1242,9 +1221,8 @@ describe("computeStatusSections", () => {
     const sections = computeStatusSections([], undefined, [
       { jobId: "model-wan21", label: "wan2.1_t2v_14B.safetensors", error: "HTTP 403 Forbidden" },
     ]);
-    expect(sections).toHaveLength(1);
-    expect(sections[0]!.title).toBe("Problems");
-    expect(sections[0]!.items[0]).toEqual({
+    expect(filled(sections)).toEqual(["problems"]);
+    expect(sections.problems[0]).toEqual({
       address: "wan2.1_t2v_14B.safetensors",
       detail: "model download job failed: HTTP 403 Forbidden",
     });
@@ -1257,7 +1235,7 @@ describe("computeStatusSections", () => {
         failedJobs: [{ variantId: "v-Fa1l0001", error: null }],
       }),
     ];
-    expect(computeStatusSections(infos)[0]!.items[0]!.detail).toBe(
+    expect(computeStatusSections(infos).problems[0]!.detail).toBe(
       "v-Fa1l0001 generation job failed",
     );
   });
@@ -1281,27 +1259,12 @@ describe("computeStatusSections", () => {
       }),
     ];
     const sections = computeStatusSections(infos);
-    const titles = sections.map((s) => s.title);
-    expect(titles).toContain("Needs review");
-    expect(titles).toContain("Stale");
+    const kinds = filled(sections);
+    expect(kinds).toContain("needsReview");
+    expect(kinds).toContain("stale");
   });
 
-  it("omits empty sections", () => {
-    const infos: AddressInfo[] = [
-      makeInfo({
-        address: "video:shot.01.motion",
-        assetKind: "fal",
-        hasAccepted: true,
-        readyCount: 1,
-      }),
-    ];
-    const sections = computeStatusSections(infos);
-    for (const section of sections) {
-      expect(section.items.length).toBeGreaterThan(0);
-    }
-  });
-
-  it("orders sections: Needs review, Problems, Stale", () => {
+  it("fills Needs review, Problems and Stale from one set of infos", () => {
     const infos: AddressInfo[] = [
       makeInfo({
         address: "video:shot.01.motion",
@@ -1327,8 +1290,8 @@ describe("computeStatusSections", () => {
       }),
     ];
     const sections = computeStatusSections(infos);
-    const titles = sections.map((s) => s.title);
-    expect(titles).toEqual(["Needs review", "Problems", "Stale"]);
+    const kinds = filled(sections);
+    expect(kinds).toEqual(["needsReview", "problems", "stale"]);
   });
 });
 
@@ -1521,7 +1484,7 @@ describe("computeExportReadiness", () => {
         readyVariantIds: ["v-file0001"],
       }),
     ]);
-    expect(sections.find((s) => s.title === "Needs review")?.items).toEqual([
+    expect(sections.needsReview).toEqual([
       expect.objectContaining({ address: "reference:bgm", variantId: "v-file0001" }),
     ]);
   });
@@ -1726,9 +1689,8 @@ describe("computeStatusSections with orphans", () => {
       ],
     };
     const sections = computeStatusSections(infos, orphans);
-    expect(sections).toHaveLength(1);
-    expect(sections[0]!.title).toBe("Problems");
-    expect(sections[0]!.items[0]).toEqual({
+    expect(filled(sections)).toEqual(["problems"]);
+    expect(sections.problems[0]).toEqual({
       address: "video:shot.01.motion",
       detail: "v-orphan01 orphan job (running), no variant in state",
     });
@@ -1747,9 +1709,9 @@ describe("computeStatusSections with orphans", () => {
       ],
     };
     const sections = computeStatusSections(infos, orphans);
-    const problemSection = sections.find((s) => s.title === "Problems");
+    const problemSection = sections.problems;
     expect(problemSection).toBeDefined();
-    expect(problemSection!.items).toHaveLength(2);
+    expect(problemSection).toHaveLength(2);
   });
 });
 
@@ -1888,8 +1850,8 @@ describe("unreachable review work", () => {
       [makeInfo({ address: "video:shot.01#mystery", readyCount: 1, reviewUnreachable: true })],
       { orphanJobs: [] },
     );
-    expect(sections.find((s) => s.title === "Needs review")).toBeUndefined();
-    expect(sections.find((s) => s.title === "Problems")?.items).toEqual([
+    expect(sections.needsReview).toEqual([]);
+    expect(sections.problems).toEqual([
       {
         address: "video:shot.01#mystery",
         detail: "needs a verdict but no review surface offers one — konte bug",
@@ -1902,7 +1864,7 @@ describe("unreachable review work", () => {
       [makeInfo({ address: "video:shot.01#mystery", readyCount: 0, reviewUnreachable: true })],
       { orphanJobs: [] },
     );
-    expect(sections.find((s) => s.title === "Problems")).toBeUndefined();
+    expect(sections.problems).toEqual([]);
   });
 });
 
@@ -1924,7 +1886,7 @@ describe("an accepted take whose upstream alone changed", () => {
     });
 
   it("stands: named in no section and no stale count", () => {
-    expect(computeStatusSections([info()])).toEqual([]);
+    expect(filled(computeStatusSections([info()]))).toEqual([]);
     const [animatic] = computeExportReadiness([info()]);
     expect(animatic!.staleAwaitingReroll).toEqual([]);
     expect(animatic!.staleAwaitingAccept).toEqual([]);
@@ -1966,15 +1928,15 @@ describe("an accepted take whose upstream alone changed", () => {
           definitionHash: () => null,
           isDeterministic: () => deterministic,
         }),
-        new Map(),
-        "fal",
-        new JobIndex([]),
-        undefined,
-        false,
-        null,
-        undefined,
-        true,
-        false,
+        {
+          jobsByVariantId: new Map(),
+          assetKind: "fal",
+          jobs: new JobIndex([]),
+          leafReadyForReview: false,
+          missingFilePath: null,
+          reviewTarget: true,
+          reviewUnreachable: false,
+        },
       );
     expect(build(false).staleAcceptStands).toBe(true);
     expect(build(true).staleAcceptStands).toBe(false);
@@ -1999,15 +1961,15 @@ describe("an accepted take whose upstream alone changed", () => {
     const info = buildAddressInfo(
       delivery,
       new StalenessView(state, { definitionHash: () => null, isDeterministic: () => true }),
-      new Map(),
-      null,
-      new JobIndex([]),
-      undefined,
-      false,
-      null,
-      undefined,
+      {
+        jobsByVariantId: new Map(),
+        assetKind: null,
+        jobs: new JobIndex([]),
+        leafReadyForReview: false,
+        missingFilePath: null,
+      },
     );
     expect(info.staleVariants).not.toEqual([]);
-    expect(computeStatusSections([info]).find((s) => s.title === "Stale")).toBeUndefined();
+    expect(computeStatusSections([info]).stale).toEqual([]);
   });
 });

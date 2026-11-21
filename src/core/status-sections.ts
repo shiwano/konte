@@ -136,20 +136,32 @@ export interface AddressInfo {
 
 const UNDECIDED_BESIDE_ACCEPT = "undecided take beside the accept";
 
-export interface StatusSection {
-  title: string;
-  items: {
-    address: string;
-    detail: string;
-    /**
-     * The take the item is about — set on "Needs review". Absent on a materialized leaf, which has
-     * no variant until it is accepted, and on items that are about an address.
-     */
-    variantId?: string;
-    /** Every take at the address awaiting a verdict, each with why, `variantId`'s first. */
-    variants?: { variantId: string; detail: string }[];
-  }[];
+interface StatusItem {
+  address: string;
+  detail: string;
+  /**
+   * The take the item is about — set on `needsReview`. Absent on a materialized leaf, which has
+   * no variant until it is accepted, and on items that are about an address.
+   */
+  variantId?: string;
+  /** Every take at the address awaiting a verdict, each with why, `variantId`'s first. */
+  variants?: { variantId: string; detail: string }[];
 }
+
+export interface StatusSections {
+  needsReview: StatusItem[];
+  problems: StatusItem[];
+  needsRegenerate: StatusItem[];
+  stale: StatusItem[];
+  /** Keyed by source address, or by patch file path for a script that failed to load. */
+  pendingPatches: StatusItem[];
+  boardRemixes: StatusItem[];
+}
+
+export type AssetSections = Pick<
+  StatusSections,
+  "needsReview" | "problems" | "needsRegenerate" | "stale"
+>;
 
 /** A composition stage's progress in the units its reel review signs off. */
 export interface ReelProgress {
@@ -315,35 +327,49 @@ export function latestFailedExport(jobs: JobRecord[]): ExportJob | null {
   return latest?.status === "failed" ? latest : null;
 }
 
-export function buildAddressInfo(
-  address: string,
-  // The read-only sweep's view: its state, and the definitions every staleness question here is
-  // judged by. The caller owns its lifetime (drop on any write).
-  view: StalenessView,
-  jobsByVariantId: Map<string, JobRecord>,
-  assetKind: AddressKind | null,
-  jobs: JobIndex = new JobIndex(),
+interface AddressInfoOptions {
+  jobsByVariantId: Map<string, JobRecord>;
+  assetKind: AddressKind | null;
+  jobs?: JobIndex;
   // Dead composition leftover variant ids for this address (from collectDeadCompositionVariants)
   // — never counted as "ready". A composition is auto-materialized, not rerolled, so a variant
   // that isn't the live one (the current definition can't materialize it, or it predates the
   // current definition/inputs) is a stale leftover that must not surface as "N ready". Empty for
   // non-compositions, so this is a no-op there.
-  deadVariantIds: ReadonlySet<string> = new Set(),
+  deadVariantIds?: ReadonlySet<string>;
   // A composition/stem leaf is ready to review (renderable, refs resolvable) — the caller computes
   // it from the live definition (it needs the video definition + manager). False for non-leaves.
-  leafReadyForReview = false,
+  leafReadyForReview?: boolean;
   // The declared path of a `file` asset whose media is absent — the caller resolves it (it needs
   // fs access and the definition). Null for a present file and every other kind.
-  missingFilePath: string | null = null,
+  missingFilePath?: string | null;
   // Current patch-definition hash per source variant id, when the caller has loaded the patch
   // scripts — which corrections still have a script to own them.
-  patchHashes?: PatchHashes,
+  patchHashes?: PatchHashes;
   // Whether anyone reviews this address at all (see AddressInfo.reviewTarget). The caller decides
   // it — it needs the definition — and only a reference intermediate is not one.
-  reviewTarget = true,
+  reviewTarget?: boolean;
   // See AddressInfo.reviewUnreachable. The caller decides it; false leaves the address on the
   // ordinary review path.
-  reviewUnreachable = false,
+  reviewUnreachable?: boolean;
+}
+
+export function buildAddressInfo(
+  address: string,
+  // The read-only sweep's view: its state, and the definitions every staleness question here is
+  // judged by. The caller owns its lifetime (drop on any write).
+  view: StalenessView,
+  {
+    jobsByVariantId,
+    assetKind,
+    jobs = new JobIndex(),
+    deadVariantIds = new Set(),
+    leafReadyForReview = false,
+    missingFilePath = null,
+    patchHashes,
+    reviewTarget = true,
+    reviewUnreachable = false,
+  }: AddressInfoOptions,
 ): AddressInfo {
   const { state } = view;
   const target = state.assets[address];
@@ -555,18 +581,16 @@ export function computeStatusSections(
   // the model filename or node id). `what` names the kind of job for the detail line
   // (defaults to "model download").
   failedJobs?: { jobId: string; label: string; error: string | null; what?: string }[],
-): StatusSection[] {
-  const sections: StatusSection[] = [];
-
+): AssetSections {
   // Everything whose next step is "open the review UI and accept" — a first review, a fresh take
   // beside an accepted one, or an accepted leaf whose upstream moved. They are one section because
   // they are one action (`konte preview <stage>`, then accept); "Stale" and "Problems" stay separate
   // because theirs differ (reroll, clean). The per-item detail says which case it is.
-  const needsReview: StatusSection["items"] = [];
+  const needsReview: StatusItem[] = [];
   // The same rows, for an address no surface decides. Collected here rather than judged on the flag
   // alone: "needs a verdict but nothing offers one" is only true of an address that needs a verdict
   // now, so an ungenerated or already-settled one must not be reported as a bug.
-  const unreachable: StatusSection["items"] = [];
+  const unreachable: StatusItem[] = [];
   const unreachableAddresses = new Set(
     infos.filter((info) => info.reviewUnreachable).map((info) => info.address),
   );
@@ -668,11 +692,7 @@ export function computeStatusSections(
     needsReview.splice(i, 1);
     unreachable.push(item);
   }
-  if (needsReview.length > 0) {
-    sections.push({ title: "Needs review", items: needsReview });
-  }
-
-  const problems: StatusSection["items"] = unreachable.map(({ address }) => ({
+  const problems: StatusItem[] = unreachable.map(({ address }) => ({
     address,
     detail: "needs a verdict but no review surface offers one — konte bug",
   }));
@@ -718,13 +738,9 @@ export function computeStatusSections(
       });
     }
   }
-  if (problems.length > 0) {
-    sections.push({ title: "Problems", items: problems });
-  }
-
   // Ungenerated work that already has output: every take is stale or dismissed and none is
   // accepted, so the next `generate` replaces them.
-  const needsRegenerate: StatusSection["items"] = [];
+  const needsRegenerate: StatusItem[] = [];
   for (const info of infos) {
     if (!needsRegeneration(info)) continue;
     const newest = info.staleUnacceptedVariants[0];
@@ -737,14 +753,10 @@ export function computeStatusSections(
       });
     }
   }
-  if (needsRegenerate.length > 0) {
-    sections.push({ title: "Needs regenerate", items: needsRegenerate });
-  }
-
   // Generation assets only — a stale leaf's refresh is a re-review, so it sits in "Needs review".
   // `staleVariants(address, "accepted")` returns accepted variants only, so "accepted" needs no saying here, and
   // `reroll` takes the address, never the variant id — `konte inspect <address>` has the variants.
-  const stale: StatusSection["items"] = [];
+  const stale: StatusItem[] = [];
   for (const info of infos) {
     if (
       info.assetKind === "composition" ||
@@ -761,15 +773,11 @@ export function computeStatusSections(
       stale.push({ address: info.address, detail: formatStaleCause(sv) });
     }
   }
-  if (stale.length > 0) {
-    sections.push({ title: "Stale", items: stale });
-  }
-
   // Running/queued/pending jobs are deliberately absent: nothing to act on (the pipeline submits a
   // pending job once its deps land, and `konte job run` is what blocks for the outcome), and
   // `konte job list` already reports them with more detail. Their only bearing on a decision here is that
   // `generate` must not be re-run for them — carried by the readiness line's in-flight count.
-  return sections;
+  return { needsReview, problems, needsRegenerate, stale };
 }
 
 // Pipeline order: the shared pool (reference plates) feeds the board, which feeds the video, so the
