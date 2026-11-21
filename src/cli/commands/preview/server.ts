@@ -17,7 +17,7 @@ import {
   LOOPBACK_ONLY,
   NativeResponse,
 } from "../../page-host/http.js";
-import { findLatestHandoff, loadHandoff } from "../../../core/loader.js";
+import { findLatestHandoff, loadHandoff } from "../../../core/handoff.js";
 import { loadPreviewDefinitions } from "./load-definitions.js";
 import { KonteStateSchema, type Handoff, type KonteState } from "../../../core/types/index.js";
 import { readSongTakes } from "../../../core/song-variant.js";

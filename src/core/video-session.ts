@@ -3,11 +3,8 @@ import { applyResolutionDefinitions } from "./definition-hashes.js";
 import { syncFileAssets } from "./file-sync.js";
 import { buildDependencyGraph, type DependencyGraph } from "./graph.js";
 import type { LoadedDefinitions } from "./select-definition.js";
-import {
-  type LoadOptions,
-  loadStageDefinitions,
-  type TolerantStageDefinitions,
-} from "./stage-definitions.js";
+import type { LoadOptions } from "./loader.js";
+import { loadStageDefinitions, type TolerantStageDefinitions } from "./stage-definitions.js";
 import { StateManager } from "./state/index.js";
 
 type VideoSessionOptions = LoadOptions & {

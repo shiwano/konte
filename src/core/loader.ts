@@ -5,7 +5,6 @@ import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import * as jsxRuntime from "react/jsx-runtime";
 import * as jsxDevRuntime from "react/jsx-dev-runtime";
-import { formatPatchAddress, parseAddress, patchSourceVariantIdOf } from "./address.js";
 import { listAddresses, listReferenceAddresses } from "./definition-addresses.js";
 import type { Direction } from "./dsl/direction.js";
 import * as dsl from "./dsl/index.js";
@@ -13,12 +12,9 @@ import type { PatchBuild, PatchBuildContext, PatchDefinition } from "./dsl/patch
 import { KonteError, errorMessage } from "./errors.js";
 import { withSongVariants } from "./dsl/song-context.js";
 import { readSongTakes, type SongVariant } from "./song-variant.js";
-import { extractRefs } from "./graph.js";
+import { validatePatchChain } from "./patch-chain.js";
 import { STAGE_ENTRY_FILE, VIDEO_MARKER, findWorkspaceRootSync, stageEntryPath } from "./roots.js";
-import { type Handoff, HandoffSchema } from "./types/handoff.js";
 import {
-  type AssetDefinition,
-  AssetDefinitionSchema,
   type ReferenceDefinition,
   ReferenceDefinitionSchema,
   type AnimaticDefinition,
@@ -417,6 +413,8 @@ function parseVideoModule(mod: Record<string, unknown>, filePath: string): Video
   return video;
 }
 
+export type LoadOptions = { reload?: boolean };
+
 // Imported at use: what the frame's definition hashes reaches back into the loader.
 async function withFrameHashes(video: VideoDefinition): Promise<VideoDefinition> {
   if (!video.thumbnail?.frame) return video;
@@ -424,8 +422,13 @@ async function withFrameHashes(video: VideoDefinition): Promise<VideoDefinition>
   return withThumbnailFrameHashes(video);
 }
 
-export async function reloadVideoDefinition(filePath: string): Promise<VideoDefinition> {
-  return withFrameHashes(await importDefinition(filePath, "video", true, parseVideoModule));
+export async function loadVideoDefinition(
+  filePath: string,
+  opts?: LoadOptions,
+): Promise<VideoDefinition> {
+  return withFrameHashes(
+    await importDefinition(filePath, "video", opts?.reload === true, parseVideoModule),
+  );
 }
 
 function parseReferenceModule(mod: Record<string, unknown>, filePath: string): ReferenceDefinition {
@@ -440,23 +443,18 @@ function parseReferenceModule(mod: Record<string, unknown>, filePath: string): R
   return reference;
 }
 
-export async function loadReferenceDefinition(filePath: string): Promise<ReferenceDefinition> {
-  return importDefinition(filePath, "reference", false, parseReferenceEntry);
-}
-
-function parseReferenceEntry(mod: Record<string, unknown>, filePath: string): ReferenceDefinition {
-  return parseReferenceModule(mod, filePath);
-}
-
-export async function reloadReferenceDefinition(filePath: string): Promise<ReferenceDefinition> {
-  return importDefinition(filePath, "reference", true, parseReferenceEntry);
+export async function loadReferenceDefinition(
+  filePath: string,
+  opts?: LoadOptions,
+): Promise<ReferenceDefinition> {
+  return importDefinition(filePath, "reference", opts?.reload === true, parseReferenceModule);
 }
 
 // reference.tsx is a required entry. Absent file => REFERENCE_NOT_FOUND; an existing but invalid
 // file throws its own validation error.
 export async function loadReference(
   videoRoot: string,
-  opts?: { reload?: boolean },
+  opts?: LoadOptions,
 ): Promise<ReferenceDefinition> {
   const filePath = stageEntryPath(videoRoot, "reference");
   if (!existsSync(filePath)) {
@@ -466,7 +464,7 @@ export async function loadReference(
         `Create it with \`defineReference(direction, { references: () => ({}) })\`.`,
     );
   }
-  return opts?.reload ? reloadReferenceDefinition(filePath) : loadReferenceDefinition(filePath);
+  return loadReferenceDefinition(filePath, opts);
 }
 
 function parseAnimaticModule(mod: Record<string, unknown>, filePath: string): AnimaticDefinition {
@@ -480,19 +478,18 @@ function parseAnimaticModule(mod: Record<string, unknown>, filePath: string): An
   return animatic;
 }
 
-export async function loadAnimaticDefinition(filePath: string): Promise<AnimaticDefinition> {
-  return importDefinition(filePath, "animatic", false, parseAnimaticModule);
-}
-
-export async function reloadAnimaticDefinition(filePath: string): Promise<AnimaticDefinition> {
-  return importDefinition(filePath, "animatic", true, parseAnimaticModule);
+export async function loadAnimaticDefinition(
+  filePath: string,
+  opts?: LoadOptions,
+): Promise<AnimaticDefinition> {
+  return importDefinition(filePath, "animatic", opts?.reload === true, parseAnimaticModule);
 }
 
 // animatic.tsx is a required entry. Absent file => ANIMATIC_NOT_FOUND; an existing but invalid file
 // throws its own validation error.
 export async function loadAnimatic(
   videoRoot: string,
-  opts?: { reload?: boolean },
+  opts?: LoadOptions,
 ): Promise<AnimaticDefinition> {
   const filePath = stageEntryPath(videoRoot, "animatic");
   if (!existsSync(filePath)) {
@@ -502,72 +499,7 @@ export async function loadAnimatic(
         `Create it with \`defineAnimatic(direction, { timeline: () => ({ shots: [] }) })\`.`,
     );
   }
-  return opts?.reload ? reloadAnimaticDefinition(filePath) : loadAnimaticDefinition(filePath);
-}
-
-const HANDOFF_FILENAME_RE = /\.json$/;
-
-/**
- * Returns the newest `*.json` handoff file for the active review stream, or null when none exists
- * or `shown` names its id — a review already submitted it, and no older one supersedes it.
- * Handoffs nest per stream under `<reviewDir>/<stage>/handoffs/`, so only that directory is read.
- * The file's own `stage` is still verified — a hand-edited file disagreeing with its location is
- * skipped, not shown under the wrong stream — and an invalid file is skipped so a mid-edit file
- * doesn't mask an earlier valid one.
- */
-export async function findLatestHandoff(
-  reviewDir: string,
-  stage: "animatic" | "video" | "reference" | "direction",
-  shown?: (id: string) => Promise<boolean>,
-): Promise<{ path: string; handoff: Handoff } | null> {
-  const dir = path.join(reviewDir, stage, "handoffs");
-  let entries: string[];
-  try {
-    entries = await fs.readdir(dir);
-  } catch {
-    return null;
-  }
-
-  const files = entries
-    .filter((e) => HANDOFF_FILENAME_RE.test(e))
-    .sort()
-    .reverse();
-
-  for (const file of files) {
-    const filePath = path.join(dir, file);
-    try {
-      const handoff = await loadHandoff(filePath);
-      if (handoff.stage !== stage) continue;
-      return (await shown?.(handoff.id)) ? null : { path: filePath, handoff };
-    } catch {
-      continue;
-    }
-  }
-
-  return null;
-}
-
-/** Loads a handoff JSON file. Throws on missing/unparsable/invalid file. */
-export async function loadHandoff(filePath: string): Promise<Handoff> {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(await fs.readFile(filePath, "utf-8"));
-  } catch (err) {
-    throw new KonteError(
-      "LOAD_FAILED",
-      `Failed to load handoff "${filePath}": ${errorMessage(err)}`,
-    );
-  }
-
-  const result = HandoffSchema.safeParse({
-    ...(parsed as object),
-    id: path.basename(filePath, ".json"),
-  });
-  if (!result.success) {
-    throw new KonteError("VALIDATION_FAILED", `Handoff validation failed: ${result.error.message}`);
-  }
-
-  return result.data;
+  return loadAnimaticDefinition(filePath, opts);
 }
 
 // direction.ts defines the direction (a `sequence` root node — a lens over shots, or over sub-sequences).
@@ -595,14 +527,11 @@ function parseDirectionModule(mod: Record<string, unknown>, filePath: string): D
   return def as Direction;
 }
 
-export async function loadDirectionDefinition(filePath: string): Promise<Direction> {
-  return importDefinition(filePath, "direction", false, parseDirectionModule);
-}
-
-// Cache-busting reload for the preview watcher: re-import direction.ts after an on-disk edit so the
-// live review reflects the new direction (and its recomputed acceptance hash).
-export async function reloadDirectionDefinition(filePath: string): Promise<Direction> {
-  return importDefinition(filePath, "direction", true, parseDirectionModule);
+export async function loadDirectionDefinition(
+  filePath: string,
+  opts?: LoadOptions,
+): Promise<Direction> {
+  return importDefinition(filePath, "direction", opts?.reload === true, parseDirectionModule);
 }
 
 // A patch file exports a definePatch(...) result, whose `build` is called with the source
@@ -633,87 +562,7 @@ function parsePatchModule(
       `Patch file "${filePath}" failed to build: ${errorMessage(err)}`,
     );
   }
-
-  const assets: Record<string, AssetDefinition> = {};
-  for (const [name, raw] of Object.entries(built.assets)) {
-    const parsed = AssetDefinitionSchema.safeParse(raw);
-    if (!parsed.success) {
-      throw new KonteError(
-        "PATCH_INVALID",
-        `Patch file "${filePath}" produced an invalid asset definition for "${name}": ${parsed.error.message}`,
-      );
-    }
-    if (parsed.data.kind === "file") {
-      throw new KonteError(
-        "PATCH_INVALID",
-        `Patch file "${filePath}" cannot use a file adapter (asset "${name}")`,
-      );
-    }
-    assets[name] = parsed.data;
-  }
-
-  // The returned step is the correction's output. A step consuming it would be spend beyond the
-  // take, and is unreachable from the output — which the closure check below would report as
-  // "nothing consumes it", the wrong way round for the author who wrote the chain.
-  const outputAddress = formatPatchAddress(ctx.stage, ctx.sourceVariantId, built.outputName);
-  for (const [name, def] of Object.entries(assets)) {
-    if (name === built.outputName) continue;
-    if (extractRefs(def).includes(outputAddress)) {
-      throw new KonteError(
-        "PATCH_INVALID",
-        `Patch file "${filePath}" feeds its returned step "${built.outputName}" into "${name}" — nothing else may consume it`,
-      );
-    }
-  }
-
-  // Everything the chain generates must be what the correction is built from, walked back from the
-  // returned step. A step outside that closure is spend nothing consumes; and a `source` reference
-  // that only such a step makes would let an unrelated generation be recorded as derived from that
-  // take, giving the lineage (and so the review UI's "before") a relationship that never existed.
-  const reachable = new Set<string>([built.outputName]);
-  const queue = [built.outputName];
-  while (queue.length > 0) {
-    const def = assets[queue.pop()!];
-    if (!def) continue;
-    for (const ref of extractRefs(def)) {
-      const parsed = patchStepNameOf(ref, ctx);
-      if (parsed === null || reachable.has(parsed)) continue;
-      reachable.add(parsed);
-      queue.push(parsed);
-    }
-  }
-  const unreachable = Object.keys(assets).filter((name) => !reachable.has(name));
-  if (unreachable.length > 0) {
-    throw new KonteError(
-      "PATCH_INVALID",
-      `Patch file "${filePath}" declares ${unreachable.map((n) => `"${n}"`).join(", ")}, which the returned step "${built.outputName}" never consumes`,
-    );
-  }
-
-  // A patch that never wires `source` into the chain behind its output is not a correction of that
-  // take, however much of `source` its other declarations mention.
-  const consumesSource = [...reachable].some((name) => {
-    const def = assets[name];
-    return def !== undefined && extractRefs(def).includes(ctx.sourceAddress);
-  });
-  if (!consumesSource) {
-    throw new KonteError(
-      "PATCH_INVALID",
-      `Patch file "${filePath}" never passes \`source\` to an adapter — a patch must consume the variant it patches`,
-    );
-  }
-  return {
-    assets,
-    outputName: built.outputName,
-    ...(built.prompts ? { prompts: built.prompts } : {}),
-  };
-}
-
-// The step name a ref points at, when it points at a step of this same patch; null otherwise.
-function patchStepNameOf(ref: string, ctx: PatchBuildContext): string | null {
-  if (patchSourceVariantIdOf(ref) !== ctx.sourceVariantId) return null;
-  const parsed = parseAddress(ref);
-  return parsed.kind === "patch" && parsed.stage === ctx.stage ? parsed.assetName : null;
+  return validatePatchChain(filePath, built, ctx);
 }
 
 export async function reloadPatchDefinition(
@@ -721,8 +570,4 @@ export async function reloadPatchDefinition(
   ctx: PatchBuildContext,
 ): Promise<PatchBuild> {
   return importDefinition(filePath, "patch", true, (mod, file) => parsePatchModule(mod, file, ctx));
-}
-
-export async function loadVideoDefinition(filePath: string): Promise<VideoDefinition> {
-  return withFrameHashes(await importDefinition(filePath, "video", false, parseVideoModule));
 }

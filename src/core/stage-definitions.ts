@@ -12,14 +12,12 @@ import {
   loadAnimatic,
   loadDirectionDefinition,
   loadIfPresent,
+  type LoadOptions,
   loadReference,
   loadVideoDefinition,
-  reloadVideoDefinition,
 } from "./loader.js";
 import { stageEntryPath } from "./roots.js";
 import { type LoadedDefinitions, loadShotStages } from "./select-definition.js";
-
-export type LoadOptions = { reload?: boolean };
 
 // The stage entries as far as they load. A stage that did not load is null, with its error under
 // `errors` — an absent file included. The video is not read when the board did not load.
@@ -43,8 +41,7 @@ export async function loadVideoAndAnimatic(
 }
 
 function readVideo(videoRoot: string, opts?: LoadOptions): Promise<VideoDefinition> {
-  const videoPath = stageEntryPath(videoRoot, "video");
-  return opts?.reload ? reloadVideoDefinition(videoPath) : loadVideoDefinition(videoPath);
+  return loadVideoDefinition(stageEntryPath(videoRoot, "video"), opts);
 }
 
 // The three stage entries a video holds. `reload` evicts the project's modules first, so an edit to

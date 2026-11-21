@@ -22,7 +22,7 @@ const { waitForJobMock, submitReadyPendingJobsMock } = vi.hoisted(() => ({
 vi.mock("../../backends/wait-for-job.js", () => ({ waitForJob: waitForJobMock }));
 vi.mock("../../core/loader.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../core/loader.js")>()),
-  reloadVideoDefinition: vi.fn(async () => ({ profiles: {}, shots: [] })),
+  loadVideoDefinition: vi.fn(async () => ({ profiles: {}, shots: [] })),
   loadAnimatic: vi.fn(async () => ({ stage: "animatic", shots: [] })),
   loadReference: vi.fn(async () => ({ stage: "reference", shots: [] })),
 }));

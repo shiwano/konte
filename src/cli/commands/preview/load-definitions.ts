@@ -1,10 +1,9 @@
 import * as fs from "node:fs";
 import type { Direction } from "../../../core/dsl/direction.js";
 import {
+  loadAnimaticDefinition,
   loadDirectionDefinition,
-  reloadAnimaticDefinition,
-  reloadDirectionDefinition,
-  reloadVideoDefinition,
+  loadVideoDefinition,
 } from "../../../core/loader.js";
 import { loadStageDefinitions } from "../../../core/stage-definitions.js";
 import type { ReferenceDefinition, VideoDefinition } from "../../../core/types/index.js";
@@ -21,8 +20,8 @@ export async function reloadStageDefinition(
   stage: ShotStage,
 ): Promise<StageDefinition> {
   return stage === "animatic"
-    ? reloadAnimaticDefinition(stageEntryPath(videoRoot, "animatic"))
-    : reloadVideoDefinition(stageEntryPath(videoRoot, "video"));
+    ? loadAnimaticDefinition(stageEntryPath(videoRoot, "animatic"), { reload: true })
+    : loadVideoDefinition(stageEntryPath(videoRoot, "video"), { reload: true });
 }
 
 interface PreviewDefinitions {
@@ -56,7 +55,7 @@ export async function loadPreviewDefinitions(opts: {
   // cascades a media accept back into the parts describing it — off what is in memory, so a stage
   // preview re-reads it or an accept signs off the version the page opened on.
   const directionPath = stageEntryPath(opts.videoRoot, "direction");
-  const loadDirection = opts.reload ? reloadDirectionDefinition : loadDirectionDefinition;
+  const loadDirection = (file: string) => loadDirectionDefinition(file, { reload: opts.reload });
   const direction =
     opts.stage === "direction"
       ? await loadDirection(directionPath)

@@ -4,11 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { definitionHashForAddress } from "../../core/leaf-hash.js";
 import { computeDefinitionHash } from "../../core/definition-hash.js";
 import { JobManager } from "../../core/job-manager.js";
-import {
-  loadVideoDefinition,
-  reloadReferenceDefinition,
-  reloadVideoDefinition,
-} from "../../core/loader.js";
+import { loadReferenceDefinition, loadVideoDefinition } from "../../core/loader.js";
 import { loadPatch } from "../../core/patch.js";
 import { StateManager } from "../../core/state/manager.js";
 import { assetDir } from "../../core/variant-dir.js";
@@ -88,7 +84,7 @@ describe("rename command", () => {
       createdBy: "local",
     });
     await fs.writeFile(videoFile, RENAMED_TSX);
-    await reloadVideoDefinition(videoFile);
+    await loadVideoDefinition(videoFile, { reload: true });
   });
 
   it("moves the takes, their files and the accept to the new name", async () => {
@@ -295,7 +291,7 @@ describe("rename command (a patched reference)", () => {
         .replace('asset("latentA"', 'asset("latentC"')
         .replace("bgm, latentA,", "bgm, latentC: latentA,"),
     );
-    await reloadReferenceDefinition(referenceFile);
+    await loadReferenceDefinition(referenceFile, { reload: true });
 
     const { stdout } = await run(["rename", "reference:latentA", "reference:latentC"], projectDir);
     expect(stdout).toContain("Renamed: reference:latentA → reference:latentC");
@@ -322,7 +318,7 @@ describe("rename command (a patched reference)", () => {
         .replace('asset("latentA"', 'asset("latentC"')
         .replace("bgm, latentA,", "bgm, latentC: latentA,"),
     );
-    await reloadReferenceDefinition(referenceFile);
+    await loadReferenceDefinition(referenceFile, { reload: true });
 
     await expect(
       run(["rename", "reference:latentA", "reference:latentC"], projectDir),
@@ -371,7 +367,7 @@ export default definePatch<"image">(({ source }) => {
         .replace('asset("latentB"', 'asset("latentC"')
         .replace("latentA, latentB }", "latentA, latentC: latentB }"),
     );
-    await reloadReferenceDefinition(referenceFile);
+    await loadReferenceDefinition(referenceFile, { reload: true });
     await writePatch(projectDir, sourceId, script("latentC"));
 
     await run(["rename", "reference:latentB", "reference:latentC"], projectDir);
