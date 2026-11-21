@@ -1,3 +1,5 @@
+import { KonteError } from "../errors.js";
+
 type IdentifierChar =
   | "a"
   | "b"
@@ -100,7 +102,8 @@ export function isIdentifier(value: string): boolean {
 
 export function validateShotId(id: string): void {
   if (!IDENTIFIER_PATTERN.test(id)) {
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `Invalid shot ID "${id}": must contain only alphanumeric characters, hyphens, and underscores (a-z, A-Z, 0-9, -, _)`,
     );
   }
@@ -108,17 +111,24 @@ export function validateShotId(id: string): void {
 
 export function validateAssetName(name: string): void {
   if (!IDENTIFIER_PATTERN.test(name)) {
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `Invalid asset name "${name}": must contain only alphanumeric characters, hyphens, and underscores (a-z, A-Z, 0-9, -, _)`,
     );
   }
   // `patch` heads the patch address axis. A reference asset's suffix is a bare name, so without
   // this the scope `reference:patch` would name both that asset and the whole patch axis.
   if (name === "patch") {
-    throw new Error(`Asset name "patch" is reserved. It heads the patch address axis.`);
+    throw new KonteError(
+      "VALIDATION_FAILED",
+      `Asset name "patch" is reserved. It heads the patch address axis.`,
+    );
   }
   // `view` heads the view images (`reference:view.<locationId>.<view>`) the same way.
   if (name === "view") {
-    throw new Error(`Asset name "view" is reserved. It heads the view image address axis.`);
+    throw new KonteError(
+      "VALIDATION_FAILED",
+      `Asset name "view" is reserved. It heads the view image address axis.`,
+    );
   }
 }

@@ -1,3 +1,4 @@
+import { KonteError } from "../../errors.js";
 import type { FileAssetDefinition } from "../../types/index.js";
 import type { MediaKind } from "../builders.js";
 import { ASSET_SITES, type AssetAdapter } from "../adapter.js";
@@ -21,7 +22,10 @@ function createFileAdapter<T extends MediaKind>(mediaType: T): AssetAdapter<File
     },
     createDefinition(inputs: FileAdapterInputs): FileAssetDefinition {
       if (!inputs.path.startsWith(FILES_PREFIX)) {
-        throw new Error(`file path must start with "${FILES_PREFIX}", got "${inputs.path}"`);
+        throw new KonteError(
+          "INVALID_ADAPTER_INPUT",
+          `file path must start with "${FILES_PREFIX}", got "${inputs.path}"`,
+        );
       }
       return {
         kind: "file",

@@ -158,7 +158,12 @@ export async function unpackTarballInto(
 }
 
 /** Move the file called `name`, found anywhere under `dir`, to `dest`. */
-export function moveFoundBinary(dir: string, name: string, dest: string): void {
+export function moveFoundBinary(
+  dir: string,
+  name: string,
+  dest: string,
+  errorCode: KonteErrorCode,
+): void {
   const stack = [dir];
   while (stack.length > 0) {
     const cur = stack.pop()!;
@@ -177,5 +182,5 @@ export function moveFoundBinary(dir: string, name: string, dest: string): void {
       }
     }
   }
-  throw new Error(`"${name}" not found in the downloaded archive`);
+  throw new KonteError(errorCode, `"${name}" not found in the downloaded archive`);
 }

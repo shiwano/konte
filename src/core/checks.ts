@@ -32,15 +32,10 @@ import {
   directionFindings,
   registryFinding,
 } from "./direction.js";
-import { directionWaiverKey } from "./direction-findings.js";
+import { DIRECTION_FINDING_CODES, directionWaiverKey, foldWaivers } from "./direction-findings.js";
 import type { Direction } from "./dsl/direction.js";
-import {
-  DIRECTION_FINDING_CODES,
-  type Finding,
-  type FindingCode,
-  type FindingTraits,
-  findingTraits,
-} from "./finding.js";
+import { type Finding, type FindingCode, findingTraits } from "./finding.js";
+import type { FindingTraits } from "./finding-traits.js";
 import { type DependencyGraph, extractRefs, listBoardlessVideoShots } from "./graph.js";
 import { acceptedIn, listReferenceImageTexts, listViewAnchorGaps } from "./board-analysis.js";
 import { findUnheldLandmarks } from "./landmark-held-check.js";
@@ -61,7 +56,7 @@ import { findUnplacedStems } from "./heard-stem.js";
 import { JobManager } from "./job-manager.js";
 import { type StrandedTake, findStrandedTakes } from "./stranded-takes.js";
 import { findUnmouthedStems } from "./stem-mouth-check.js";
-import { type Accepted, signedOffBy, withAwaitingAccept } from "./sign-off.js";
+import { type Accepted, withAwaitingAccept } from "./sign-off.js";
 import { isVendorBackendAsset } from "./vendor-backend.js";
 import { rosterReferenceNames } from "./roots.js";
 import { unvouchedFindings } from "./variant-check.js";
@@ -223,26 +218,25 @@ const VIEW_CHECK: Check = {
   codes: ["view-unanchored", "view-unnamed"],
   run: (ctx) => {
     if (!ctx.direction || !ctx.reference) return [];
-    const waivers = ctx.direction.waivers ?? {};
-    const accepted = acceptedOf(ctx);
-    return [
-      ...checkViewAnchors(
-        listViewAnchorGaps(ctx.reference),
-        new Set(ctx.reference.exposedAssetNames ?? []),
-      ),
-      ...checkViewNamings(ctx.direction, listReferenceImageTexts(ctx.reference)),
-    ].flatMap((f): Finding[] => {
-      const key = directionWaiverKey(f);
-      if (key in waivers || signedOffBy(f.judgedBy, accepted)) return [];
-      return [
-        registryFinding(f, {
-          subject: f.subject ?? "",
-          fixIn: { stage: "reference" },
-          message: f.message,
-          key,
-        }),
-      ];
-    });
+    const { active } = foldWaivers(
+      [
+        ...checkViewAnchors(
+          listViewAnchorGaps(ctx.reference),
+          new Set(ctx.reference.exposedAssetNames ?? []),
+        ),
+        ...checkViewNamings(ctx.direction, listReferenceImageTexts(ctx.reference)),
+      ],
+      ctx.direction.waivers ?? {},
+      acceptedOf(ctx),
+    );
+    return active.map((f) =>
+      registryFinding(f, {
+        subject: f.subject ?? "",
+        fixIn: { stage: "reference" },
+        message: f.message,
+        key: directionWaiverKey(f),
+      }),
+    );
   },
 };
 

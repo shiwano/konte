@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BUILTIN_LENSES, findBuiltinLens } from "../lenses.js";
-import {
-  type ArcItem,
-  type DirectionFindingCode,
-  type LensSpec,
-  checkArc,
-} from "../direction-check.js";
+import { type ArcItem, type LensSpec, checkArc } from "../direction-check.js";
+import type { DirectionFindingCode } from "../direction-findings.js";
 
 const miniDrama = findBuiltinLens("mini-drama")!;
 const comedy = findBuiltinLens("comedy")!;

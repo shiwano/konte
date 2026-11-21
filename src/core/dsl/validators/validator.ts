@@ -64,7 +64,10 @@ export function assertValidatorInputs(
     : [validators as AdapterValidator]) {
     for (const name of validator.inputs ?? []) {
       if (!Object.hasOwn(inputs, name)) {
-        throw new Error(`a validator names input "${name}", which this adapter does not declare`);
+        throw new KonteError(
+          "VALIDATION_FAILED",
+          `a validator names input "${name}", which this adapter does not declare`,
+        );
       }
     }
   }

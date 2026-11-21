@@ -1,4 +1,5 @@
 import * as path from "node:path";
+import { KonteError } from "./errors.js";
 import { CompositionDocument } from "./dsl/composition/composition.js";
 import { makeAddressPlaceholder } from "./dsl/shot-context.js";
 import {
@@ -38,7 +39,11 @@ export async function captureThumbnail(opts: {
   const refs = [...opts.compose.compositionRefs].sort((a, b) => b.length - a.length);
   for (const [index, address] of refs.entries()) {
     const file = opts.fileOf(address);
-    if (file === null) throw new Error(`the thumbnail draws ${address}, which has no ready take`);
+    if (file === null)
+      throw new KonteError(
+        "DEPENDENCY_NOT_RESOLVED",
+        `the thumbnail draws ${address}, which has no ready take`,
+      );
     const name = `asset-${index}${path.extname(file)}`;
     assetFiles[name] = file;
     html = html.split(makeAddressPlaceholder(address)).join(name);

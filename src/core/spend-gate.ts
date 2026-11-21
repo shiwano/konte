@@ -18,9 +18,9 @@ import { collectFramedCharacterIds } from "./direction.js";
 import { directionAcceptanceView, songGateBlocking } from "./direction-acceptance.js";
 import type { Character, Direction } from "./dsl/direction.js";
 import { KonteError } from "./errors.js";
+import type { SpendCommand } from "./finding-traits.js";
 import {
   type Finding,
-  type SpendCommand,
   findingLabel,
   findingTraits,
   formatFindingGroups,

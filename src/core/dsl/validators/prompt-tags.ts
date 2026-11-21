@@ -1,3 +1,4 @@
+import { KonteError } from "../../errors.js";
 import { tryParseAddress } from "../../address.js";
 import { parsePlaceholder } from "../shot-context.js";
 import type { AdapterValidator } from "./validator.js";
@@ -63,7 +64,10 @@ export function promptReferenceTags(spec: PromptReferenceTagsSpec): AdapterValid
   const prevPanel = spec.prevPanel;
   const prevPanelGroup = prevPanel && groups.find((g) => g.tag === prevPanel.tag);
   if (prevPanel && !prevPanelGroup) {
-    throw new Error(`prevPanel names tag "${prevPanel.tag}", which \`tags\` does not declare`);
+    throw new KonteError(
+      "VALIDATION_FAILED",
+      `prevPanel names tag "${prevPanel.tag}", which \`tags\` does not declare`,
+    );
   }
 
   const validator: AdapterValidator = (inputs, context) => {
@@ -147,7 +151,8 @@ function assertContiguousRuns(runs: readonly SlotRun[]): void {
   for (const run of runs) {
     for (let i = 1; i < run.indices.length; i++) {
       if (run.indices[i]! === run.indices[i - 1]! + 1) continue;
-      throw new Error(
+      throw new KonteError(
+        "VALIDATION_FAILED",
         `Slots "${run.slots[i - 1]}" and "${run.slots[i]}" are declared as one numbered family but skip a number — declare every slot between them`,
       );
     }

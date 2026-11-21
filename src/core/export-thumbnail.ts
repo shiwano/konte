@@ -1,5 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { KonteError } from "./errors.js";
 import {
   formatThumbnailAddress,
   isThumbnailAddress,
@@ -59,7 +60,11 @@ export async function exportThumbnail(opts: {
   const patched =
     cover && manager.getState().assets[coverAddress]?.variants?.[cover.variantId]?.derivedFrom;
   if (!opts.layout.crop || patched) {
-    if (!cover) throw new Error(`the thumbnail's cover ${coverAddress} has no ready take`);
+    if (!cover)
+      throw new KonteError(
+        "DEPENDENCY_NOT_RESOLVED",
+        `the thumbnail's cover ${coverAddress} has no ready take`,
+      );
     await writeCoverJpeg(cover.file, opts.layout, outputFile);
     return outputFile;
   }
@@ -80,7 +85,11 @@ export async function exportThumbnail(opts: {
     for (const ref of compose.compositionRefs) {
       if (files.has(ref)) continue;
       const file = (await delivered.of(ref)) ?? resolveCompositionRef(manager, ref)?.file ?? null;
-      if (!file) throw new Error(`the thumbnail draws ${ref}, which has no ready take`);
+      if (!file)
+        throw new KonteError(
+          "DEPENDENCY_NOT_RESOLVED",
+          `the thumbnail draws ${ref}, which has no ready take`,
+        );
       files.set(ref, file);
     }
     await captureThumbnail({
@@ -162,7 +171,11 @@ class DeliveredFiles {
     const resolvedDependencies: Record<string, string> = {};
     for (const [i, dep] of deps.entries()) {
       const file = remade[i] ?? resolveCompositionRef(manager, dep)?.file;
-      if (!file) throw new Error(`${address} is built on ${dep}, which has no ready take`);
+      if (!file)
+        throw new KonteError(
+          "DEPENDENCY_NOT_RESOLVED",
+          `${address} is built on ${dep}, which has no ready take`,
+        );
       resolvedDependencies[dep] = file;
     }
     return rederive(

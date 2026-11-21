@@ -5,16 +5,9 @@
 // on it.
 
 import {
-  DIRECTION_NARRATOR_ADDRESS,
   DIRECTION_ROOT_PATH,
   directionChildNodePath,
-  formatDirectionCharacterAddress,
-  formatDirectionCharacterVoiceAddress,
-  formatDirectionLocationAddress,
-  formatDirectionPolicyAddress,
-  formatDirectionPropAddress,
   formatDirectionSequenceAddress,
-  formatDirectionSetupAddress,
   formatDirectionShotAddress,
   formatDirectionWaiverAddress,
   formatReferenceAddress,
@@ -27,7 +20,6 @@ import {
   type ArcItem,
   type CharacterVoiceRef,
   type DirectionFinding,
-  type DirectionFindingCode,
   type LensSpec,
   type LineupShot,
   type PanelSlots,
@@ -103,17 +95,17 @@ import { isIdentifier } from "./dsl/validate-identifier.js";
 import { scriptOf } from "./typography.js";
 import { KonteError } from "./errors.js";
 import { formatSeconds } from "./format-duration.js";
-import { type Finding, findingTraits } from "./finding.js";
-import { type Accepted, signedOffBy, withAwaitingAccept } from "./sign-off.js";
+import type { Finding } from "./finding.js";
+import type { Accepted } from "./sign-off.js";
 import {
   type DirectionFindingClass,
-  classifyDirectionFinding,
+  type DirectionFindingCode,
+  directionFindingSpec,
   directionWaiverKey,
-  findingFixStage,
+  foldWaivers,
   isDirectionFindingCode,
   isWaivableCode,
   splitWaiverKey,
-  waiverShotScope,
 } from "./direction-findings.js";
 
 // A waiver read by watching a shot: its review address, what it waives, and the shots it plays in —
@@ -157,7 +149,7 @@ export function directionShotWaivers(direction: Direction): ShotWaiver[] {
   for (const [key, reason] of Object.entries(direction.waivers ?? {})) {
     const { code, subject } = splitWaiverKey(key);
     if (subject === undefined || !isWaivableCode(code)) continue;
-    const on = waiverShotScope(code);
+    const on = directionFindingSpec(code).waiverScope;
     if (!on) continue;
     // A shot's subject opens with its id; an id holds no `.`.
     const head = subject.split(".")[0] ?? "";
@@ -2452,19 +2444,6 @@ function buildArcTree(direction: Direction): ArcNode {
   );
 }
 
-// The arc codes whose subject is a role of the node's own lens, or none: two sequences on one lens
-// both fire `missing-role_disruption`, so below the root the subject is qualified with the node's id
-// (`missing-role_theft.disruption`, `no-payoff_theft`). An item-id subject is unique already.
-const NODE_SCOPED_CODES: ReadonlySet<DirectionFindingCode> = new Set([
-  "missing-role",
-  "no-payoff",
-  "role-out-of-order",
-  "too-few-consecutive",
-  "unearned-payoff",
-  "role-overweight",
-  "role-underweight",
-]);
-
 // Walk the tree depth-first, checking each node that has a resolvable lens. An internal node checks
 // its children as arc items with derived durations (so pacing reads each scale); a leaf checks its
 // shots. A node's own findings come before its children's (meta arc before the per-sequence shot
@@ -2489,7 +2468,7 @@ function walkArcTree(node: ArcNode, out: DirectionFinding[]): void {
       return {
         ...f,
         subject:
-          nodeId !== undefined && NODE_SCOPED_CODES.has(f.code)
+          nodeId !== undefined && directionFindingSpec(f.code).nodeScoped
             ? subject
               ? `${nodeId}.${subject}`
               : nodeId
@@ -2637,34 +2616,12 @@ export function checkDirection(
     // A shot's length must be a whole second to survive a backend's frame grid.
     ...checkDurations(direction),
   );
-  // Before any shot is written a roster entry is not unused, only not reached yet.
   const reported = directionHasShots(direction)
     ? findings
-    : findings.filter((f) => !f.code.startsWith("unused-"));
+    : findings.filter((f) => !directionFindingSpec(f.code).awaitsShots);
 
   const waivers = direction.waivers ?? {};
-  const active: DirectionFinding[] = [];
-  const waived: DirectionFinding[] = [];
-  const matched = new Set<string>();
-  const covers = new Map<string, readonly string[]>();
-  for (const finding of reported) {
-    const key = directionWaiverKey(finding);
-    if (finding.covers && key in waivers && isWaivableCode(finding.code)) {
-      const address = formatDirectionWaiverAddress(key);
-      covers.set(address, [...new Set([...(covers.get(address) ?? []), ...finding.covers])]);
-    }
-    if (signedOffBy(finding.judgedBy, options.accepted)) {
-      if (key in waivers) matched.add(key);
-    } else if (key in waivers && isWaivableCode(finding.code)) {
-      matched.add(key);
-      waived.push(finding);
-    } else {
-      active.push({
-        ...finding,
-        message: withAwaitingAccept(finding.message, finding.judgedBy, options.accepted),
-      });
-    }
-  }
+  const { active, waived, matched, covers } = foldWaivers(reported, waivers, options.accepted);
 
   const staleWaivers: StaleWaiver[] = [];
   for (const [key, reason] of Object.entries(waivers)) {
@@ -2672,7 +2629,7 @@ export function checkDirection(
     const { code } = splitWaiverKey(key);
     // Flag a waiver stale only for a class this pass evaluated: a pass that could not read a stage
     // must not mislabel a still-valid waiver of it. A code no finding has is stale in any pass.
-    if (isWaivableCode(code) && !evaluatedClasses.has(classifyDirectionFinding(code))) continue;
+    if (isWaivableCode(code) && !evaluatedClasses.has(directionFindingSpec(code).class)) continue;
     staleWaivers.push({
       key,
       reason,
@@ -2710,25 +2667,8 @@ function findingPart(
   items: ReadonlyMap<string, string>,
 ): string | undefined {
   const subject = finding.subject ?? "";
-  switch (finding.code) {
-    case "unused-character":
-      return formatDirectionCharacterAddress(subject);
-    case "unused-character-voice":
-      return formatDirectionCharacterVoiceAddress(subject);
-    case "unused-narrator":
-      return DIRECTION_NARRATOR_ADDRESS;
-    case "unused-prop":
-      return formatDirectionPropAddress(subject);
-    case "unused-location":
-      return formatDirectionLocationAddress(subject);
-    case "unused-setup":
-      return formatDirectionSetupAddress(subject);
-    case "song-unreferenced":
-      return formatDirectionPolicyAddress("song");
-    default:
-      // A shot, a frame of one (`<id>.cutin`) or a child node.
-      return items.get(subject.split(".")[0] ?? "");
-  }
+  const part = directionFindingSpec(finding.code).part;
+  return part ? part(subject) : items.get(subject.split(".")[0] ?? "");
 }
 
 // The check's result as the finding registry reads it: each structural error and each unwaived
@@ -2749,10 +2689,11 @@ export function directionFindings(result: DirectionCheckResult, direction: Direc
       }),
     ),
     ...result.active.map((f): Finding => {
-      const part = findingTraits(f.code).clears === "fix" ? findingPart(f, items) : undefined;
+      const spec = directionFindingSpec(f.code);
+      const part = spec.traits.clears === "fix" ? findingPart(f, items) : undefined;
       return registryFinding(f, {
         subject: f.subject ?? "",
-        fixIn: { stage: findingFixStage(f.code) },
+        fixIn: { stage: spec.fixStage },
         message: f.message,
         key: directionWaiverKey(f),
         ...(part ? { targets: [part] } : {}),

@@ -1,3 +1,4 @@
+import { KonteError } from "../errors.js";
 import type { ShotSongOf } from "./animatic-builders.js";
 import type {
   DeliveryUpscaleFn,
@@ -177,7 +178,8 @@ export function soundtrack<const TId extends string = never>(
   // `reference.<name>` is undefined), or a stale upstream module in a long-lived process. Fail here
   // with the soundtrack named instead.
   if (src == null || typeof src !== "object" || typeof (src as MediaAsset).src !== "string") {
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `soundtrack "${id}" has an invalid src (got ${src === undefined ? "undefined" : JSON.stringify(src)}). ` +
         `Pass an audio asset — and if it is a reference asset, make sure defineReference() returns it.`,
     );

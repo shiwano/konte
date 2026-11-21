@@ -185,10 +185,14 @@ function assertReturnedReferences(
 ): void {
   for (const name of Object.keys(returned)) {
     if (!(name in assets)) {
-      throw new Error(`defineReference: "${name}" was returned but not declared via asset()`);
+      throw new KonteError(
+        "VALIDATION_FAILED",
+        `defineReference: "${name}" was returned but not declared via asset()`,
+      );
     }
     if (RESERVED_NAMES.has(name)) {
-      throw new Error(
+      throw new KonteError(
+        "VALIDATION_FAILED",
         `defineReference: "${name}" is a reserved name and cannot be a reference asset`,
       );
     }

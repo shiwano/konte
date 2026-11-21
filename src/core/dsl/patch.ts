@@ -1,3 +1,4 @@
+import { KonteError } from "../errors.js";
 import type { AssetStage } from "../address.js";
 import type { AssetDefinition } from "../types/index.js";
 import type { PinOccurrence } from "../pin-check.js";
@@ -80,7 +81,8 @@ export function definePatch<TKind extends MediaKind>(
 
       const names = Object.keys(assets);
       if (names.length === 0) {
-        throw new Error(
+        throw new KonteError(
+          "PATCH_INVALID",
           "definePatch: the callback declared no asset() — the scaffold's `return source` is a " +
             "placeholder, replace it with the adapter that performs the correction",
         );
@@ -92,7 +94,10 @@ export function definePatch<TKind extends MediaKind>(
         (name) => src === makePatchPlaceholder(ctx.stage, ctx.sourceVariantId, name),
       );
       if (!outputName) {
-        throw new Error("definePatch: the callback must return one of the asset() results");
+        throw new KonteError(
+          "PATCH_INVALID",
+          "definePatch: the callback must return one of the asset() results",
+        );
       }
 
       return {

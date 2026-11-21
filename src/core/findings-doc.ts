@@ -1,16 +1,14 @@
 import { format } from "oxfmt";
 import type { Stage } from "./address.js";
 import { CRITICS } from "./critic-checks.js";
-import type { DirectionFindingCode } from "./direction-check.js";
-import { type DirectionErrorCode } from "./direction.js";
-import { findingFixStage } from "./direction-findings.js";
 import {
   DIRECTION_FINDING_CODES,
-  type FindingCode,
-  type FindingTraits,
-  findingTraits,
-  spendStages,
-} from "./finding.js";
+  type DirectionFindingCode,
+  directionFindingSpec,
+} from "./direction-findings.js";
+import { type DirectionErrorCode } from "./direction.js";
+import { type FindingCode, findingTraits, spendStages } from "./finding.js";
+import type { FindingTraits } from "./finding-traits.js";
 import { STAGE_ENTRY_FILE } from "./roots.js";
 
 // The source of `docs/FINDINGS.md`. Each record is keyed by the finding code set, so a new code with
@@ -567,7 +565,7 @@ function renderFindingsMarkdown(): string {
       DIRECTION_FINDING_CODES.map((code) => {
         const doc = DIRECTION_FINDING_DOCS[code];
         const traits = findingTraits(code);
-        const stage = findingFixStage(code);
+        const stage = directionFindingSpec(code).fixStage;
         return [
           `\`${code}\``,
           doc.typeLevel ? `${doc.flags} Type-level.` : doc.flags,

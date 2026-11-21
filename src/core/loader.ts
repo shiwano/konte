@@ -332,8 +332,8 @@ function underDefinitionLock<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 // Import a definition entry (fresh — evicting the project's modules first — or from the registry)
-// and hand the module to its parser. A failed import names the file; a KonteError it threw keeps
-// its code, anything else is a LOAD_FAILED.
+// and hand the module to its parser. A failed import names the project file that threw; a
+// KonteError keeps its code, anything else is a LOAD_FAILED.
 async function importDefinition<T>(
   filePath: string,
   label: string,
@@ -362,30 +362,39 @@ async function importDefinition<T>(
     // that threw poisons its importers too, so evict the whole project subtree: the next load
     // re-evaluates and says it again.
     await underReloadLock(async () => bustProjectModuleCache(path.dirname(filePath)));
+    const origin = err instanceof Error ? thrownIn(err, path.dirname(filePath)) : null;
+    const where =
+      origin && origin !== filePath
+        ? `"${origin}" (imported by ${label} file "${filePath}")`
+        : `${label} file "${filePath}"`;
     if (err instanceof KonteError) {
-      const origin = thrownIn(err, path.dirname(filePath));
-      const where =
-        origin && origin !== filePath
-          ? `"${origin}" (imported by ${label} file "${filePath}")`
-          : `${label} file "${filePath}"`;
       throw new KonteError(err.code, `${where}: ${err.headline}`, err.items);
     }
     throw new KonteError(
       "LOAD_FAILED",
-      `Failed to ${fresh ? "reload" : "load"} ${label} file "${filePath}": ${errorMessage(err)}`,
+      `Failed to ${fresh ? "reload" : "load"} ${where}: ${errorMessage(err)}`,
     );
   }
   return parse(mod, filePath);
 }
 
-// The project file whose evaluation threw `err`: its innermost stack frame under the project, outside
-// the generated `.konte/` module. Null where no frame is.
+// The user file whose evaluation threw `err`: its innermost stack frame that `isProjectModule` counts
+// as user code, outside the generated `.konte/` module. Null where no frame is, or the stack cannot be
+// read.
 function thrownIn(err: Error, videoRoot: string): string | null {
   const prefixes = projectRootPrefixes(videoRoot);
-  for (const [, file] of (err.stack ?? "").matchAll(/(\/[^\s():]+):\d+:\d+/g)) {
-    const at = file!.startsWith("file://") ? fileURLToPath(file!) : file!;
+  let stack: string;
+  try {
+    stack = String(err.stack ?? "");
+  } catch {
+    return null;
+  }
+  for (const line of stack.split("\n")) {
+    const file = /^\s*at (?:.*\()?(.+?):\d+(?::\d+)?\)?$/.exec(line)?.[1];
+    if (!file) continue;
+    const at = file.startsWith("file://") ? fileURLToPath(file) : file;
     if (at.includes(`${path.sep}.konte${path.sep}`)) continue;
-    if (prefixes.some((prefix) => at.startsWith(prefix))) return at;
+    if (isProjectModule(at, prefixes, KONTE_PACKAGE_ROOT)) return at;
   }
   return null;
 }

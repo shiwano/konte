@@ -1,3 +1,5 @@
+import { KonteError } from "../errors.js";
+
 // Assign a value into `target` at a dotted `field` path, creating intermediate
 // objects as needed (`"audio_setting.format"` → `target.audio_setting.format`).
 // A path without a dot is a plain top-level key. Used by the FAL
@@ -18,7 +20,10 @@ export function setFieldPath(target: Record<string, unknown>, field: string, val
     // Guard against prototype pollution: a path like "__proto__.x" must never
     // reach Object.prototype.
     if (FORBIDDEN_SEGMENTS.has(part)) {
-      throw new Error(`Illegal field path segment "${part}" in "${field}"`);
+      throw new KonteError(
+        "VALIDATION_FAILED",
+        `Illegal field path segment "${part}" in "${field}"`,
+      );
     }
   }
   let cursor = target;
@@ -27,7 +32,10 @@ export function setFieldPath(target: Record<string, unknown>, field: string, val
     if (next === undefined) {
       cursor[part] = {};
     } else if (!isPlainObject(next)) {
-      throw new Error(`Cannot set nested field "${field}": "${part}" is not a plain object`);
+      throw new KonteError(
+        "VALIDATION_FAILED",
+        `Cannot set nested field "${field}": "${part}" is not a plain object`,
+      );
     }
     cursor = cursor[part] as Record<string, unknown>;
   }

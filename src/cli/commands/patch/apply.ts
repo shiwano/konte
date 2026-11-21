@@ -19,7 +19,7 @@ import { buildDependencyGraph, extractRefs } from "../../../core/graph.js";
 import { loadStageDefinitions } from "../../../core/stage-definitions.js";
 import { spendGate } from "../../finding-gates.js";
 import { loadCheckContext } from "../../../core/check-context.js";
-import type { SpendCommand } from "../../../core/finding.js";
+import type { SpendCommand } from "../../../core/finding-traits.js";
 import type { VideoRoots } from "../../../core/roots.js";
 import type { KonteConfig } from "../../../core/types/index.js";
 import { applyPatches, preparePatchSpend } from "../../patch-orchestrator.js";

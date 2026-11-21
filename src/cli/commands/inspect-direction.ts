@@ -11,7 +11,7 @@ import { loadCheckContext } from "../../core/check-context.js";
 import { applyResolutionDefinitions } from "../../core/definition-hashes.js";
 import { directionCheckOf } from "../../core/checks.js";
 import {
-  classifyDirectionFinding,
+  directionFindingSpec,
   directionWaiverKey,
   reportableDirectionFindings,
 } from "../../core/direction-findings.js";
@@ -151,7 +151,7 @@ export async function inspectDirection(videoRoot: string, scope: string | null):
   ).map((f) => ({
     code: f.code,
     key: directionWaiverKey(f),
-    class: classifyDirectionFinding(f.code),
+    class: directionFindingSpec(f.code).class,
     message: f.message,
   }));
 

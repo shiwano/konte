@@ -17,7 +17,7 @@ import {
   validateDirectionStructure,
 } from "../direction.js";
 import {
-  classifyDirectionFinding,
+  directionFindingSpec,
   directionWaiverKey,
   reportableDirectionFindings,
 } from "../direction-findings.js";
@@ -33,7 +33,8 @@ import type { NarrativeShot, ScriptLine } from "../dsl/direction.js";
 import { assertCanvasFormat } from "../dsl/direction.js";
 import { deriveCanvasBase } from "../canvas.js";
 import type { AssetStage } from "../address.js";
-import { type SpendCommand, findingTraits, formatFindingLine, spendHold } from "../finding.js";
+import { findingTraits, formatFindingLine, spendHold } from "../finding.js";
+import type { SpendCommand } from "../finding-traits.js";
 
 // What a spend on `stage` is held by, from the direction check alone: one line per finding.
 function spendHeldBy(
@@ -1810,9 +1811,9 @@ describe("checkDirection setups", () => {
   });
 
   it("classifies setup findings as setups findings", () => {
-    expect(classifyDirectionFinding("setup-unrealized")).toBe("setups");
-    expect(classifyDirectionFinding("unused-setup")).toBe("setups");
-    expect(classifyDirectionFinding("setup-atomized")).toBe("setups");
+    expect(directionFindingSpec("setup-unrealized").class).toBe("setups");
+    expect(directionFindingSpec("unused-setup").class).toBe("setups");
+    expect(directionFindingSpec("setup-atomized").class).toBe("setups");
   });
 
   const frame = (location: string, framing: Framing, holds: readonly string[]): Setup => ({
@@ -2198,12 +2199,15 @@ describe("checkDirection characters", () => {
       characters: { cat },
       shots: [shot("01", "ordinary", 3, "the sill at dawn")],
     });
-    const findings = directionFindings(
-      checkDirection(unused, { referenceAssetNames: ["cat"] }),
-      unused,
-    ).filter((f) => f.code === "unused-character");
+    const check = checkDirection(unused, { referenceAssetNames: ["cat"] });
+    const findings = directionFindings(check, unused).filter((f) => f.code === "unused-character");
     expect(findings.map((f) => f.targets)).toEqual([["direction:characters.cat"]]);
-    expect(reportableDirectionFindings(findings, false)).toHaveLength(1);
+    expect(
+      reportableDirectionFindings(
+        check.active.filter((f) => f.code === "unused-character"),
+        false,
+      ),
+    ).toHaveLength(1);
   });
 
   it("waives an unreferenced character via the root waivers", () => {
@@ -2318,19 +2322,19 @@ describe("reportableDirectionFindings", () => {
   });
 });
 
-describe("classifyDirectionFinding", () => {
+describe("a direction finding's class", () => {
   it("maps codes to their classes", () => {
-    expect(classifyDirectionFinding("missing-role")).toBe("arc");
-    expect(classifyDirectionFinding("unearned-payoff")).toBe("arc");
-    expect(classifyDirectionFinding("role-overweight")).toBe("pacing");
-    expect(classifyDirectionFinding("character-unreferenced")).toBe("characters");
-    expect(classifyDirectionFinding("unused-character")).toBe("characters");
-    expect(classifyDirectionFinding("prop-unreferenced")).toBe("props");
-    expect(classifyDirectionFinding("unused-prop")).toBe("props");
-    expect(classifyDirectionFinding("location-unreferenced")).toBe("locations");
-    expect(classifyDirectionFinding("unused-location")).toBe("locations");
-    expect(classifyDirectionFinding("multi-sentence-action")).toBe("arc");
-    expect(classifyDirectionFinding("off-grid-duration")).toBe("pacing");
+    expect(directionFindingSpec("missing-role").class).toBe("arc");
+    expect(directionFindingSpec("unearned-payoff").class).toBe("arc");
+    expect(directionFindingSpec("role-overweight").class).toBe("pacing");
+    expect(directionFindingSpec("character-unreferenced").class).toBe("characters");
+    expect(directionFindingSpec("unused-character").class).toBe("characters");
+    expect(directionFindingSpec("prop-unreferenced").class).toBe("props");
+    expect(directionFindingSpec("unused-prop").class).toBe("props");
+    expect(directionFindingSpec("location-unreferenced").class).toBe("locations");
+    expect(directionFindingSpec("unused-location").class).toBe("locations");
+    expect(directionFindingSpec("multi-sentence-action").class).toBe("arc");
+    expect(directionFindingSpec("off-grid-duration").class).toBe("pacing");
   });
 });
 
@@ -2417,7 +2421,7 @@ describe("checkDirection typesetting", () => {
   });
 
   it("is waivable, and rides its own class", () => {
-    expect(classifyDirectionFinding("fonts-undeclared")).toBe("typesetting");
+    expect(directionFindingSpec("fonts-undeclared").class).toBe("typesetting");
     const dir = withPolicy("ja");
     const waived = {
       ...dir,
@@ -2735,7 +2739,7 @@ describe("checkDirection voices", () => {
       "narrator-unreferenced",
       "unused-narrator",
     ] as const) {
-      expect(classifyDirectionFinding(code)).toBe("characters");
+      expect(directionFindingSpec(code).class).toBe("characters");
     }
   });
 

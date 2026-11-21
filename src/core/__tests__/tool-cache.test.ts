@@ -152,13 +152,20 @@ describe("moveFoundBinary", () => {
     fs.mkdirSync(path.join(dir, "out", "ffmpeg-1.0", "bin"), { recursive: true });
     fs.writeFileSync(path.join(dir, "out", "ffmpeg-1.0", "bin", "ffmpeg"), "new");
     fs.writeFileSync(path.join(dir, "ffmpeg"), "old");
-    moveFoundBinary(path.join(dir, "out"), "ffmpeg", path.join(dir, "ffmpeg"));
+    moveFoundBinary(
+      path.join(dir, "out"),
+      "ffmpeg",
+      path.join(dir, "ffmpeg"),
+      "FFMPEG_SETUP_FAILED",
+    );
     expect(fs.readFileSync(path.join(dir, "ffmpeg"), "utf-8")).toBe("new");
     expect(fs.existsSync(path.join(dir, "out", "ffmpeg-1.0", "bin", "ffmpeg"))).toBe(false);
   });
 
   it("refuses an extraction that holds no such binary", () => {
     install("ffprobe");
-    expect(() => moveFoundBinary(dir, "ffmpeg", path.join(dir, "ffmpeg"))).toThrow(/"ffmpeg"/);
+    expect(() =>
+      moveFoundBinary(dir, "ffmpeg", path.join(dir, "ffmpeg"), "FFMPEG_SETUP_FAILED"),
+    ).toThrow(/"ffmpeg"/);
   });
 });

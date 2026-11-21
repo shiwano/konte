@@ -269,8 +269,8 @@ async function fillManaged(
       await downloadFile(src.url, archive, progressReporter("ffmpeg + ffprobe"));
       endProgress();
       await extractArchive(archive, tmp);
-      moveFoundBinary(tmp, src.ffmpeg, fmDest);
-      moveFoundBinary(tmp, src.ffprobe, fpDest);
+      moveFoundBinary(tmp, src.ffmpeg, fmDest, "FFMPEG_SETUP_FAILED");
+      moveFoundBinary(tmp, src.ffprobe, fpDest, "FFPROBE_SETUP_FAILED");
     } else {
       await extractGzipped(src.ffmpegUrl, fmDest, "ffmpeg", tmp);
       await extractGzipped(src.ffprobeUrl, fpDest, "ffprobe", tmp);

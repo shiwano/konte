@@ -287,7 +287,8 @@ function assertComfyInputs(inputs: Record<string, AdapterInputDef>): void {
   // measured against to the order they happen to be declared in.
   const lengths = Object.entries(inputs).filter(([, d]) => clipUnitsPerSecond(d) !== undefined);
   if (lengths.length > 1) {
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `Inputs ${lengths.map(([k]) => `"${k}"`).join(" and ")} each give the clip's length, and a clip has one`,
     );
   }
@@ -298,7 +299,8 @@ function assertComfyInputs(inputs: Record<string, AdapterInputDef>): void {
         [d, ...(d.also ?? [])].some((t) => t.nodeId === nodeId && t.field === field),
       );
       if (writer) {
-        throw new Error(
+        throw new KonteError(
+          "VALIDATION_FAILED",
           `Input "${writer[0]}" writes ${nodeId}.${field}, which "${key}" anchors its image by — the anchor overwrites it, so the input changes nothing`,
         );
       }
@@ -306,23 +308,29 @@ function assertComfyInputs(inputs: Record<string, AdapterInputDef>): void {
       // fill) would leave it pointing past the clip.
       const length = Object.values(inputs).find((d) => d.type === "frames");
       if (!length || length.fill !== undefined) {
-        throw new Error(
+        throw new KonteError(
+          "VALIDATION_FAILED",
           `Input "${key}" anchors its image at a frame, so the adapter needs a "frames" length that follows the shot`,
         );
       }
     }
     if (def.clock !== undefined) {
       if (def.type !== "frames") {
-        throw new Error(
+        throw new KonteError(
+          "VALIDATION_FAILED",
           `Input "${key}" is typed "${def.type}", so its clock is never read — only a "frames" input counts on one`,
         );
       }
       if (!Number.isFinite(def.clock) || def.clock <= 0) {
-        throw new Error(`Input "${key}" needs a positive clock, got ${def.clock}`);
+        throw new KonteError(
+          "VALIDATION_FAILED",
+          `Input "${key}" needs a positive clock, got ${def.clock}`,
+        );
       }
     }
     if (def.fill !== undefined && clipUnitsPerSecond(def) === undefined) {
-      throw new Error(
+      throw new KonteError(
+        "VALIDATION_FAILED",
         def.type === "frames"
           ? `Input "${key}" fills from the words, so it needs the clock they are counted on`
           : `Input "${key}" is typed "${def.type}", so it has nothing to fill — only a clip's length is derived`,
@@ -330,26 +338,37 @@ function assertComfyInputs(inputs: Record<string, AdapterInputDef>): void {
     }
     if (def.max !== undefined) {
       if (!GRID_TYPES.has(def.type)) {
-        throw new Error(
+        throw new KonteError(
+          "VALIDATION_FAILED",
           `Input "${key}" is typed "${def.type}", so its max is never enforced — only a number carries a ceiling`,
         );
       }
       if (!Number.isFinite(def.max)) {
-        throw new Error(`Input "${key}" needs a finite max, got ${def.max}`);
+        throw new KonteError(
+          "VALIDATION_FAILED",
+          `Input "${key}" needs a finite max, got ${def.max}`,
+        );
       }
     }
     if (!def.grid) continue;
     if (!GRID_TYPES.has(def.type)) {
-      throw new Error(
+      throw new KonteError(
+        "VALIDATION_FAILED",
         `Input "${key}" is typed "${def.type}", so its grid is never applied — only a number lands on one`,
       );
     }
     const { step, offset } = def.grid;
     if (!Number.isSafeInteger(step) || step <= 0) {
-      throw new Error(`Input "${key}" needs a positive integer grid step, got ${step}`);
+      throw new KonteError(
+        "VALIDATION_FAILED",
+        `Input "${key}" needs a positive integer grid step, got ${step}`,
+      );
     }
     if (offset !== undefined && (!Number.isSafeInteger(offset) || offset < 0)) {
-      throw new Error(`Input "${key}" needs a non-negative integer grid offset, got ${offset}`);
+      throw new KonteError(
+        "VALIDATION_FAILED",
+        `Input "${key}" needs a non-negative integer grid offset, got ${offset}`,
+      );
     }
   }
 }
@@ -706,14 +725,22 @@ function assertDerivedInputs(
 ): void {
   for (const key of Object.keys(derive)) {
     const def = inputs[key];
-    if (!def) throw new Error(`Derive names input "${key}", which the adapter does not declare`);
+    if (!def)
+      throw new KonteError(
+        "VALIDATION_FAILED",
+        `Derive names input "${key}", which the adapter does not declare`,
+      );
     if (def.type !== "string" && def.type !== "number" && def.type !== "boolean") {
-      throw new Error(
+      throw new KonteError(
+        "VALIDATION_FAILED",
         `Derived input "${key}" must be a string, number or boolean, not "${def.type}"`,
       );
     }
     if (def.required || def.default !== undefined) {
-      throw new Error(`Derived input "${key}" cannot also be required or defaulted`);
+      throw new KonteError(
+        "VALIDATION_FAILED",
+        `Derived input "${key}" cannot also be required or defaulted`,
+      );
     }
   }
 }
@@ -742,7 +769,8 @@ function assertSpeechFill(config: {
     config.spokenTextPattern !== undefined ||
     Object.values(config.inputs).some((d) => d.type === "spokenText");
   if (!readable) {
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `Input "${filled[0]![0]}" fills from the words, but this adapter declares neither a ` +
         `"spokenText" input nor a spokenTextPattern, so it has no words to read`,
     );
@@ -787,14 +815,20 @@ function assertMinPixels(config: {
 }): readonly [string, string] | undefined {
   if (config.minPixels === undefined) return undefined;
   if (!Number.isFinite(config.minPixels) || config.minPixels <= 0) {
-    throw new Error(`minPixels needs a positive number, got ${config.minPixels}`);
+    throw new KonteError(
+      "VALIDATION_FAILED",
+      `minPixels needs a positive number, got ${config.minPixels}`,
+    );
   }
   const keyOf = (type: "width" | "height"): string => {
     const keys = Object.entries(config.inputs)
       .filter(([, d]) => d.type === type)
       .map(([k]) => k);
     if (keys.length !== 1) {
-      throw new Error(`minPixels needs exactly one "${type}" input, found ${keys.length}`);
+      throw new KonteError(
+        "VALIDATION_FAILED",
+        `minPixels needs exactly one "${type}" input, found ${keys.length}`,
+      );
     }
     return keys[0]!;
   };

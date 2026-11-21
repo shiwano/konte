@@ -220,7 +220,8 @@ export function buildMetaInputs(
 
 function structureMeta(name: string, def: DeclaredInput): PromptStructureMeta {
   if (def.type !== "prompt") {
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `Input "${name}" is typed "${def.type}", so it takes no structure — only a "prompt" does`,
     );
   }
@@ -235,18 +236,23 @@ export function assertFixedInputs(inputs: Record<string, DeclaredInput>): void {
   for (const [key, def] of Object.entries(inputs)) {
     if (!def.fixed) continue;
     if (def.default === undefined || typeof def.default === "function") {
-      throw new Error(`Fixed input "${key}" needs a literal default`);
+      throw new KonteError("VALIDATION_FAILED", `Fixed input "${key}" needs a literal default`);
     }
     if (def.type !== "string" && def.type !== "number" && def.type !== "boolean") {
-      throw new Error(
+      throw new KonteError(
+        "VALIDATION_FAILED",
         `Fixed input "${key}" must be a string, number or boolean, not "${def.type}"`,
       );
     }
     if (def.required || def.array || def.values) {
-      throw new Error(`Fixed input "${key}" cannot also set required, array or values`);
+      throw new KonteError(
+        "VALIDATION_FAILED",
+        `Fixed input "${key}" cannot also set required, array or values`,
+      );
     }
     if (typeof def.default !== def.type) {
-      throw new Error(
+      throw new KonteError(
+        "VALIDATION_FAILED",
         `Fixed input "${key}" is typed "${def.type}" but defaults to ${typeof def.default}`,
       );
     }
@@ -262,16 +268,21 @@ export function assertPinInputs(inputs: Record<string, DeclaredInput>): void {
     const end = pinnedEnd(def.pin);
     if (!end) continue;
     if (def.type !== "image") {
-      throw new Error(
+      throw new KonteError(
+        "VALIDATION_FAILED",
         `Input "${key}" is typed "${def.type}", so it pins no frame — only an image is reproduced as one`,
       );
     }
     if (def.array) {
-      throw new Error(`Input "${key}" pins one frame, so it cannot also take an array`);
+      throw new KonteError(
+        "VALIDATION_FAILED",
+        `Input "${key}" pins one frame, so it cannot also take an array`,
+      );
     }
     const taken = byEnd.get(end);
     if (taken) {
-      throw new Error(
+      throw new KonteError(
+        "VALIDATION_FAILED",
         `Inputs "${taken}" and "${key}" both pin the clip's ${end}, and a clip has one frame there`,
       );
     }
@@ -286,14 +297,16 @@ export function assertStemInputs(inputs: Record<string, DeclaredInput>): void {
   const stems = Object.entries(inputs).filter(([, def]) => def.stem);
   for (const [key, def] of stems) {
     if (def.type !== "audio" || def.array || def.fixed || def.required) {
-      throw new Error(
+      throw new KonteError(
+        "VALIDATION_FAILED",
         `Input "${key}" is a stem, so it takes one audio konte fills — not "${def.type}", an ` +
           `array, fixed or required`,
       );
     }
   }
   if (stems.length > 1) {
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `Inputs ${stems.map(([key]) => `"${key}"`).join(" and ")} are all stems, and a take has one`,
     );
   }
@@ -307,13 +320,15 @@ export function assertTurboInputs(inputs: Record<string, DeclaredInput>): string
   const turbos = Object.entries(inputs).filter(([, def]) => def.turbo);
   for (const [key, def] of turbos) {
     if (def.type !== "boolean" || typeof def.default !== "boolean" || def.fixed) {
-      throw new Error(
+      throw new KonteError(
+        "VALIDATION_FAILED",
         `Input "${key}" is a turbo switch, so it takes a boolean with a literal default, not fixed`,
       );
     }
   }
   if (turbos.length > 1) {
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `Inputs ${turbos.map(([key]) => `"${key}"`).join(" and ")} are all turbo switches, and an ` +
         `adapter has one`,
     );
@@ -356,7 +371,7 @@ function assertUniqueAsset(
   where: string,
 ): void {
   if (assets.has(name)) {
-    throw new Error(`Duplicate asset "${name}" declared in ${where}`);
+    throw new KonteError("VALIDATION_FAILED", `Duplicate asset "${name}" declared in ${where}`);
   }
 }
 
@@ -410,7 +425,8 @@ function declarationSite(): AssetDeclarationSite | undefined {
 
 export function assertAllowedIn(allowedIn: readonly AssetDeclarationSite[] | undefined): void {
   if (!allowedIn || allowedIn.length === 0) {
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `allowedIn needs at least one of ${(Object.keys(SITE_REACH) as AssetDeclarationSite[]).join(", ")}`,
     );
   }
@@ -560,7 +576,10 @@ function registerAsset<TName extends string, TAdapter extends AssetAdapter<any, 
 
   const ctx = getShotContext();
   if (!ctx) {
-    throw new Error("asset() must be called inside a timeline() or shot() function");
+    throw new KonteError(
+      "VALIDATION_FAILED",
+      "asset() must be called inside a timeline() or shot() function",
+    );
   }
 
   ctx.assetKinds.set(name, adapter.type);

@@ -8,6 +8,7 @@
 import { formatCompositionAddress, formatPlateAddress, formatShotAddress } from "./address.js";
 import { formatSeconds, formatSecondsRange } from "./format-duration.js";
 import type { AcceptJudgedCode } from "./finding.js";
+import type { DirectionFindingCode } from "./direction-findings.js";
 import type { PanelLane, ShotJoin } from "./types/definition.js";
 import { parseViewName, type View } from "./view.js";
 
@@ -50,102 +51,6 @@ export type LensSpec<Role extends string> = {
   roles: LensRole<Role>[];
   payoff: Role;
 };
-
-/**
- * Fixed contract, like KonteErrorCode: doctor / waiver keys / scripts branch on these. The same
- * codes are reused at both scales — the subject (role / id / range) distinguishes instances.
- */
-export type DirectionFindingCode =
-  | "missing-role"
-  | "no-payoff"
-  | "role-out-of-order"
-  | "lens-role-mismatch"
-  | "too-few-consecutive"
-  | "empty-synopsis"
-  | "unearned-payoff"
-  | "role-overweight"
-  | "role-underweight"
-  | "character-unreferenced"
-  | "unused-character"
-  | "character-voice-missing"
-  | "character-voice-unreferenced"
-  | "unused-character-voice"
-  | "narrator-missing"
-  | "narrator-unreferenced"
-  | "unused-narrator"
-  | "prop-unreferenced"
-  | "unused-prop"
-  | "location-unreferenced"
-  | "unused-location"
-  | "setup-unrealized"
-  | "plate-unanchored"
-  | "setup-unconsumed"
-  // A window's plate cut outside the plate of the frame it declares itself a window of.
-  | "plate-unnested"
-  // The axis read as a shared frame: a cut along one, with no plate holding its two ends to one
-  // master.
-  | "axis-unrealized"
-  // A plate neither of the two above asks for.
-  | "plate-unowed"
-  | "unused-setup"
-  | "setup-atomized"
-  // The views: a way a setup faces with no image of it, a plate standing on another view's image,
-  // a view image drawn from nothing of its location, and an image of a view whose prompt does not
-  // ask for a landmark a setup facing that way holds.
-  | "view-unrealized"
-  | "plate-unviewed"
-  | "view-unanchored"
-  | "view-unnamed"
-  | "multi-sentence-action"
-  | "off-grid-duration"
-  | "off-beat-cut"
-  | "fonts-undeclared"
-  // The staging class: who the frame holds, left to right, declared per shot and accumulated per
-  // place. Four settle a RELATION between two subjects across two shots; the two the board feeds
-  // settle the declared frame against what the keyframe was conditioned on — who it took
-  // (`character-unconsumed`) and in what order (`slot-order-mismatch`). The last settles the frame
-  // itself: a keyframe that crops the plate it stands on.
-  | "lineup-flipped"
-  | "lineup-gap"
-  | "lineup-vacuous"
-  | "lineup-inconsistent"
-  // A character's route: a frame back in a place they left, with no jump between.
-  | "location-backtrack"
-  | "character-unconsumed"
-  | "slot-order-mismatch"
-  | "plate-recropped"
-  // The seam a `continuous` join declares: one take across a shot boundary, so the frame at the end
-  // of the one and the start of the next is a single frame — the opening keyframe of the shot that
-  // owns the boundary. The two shots must agree on who it holds, and the take before must land on
-  // it.
-  | "join-lineup-mismatch"
-  | "join-unpinned"
-  // The seam frame is pinned, and the composition's window over the take leaves it out.
-  | "join-unshown"
-  // A frame's key pinned as the first frame of a take whose model could have taken it as a reference.
-  | "opening-key"
-  // A cut along one camera axis: the camera does not move, so the frame does not restart.
-  | "panel-unlinked"
-  // A cut back to a setup across a cutaway.
-  | "return-unlinked"
-  // `landmark-flipped` is the `lineup-flipped` of things that do not move, read across the setups
-  // of one place. Each `-unnamed` asks whether the text calls a thing by the name the direction
-  // declared: a frame's subjects and props in its keyframes' prompts, a passer in the take's, and a
-  // landmark the frame holds in the prompt that first draws the frame — its plate's, or its
-  // keyframes' where the setup has none.
-  | "landmark-flipped"
-  | "subject-unnamed"
-  | "prop-unnamed"
-  | "passer-unconsumed"
-  | "passer-unnamed"
-  | "plate-unnamed"
-  | "landmark-unnamed"
-  // The song's: the song the piece is cut to is not a reference asset, and a lyric line no reading
-  // of the take places.
-  | "song-unreferenced"
-  | "lyric-unplaced"
-  // The timeline runs on past the end of the take of the song.
-  | "song-overrun";
 
 type DirectionFindingFields = {
   // role / shot id / id-range, depending on the code; omitted for no-payoff.

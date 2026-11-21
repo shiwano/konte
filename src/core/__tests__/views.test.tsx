@@ -350,4 +350,25 @@ describe("view-unnamed", () => {
     expect(held[0]!.judgedBy).toEqual(["reference:studio"]);
     expect(spendHold(held[0]!, { command: "generate", stage: "reference" })).toBe("whole");
   });
+
+  it("is cancelled by a waiver of its key", async () => {
+    const { findings: found } = await collectFindings({
+      cueTakes: "played",
+      videoRoot: "",
+      direction: {
+        ...(boarded as unknown as Direction),
+        waivers: { "view-unnamed_studio.front.desk": "the desk is painted in later" },
+      },
+      directionAccepted: true,
+      directionUnlocked: true,
+      reference: drawn("the studio, empty", "the floor lamp"),
+      animatic: null,
+      video: null,
+      manager: null,
+      graph: null,
+      patches: [],
+      lang: null,
+    });
+    expect(found.filter((f) => f.code === "view-unnamed")).toEqual([]);
+  });
 });

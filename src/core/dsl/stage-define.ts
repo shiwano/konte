@@ -196,7 +196,8 @@ export function defineStage(args: DefineStageArgs): StageBuild {
     // Guard the shape here — it is the only runtime check that the top of a shot is a Composition
     // (JSX collapses every element to the same type, so the compiler cannot enforce it).
     if (!isCompositionElement(element)) {
-      throw new Error(
+      throw new KonteError(
+        stage === "animatic" ? "ANIMATIC_INVALID" : "VALIDATION_FAILED",
         `${stage === "video" ? "Video" : "Animatic"} shot "${input.id}" build must return a ` +
           `<Composition>…</Composition> at its top level.`,
       );
@@ -375,7 +376,8 @@ function placeableSoundtracks(
         return false;
       }
       if (anchor.at !== undefined && (anchor.at < 0 || anchor.at > dur)) {
-        throw new Error(
+        throw new KonteError(
+          "VALIDATION_FAILED",
           `soundtrack "${st.id}" anchor at=${anchor.at} is outside shot "${anchor.shot}" ` +
             `(duration ${dur}s).`,
         );
@@ -415,7 +417,8 @@ function defineOverlay(
   const fn = overlayFn(build, index);
   const { assets, element } = runInDiscoveryMode(stage, "overlay", fn, { ...format, duration });
   if (Object.keys(assets).length > 0) {
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `the overlay declares ${Object.keys(assets).join(", ")} with asset() — it shows timeline ` +
         `or reference assets; declare the asset at the top of the timeline.`,
     );
@@ -433,7 +436,10 @@ function assertStillComposition(
   format: VideoFormat & { typography: Typography; duration: number },
 ): string[] {
   if (!isCompositionElement(element)) {
-    throw new Error(`${label} build must return a <Composition>…</Composition> at its top level.`);
+    throw new KonteError(
+      "VALIDATION_FAILED",
+      `${label} build must return a <Composition>…</Composition> at its top level.`,
+    );
   }
   let media = false;
   const refs: string[] = [];
@@ -453,7 +459,8 @@ function assertStillComposition(
     },
   );
   if (media) {
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `${label} plays a <Video> or an <Audio>. ` +
         "Place the media in a shot, or a sound in the timeline's soundtracks.",
     );

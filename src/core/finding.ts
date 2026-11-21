@@ -1,20 +1,27 @@
 // The one vocabulary of machine findings. A check reads the definitions (and the takes) and reports
-// findings; what a finding is — what it reads, how it clears, what it holds and from when — is a
-// property of its code, fixed in FINDING_TRAITS. The gates, `status` and FINDINGS.md all read the
-// table.
+// findings; what a finding is is a property of its code, fixed in DIRECTION_FINDINGS for a direction
+// code and in OTHER_TRAITS for the rest. The gates, `status` and FINDINGS.md all read the tables.
 
 import { type AssetStage, type Stage, getStage, matchesAddressScope } from "./address.js";
-import type { DirectionFindingCode } from "./direction-check.js";
+import {
+  type DirectionFindingCode,
+  type DirectionJudgedCode,
+  directionFindingSpec,
+  isDirectionFindingCode,
+} from "./direction-findings.js";
 import type { DirectionErrorCode } from "./direction.js";
 import { STAGE_ENTRY_FILE } from "./roots.js";
 import { DIRECTION_ERROR_REMEDY } from "./finding-remedy/direction-error.js";
-import { DIRECTION_FINDING_REMEDY } from "./finding-remedy/direction.js";
 import { OTHER_FINDING_REMEDY } from "./finding-remedy/other.js";
+import {
+  type FindingTraits,
+  type SpendCommand,
+  type SpendReach,
+  fixDirection,
+  judged,
+} from "./finding-traits.js";
 import type { PinFindingCode } from "./pin-check.js";
 import type { PromptFindingCode } from "./prompt-check.js";
-
-// Every command that can spend on a backend.
-export type SpendCommand = "generate" | "reroll" | "patch" | "export";
 
 export type FindingCode =
   | DirectionFindingCode
@@ -72,25 +79,6 @@ export type BuildFinding = {
   targets: readonly string[];
 };
 
-// How far a spend hold reaches, from the finding's stage: `edge` holds only the subject's assets and
-// what is built on them, on its stage and downstream; the rest still spends.
-type SpendReach = "stage" | "stage+downstream" | "downstream" | "edge";
-
-export type FindingTraits = {
-  reads: "definition" | "take";
-  clears: "fix" | "waive" | "vouch" | "accept";
-  holds: {
-    // `named`: a targeted spend (`reroll`, `patch apply`) is held only when it names an asset under
-    // the finding's targets, or one of no shot.
-    spend?: { reach: SpendReach; commands?: readonly SpendCommand[]; named?: true };
-    accept?: true;
-    preview?: true;
-  };
-  onset: "always" | "after-direction-accepted" | "after-take";
-  // An accept of the addresses it is judged by (`judgedBy`) signs it off.
-  signsOff: boolean;
-};
-
 // The file a finding is fixed in: a stage's entry file, or the patch script of one take.
 export type SourceFile = { stage: Stage; patch?: string };
 
@@ -122,155 +110,25 @@ function sourceFilePath(file: SourceFile): string {
   return file.patch ? `patches/${file.patch}.ts` : STAGE_ENTRY_FILE[file.stage];
 }
 
-const waive = (
-  reach: SpendReach,
-  onset: FindingTraits["onset"] = "always",
-  reads: FindingTraits["reads"] = "definition",
-) => ({
-  reads,
-  clears: "waive" as const,
-  holds: { spend: { reach } },
-  onset,
-  signsOff: false as const,
-});
+// The non-direction codes an accept of the addresses they are judged by signs off.
+type OtherJudgedCode =
+  | "prompt-negation"
+  | "prompt-not-yet"
+  | "prompt-double-negative"
+  | "landmark-unheld"
+  | "stem-unmouthed";
 
-const judged = <T extends FindingTraits>(traits: T) => ({ ...traits, signsOff: true as const });
+export type AcceptJudgedCode = DirectionJudgedCode | OtherJudgedCode;
 
-// A declaration contradicting another, or naming nothing.
-const fixDirection = {
-  reads: "definition",
-  clears: "fix",
-  holds: { spend: { reach: "stage+downstream" }, accept: true },
-  onset: "always",
-  signsOff: false,
-} as const satisfies FindingTraits;
+type OtherFindingCode = Exclude<FindingCode, DirectionFindingCode | DirectionErrorCode>;
 
-const ROSTER = "after-direction-accepted" as const;
-
-// The codes an accept of the addresses a finding names in `judgedBy` signs off.
-const ACCEPT_JUDGED_CODES = [
-  "setup-unrealized",
-  "axis-unrealized",
-  "setup-unconsumed",
-  "setup-atomized",
-  "character-unconsumed",
-  "slot-order-mismatch",
-  "plate-recropped",
-  "subject-unnamed",
-  "prop-unnamed",
-  "passer-unconsumed",
-  "passer-unnamed",
-  "plate-unnamed",
-  "landmark-unnamed",
-  "view-unnamed",
-  "join-unpinned",
-  "join-unshown",
-  "opening-key",
-  "panel-unlinked",
-  "return-unlinked",
-  "prompt-negation",
-  "prompt-not-yet",
-  "prompt-double-negative",
-  "landmark-unheld",
-  "stem-unmouthed",
-] as const satisfies readonly FindingCode[];
-
-export type AcceptJudgedCode = (typeof ACCEPT_JUDGED_CODES)[number];
-
-// The direction codes only a fix clears; every other direction code is waivable.
-const FIX_ONLY_DIRECTION_CODES = [
-  "lens-role-mismatch",
-  "empty-synopsis",
-  "unused-character",
-  "unused-character-voice",
-  "unused-narrator",
-  "unused-prop",
-  "unused-location",
-  "unused-setup",
-  "off-grid-duration",
-  "lineup-vacuous",
-  "join-lineup-mismatch",
-  "song-unreferenced",
-] as const satisfies readonly DirectionFindingCode[];
-
-export type WaivableCode = Exclude<DirectionFindingCode, (typeof FIX_ONLY_DIRECTION_CODES)[number]>;
-
-// Each code's traits, its `signsOff` agreeing with `ACCEPT_JUDGED_CODES`.
-type TraitsOf<Code extends FindingCode> = {
-  [K in Code]: FindingTraits & { signsOff: K extends AcceptJudgedCode ? true : false };
+// Each code's traits, its `signsOff` agreeing with `OtherJudgedCode`.
+type OtherTraits = {
+  [K in OtherFindingCode]: FindingTraits & { signsOff: K extends OtherJudgedCode ? true : false };
 };
 
-// A direction code's `clears` agreeing with `FIX_ONLY_DIRECTION_CODES`.
-type DirectionTraitsOf<Code extends DirectionFindingCode> = {
-  [K in Code]: TraitsOf<Code>[K] & { clears: K extends WaivableCode ? "waive" : "fix" };
-};
-
-const DIRECTION_FINDING_TRAITS: DirectionTraitsOf<DirectionFindingCode> = {
-  "missing-role": waive("stage+downstream"),
-  "no-payoff": waive("stage+downstream"),
-  "role-out-of-order": waive("stage+downstream"),
-  "lens-role-mismatch": fixDirection,
-  "too-few-consecutive": waive("stage+downstream"),
-  "empty-synopsis": fixDirection,
-  "unearned-payoff": waive("stage+downstream"),
-  "role-overweight": waive("stage+downstream"),
-  "role-underweight": waive("stage+downstream"),
-  "character-unreferenced": waive("downstream", ROSTER),
-  "unused-character": fixDirection,
-  "character-voice-missing": waive("stage+downstream", ROSTER),
-  "character-voice-unreferenced": waive("downstream", ROSTER),
-  "unused-character-voice": fixDirection,
-  "narrator-missing": waive("stage+downstream", ROSTER),
-  "narrator-unreferenced": waive("downstream", ROSTER),
-  "unused-narrator": fixDirection,
-  "prop-unreferenced": waive("downstream", ROSTER),
-  "unused-prop": fixDirection,
-  "location-unreferenced": waive("downstream", ROSTER),
-  "unused-location": fixDirection,
-  "setup-unrealized": judged(waive("stage+downstream", ROSTER)),
-  "plate-unanchored": waive("stage+downstream", ROSTER),
-  "plate-unnested": waive("stage+downstream", ROSTER),
-  "axis-unrealized": judged(waive("stage+downstream", ROSTER)),
-  "plate-unowed": waive("stage+downstream", ROSTER),
-  "setup-unconsumed": judged(waive("stage+downstream", ROSTER)),
-  "unused-setup": fixDirection,
-  "setup-atomized": judged(waive("stage+downstream", ROSTER)),
-  "view-unrealized": waive("downstream", ROSTER),
-  "plate-unviewed": waive("stage+downstream", ROSTER),
-  "view-unanchored": waive("stage+downstream"),
-  "view-unnamed": judged(waive("stage+downstream", ROSTER)),
-  "multi-sentence-action": waive("stage+downstream"),
-  "off-grid-duration": fixDirection,
-  "off-beat-cut": waive("stage+downstream"),
-  "fonts-undeclared": waive("stage+downstream"),
-  "lineup-flipped": waive("stage+downstream"),
-  "lineup-gap": waive("stage+downstream"),
-  "lineup-vacuous": fixDirection,
-  "lineup-inconsistent": waive("stage+downstream"),
-  "location-backtrack": waive("stage+downstream"),
-  "character-unconsumed": judged(waive("stage+downstream")),
-  "slot-order-mismatch": judged(waive("stage+downstream")),
-  "plate-recropped": judged(waive("stage+downstream")),
-  "landmark-flipped": waive("stage+downstream"),
-  "subject-unnamed": judged(waive("stage+downstream")),
-  "prop-unnamed": judged(waive("stage+downstream")),
-  "passer-unconsumed": judged(waive("stage")),
-  "passer-unnamed": judged(waive("stage")),
-  "plate-unnamed": judged(waive("stage+downstream")),
-  "landmark-unnamed": judged(waive("stage+downstream")),
-  "join-lineup-mismatch": fixDirection,
-  "join-unpinned": judged(waive("stage+downstream")),
-  "join-unshown": judged(waive("stage+downstream")),
-  "opening-key": judged(waive("stage", "always", "take")),
-  "panel-unlinked": judged(waive("stage+downstream")),
-  "return-unlinked": judged(waive("stage+downstream")),
-  "song-unreferenced": {
-    ...fixDirection,
-    holds: { spend: { reach: "downstream" }, accept: true },
-  },
-  "lyric-unplaced": waive("stage+downstream", "always", "take"),
-  "song-overrun": waive("stage+downstream", "always", "take"),
-};
+// Every structural error.
+const DIRECTION_ERROR_TRAITS = fixDirection;
 
 // A stage file behind its direction: it holds that stage's spend, its downstream's, and the accept
 // of what it sits on.
@@ -299,7 +157,7 @@ const fixPrompt = judged({
   signsOff: false,
 });
 
-const OTHER_TRAITS: TraitsOf<Exclude<FindingCode, DirectionFindingCode | DirectionErrorCode>> = {
+const OTHER_TRAITS: OtherTraits = {
   "prompt-negation": fixPrompt,
   "prompt-not-yet": fixPrompt,
   "prompt-double-negative": fixPrompt,
@@ -389,18 +247,15 @@ const OTHER_TRAITS: TraitsOf<Exclude<FindingCode, DirectionFindingCode | Directi
   "source-locator-out-of-range": fixStageAndDownstream,
 };
 
-export function findingTraits(code: FindingCode): FindingTraits {
-  return (
-    (DIRECTION_FINDING_TRAITS as Record<string, FindingTraits>)[code] ??
-    (OTHER_TRAITS as Record<string, FindingTraits>)[code] ??
-    fixDirection
-  );
+function isDirectionErrorCode(code: FindingCode): code is DirectionErrorCode {
+  return Object.hasOwn(DIRECTION_ERROR_REMEDY, code);
 }
 
-// Every code a check reports, in the order FINDINGS.md lists them.
-export const DIRECTION_FINDING_CODES = Object.keys(
-  DIRECTION_FINDING_TRAITS,
-) as DirectionFindingCode[];
+export function findingTraits(code: FindingCode): FindingTraits {
+  if (isDirectionFindingCode(code)) return directionFindingSpec(code).traits;
+  if (isDirectionErrorCode(code)) return DIRECTION_ERROR_TRAITS;
+  return OTHER_TRAITS[code];
+}
 
 // The spend stages downstream of a stage; a direction finding holds the two shot stages.
 const DOWNSTREAM: Record<Stage, readonly AssetStage[]> = {
@@ -466,14 +321,10 @@ export function findingLabel(finding: Finding): string {
 
 // What clears every finding of a code, printed once over its findings; a finding carries only what
 // is its own in `message`.
-const FINDING_REMEDY: Record<FindingCode, string> = {
-  ...DIRECTION_FINDING_REMEDY,
-  ...DIRECTION_ERROR_REMEDY,
-  ...OTHER_FINDING_REMEDY,
-};
-
 export function findingRemedy(code: FindingCode): string {
-  return FINDING_REMEDY[code];
+  if (isDirectionFindingCode(code)) return directionFindingSpec(code).remedy;
+  if (isDirectionErrorCode(code)) return DIRECTION_ERROR_REMEDY[code];
+  return OTHER_FINDING_REMEDY[code];
 }
 
 // The finding without its code's remedy, as a line under the remedy.
@@ -487,7 +338,7 @@ function formatFindingItem(finding: Finding): string {
 export function formatFindingLine(finding: Finding): string {
   const subject =
     finding.subject && !finding.key?.endsWith(finding.subject) ? `${finding.subject} — ` : "";
-  return `[${findingLabel(finding)}] ${subject}${finding.message} — ${FINDING_REMEDY[finding.code]}`;
+  return `[${findingLabel(finding)}] ${subject}${finding.message} — ${findingRemedy(finding.code)}`;
 }
 
 // One file's findings as printed: each code's under one `<code> ×<n> — <remedy>` head.
@@ -497,7 +348,7 @@ export function formatFindingBlocks(findings: readonly Finding[]): FindingBlock[
   const byCode = new Map<FindingCode, Finding[]>();
   for (const f of findings) byCode.set(f.code, [...(byCode.get(f.code) ?? []), f]);
   return [...byCode].map(([code, group]) => ({
-    head: `${code}${group.length > 1 ? ` ×${group.length}` : ""} — ${FINDING_REMEDY[code]}`,
+    head: `${code}${group.length > 1 ? ` ×${group.length}` : ""} — ${findingRemedy(code)}`,
     items: group.map(formatFindingItem),
   }));
 }

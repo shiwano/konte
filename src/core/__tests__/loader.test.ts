@@ -92,6 +92,66 @@ describe("loadVideoDefinition", () => {
     }
   });
 
+  it("names the imported file a plain Error was thrown in", async () => {
+    const imported = path.join(fixturesDir, "throwing-plain-import.ts");
+    fs.writeFileSync(imported, 'throw new Error("bad adapter");\n');
+    fs.writeFileSync(throwingPath, 'import "./throwing-plain-import.ts";\n');
+    try {
+      const error = await loadVideoDefinition(throwingPath).catch((e: unknown) => e);
+      expect((error as KonteError).code).toBe("LOAD_FAILED");
+      expect((error as KonteError).headline).toBe(
+        `Failed to load "${imported}" (imported by video file "${throwingPath}"): bad adapter`,
+      );
+    } finally {
+      fs.unlinkSync(imported);
+    }
+  });
+
+  it("names an imported file whose path holds a space", async () => {
+    const dir = path.join(fixturesDir, "with space");
+    const imported = path.join(dir, "throwing-import.ts");
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(imported, 'function f() {\n  throw new Error("bad adapter");\n}\nf();\n');
+    fs.writeFileSync(throwingPath, 'import "./with space/throwing-import.ts";\n');
+    try {
+      const error = await loadVideoDefinition(throwingPath).catch((e: unknown) => e);
+      expect((error as KonteError).headline).toBe(
+        `Failed to load "${imported}" (imported by video file "${throwingPath}"): bad adapter`,
+      );
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("names a shared file outside the project a plain Error was thrown in", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "konte-shared-"));
+    const shared = path.join(dir, "shared-adapter.ts");
+    fs.writeFileSync(shared, 'throw new Error("bad shared adapter");\n');
+    fs.writeFileSync(throwingPath, `import ${JSON.stringify(shared)};\n`);
+    try {
+      const error = await loadVideoDefinition(throwingPath).catch((e: unknown) => e);
+      expect((error as KonteError).headline).toBe(
+        `Failed to load "${fs.realpathSync(shared)}" (imported by video file "${throwingPath}"): bad shared adapter`,
+      );
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps LOAD_FAILED when the thrown error's stack cannot be read", async () => {
+    fs.writeFileSync(
+      throwingPath,
+      'const err = new Error("bad stack");\n' +
+        'Object.defineProperty(err, "stack", { get() { throw new Error("no stack"); } });\n' +
+        "throw err;\n",
+    );
+    const error = await loadVideoDefinition(throwingPath).catch((e: unknown) => e);
+    expect((error as KonteError).code).toBe("LOAD_FAILED");
+    expect((error as KonteError).headline).toBe(
+      `Failed to load video file "${throwingPath}": bad stack`,
+    );
+  });
+
   it("throws VALIDATION_FAILED for duplicate shot IDs", async () => {
     let error: unknown;
     try {

@@ -16,7 +16,8 @@ import {
   type Direction,
 } from "../dsl/direction.js";
 import { listVideoPasserInputs } from "../board-analysis.js";
-import { type SpendCommand, spendHold } from "../finding.js";
+import { spendHold } from "../finding.js";
+import type { SpendCommand } from "../finding-traits.js";
 import type { AnimaticDefinition, VideoDefinition } from "../types/index.js";
 import { directionDefaults } from "./helpers/direction.js";
 

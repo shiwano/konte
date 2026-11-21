@@ -5,7 +5,7 @@ import { ratioOf } from "../aspect.js";
 import type { ScriptLine } from "../types/script.js";
 import type { PanelLane, ShotJoin, Typography } from "../types/definition.js";
 import type { ArcItem, LensSpec } from "../direction-check.js";
-import type { WaivableCode } from "../finding.js";
+import type { WaivableCode } from "../direction-findings.js";
 import type { PendingShotInput, ShotHandle, ShotInput, StageShots } from "./builders.js";
 import type { DiscoveryResult, ShotFunction } from "./shot-context.js";
 import {
@@ -66,9 +66,9 @@ export type {
   LensRole,
   RoleFunction,
   DirectionFinding,
-  DirectionFindingCode,
   LensSpec,
 } from "../direction-check.js";
+export type { DirectionFindingCode } from "../direction-findings.js";
 
 // A cast member's voice. `id` is an exposed `reference:<id>` asset name holding the sample —
 // separate from the look anchor; two members may share one (twins). `description` is how
@@ -1488,7 +1488,8 @@ export const makeStageShots = (stage: ShotStage, placed: readonly AnyShotInput[]
     byId ??= new Map(placed.map((input) => [input.id, input]));
     const target = byId.get(shotId);
     if (target === undefined) {
-      throw new Error(
+      throw new KonteError(
+        "VALIDATION_FAILED",
         `shot("${shotId}"): the ${stage} chain has not placed a shot "${shotId}" yet. A build ` +
           `reaches the shots BEFORE it, in direction order. Placed so far: ` +
           `${[...byId.keys()].join(", ") || "(none)"}.`,
@@ -1529,7 +1530,8 @@ const shotDeclarations = (
   const cached = declarationsByInput.get(input);
   if (cached) return cached;
   if (input.fn === undefined) {
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `shot("${input.id}"): ${stage} shot "${input.id}" is an aside the ${stage} does not board, ` +
         `so it declares no assets. Reach the media it drops in from a timeline or reference asset instead.`,
     );
@@ -1550,7 +1552,8 @@ const shotDeclarations = (
 const noShotsPlaced =
   (stage: ShotStage): StageShots =>
   (shotId: string): ShotHandle => {
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `shot("${shotId}"): this is the ${stage} chain's first shot, so no earlier shot exists yet.`,
     );
   };
@@ -1571,13 +1574,15 @@ const makeAssetNameHandle = (
     const found = assetKinds.get(assetName);
     if (found === undefined) {
       const names = [...assetKinds.keys()];
-      throw new Error(
+      throw new KonteError(
+        "VALIDATION_FAILED",
         `${label}.${want}("${assetName}"): ${stage} shot "${shotId}" declares no asset named ` +
           `"${assetName}". Declared: ${names.join(", ") || "(none)"}.`,
       );
     }
     if (found !== want) {
-      throw new Error(
+      throw new KonteError(
+        "VALIDATION_FAILED",
         `${label}.${want}("${assetName}"): ${stage} shot "${shotId}"'s asset "${assetName}" is ` +
           `${found}, not ${want}. Use ${label}.${found}("${assetName}").`,
       );
@@ -1602,12 +1607,14 @@ const directionSuccessor = (index: DirectionIndex, lastId: string, passedId: str
   const ids = [...index.durationById.keys()];
   const nextId = ids[ids.indexOf(lastId) + 1];
   if (nextId === undefined) {
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `nextShot() was called after the final direction shot "${lastId}"; the chain already covers every shot.`,
     );
   }
   if (passedId !== nextId) {
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `nextShot("${passedId}") is not the shot that follows "${lastId}" in the direction; expected "${nextId}".`,
     );
   }
@@ -1659,14 +1666,20 @@ const shotClockOf = (
 // of arc shot; `shot` only a narrative one.
 const requireArcShot = (index: DirectionIndex, fnName: string, id: string): void => {
   if (index.asideIds.has(id)) {
-    throw new Error(`${fnName}("${id}") is an aside shot. Use asideShot("${id}").`);
+    throw new KonteError(
+      "VALIDATION_FAILED",
+      `${fnName}("${id}") is an aside shot. Use asideShot("${id}").`,
+    );
   }
 };
 
 const requireNarrativeShot = (index: DirectionIndex, fnName: string, id: string): void => {
   requireArcShot(index, fnName, id);
   if (index.graphicIds.has(id)) {
-    throw new Error(`${fnName}("${id}") is a graphic shot. Use graphicShot("${id}", …).`);
+    throw new KonteError(
+      "VALIDATION_FAILED",
+      `${fnName}("${id}") is a graphic shot. Use graphicShot("${id}", …).`,
+    );
   }
 };
 
@@ -1677,7 +1690,8 @@ const cutinContext = (index: DirectionIndex, shotId: string) => {
   if (!cutin) return null;
   const setup = index.cutinFrameById.get(shotId);
   if (!setup) {
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `shot "${shotId}" has a cutin on setup "${cutin.setup}", which direction.ts does not declare in \`setups\`.`,
     );
   }
@@ -1697,7 +1711,8 @@ const graphicShotContext = (
   shotId: string,
 ): GraphicShotContext<readonly ScriptLine[]> => {
   if (!index.graphicIds.has(shotId)) {
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `graphicShot("${shotId}") is not a graphic shot — direction.ts declares it as ${index.asideIds.has(shotId) ? "an aside. Use asideShot" : "a narrative shot. Use shot"}("${shotId}", …).`,
     );
   }
@@ -1715,7 +1730,8 @@ const graphicShotContext = (
 const asideShotContext = (index: DirectionIndex, shotId: string): AsideShotContext => {
   const label = index.labelById.get(shotId);
   if (label === undefined) {
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `asideShot("${shotId}") is not an aside shot — direction.ts declares it as an ordinary shot. Use shot("${shotId}", …).`,
     );
   }
@@ -1738,7 +1754,8 @@ const stageShotContext = (
   const framing = index.framingById.get(shotId);
   const location = index.locationById.get(shotId);
   if (framing === undefined || location === undefined) {
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `shot "${shotId}" has setup "${setup}", which direction.ts does not declare in \`setups\`.`,
     );
   }
@@ -1806,10 +1823,11 @@ const makeAsideInput = (
 ): AsideShotInput => {
   const facts = asideShotContext(index, id);
   if (stage === "video" && !build) {
-    throw new Error(`asideShot("${id}") on the video needs a build.`);
+    throw new KonteError("VALIDATION_FAILED", `asideShot("${id}") on the video needs a build.`);
   }
   if (stage === "animatic" && build) {
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `asideShot("${id}") on the animatic takes no build — konte fills an aside's span with a labelled slug.`,
     );
   }
@@ -1880,7 +1898,8 @@ function makeStageShotStarter(stage: ShotStage, index: DirectionIndex) {
     validateShotId(id);
     if (!index.durationById.has(id)) {
       // The type system already forbids unknown ids; this only guards a computed/forged id.
-      throw new Error(
+      throw new KonteError(
+        "VALIDATION_FAILED",
         `${fnName}("${id}") is not a declared direction shot. ` +
           `Declared: ${[...index.durationById.keys()].join(", ") || "(none)"}.`,
       );
@@ -1965,10 +1984,14 @@ function assertDeliveryDimensions(size: CanvasSize, field: string): void {
   for (const axis of ["width", "height"] as const) {
     const value = size[axis];
     if (!Number.isInteger(value) || value <= 0) {
-      throw new Error(`${field}.${axis} must be a positive integer, got ${value}`);
+      throw new KonteError(
+        "VALIDATION_FAILED",
+        `${field}.${axis} must be a positive integer, got ${value}`,
+      );
     }
     if (value % 2 !== 0) {
-      throw new Error(
+      throw new KonteError(
+        "VALIDATION_FAILED",
         `${field}.${axis} must be even (the delivered frame is encoded as yuv420p), got ${value}`,
       );
     }
@@ -2283,7 +2306,8 @@ export function shotSongStem(
 function assertDirectionSong(song: string | undefined): void {
   if (song === undefined) return;
   if (typeof song !== "string" || !isIdentifier(song)) {
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `policy.song must name a reference asset id (a-z, A-Z, 0-9, -, _), got "${String(song)}"`,
     );
   }
@@ -2300,7 +2324,8 @@ export function assertCanvasFormat(format: DirectionFormat): void {
   const { megapixels, delivery } = format.size;
   assertDeliveryDimensions(delivery, "policy.format.size.delivery");
   if (!Number.isFinite(megapixels) || megapixels <= 0 || megapixels > MAX_MEGAPIXELS) {
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `policy.format.size.megapixels must be a positive number of megapixels up to ` +
         `${MAX_MEGAPIXELS}, got ${megapixels}. It is the generation budget the working canvas is ` +
         `derived from — 0.9 lands on roughly 720p worth of pixels at the delivery's aspect.`,
@@ -2314,7 +2339,8 @@ export function assertCanvasFormat(format: DirectionFormat): void {
   const shortest = Math.min(ideal.width, ideal.height);
   if (shortest < CANVAS_GRID) {
     const base = deriveCanvasBase(format.size);
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `policy.format.size.megapixels (${megapixels}) is too small to hold the ` +
         `${ratioOf(delivery)} aspect of a ${delivery.width}×${delivery.height} delivery: it asks ` +
         `for a ${Math.round(shortest)}-pixel axis, under the ${CANVAS_GRID}-pixel grid models ` +
@@ -2327,7 +2353,8 @@ export function assertCanvasFormat(format: DirectionFormat): void {
   // reading (a sampler falling back to 30, a capture passing the value straight to the renderer),
   // and the disagreement would only surface after the spend, at preview or export.
   if (!Number.isFinite(format.fps) || format.fps <= 0) {
-    throw new Error(
+    throw new KonteError(
+      "VALIDATION_FAILED",
       `policy.format.fps must be a positive, finite number of frames per second, got ${format.fps}`,
     );
   }

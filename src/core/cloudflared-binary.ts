@@ -85,7 +85,7 @@ async function fillManaged(dir: string, src: CloudflaredSource, dest: string): P
       await downloadFile(src.url, archive, progressReporter("cloudflared"));
       endProgress();
       await execFileAsync("tar", ["xzf", archive, "-C", tmp]);
-      moveFoundBinary(tmp, "cloudflared", dest);
+      moveFoundBinary(tmp, "cloudflared", dest, "CLOUDFLARED_SETUP_FAILED");
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }

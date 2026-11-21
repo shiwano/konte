@@ -1,5 +1,5 @@
 import type { DirectionErrorCode } from "../direction.js";
-import type { DirectionFindingCode } from "../direction-check.js";
+import type { DirectionFindingCode } from "../direction-findings.js";
 import type { FindingCode } from "../finding.js";
 
 const VOUCH_TAKE =

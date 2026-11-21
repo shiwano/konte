@@ -248,6 +248,117 @@ export interface AnimaticShotRef extends ShotHandle {
 export interface AnimaticRef {
   shot(id: string): AnimaticShotRef;
 }
+export type SpendCommand = "generate" | "reroll" | "patch" | "export";
+export type SpendReach = "stage" | "stage+downstream" | "downstream" | "edge";
+export type FindingTraits = {
+  reads: "definition" | "take";
+  clears: "fix" | "waive" | "vouch" | "accept";
+  holds: {
+    spend?: {
+      reach: SpendReach;
+      commands?: readonly SpendCommand[];
+      named?: true;
+    };
+    accept?: true;
+    preview?: true;
+  };
+  onset: "always" | "after-direction-accepted" | "after-take";
+  signsOff: boolean;
+};
+export type DirectionFindingClass =
+  | "arc"
+  | "pacing"
+  | "characters"
+  | "props"
+  | "locations"
+  | "setups"
+  | "staging"
+  | "typesetting"
+  | "song";
+export type DirectionFindingSpec<Clears extends "fix" | "waive", SignsOff extends boolean> = {
+  traits: FindingTraits & {
+    clears: Clears;
+    signsOff: SignsOff;
+  };
+  class: DirectionFindingClass;
+  waiverScope: "shot" | "boundary" | "setup" | null;
+  fixStage: "direction" | "reference" | "animatic" | "video";
+  remedy: string;
+  nodeScoped?: true;
+  awaitsShots?: true;
+  part?: (subject: string) => string;
+};
+declare const DIRECTION_FINDINGS: {
+  "missing-role": DirectionFindingSpec<"waive", false>;
+  "no-payoff": DirectionFindingSpec<"waive", false>;
+  "role-out-of-order": DirectionFindingSpec<"waive", false>;
+  "lens-role-mismatch": DirectionFindingSpec<"fix", false>;
+  "too-few-consecutive": DirectionFindingSpec<"waive", false>;
+  "empty-synopsis": DirectionFindingSpec<"fix", false>;
+  "unearned-payoff": DirectionFindingSpec<"waive", false>;
+  "role-overweight": DirectionFindingSpec<"waive", false>;
+  "role-underweight": DirectionFindingSpec<"waive", false>;
+  "character-unreferenced": DirectionFindingSpec<"waive", false>;
+  "unused-character": DirectionFindingSpec<"fix", false>;
+  "character-voice-missing": DirectionFindingSpec<"waive", false>;
+  "character-voice-unreferenced": DirectionFindingSpec<"waive", false>;
+  "unused-character-voice": DirectionFindingSpec<"fix", false>;
+  "narrator-missing": DirectionFindingSpec<"waive", false>;
+  "narrator-unreferenced": DirectionFindingSpec<"waive", false>;
+  "unused-narrator": DirectionFindingSpec<"fix", false>;
+  "prop-unreferenced": DirectionFindingSpec<"waive", false>;
+  "unused-prop": DirectionFindingSpec<"fix", false>;
+  "location-unreferenced": DirectionFindingSpec<"waive", false>;
+  "unused-location": DirectionFindingSpec<"fix", false>;
+  "setup-unrealized": DirectionFindingSpec<"waive", true>;
+  "plate-unanchored": DirectionFindingSpec<"waive", false>;
+  "plate-unnested": DirectionFindingSpec<"waive", false>;
+  "axis-unrealized": DirectionFindingSpec<"waive", true>;
+  "plate-unowed": DirectionFindingSpec<"waive", false>;
+  "setup-unconsumed": DirectionFindingSpec<"waive", true>;
+  "unused-setup": DirectionFindingSpec<"fix", false>;
+  "setup-atomized": DirectionFindingSpec<"waive", true>;
+  "view-unrealized": DirectionFindingSpec<"waive", false>;
+  "plate-unviewed": DirectionFindingSpec<"waive", false>;
+  "view-unanchored": DirectionFindingSpec<"waive", false>;
+  "view-unnamed": DirectionFindingSpec<"waive", true>;
+  "multi-sentence-action": DirectionFindingSpec<"waive", false>;
+  "off-grid-duration": DirectionFindingSpec<"fix", false>;
+  "off-beat-cut": DirectionFindingSpec<"waive", false>;
+  "fonts-undeclared": DirectionFindingSpec<"waive", false>;
+  "lineup-flipped": DirectionFindingSpec<"waive", false>;
+  "lineup-gap": DirectionFindingSpec<"waive", false>;
+  "lineup-vacuous": DirectionFindingSpec<"fix", false>;
+  "lineup-inconsistent": DirectionFindingSpec<"waive", false>;
+  "location-backtrack": DirectionFindingSpec<"waive", false>;
+  "character-unconsumed": DirectionFindingSpec<"waive", true>;
+  "slot-order-mismatch": DirectionFindingSpec<"waive", true>;
+  "plate-recropped": DirectionFindingSpec<"waive", true>;
+  "landmark-flipped": DirectionFindingSpec<"waive", false>;
+  "subject-unnamed": DirectionFindingSpec<"waive", true>;
+  "prop-unnamed": DirectionFindingSpec<"waive", true>;
+  "passer-unconsumed": DirectionFindingSpec<"waive", true>;
+  "passer-unnamed": DirectionFindingSpec<"waive", true>;
+  "plate-unnamed": DirectionFindingSpec<"waive", true>;
+  "landmark-unnamed": DirectionFindingSpec<"waive", true>;
+  "join-lineup-mismatch": DirectionFindingSpec<"fix", false>;
+  "join-unpinned": DirectionFindingSpec<"waive", true>;
+  "join-unshown": DirectionFindingSpec<"waive", true>;
+  "opening-key": DirectionFindingSpec<"waive", true>;
+  "panel-unlinked": DirectionFindingSpec<"waive", true>;
+  "return-unlinked": DirectionFindingSpec<"waive", true>;
+  "song-unreferenced": DirectionFindingSpec<"fix", false>;
+  "lyric-unplaced": DirectionFindingSpec<"waive", false>;
+  "song-overrun": DirectionFindingSpec<"waive", false>;
+};
+export type DirectionFindings = typeof DIRECTION_FINDINGS;
+export type DirectionFindingCode = keyof DirectionFindings;
+export type WaivableCode = {
+  [K in DirectionFindingCode]: DirectionFindings[K]["traits"]["clears"] extends "waive" ? K : never;
+}[DirectionFindingCode];
+export type DirectionJudgedCode = {
+  [K in DirectionFindingCode]: DirectionFindings[K]["traits"]["signsOff"] extends true ? K : never;
+}[DirectionFindingCode];
 /**
  * The dramatic function a role performs — the five-stage skeleton the classical arc schemas share
  * (Freytag's pyramid, three-act, kishōtenketsu): ground establishes a state, turn breaks it, build
@@ -273,72 +384,6 @@ export type LensSpec<Role extends string> = {
   roles: LensRole<Role>[];
   payoff: Role;
 };
-/**
- * Fixed contract, like KonteErrorCode: doctor / waiver keys / scripts branch on these. The same
- * codes are reused at both scales — the subject (role / id / range) distinguishes instances.
- */
-export type DirectionFindingCode =
-  | "missing-role"
-  | "no-payoff"
-  | "role-out-of-order"
-  | "lens-role-mismatch"
-  | "too-few-consecutive"
-  | "empty-synopsis"
-  | "unearned-payoff"
-  | "role-overweight"
-  | "role-underweight"
-  | "character-unreferenced"
-  | "unused-character"
-  | "character-voice-missing"
-  | "character-voice-unreferenced"
-  | "unused-character-voice"
-  | "narrator-missing"
-  | "narrator-unreferenced"
-  | "unused-narrator"
-  | "prop-unreferenced"
-  | "unused-prop"
-  | "location-unreferenced"
-  | "unused-location"
-  | "setup-unrealized"
-  | "plate-unanchored"
-  | "setup-unconsumed"
-  | "plate-unnested"
-  | "axis-unrealized"
-  | "plate-unowed"
-  | "unused-setup"
-  | "setup-atomized"
-  | "view-unrealized"
-  | "plate-unviewed"
-  | "view-unanchored"
-  | "view-unnamed"
-  | "multi-sentence-action"
-  | "off-grid-duration"
-  | "off-beat-cut"
-  | "fonts-undeclared"
-  | "lineup-flipped"
-  | "lineup-gap"
-  | "lineup-vacuous"
-  | "lineup-inconsistent"
-  | "location-backtrack"
-  | "character-unconsumed"
-  | "slot-order-mismatch"
-  | "plate-recropped"
-  | "join-lineup-mismatch"
-  | "join-unpinned"
-  | "join-unshown"
-  | "opening-key"
-  | "panel-unlinked"
-  | "return-unlinked"
-  | "landmark-flipped"
-  | "subject-unnamed"
-  | "prop-unnamed"
-  | "passer-unconsumed"
-  | "passer-unnamed"
-  | "plate-unnamed"
-  | "landmark-unnamed"
-  | "song-unreferenced"
-  | "lyric-unplaced"
-  | "song-overrun";
 export type DirectionFindingFields = {
   subject?: string;
   path?: readonly string[];
@@ -4239,6 +4284,14 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
   "strip",
   z.ZodTypeAny,
   {
+    stage: "animatic";
+    format: {
+      size: {
+        width: number;
+        height: number;
+      };
+      fps: number;
+    };
     shots: {
       id: string;
       action: string;
@@ -4381,18 +4434,11 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
       pending?: true | undefined;
       aside?: true | undefined;
     }[];
-    stage: "animatic";
-    format: {
-      size: {
-        width: number;
-        height: number;
-      };
-      fps: number;
-    };
     typography: {
       lang: LanguageTag;
       fonts?: string[] | undefined;
     };
+    song?: string | undefined;
     topLevelAssets?:
       | Record<
           string,
@@ -4471,7 +4517,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
         >
       | undefined;
     timelineSoundtracks?: readonly SoundtrackEntry<string>[] | undefined;
-    song?: string | undefined;
     overlay?: OverlayDefinition | undefined;
     timelineFn?: TimelineFunction | undefined;
     prompts?: readonly PromptOccurrence[] | undefined;
@@ -4567,6 +4612,14 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
     exposedPlateIds?: string[] | undefined;
   },
   {
+    stage: "animatic";
+    format: {
+      size: {
+        width: number;
+        height: number;
+      };
+      fps: number;
+    };
     shots: {
       id: string;
       action: string;
@@ -4709,18 +4762,11 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
       pending?: true | undefined;
       aside?: true | undefined;
     }[];
-    stage: "animatic";
-    format: {
-      size: {
-        width: number;
-        height: number;
-      };
-      fps: number;
-    };
     typography: {
       lang: LanguageTag;
       fonts?: string[] | undefined;
     };
+    song?: string | undefined;
     topLevelAssets?:
       | Record<
           string,
@@ -4799,7 +4845,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
         >
       | undefined;
     timelineSoundtracks?: readonly SoundtrackEntry<string>[] | undefined;
-    song?: string | undefined;
     overlay?: OverlayDefinition | undefined;
     timelineFn?: TimelineFunction | undefined;
     prompts?: readonly PromptOccurrence[] | undefined;
@@ -4913,48 +4958,13 @@ export type BuildFinding = {
   message: string;
   targets: readonly string[];
 };
-declare const ACCEPT_JUDGED_CODES: readonly [
-  "setup-unrealized",
-  "axis-unrealized",
-  "setup-unconsumed",
-  "setup-atomized",
-  "character-unconsumed",
-  "slot-order-mismatch",
-  "plate-recropped",
-  "subject-unnamed",
-  "prop-unnamed",
-  "passer-unconsumed",
-  "passer-unnamed",
-  "plate-unnamed",
-  "landmark-unnamed",
-  "view-unnamed",
-  "join-unpinned",
-  "join-unshown",
-  "opening-key",
-  "panel-unlinked",
-  "return-unlinked",
-  "prompt-negation",
-  "prompt-not-yet",
-  "prompt-double-negative",
-  "landmark-unheld",
-  "stem-unmouthed",
-];
-export type AcceptJudgedCode = (typeof ACCEPT_JUDGED_CODES)[number];
-declare const FIX_ONLY_DIRECTION_CODES: readonly [
-  "lens-role-mismatch",
-  "empty-synopsis",
-  "unused-character",
-  "unused-character-voice",
-  "unused-narrator",
-  "unused-prop",
-  "unused-location",
-  "unused-setup",
-  "off-grid-duration",
-  "lineup-vacuous",
-  "join-lineup-mismatch",
-  "song-unreferenced",
-];
-export type WaivableCode = Exclude<DirectionFindingCode, (typeof FIX_ONLY_DIRECTION_CODES)[number]>;
+export type OtherJudgedCode =
+  | "prompt-negation"
+  | "prompt-not-yet"
+  | "prompt-double-negative"
+  | "landmark-unheld"
+  | "stem-unmouthed";
+export type AcceptJudgedCode = DirectionJudgedCode | OtherJudgedCode;
 /**
  * The code this check reports.
  *   - pin-unanchored: the pinned image is a reference sheet or a plate.
@@ -8185,6 +8195,14 @@ declare const VideoDefinitionSchema: z.ZodObject<
   "strip",
   z.ZodTypeAny,
   {
+    stage: "video";
+    format: {
+      size: {
+        width: number;
+        height: number;
+      };
+      fps: number;
+    };
     shots: {
       id: string;
       action: string;
@@ -8327,18 +8345,31 @@ declare const VideoDefinitionSchema: z.ZodObject<
       pending?: true | undefined;
       aside?: true | undefined;
     }[];
-    stage: "video";
-    format: {
-      size: {
-        width: number;
-        height: number;
-      };
-      fps: number;
-    };
     typography: {
       lang: LanguageTag;
       fonts?: string[] | undefined;
     };
+    song?: string | undefined;
+    export?:
+      | {
+          delivery?:
+            | {
+                size?:
+                  | {
+                      width: number;
+                      height: number;
+                    }
+                  | undefined;
+                upscale?:
+                  | {
+                      video?: DeliveryUpscaleFn | undefined;
+                      frame?: DeliveryUpscaleFn | undefined;
+                    }
+                  | undefined;
+              }
+            | undefined;
+        }
+      | undefined;
     topLevelAssets?:
       | Record<
           string,
@@ -8417,7 +8448,6 @@ declare const VideoDefinitionSchema: z.ZodObject<
         >
       | undefined;
     timelineSoundtracks?: readonly SoundtrackEntry<string>[] | undefined;
-    song?: string | undefined;
     overlay?: OverlayDefinition | undefined;
     timelineFn?: TimelineFunction | undefined;
     prompts?: readonly PromptOccurrence[] | undefined;
@@ -8433,29 +8463,17 @@ declare const VideoDefinitionSchema: z.ZodObject<
         }[]
       | undefined;
     buildFindings?: readonly BuildFinding[] | undefined;
-    export?:
-      | {
-          delivery?:
-            | {
-                size?:
-                  | {
-                      width: number;
-                      height: number;
-                    }
-                  | undefined;
-                upscale?:
-                  | {
-                      video?: DeliveryUpscaleFn | undefined;
-                      frame?: DeliveryUpscaleFn | undefined;
-                    }
-                  | undefined;
-              }
-            | undefined;
-        }
-      | undefined;
     thumbnail?: ThumbnailDefinition | null | undefined;
   },
   {
+    stage: "video";
+    format: {
+      size: {
+        width: number;
+        height: number;
+      };
+      fps: number;
+    };
     shots: {
       id: string;
       action: string;
@@ -8598,18 +8616,31 @@ declare const VideoDefinitionSchema: z.ZodObject<
       pending?: true | undefined;
       aside?: true | undefined;
     }[];
-    stage: "video";
-    format: {
-      size: {
-        width: number;
-        height: number;
-      };
-      fps: number;
-    };
     typography: {
       lang: LanguageTag;
       fonts?: string[] | undefined;
     };
+    song?: string | undefined;
+    export?:
+      | {
+          delivery?:
+            | {
+                size?:
+                  | {
+                      width: number;
+                      height: number;
+                    }
+                  | undefined;
+                upscale?:
+                  | {
+                      video?: DeliveryUpscaleFn | undefined;
+                      frame?: DeliveryUpscaleFn | undefined;
+                    }
+                  | undefined;
+              }
+            | undefined;
+        }
+      | undefined;
     topLevelAssets?:
       | Record<
           string,
@@ -8688,7 +8719,6 @@ declare const VideoDefinitionSchema: z.ZodObject<
         >
       | undefined;
     timelineSoundtracks?: readonly SoundtrackEntry<string>[] | undefined;
-    song?: string | undefined;
     overlay?: OverlayDefinition | undefined;
     timelineFn?: TimelineFunction | undefined;
     prompts?: readonly PromptOccurrence[] | undefined;
@@ -8704,26 +8734,6 @@ declare const VideoDefinitionSchema: z.ZodObject<
         }[]
       | undefined;
     buildFindings?: readonly BuildFinding[] | undefined;
-    export?:
-      | {
-          delivery?:
-            | {
-                size?:
-                  | {
-                      width: number;
-                      height: number;
-                    }
-                  | undefined;
-                upscale?:
-                  | {
-                      video?: DeliveryUpscaleFn | undefined;
-                      frame?: DeliveryUpscaleFn | undefined;
-                    }
-                  | undefined;
-              }
-            | undefined;
-        }
-      | undefined;
     thumbnail?: ThumbnailDefinition | null | undefined;
   }
 >;
