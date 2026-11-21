@@ -146,9 +146,16 @@ export { BTBN_BUILD, BTBN_TAG, BTBN_VERSION };
 
 async function resolveOverride(tool: "ffmpeg" | "ffprobe"): Promise<string | null> {
   const env = process.env[tool === "ffmpeg" ? "KONTE_FFMPEG_PATH" : "KONTE_FFPROBE_PATH"];
-  if (env) return env;
-  const cfg = await loadConfigOverrides();
-  return (tool === "ffmpeg" ? cfg.ffmpegPath : cfg.ffprobePath) ?? null;
+  const cfg = env ? null : await loadConfigOverrides();
+  const override = env || ((tool === "ffmpeg" ? cfg?.ffmpegPath : cfg?.ffprobePath) ?? null);
+  return override === null ? null : anchorRelativePath(override);
+}
+
+// ffmpeg is spawned from scratch directories, so a relative path is pinned to the cwd it was given
+// in; a bare name stays a PATH lookup.
+function anchorRelativePath(bin: string): string {
+  const hasDir = bin.includes("/") || (process.platform === "win32" && bin.includes("\\"));
+  return hasDir ? path.resolve(bin) : bin;
 }
 
 // Memoized for the process. Outside a workspace there is no config to read, so only the env

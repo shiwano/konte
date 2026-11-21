@@ -101,6 +101,12 @@ describe("ffmpegBin / ffprobeBin resolution", () => {
     expect(downloadFile).not.toHaveBeenCalled();
   });
 
+  it("anchors a relative override at the cwd", async () => {
+    process.env.KONTE_FFMPEG_PATH = "./bin/ffmpeg";
+    const { mod } = await load();
+    await expect(mod.ffmpegBin()).resolves.toBe(path.resolve("bin/ffmpeg"));
+  });
+
   it("rejects an override binary below the minimum version", async () => {
     process.env.KONTE_FFMPEG_PATH = "/old/ffmpeg";
     const { mod } = await load("ffmpeg version 3.4.8-0ubuntu0.2 Copyright");
