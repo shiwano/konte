@@ -13,19 +13,16 @@ const RECOGNIZER = "sherpa-onnx-offline";
 // spleeter's two-stem model (vocals / accompaniment), half precision.
 export const SPLEETER_URL =
   "https://github.com/k2-fsa/sherpa-onnx/releases/download/source-separation-models/sherpa-onnx-spleeter-2stems-fp16.tar.bz2";
-const SPLEETER_FILES = ["vocals.fp16.onnx", "accompaniment.fp16.onnx"];
 
 // SenseVoice, int8: speech recognition in zh, en, ja, ko and yue, with a time on every token.
 export const SENSE_VOICE_URL =
   "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2";
-const SENSE_VOICE_FILES = ["model.int8.onnx", "tokens.txt"];
 const SENSE_VOICE_LANGS = new Set(["zh", "en", "ja", "ko", "yue"]);
 
 // Parakeet TDT v3, int8: speech recognition in 25 European languages, with a time on every token.
 // It names no language and is told none.
 export const PARAKEET_URL =
   "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2";
-const PARAKEET_FILES = ["encoder.int8.onnx", "decoder.int8.onnx", "joiner.int8.onnx", "tokens.txt"];
 const PARAKEET_LANGS = new Set([
   "bg",
   "cs",
@@ -53,6 +50,41 @@ const PARAKEET_LANGS = new Set([
   "uk",
 ]);
 
+const MODELS = {
+  spleeter: {
+    url: SPLEETER_URL,
+    cacheName: "spleeter-2stems-fp16",
+    label: "spleeter 2-stem model",
+    progressLabel: "spleeter",
+    override: "KONTE_SPLEETER_MODEL_DIR",
+    files: { vocals: "vocals.fp16.onnx", accompaniment: "accompaniment.fp16.onnx" },
+  },
+  senseVoice: {
+    url: SENSE_VOICE_URL,
+    cacheName: "sense-voice-int8-2024-07-17",
+    label: "SenseVoice model",
+    progressLabel: "sense-voice",
+    override: "KONTE_SENSE_VOICE_MODEL_DIR",
+    files: { model: "model.int8.onnx", tokens: "tokens.txt" },
+  },
+  parakeet: {
+    url: PARAKEET_URL,
+    cacheName: "parakeet-tdt-0.6b-v3-int8",
+    label: "Parakeet model",
+    progressLabel: "parakeet",
+    override: "KONTE_PARAKEET_MODEL_DIR",
+    files: {
+      encoder: "encoder.int8.onnx",
+      decoder: "decoder.int8.onnx",
+      joiner: "joiner.int8.onnx",
+      tokens: "tokens.txt",
+    },
+  },
+} as const;
+
+type ModelKey = keyof typeof MODELS;
+type ModelFiles<K extends ModelKey> = Record<keyof (typeof MODELS)[K]["files"], string>;
+
 /** Where each platform/arch fetches its version-pinned sherpa-onnx build. Pure (for testing). */
 export function sherpaDownloadUrl(platform: NodeJS.Platform, arch: string): string {
   const base = `https://github.com/k2-fsa/sherpa-onnx/releases/download/v${SHERPA_VERSION}/sherpa-onnx-v${SHERPA_VERSION}`;
@@ -71,9 +103,6 @@ export function sherpaDownloadUrl(platform: NodeJS.Platform, arch: string): stri
 }
 
 let sherpaDir: string | null = null;
-let modelDir: string | null = null;
-let senseVoiceDir: string | null = null;
-let parakeetDir: string | null = null;
 // The managed sherpa-onnx build, provisioned on first use.
 async function managedSherpaDir(): Promise<string> {
   if (sherpaDir) return sherpaDir;
@@ -109,75 +138,32 @@ async function sherpaBin(name: string, override: string | undefined): Promise<st
   return path.join(await managedSherpaDir(), "bin", exeName(name));
 }
 
-/**
- * The directory holding spleeter's two stems (`vocals.fp16.onnx`, `accompaniment.fp16.onnx`),
- * downloading them on first use; `KONTE_SPLEETER_MODEL_DIR` names one instead.
- */
-async function spleeterModelDir(): Promise<string> {
-  if (modelDir) return modelDir;
-  const override = process.env.KONTE_SPLEETER_MODEL_DIR;
-  if (override) {
-    modelDir = override;
-    return override;
-  }
-  const dir = toolCacheDir("spleeter-2stems-fp16");
-  await provisionOnce({
-    dir,
-    pin: toolPin([SPLEETER_URL]),
-    files: SPLEETER_FILES,
-    label: "spleeter 2-stem model",
-    errorCode: "SHERPA_SETUP_FAILED",
-    fill: () => unpackTarballInto(SPLEETER_URL, dir, "spleeter"),
-  });
-  modelDir = dir;
-  return dir;
-}
+const modelDirs = new Map<ModelKey, string>();
 
 /**
- * The directory holding SenseVoice (`model.int8.onnx`, `tokens.txt`), downloading it on first use;
- * `KONTE_SENSE_VOICE_MODEL_DIR` names one instead.
+ * The absolute path of each file of model `key`, downloading the model on first use; its
+ * `override` env var names a directory to read them from instead.
  */
-async function senseVoiceModelDir(): Promise<string> {
-  if (senseVoiceDir) return senseVoiceDir;
-  const override = process.env.KONTE_SENSE_VOICE_MODEL_DIR;
-  if (override) {
-    senseVoiceDir = override;
-    return override;
-  }
-  const dir = toolCacheDir("sense-voice-int8-2024-07-17");
-  await provisionOnce({
-    dir,
-    pin: toolPin([SENSE_VOICE_URL]),
-    files: SENSE_VOICE_FILES,
-    label: "SenseVoice model",
-    errorCode: "SHERPA_SETUP_FAILED",
-    fill: () => unpackTarballInto(SENSE_VOICE_URL, dir, "sense-voice"),
-  });
-  senseVoiceDir = dir;
-  return dir;
+async function modelFiles<K extends ModelKey>(key: K): Promise<ModelFiles<K>> {
+  const model = MODELS[key];
+  const dir = modelDirs.get(key) ?? (process.env[model.override] || (await provisionModel(key)));
+  modelDirs.set(key, dir);
+  return Object.fromEntries(
+    Object.entries(model.files).map(([name, file]) => [name, path.join(dir, file)]),
+  ) as ModelFiles<K>;
 }
 
-/**
- * The directory holding Parakeet, downloading it on first use; `KONTE_PARAKEET_MODEL_DIR` names one
- * instead.
- */
-async function parakeetModelDir(): Promise<string> {
-  if (parakeetDir) return parakeetDir;
-  const override = process.env.KONTE_PARAKEET_MODEL_DIR;
-  if (override) {
-    parakeetDir = override;
-    return override;
-  }
-  const dir = toolCacheDir("parakeet-tdt-0.6b-v3-int8");
+async function provisionModel(key: ModelKey): Promise<string> {
+  const model = MODELS[key];
+  const dir = toolCacheDir(model.cacheName);
   await provisionOnce({
     dir,
-    pin: toolPin([PARAKEET_URL]),
-    files: PARAKEET_FILES,
-    label: "Parakeet model",
+    pin: toolPin([model.url]),
+    files: Object.values(model.files),
+    label: model.label,
     errorCode: "SHERPA_SETUP_FAILED",
-    fill: () => unpackTarballInto(PARAKEET_URL, dir, "parakeet"),
+    fill: () => unpackTarballInto(model.url, dir, model.progressLabel),
   });
-  parakeetDir = dir;
   return dir;
 }
 
@@ -191,11 +177,11 @@ export async function separateSong(
 ): Promise<void> {
   const [bin, model] = await Promise.all([
     sherpaBin(SEPARATOR, process.env.KONTE_SHERPA_SEPARATION_PATH),
-    spleeterModelDir(),
+    modelFiles("spleeter"),
   ]);
   await execFileAsync(bin, [
-    `--spleeter-vocals=${path.join(model, "vocals.fp16.onnx")}`,
-    `--spleeter-accompaniment=${path.join(model, "accompaniment.fp16.onnx")}`,
+    `--spleeter-vocals=${model.vocals}`,
+    `--spleeter-accompaniment=${model.accompaniment}`,
     `--input-wav=${inputWav}`,
     `--output-vocals-wav=${out.vocalsWav}`,
     `--output-accompaniment-wav=${out.instrumentalWav}`,
@@ -222,19 +208,19 @@ export function recognizesSpeechIn(lang: string): boolean {
 
 async function recognizerArgs(recognizer: Recognizer, lang: string | null): Promise<string[]> {
   if (recognizer === "parakeet") {
-    const model = await parakeetModelDir();
+    const model = await modelFiles("parakeet");
     return [
-      `--encoder=${path.join(model, "encoder.int8.onnx")}`,
-      `--decoder=${path.join(model, "decoder.int8.onnx")}`,
-      `--joiner=${path.join(model, "joiner.int8.onnx")}`,
-      `--tokens=${path.join(model, "tokens.txt")}`,
+      `--encoder=${model.encoder}`,
+      `--decoder=${model.decoder}`,
+      `--joiner=${model.joiner}`,
+      `--tokens=${model.tokens}`,
       "--model-type=nemo_transducer",
     ];
   }
-  const model = await senseVoiceModelDir();
+  const model = await modelFiles("senseVoice");
   return [
-    `--sense-voice-model=${path.join(model, "model.int8.onnx")}`,
-    `--tokens=${path.join(model, "tokens.txt")}`,
+    `--sense-voice-model=${model.model}`,
+    `--tokens=${model.tokens}`,
     `--sense-voice-language=${lang === null ? "auto" : lang.split("-")[0]!.toLowerCase()}`,
   ];
 }
