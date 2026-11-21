@@ -13,14 +13,16 @@ import {
 import { errorMessage } from "../../../core/errors.js";
 import { ensureFfmpeg } from "../../../core/ffmpeg.js";
 import {
-  formatReviewRecord,
   loadLatestReviewRecord,
   loadReviewRecordFile,
   type ReviewRecord,
-  reviewAcceptedVariants,
-  reviewNoteFrameTargets,
   toReviewFileId,
 } from "../../../core/review-record.js";
+import {
+  formatReviewRecord,
+  reviewAcceptedVariants,
+  reviewNoteFrameTargets,
+} from "../../../core/review-record-format.js";
 import {
   applyResolutionDefinitions,
   definitionDriftFields,

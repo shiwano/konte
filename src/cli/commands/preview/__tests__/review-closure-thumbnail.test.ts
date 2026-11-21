@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { JobManager } from "../../../../core/job-manager.js";
 import { unacceptedThumbnailRefs } from "../../../../core/render-plan.js";
-import { formatReviewRecord, loadAllReviewRecords } from "../../../../core/review-record.js";
+import { loadAllReviewRecords } from "../../../../core/review-record.js";
+import { formatReviewRecord } from "../../../../core/review-record-format.js";
 import { StateManager } from "../../../../core/state/index.js";
 import { loadPreviewDefinitions } from "../load-definitions.js";
 import { handleSubmit } from "../submit.js";

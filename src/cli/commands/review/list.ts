@@ -1,10 +1,7 @@
 import type { Command } from "commander";
 import { formatRelativeTime } from "../../../core/format-timestamp.js";
-import {
-  countReviewAssets,
-  countReviewFeedback,
-  loadAllReviewRecords,
-} from "../../../core/review-record.js";
+import { loadAllReviewRecords } from "../../../core/review-record.js";
+import { countReviewAssets, countReviewFeedback } from "../../../core/review-record-format.js";
 import {
   addListLimitOptions,
   applyListLimit,
