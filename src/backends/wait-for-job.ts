@@ -1,26 +1,18 @@
 import { randomBytes } from "node:crypto";
-import * as fs from "node:fs/promises";
-import * as path from "node:path";
 import {
   type DefinitionLike,
   getAssetEntry,
   getStage,
-  isCompositionAddress,
   isDeliveryAddress,
 } from "../core/address.js";
 import type { WaitOptions } from "../core/backend.js";
-import { hashFile } from "../core/content-hash.js";
 import { KonteError, errorMessage } from "../core/errors.js";
 import { redactPersisted } from "../core/redact.js";
-import { formatSeconds, formatDuration } from "../core/format-duration.js";
+import { formatDuration } from "../core/format-duration.js";
 import { isJobTerminal, type JobManager, RUN_LEASE_TTL_MS } from "../core/job-manager.js";
 import { startProgressWriter } from "./progress-writer.js";
-import { normalizeKeyframesIfSparse } from "../core/keyframe-normalize.js";
-import {
-  type PatchFinalize,
-  type PatchOutputOrigin,
-  materializePatchOutput,
-} from "../core/patch-output.js";
+import { finalizeTake } from "../core/finalize-take.js";
+import type { PatchFinalize, PatchOutputOrigin } from "../core/patch-output.js";
 import {
   type LoadedDefinitions,
   selectDefinition,
@@ -32,17 +24,12 @@ import { ensureVariantThumbnails } from "../core/variant-thumbnails.js";
 import { type ThumbnailInfo } from "../core/frame-extract.js";
 import type { GenerationJob, JobKind, JobRecord } from "../core/types/index.js";
 import { variantDir } from "../core/variant-dir.js";
-import { mediaDurationSec, mediaHasAudio } from "../core/variant-media.js";
-import { probeMediaInfo } from "../core/video-probe.js";
 import { spokenLinesAt } from "../core/prompt-check.js";
-import { recognizesSpeechIn } from "../core/sherpa-binary.js";
-import { hearSpeech, writeHeardSpeech } from "../core/speech-hearing.js";
 import { startLeaseHeartbeat } from "../core/lease-heartbeat.js";
 import { getBackendKindFromJob, resolveBackend } from "./resolve-backend.js";
 import type { VideoRoots } from "../core/roots.js";
 import { sleep } from "../core/sleep.js";
 import { pollUntilTerminal } from "../core/poll-until-terminal.js";
-import { videoCacheDir } from "../core/video-cache.js";
 
 // waitForJob only ever waits on generation jobs (model downloads run through
 // run-comfy-install-job). Narrow once so the body can read the generation fields.
@@ -160,10 +147,16 @@ export async function waitForJob(
 
     const stopHeartbeat = startLeaseHeartbeat(jobManager, variantId, workerId);
     try {
-      const result = await runAsOwner(jobManager, variantId, job, workerId, roots, definitions, {
-        ...hooks,
-        timeoutMs: deadline ? Math.max(1, deadline - Date.now()) : undefined,
-      });
+      const result = await runAsOwner(
+        jobManager,
+        variantId,
+        job,
+        workerId,
+        roots,
+        definitions,
+        deadline,
+        hooks,
+      );
       if (result) return result;
       // null = lost the lease mid-run; loop to monitor/return the reclaimer's result.
     } finally {
@@ -192,31 +185,15 @@ async function stillOwnsLease(
   }
 }
 
-// Runs the backend wait and commits the result as the lease OWNER. Returns the terminal
-// WaitForJobResult (ready/failed/waitTimedOut), or null if this worker lost the lease before
-// committing (a reclaimer took over) — the caller then monitors for the reclaimer's result.
-async function runAsOwner(
-  jobManager: JobManager,
-  variantId: string,
+// What the take's definition says about finishing it: the comfy output-node hint, the patched
+// take a patch step lands, and whether the take owes a line (the song is heard off its vocal track
+// instead).
+function takeDefinitionOf(
   job: GenerationJob,
-  workerId: string,
-  roots: VideoRoots,
   definitions: LoadedDefinitions,
-  hooks: WaitForJobHooks,
-): Promise<WaitForJobResult | null> {
-  const videoRoot = roots.video;
-  const backendJobId = job.backendJobId;
-  if (!backendJobId) return null;
-
-  const backend = await resolveBackend(getBackendKindFromJob(job), roots, job);
-
-  // A `#delivery` asset is synthesized (not in the definition) and is konte's to accept. Its
-  // definition is built from the resolved source's real dimensions, which we don't re-probe here, so
-  // we skip the comfy output-node hint.
-  const isDelivery = isDeliveryAddress(job.address);
+): { outputNodeId: string | undefined; patchOutput: PatchOutputOrigin | null; owesLine: boolean } {
   let outputNodeId: string | undefined;
   let patchOutput: PatchOutputOrigin | null = null;
-  // A take that owes a line is heard when it lands; the song is heard off its vocal track instead.
   let owesLine = false;
   try {
     const patchFinalize = job.metadata.patchFinalize as PatchFinalize | undefined;
@@ -233,9 +210,10 @@ async function runAsOwner(
           spokenLinesAt(source.prompts ?? [], patchOutput.sourceAddress).length > 0;
       }
       outputNodeId = patchFinalize.outputNodeId;
-    } else if (!isDelivery) {
-      // Routed through selectDefinition so every stage that owns addresses is covered by one
-      // exhaustive mapping.
+    } else if (!isDeliveryAddress(job.address)) {
+      // A `#delivery` definition is built from the resolved source's real dimensions, which are
+      // not re-probed here, so it gets no output-node hint. Routed through selectDefinition so
+      // every stage that owns addresses is covered by one exhaustive mapping.
       const def: DefinitionLike = selectDefinition(getStage(job.address), definitions).def;
       const assetDef = getAssetEntry(def, job.address);
       owesLine =
@@ -246,6 +224,29 @@ async function runAsOwner(
   } catch {
     // asset may have been removed from definition
   }
+  return { outputNodeId, patchOutput, owesLine };
+}
+
+// Runs the backend wait and commits the result as the lease OWNER. Returns the terminal
+// WaitForJobResult (ready/failed/waitTimedOut), or null if this worker lost the lease before
+// committing (a reclaimer took over) — the caller then monitors for the reclaimer's result.
+async function runAsOwner(
+  jobManager: JobManager,
+  variantId: string,
+  job: GenerationJob,
+  workerId: string,
+  roots: VideoRoots,
+  definitions: LoadedDefinitions,
+  deadline: number | undefined,
+  hooks: WaitForJobHooks,
+): Promise<WaitForJobResult | null> {
+  const videoRoot = roots.video;
+  const backendJobId = job.backendJobId;
+  if (!backendJobId) return null;
+
+  const backend = await resolveBackend(getBackendKindFromJob(job), roots, job);
+
+  const { outputNodeId, patchOutput, owesLine } = takeDefinitionOf(job, definitions);
 
   // Stamp the run-window start the first time the backend reports actual work (onExecutionStarted),
   // after any serial-queue wait. This is what duration stats measure from, so a queued job's
@@ -292,7 +293,6 @@ async function runAsOwner(
       )} ago)`,
     );
 
-    const deadline = hooks.timeoutMs ? Date.now() + hooks.timeoutMs : undefined;
     const observed = await pollUntilTerminal(
       async () => ({
         state: "done" as const,
@@ -326,175 +326,30 @@ async function runAsOwner(
       await jobManager.finishIfOwner(variantId, workerId, { lease: null });
       return waitTimedOutResult(job);
     }
-    const result = waitOutcome.result;
 
     // Let any in-flight progress write settle before the terminal "completed" update,
     // so a late percent write can't land after it and leave a ready job at <100%.
     await Promise.all([progressWriter.settle(), stampWrite]);
 
-    // Confirm we still own the lease BEFORE the destructive work below. The backend wait can run
-    // for many minutes; if this worker stalled and a reclaimer took over during it, an in-place
-    // keyframe re-encode + hash + state write from both owners would race — a hash could be
-    // computed from a half-rewritten file. stillOwnsLease is false when ownership was lost (and
-    // refreshes it when retained). Lost it → bail; the caller monitors for the reclaimer's result.
-    if (!(await stillOwnsLease(jobManager, variantId, workerId))) return null;
-
-    // Backends write into the absolute variantDir and return absolute paths, but konte
-    // stores every variant/thumbnail/export path project-relative — konte.state.json is
-    // committed, so an absolute path breaks the project on a checkout at a different path.
-    // Normalize here, the one point every backend's result flows through.
-    const outputFiles = result.files.map((f) =>
-      path.isAbsolute(f) ? path.relative(videoRoot, f) : f,
-    );
-
-    const [outputFile] = outputFiles;
-    if (!outputFile) {
-      throw new KonteError(
-        "GENERATION_FAILED",
-        `Backend job ${backendJobId} returned no output file`,
-      );
-    }
-
-    // Re-encode in place before hashing so the variant konte stores is always
-    // seek-safe — AI video models often emit sparse keyframes that break
-    // HyperFrames' frame-by-frame capture/render with freezing and A/V desync.
-    // Doing it here covers every backend.
-    try {
-      const norm = await normalizeKeyframesIfSparse(path.resolve(videoRoot, outputFile));
-      if (norm.normalized) {
-        jobManager.appendLog(
-          variantId,
-          `Normalized sparse keyframes (max interval ${norm.maxIntervalSeconds === undefined ? "?" : formatSeconds(norm.maxIntervalSeconds, 2)} > 2s) for reliable seeking.`,
-        );
-      } else if (norm.skipReason && norm.maxIntervalSeconds !== undefined) {
-        jobManager.appendLog(
-          variantId,
-          `Left sparse keyframes (max interval ${formatSeconds(norm.maxIntervalSeconds, 2)}) unchanged: ${norm.skipReason}.`,
-        );
-      }
-    } catch (normErr) {
-      const msg = errorMessage(normErr);
-      jobManager.appendLog(variantId, `Keyframe normalization failed (kept original): ${msg}`);
-    }
-
-    // Re-verify ownership after the in-place re-encode (which can itself take a while) and
-    // before hashing/committing: had this worker stalled through the normalization, a reclaimer
-    // that took over could be rewriting the same file, and the hash would read half-written
-    // bytes. Lost the lease → bail and let the caller monitor for the reclaimer's result.
-    if (!(await stillOwnsLease(jobManager, variantId, workerId))) return null;
-
-    const outputHash = await hashFile(path.resolve(videoRoot, outputFile)).catch(() => null);
-    // The one probe of these bytes, where the file has just landed.
-    const media = await probeMediaInfo(path.resolve(videoRoot, outputFile));
-    const durationSec = mediaDurationSec(media);
-    const lang = speechLangOf(definitions);
-    if (owesLine && !recognizesSpeechIn(lang)) {
-      jobManager.appendLog(
-        variantId,
-        `Speech in ${lang} is not recognized; the line is not heard.`,
-      );
-    } else if (owesLine && outputHash && durationSec && media && mediaHasAudio(media)) {
-      const workDir = videoCacheDir(videoRoot, "heard", `${variantId}-${workerId}`);
-      try {
-        const heard = await hearSpeech(
-          path.resolve(videoRoot, outputFile),
-          durationSec,
-          lang,
-          workDir,
-        );
-        await writeHeardSpeech(videoRoot, job.address, job.variantId, { outputHash, heard });
-        jobManager.appendLog(variantId, `Heard: ${heard.length} token(s)`);
-      } catch (hearErr) {
-        jobManager.appendLog(
-          variantId,
-          `Warning: the take's line could not be recognized: ${errorMessage(hearErr)}`,
-        );
-      } finally {
-        await fs.rm(workDir, { recursive: true, force: true });
-      }
-    }
-    const inputFingerprints: Record<string, string> = {};
-    for (const [depPath, depFile] of Object.entries(job.provenance.resolvedDependencies)) {
-      // A patch feeds its source variant in under its OWN address; fingerprinting that would make
-      // the output permanently input-stale against its own address's accepted output. The patch's
-      // upstream picture is its source's, so it is inherited below instead.
-      if (depPath === job.address) continue;
-      try {
-        // A composition dependency (a frame delivery upscale's source) is identified by its
-        // definition + upstream fingerprints (compositionCacheKey) — NOT the rendered mp4's
-        // bytes, which vary per render. Use the key snapshotted at submit time (provenance), not
-        // a recompute from live state: the composition may have moved during this (long) upscale,
-        // which would record the new composition's key onto an upscale of the old one — making the
-        // next export cache-hit a stale shot forever.
-        if (isCompositionAddress(depPath)) {
-          const key = job.provenance.compositionCacheKeys[depPath];
-          if (key) inputFingerprints[depPath] = key;
-          continue;
-        }
-        inputFingerprints[depPath] = await hashFile(path.resolve(videoRoot, depFile));
-      } catch {
-        // dependency file unreadable; skip — staleness treats missing as not determinable
-      }
-    }
-
-    // Commit the dependency-resolving state (variant.file) BEFORE flipping the job to
-    // "completed". evaluateJob keys off state.file, and a cascade triggered the instant the
-    // job is observed ready would otherwise see "ready job, no file, no active job" and
-    // permanently fail dependents. Ordering state-first makes "completed" imply the file
-    // exists. Both state.json and the job file are written atomically (temp+rename).
-    try {
-      const owned = await StateManager.withLock(videoRoot, async (manager) => {
-        if (!(await stillOwnsLease(jobManager, variantId, workerId))) return false;
-        const variant = manager.tryGetAssetState(job.address)?.variants?.[job.variantId];
-        if (variant) {
-          variant.file = outputFile;
-          variant.readyAt = new Date().toISOString();
-          variant.outputHash = outputHash;
-          // Absent unless the measurement came back, and only alongside the hash it is keyed to. A
-          // retry commits over the same variant, so a failure has to clear rather than leave an
-          // earlier take's numbers describing the bytes now at `outputHash`.
-          if (media && outputHash) variant.media = media;
-          else delete variant.media;
-          variant.inputFingerprints = inputFingerprints;
-          variant.metadata = result.metadata;
-          // Recorded in the job's metadata at submission (see submitToBackend), so a reclaiming
-          // waiter reads it back from the persisted job; absent for a seedless definition.
-          if (typeof job.metadata.seed === "number") variant.seed = job.metadata.seed;
-          if (isDelivery) {
-            manager.setAccepted(job.address, job.variantId);
-          }
-          // The chain's returned step just landed, so the patched take exists: register it at the
-          // source's address, in this same lock. Committing it separately would leave a window
-          // where the correction is on disk but nothing at the corrected address points at it.
-          //
-          // A failure here is NOT this commit's failure: the source take can have been removed
-          // (`patch remove`, `clean`) while the chain ran, and the step's own take is on disk
-          // either way. Letting it throw would abandon that commit and leave the job unable to
-          // settle, re-failing for every waiter that reclaims it.
-          if (patchOutput) {
-            try {
-              materializePatchOutput(manager, patchOutput, {
-                address: job.address,
-                variantId: job.variantId,
-              });
-            } catch (err) {
-              jobManager.appendLog(
-                variantId,
-                `Patched variant not registered: ${errorMessage(err)}`,
-              );
-            }
-          }
-        }
-        return true;
-      });
-      if (!owned) return null;
-    } catch (stateErr) {
-      const msg = errorMessage(stateErr);
+    const finalized = await finalizeTake({
+      videoRoot,
+      job,
+      result: waitOutcome.result,
+      owesLine,
+      lang: speechLangOf(definitions),
+      patchOutput,
+      workerId,
+      log: (line) => jobManager.appendLog(variantId, line),
+      stillOwns: () => stillOwnsLease(jobManager, variantId, workerId),
+    });
+    // Lost the lease → bail; the caller monitors for the reclaimer's result.
+    if (finalized.kind === "lost") return null;
+    if (finalized.kind === "stateUncommitted") {
       hooks.onStateUpdateError?.({
         variantId,
         address: job.address,
         phase: "completed",
-        error: msg,
+        error: finalized.error,
       });
       // The dependency-resolving state (variant.file) did NOT commit. Flipping the job to
       // "completed" now would break the "completed implies file in state" invariant and fail
@@ -503,6 +358,7 @@ async function runAsOwner(
       // reclaimer re-observes the still-live backend job (via backendJobId) and retries the write.
       return null;
     }
+    const { outputFiles, outputFile, outputHash } = finalized;
 
     // Commit the terminal state ONLY if we still own the lease — a prior owner that was
     // reclaimed mid-run must not clobber the new owner's result. Lost it → bail; the caller
