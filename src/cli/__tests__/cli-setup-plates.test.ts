@@ -156,12 +156,12 @@ export default defineAnimatic(direction, {
     sm.getAssetState("animatic:plate.front").variants![vid]!.definitionHash = "before-the-edit";
     await sm.save();
 
-    const { stderr } = await run(["generate", "animatic"], projectDir);
-    expect(stderr).toContain("animatic:plate.front");
-    expect(stderr).toContain("shared frame for shots 01, 02");
-    expect(stderr).toContain("for one shot: fork the setup");
-    expect(stderr).toContain("for all 2: konte reroll animatic:plate.front");
-    expect(stderr).not.toContain("--with-dependents");
+    const { stdout } = await run(["generate", "animatic"], projectDir);
+    expect(stdout).toContain("animatic:plate.front");
+    expect(stdout).toContain("shared frame for shots 01, 02");
+    expect(stdout).toContain("for one shot: fork the setup");
+    expect(stdout).toContain("for all 2: konte reroll animatic:plate.front");
+    expect(stdout).not.toContain("--with-dependents");
   });
 
   // `animatic:plate` is an address-scope of its own, which is what makes reading the plates one

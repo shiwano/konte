@@ -596,7 +596,7 @@ Examples:
         }
 
         const variantsNotice = formatUndecidedUpstreamVariantsNotice(undecidedUpstreamVariants);
-        if (variantsNotice) console.warn(`\n${variantsNotice}`);
+        if (variantsNotice) console.log(`\n${variantsNotice}`);
         const assetCount = new Set(jobRows.map((r) => r.address)).size;
         printSpendReport({
           rows: jobRows.map((row) => `${row.address}: ${row.status} → ${row.variantId}`),

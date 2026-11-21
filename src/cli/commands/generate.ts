@@ -291,7 +291,7 @@ export function registerGenerateCommand(program: Command): void {
         console.log(formatGeneratePlan(plan));
         printHeld();
         const planStaleNotice = formatAcceptedStaleNotice(plannedAcceptedStale);
-        if (planStaleNotice) console.warn(`\n${planStaleNotice}`);
+        if (planStaleNotice) console.log(`\n${planStaleNotice}`);
         if (plannedPatches.length > 0) {
           console.log(`\nPatches to apply: ${plannedPatches.length}`);
           for (const p of plannedPatches) {
@@ -567,9 +567,9 @@ export function registerGenerateCommand(program: Command): void {
         songReadings.length > 0 ||
         patchApplications.some((p) => p.status !== "failed");
       const variantsNotice = formatUndecidedUpstreamVariantsNotice(undecidedUpstreamVariants);
-      if (variantsNotice) console.warn(`\n${variantsNotice}`);
+      if (variantsNotice) console.log(`\n${variantsNotice}`);
       const staleNotice = formatAcceptedStaleNotice(acceptedStale);
-      if (staleNotice) console.warn(`\n${staleNotice}`);
+      if (staleNotice) console.log(`\n${staleNotice}`);
       printHeld();
       // A bare "N skipped" reads as a silent no-op, so say what each skip was: nothing to do
       // (accepted / already ready / in flight) vs. a take only `reroll` can replace.

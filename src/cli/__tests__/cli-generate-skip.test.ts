@@ -140,18 +140,18 @@ export default defineReference(direction, { references: () => {
   // in the stage.
   it("names each accepted-but-stale asset on the plan too", async () => {
     const projectDir = await withDefinitionStaleVariant(true);
-    const { stderr } = await run(["generate", "reference", "--plan"], projectDir);
-    expect(stderr).toContain(address);
-    expect(stderr).toContain("konte reroll");
+    const { stdout } = await run(["generate", "reference", "--plan"], projectDir);
+    expect(stdout).toContain(address);
+    expect(stdout).toContain("konte reroll");
   });
 
   it("names each accepted-but-stale asset and breaks the skip count down by reason", async () => {
     const projectDir = await withDefinitionStaleVariant(true);
-    const { stdout, stderr } = await run(["generate", "reference"], projectDir);
-    expect(stderr).toContain(address);
-    expect(stderr).toContain("definition-stale");
-    expect(stderr).toContain("the accept stands — restore it in reference.tsx");
-    expect(stderr).toContain(`for a take of the edited definition: konte reroll ${address}`);
+    const { stdout } = await run(["generate", "reference"], projectDir);
+    expect(stdout).toContain(address);
+    expect(stdout).toContain("definition-stale");
+    expect(stdout).toContain("the accept stands — restore it in reference.tsx");
+    expect(stdout).toContain(`for a take of the edited definition: konte reroll ${address}`);
     expect(stdout).toContain("1 accepted but stale");
   });
 
