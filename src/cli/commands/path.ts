@@ -1,5 +1,6 @@
 import path from "node:path";
 import type { Command } from "commander";
+import { parseTakeArg } from "../../core/address.js";
 import { KonteError } from "../../core/errors.js";
 import { StateManager } from "../../core/state/index.js";
 import { requireVideoRoot } from "../context.js";
@@ -70,8 +71,9 @@ Examples:
     .action(async (variantOrAddresses: string[], opts: { verbose?: boolean }) => {
       const videoRoot = requireVideoRoot();
       const manager = await StateManager.load(videoRoot);
+      const targets = variantOrAddresses.map(parseTakeArg);
       // Definitions before any resolution; a run naming only variant ids resolves nothing.
-      const anyAddress = variantOrAddresses.some((arg) => arg.includes(":"));
+      const anyAddress = targets.some((target) => target.kind === "address");
       const stages = anyAddress
         ? await applyResolutionDefinitions({ videoRoot, state: manager.getState() })
         : {};
@@ -79,8 +81,9 @@ Examples:
 
       const resolved: Resolved[] = [];
       const missing: string[] = [];
-      for (const arg of variantOrAddresses) {
-        if (arg.includes(":")) {
+      for (const target of targets) {
+        if (target.kind === "address") {
+          const arg = target.address;
           const reference = manager.resolveReference(arg, { includeStale: true });
           if (reference) {
             resolved.push({
@@ -96,10 +99,10 @@ Examples:
           } else missing.push(arg);
           continue;
         }
-        manager.assertNotAbsent(arg);
-        const byVariant = resolveVariantId(manager, arg);
+        manager.assertNotAbsent(target.variantId);
+        const byVariant = resolveVariantId(manager, target.variantId);
         if (byVariant) resolved.push(byVariant);
-        else missing.push(arg);
+        else missing.push(target.variantId);
       }
       if (missing.length > 0) {
         throw new KonteError("VARIANT_NOT_FOUND", `No ready variant for ${missing.join(", ")}`);

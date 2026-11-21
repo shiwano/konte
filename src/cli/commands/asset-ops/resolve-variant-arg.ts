@@ -1,4 +1,4 @@
-import { getAssetEntry, parseAddress } from "../../../core/address.js";
+import { getAssetEntry, parseTakeArg } from "../../../core/address.js";
 import { definitionForAddress, type StageDefinitions } from "../../../core/definition-hashes.js";
 import { KonteError } from "../../../core/errors.js";
 import { variantsNewestFirst } from "../../../core/staleness.js";
@@ -17,22 +17,17 @@ import type { StateManager } from "../../../core/state/index.js";
  * An address that still resolves to nothing — every take fileless, or every one dismissed — fails
  * with the candidate list: there is no take on screen to mean, so the caller has to name one. Its
  * only take is that take, unless it has no file.
- *
- * `:` is the discriminator: variant ids never contain one, so any `:` signals address
- * intent and `parseAddress` owns validation (a malformed address fails as such, not as
- * a missing variant).
  */
 export function resolveVariantArg(
   manager: StateManager,
   arg: string,
   definitions: StageDefinitions,
 ): { address: string; variantId: string } {
-  if (!arg.includes(":")) {
+  if (parseTakeArg(arg).kind === "variant") {
     return { address: manager.resolveVariantAddress(arg), variantId: arg };
   }
 
   const address = arg;
-  parseAddress(address);
   const variants = manager.getState().assets[address]?.variants;
   const ids = variants ? variantsNewestFirst(variants).map(([id]) => id) : [];
   if (ids.length === 0) {

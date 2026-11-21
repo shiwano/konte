@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 import {
+  classifyTargetArg,
   isOverlayAddress,
   type AssetStage,
   type ShotStage,
@@ -90,20 +91,16 @@ type InspectScope = PromptScope | { level: "variant"; variantId: string };
 // none of these and falls through to the error below.
 const STAGE_PATTERN = /^(animatic|video|reference)$/;
 const SHOT_PATTERN = /^(animatic|video):shot\.([a-zA-Z0-9_-]+)$/;
-const VARIANT_PATTERN = /^v-[A-Za-z0-9_-]+$/;
 
 function parseInspectScope(input: string): InspectScope {
-  // The direction stage has its own grammar (feedback-only parts, no asset suffix), so it is routed
-  // before the asset forms rather than falling through them.
+  // A malformed direction part fails on the direction's own grammar.
   if (input === "direction" || input.startsWith("direction:")) {
     return { level: "direction", address: parseDirectionScope(input).address };
   }
-
-  try {
-    const parsed = parseAddress(input);
-    return { level: "asset", stage: parsed.stage, address: input };
-  } catch {
-    // not an asset address
+  const target = classifyTargetArg(input);
+  if (target.kind === "variant") return { level: "variant", variantId: target.variantId };
+  if (target.kind === "address") {
+    return { level: "asset", stage: target.parsed.stage, address: input };
   }
 
   const shotMatch = SHOT_PATTERN.exec(input);
@@ -112,8 +109,6 @@ function parseInspectScope(input: string): InspectScope {
   }
 
   if (input === "animatic:plate") return { level: "plates", stage: "animatic" };
-
-  if (VARIANT_PATTERN.test(input)) return { level: "variant", variantId: input };
 
   const stageMatch = STAGE_PATTERN.exec(input);
   if (stageMatch) {

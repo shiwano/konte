@@ -23,6 +23,7 @@ import {
   listStemAddresses,
   isMaterializedLeafAddress,
   isStageScope,
+  isVariantIdArg,
   listExposedReferenceAddresses,
   listOverlayAddresses,
   THUMBNAIL_FRAME_ADDRESS,
@@ -34,6 +35,7 @@ import {
   parseAddress,
   parseDirectionScope,
   parseShotScope,
+  parseTakeArg,
 } from "../../../core/address.js";
 import {
   commitLeafForAddress,
@@ -708,14 +710,14 @@ function orderAcceptBatch(
   topologicalOrder: readonly string[],
   conditional: readonly string[],
 ): BatchEntry[] {
-  const isLeafArg = (t: string) => t.includes(":") && isMaterializedLeafAddress(t);
   const byAddress = new Map<string, BatchEntry>();
   for (const address of conditional)
     byAddress.set(address, { address, leaf: true, conditional: true });
-  for (const address of targets.filter(isLeafArg)) byAddress.set(address, { address, leaf: true });
-  for (const target of targets.filter((t) => !isLeafArg(t))) {
+  for (const address of targets.filter(isMaterializedLeafAddress))
+    byAddress.set(address, { address, leaf: true });
+  for (const target of targets.filter((t) => !isMaterializedLeafAddress(t))) {
     const named = resolveVariantArg(manager, target, definitions);
-    const hit = target.includes(":") ? replacementForStaleAccept(manager, named) : named;
+    const hit = isVariantIdArg(target) ? named : replacementForStaleAccept(manager, named);
     if (manager.getAssetState(hit.address).variants?.[hit.variantId]?.file == null) {
       throw new KonteError(
         "VARIANT_NOT_REVIEWABLE",
@@ -1095,7 +1097,7 @@ function acceptedVariantOf(
 ): VariantTarget {
   let address: string;
   let variantId: string;
-  if (target.includes(":") && isMaterializedLeafAddress(target)) {
+  if (isMaterializedLeafAddress(target)) {
     const accepted = manager.getAcceptedVariant(target);
     if (!accepted) {
       throw new KonteError(
@@ -1108,7 +1110,8 @@ function acceptedVariantOf(
   } else {
     // A stale deterministic accept stops resolving. With no accept the fallback keeps the existing
     // failure paths.
-    const accepted = target.includes(":") ? manager.getAcceptedVariant(target) : null;
+    const accepted =
+      parseTakeArg(target).kind === "address" ? manager.getAcceptedVariant(target) : null;
     ({ address, variantId } = accepted
       ? { address: target, variantId: accepted }
       : resolveVariantArg(manager, target, definitions));

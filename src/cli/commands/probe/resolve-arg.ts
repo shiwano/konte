@@ -1,8 +1,9 @@
 import {
   assertValidAddressScope,
+  classifyTargetArg,
   isPatchAddress,
   isPatchScope,
-  parseAddress,
+  isVariantIdArg,
 } from "../../../core/address.js";
 import { KonteError } from "../../../core/errors.js";
 import { inferMediaType } from "../../../core/media-type.js";
@@ -38,25 +39,16 @@ export interface ProbeTargets {
  *   asset under it, each resolved to its canonical variant and kept only if this probe can read its
  *   media (`mediaKinds`), so `probe motion video` sweeps the video stage's motion clips without
  *   dragging in stills or audio. A patch step is swept only by a scope that names the patch axis.
- *
- * `:` no longer discriminates (a bare stage like `video` carries none) — `v-` marks a variant id, a
- * successful `parseAddress` marks a full address, everything else is a scope.
  */
 function resolveOne(
   manager: StateManager,
   arg: string,
   opts: { mediaKinds: readonly ProbeMediaKind[] },
 ): ProbeTargets {
-  if (arg.startsWith("v-")) return { variantIds: [arg], multi: false, resolved: [] };
+  const target = classifyTargetArg(arg);
+  if (target.kind === "variant") return { variantIds: [arg], multi: false, resolved: [] };
 
-  let isFullAddress = true;
-  try {
-    parseAddress(arg);
-  } catch {
-    isFullAddress = false;
-  }
-
-  if (isFullAddress) {
+  if (target.kind === "address") {
     const resolved = manager.resolveReference(arg, { includeStale: true });
     if (!resolved) {
       throw new KonteError(
@@ -149,9 +141,8 @@ interface OpenedProbeTargets extends ProbeTargets {
 }
 
 // The preamble every variant-probe shares: the current video's state, resolution definitions when
-// any argument is a scope or address (`v-` and not `:` — a bare stage like `video` is a scope to
-// resolve, not a variant id), then the arguments resolved to variant ids. A take an address resolved
-// to gets its notices on stderr here.
+// any argument is a scope or address, then the arguments resolved to variant ids. A take an
+// address resolved to gets its notices on stderr here.
 //
 // `definitions` forces that load even for a bare variant id and hands the stages back, for a probe
 // that reports on what the definition says as well as on the file — `probe audio` prints the line a
@@ -163,7 +154,7 @@ export async function openProbeTargets(
   const videoRoot = requireVideoRoot();
   const manager = await StateManager.load(videoRoot);
   let definitions: StageDefinitions | null = null;
-  if (opts.definitions || args.some((arg) => !arg.startsWith("v-"))) {
+  if (opts.definitions || args.some((arg) => !isVariantIdArg(arg))) {
     definitions = await applyResolutionDefinitions({ videoRoot, state: manager.getState() });
   }
   const targets = resolveProbeTargets(manager, args, opts);

@@ -825,6 +825,38 @@ export function tryParseAddress(address: string): ParsedAddress | null {
   }
 }
 
+const VARIANT_ID_ARG_PATTERN = /^v-[A-Za-z0-9_-]+$/;
+
+export function isVariantIdArg(arg: string): boolean {
+  return VARIANT_ID_ARG_PATTERN.test(arg);
+}
+
+// A command-line target, by shape alone. `scope` is everything else and is not validated: each
+// command names the scopes it takes.
+export type TargetArg =
+  | { kind: "variant"; variantId: string }
+  | { kind: "address"; address: string; parsed: ParsedAddress }
+  | { kind: "direction"; scope: string }
+  | { kind: "scope"; scope: string };
+
+export function classifyTargetArg(arg: string): TargetArg {
+  if (isVariantIdArg(arg)) return { kind: "variant", variantId: arg };
+  if (isDirectionScope(arg)) return { kind: "direction", scope: arg };
+  const parsed = tryParseAddress(arg);
+  if (parsed) return { kind: "address", address: arg, parsed };
+  return { kind: "scope", scope: arg };
+}
+
+// A take's own name: its variant id, or the address it resolves at.
+export function parseTakeArg(arg: string): Extract<TargetArg, { kind: "variant" | "address" }> {
+  const target = classifyTargetArg(arg);
+  if (target.kind === "variant" || target.kind === "address") return target;
+  throw new KonteError(
+    "INVALID_ADDRESS",
+    `"${arg}" is neither a variant id (v-…) nor an asset address (<stage>:<path>)`,
+  );
+}
+
 // Both leaf predicates read the parse rather than re-matching the suffix, so the reserved name's
 // two containers (a shot, the timeline) stay one rule. A delivery derivative is not the leaf
 // itself — `video:shot.01#composition#delivery` is a generated upscale — so it is excluded.

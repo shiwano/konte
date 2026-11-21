@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  classifyTargetArg,
+  parseTakeArg,
   assetNameOf,
   type DefinitionLike,
   addressFromCacheSegments,
@@ -782,5 +784,26 @@ describe("address cache segments", () => {
     for (const addr of cases) {
       expect(addressFromCacheSegments(addressToCacheSegments(addr))).toBe(addr);
     }
+  });
+});
+
+describe("classifyTargetArg", () => {
+  it.each([
+    ["v-a1B2c3D4", "variant"],
+    ["video:shot.01.motion", "address"],
+    ["reference:bgm", "address"],
+    ["direction", "direction"],
+    ["direction:policy.format", "direction"],
+    ["video", "scope"],
+    ["video:shot.01", "scope"],
+    ["animatic:plate", "scope"],
+    ["v999", "scope"],
+  ])("classifies %s as %s", (arg, kind) => {
+    expect(classifyTargetArg(arg).kind).toBe(kind);
+  });
+
+  it("refuses a scope where a take is named", () => {
+    expect(() => parseTakeArg("video:shot.01")).toThrow(/INVALID_ADDRESS|neither a variant id/);
+    expect(parseTakeArg("v-a1B2c3D4")).toEqual({ kind: "variant", variantId: "v-a1B2c3D4" });
   });
 });

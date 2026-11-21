@@ -5,6 +5,7 @@ import {
   type DefinitionLike,
   type Stage,
   assertValidAddressScope,
+  classifyTargetArg,
   getAssetEntry,
   getStage,
   isMaterializedLeafAddress,
@@ -222,16 +223,28 @@ Examples:
         // A target naming one asset parses as an address; everything else is a scope. The split is
         // structural rather than a lookup in `declared`, so a typo in the name slot still reaches
         // `validateAddress` and is told which asset does not exist, instead of sweeping to nothing.
-        const namedAddresses = uniqueTargets.filter((t) => tryParseAddress(t) !== null);
-        const scopeTargets = uniqueTargets.filter((t) => tryParseAddress(t) === null);
-        for (const scope of scopeTargets) {
-          assertValidAddressScope(scope);
-          if (scope === "direction" || scope.startsWith("direction:")) {
+        const namedAddresses: string[] = [];
+        const scopeTargets: string[] = [];
+        for (const arg of uniqueTargets) {
+          const target = classifyTargetArg(arg);
+          if (target.kind === "address") {
+            namedAddresses.push(arg);
+            continue;
+          }
+          if (target.kind === "variant") {
             throw new KonteError(
               "INVALID_ADDRESS",
-              `Cannot reroll "${scope}": the direction is feedback-only and declares no generated asset`,
+              `Cannot reroll "${arg}": reroll takes an address or address-scope — name the take's address`,
             );
           }
+          if (target.kind === "direction") {
+            throw new KonteError(
+              "INVALID_ADDRESS",
+              `Cannot reroll "${arg}": the direction is feedback-only and declares no generated asset`,
+            );
+          }
+          assertValidAddressScope(arg);
+          scopeTargets.push(arg);
         }
 
         // A named address answers for itself before anything narrows the run: whichever filter would

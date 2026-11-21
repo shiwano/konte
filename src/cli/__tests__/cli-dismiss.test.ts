@@ -213,6 +213,9 @@ describe("dismiss command", () => {
 
   it("decides nothing when one of several targets is invalid", async () => {
     await expect(run(["dismiss", newer, "v999"], projectDir)).rejects.toMatchObject({
+      stderr: expect.stringContaining("INVALID_ADDRESS"),
+    });
+    await expect(run(["dismiss", newer, "v-missing0"], projectDir)).rejects.toMatchObject({
       stderr: expect.stringContaining("VARIANT_NOT_FOUND"),
     });
 

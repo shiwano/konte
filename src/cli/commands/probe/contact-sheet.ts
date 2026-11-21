@@ -8,6 +8,7 @@ import {
   formatShotAddress,
   isCompositionAddress,
   isPlateAddress,
+  isVariantIdArg,
   parseAddress,
   parseReelScope,
   type ShotStage,
@@ -64,7 +65,7 @@ const MAX_FRAMES_PER_SHOT = 12;
 // everything else names variants. A variant id is checked first — `parseReelScope` would reject it
 // with a message about address-scopes that has nothing to do with what was passed.
 function isCompositionScope(arg: string): boolean {
-  if (arg.startsWith("v-")) return false;
+  if (isVariantIdArg(arg)) return false;
   try {
     parseReelScope(arg);
     return true;
