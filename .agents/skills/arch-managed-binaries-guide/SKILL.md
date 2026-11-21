@@ -36,5 +36,5 @@ How konte supplies its external tools — each a version-pinned build fetched on
 2. `<workspace>/.konte/tools/` — the default.
 
 - The workspace root is `workspaceRootOrNull()` (`src/core/workspace-context.ts`), a process global set once in the CLI preAction.
-- Each directory name pins its contents' identity — `ffmpeg-<version>`, `tsc-<version>`, `chromium-<buildId>`, `hyperframes-<contentHash>`. hyperframes (the embedded runtime assets) is written out of the binary — nothing to pin; its resolver still checks the files exist.
+- Each directory name pins its contents' identity — `ffmpeg-<version>`, `tsc-<version>`, `chromium-<buildId>`, `hyperframes-<contentHash>`. hyperframes (the embedded runtime assets) is written out of the binary, its content hash as the pin.
 - `konte workspace new` / `workspace setup` prefetch ffmpeg, tsc, Chromium and sherpa-onnx one at a time; a failure warns and continues.

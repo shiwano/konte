@@ -12,7 +12,7 @@ import { EMOJI_FAMILY, containsEmoji } from "./typography.js";
 import { videoCacheDir } from "./video-cache.js";
 
 export async function ensureHyperFrames(): Promise<void> {
-  ensureHyperFramesEnv();
+  await ensureHyperFramesEnv();
   await ensureChromium();
   // HyperFrames extracts, encodes and probes media by shelling out to bare `ffmpeg`/`ffprobe`, so
   // PATH is the only lever that points it at the build konte provisioned rather than the host's.

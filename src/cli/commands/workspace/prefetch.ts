@@ -15,8 +15,7 @@ import { errorMessage } from "../../../core/errors.js";
  * whatever is missing is fetched on first use anyway.
  */
 export async function prefetchManagedRuntimes(): Promise<void> {
-  ensureHyperFramesEnv();
-
+  await step("hyperframes", () => ensureHyperFramesEnv());
   await step("ffmpeg", async () => {
     await ensureFfmpeg();
     await ensureFfprobe();
