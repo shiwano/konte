@@ -22,7 +22,7 @@ import type {
   JobRecord,
 } from "../core/types/index.js";
 import { type ComfyUIConfig, type ComfyUITiming, resolveComfyUITiming } from "./config.js";
-import { extractHistoryError, historyOutcome, UNOBSERVABLE } from "./error-utils.js";
+import { historyFailure, historyOutcome, UNOBSERVABLE } from "./error-utils.js";
 import { ComfyUIHttpClient } from "./http-client.js";
 import { ComfyUIManagerClient, type ManagerQueueStatus } from "./manager-client.js";
 import {
@@ -181,8 +181,7 @@ export class ComfyUIBackend implements GenerationBackend {
     }
 
     if (historyOutcome(history) === "error") {
-      const detail = extractHistoryError(history);
-      const err = new KonteError("COMFYUI_ERROR", detail ?? "ComfyUI execution failed");
+      const err = historyFailure(history);
       options?.onLog?.(`Error: ${err.message}`);
       throw err;
     }

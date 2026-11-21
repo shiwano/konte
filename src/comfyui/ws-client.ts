@@ -1,7 +1,7 @@
 import { type ComfyUITiming, DEFAULT_COMFYUI_TIMING } from "./config.js";
 import { KonteError, errorMessage } from "../core/errors.js";
 import { pollUntilTerminal, TransientPollError } from "../core/poll-until-terminal.js";
-import { extractHistoryError, historyOutcome, isAuthFailure } from "./error-utils.js";
+import { historyFailure, historyOutcome, isAuthFailure } from "./error-utils.js";
 import { ComfyUIHttpClient } from "./http-client.js";
 import { resolveHeaderTokens } from "./token-resolver.js";
 import { wsProxyFor } from "./ws-proxy.js";
@@ -100,6 +100,60 @@ function unreachableError(promptId: string, sinceMs: number, lastError: string):
   );
 }
 
+// Whether the prompt is in the live queue, fed to the disappearance reconciler. Found in
+// queue_running, it fires `onRunning` — the polling-side signal that execution has begun, so a job
+// whose WebSocket was evicted still records its execution start.
+async function classifyPromptPresence(
+  http: ComfyUIHttpClient,
+  promptId: string,
+  state: GoneState,
+  onRunning?: () => void,
+): Promise<PromptPresence> {
+  const queue = await http.getQueue();
+  const running = queue.queue_running.some((item) => Array.isArray(item) && item[1] === promptId);
+  const pending = queue.queue_pending.some((item) => Array.isArray(item) && item[1] === promptId);
+  if (running) onRunning?.();
+  return registerGonePoll(state, running || pending, Date.now());
+}
+
+/**
+ * One HTTP read of a prompt: "done", or "pending" while it runs or waits. Its execution error and
+ * its disappearance (cancelled, removed, or orphaned by a crash) throw as the terminal
+ * `KonteError`; a failed `/history` or `/queue` read (connection refused, 5xx, timeout, a refused
+ * credential) is never a verdict and throws `TransientPollError`.
+ */
+async function observePrompt(
+  http: ComfyUIHttpClient,
+  promptId: string,
+  state: GoneState,
+  onExecutionStarted?: () => void,
+): Promise<"done" | "pending"> {
+  let history: Awaited<ReturnType<ComfyUIHttpClient["getHistory"]>>;
+  let presence: PromptPresence = "absent";
+  try {
+    history = await http.getHistory(promptId);
+    if (!history) {
+      presence = await classifyPromptPresence(http, promptId, state, onExecutionStarted);
+    }
+  } catch (err) {
+    throw new TransientPollError(errorMessage(err), {
+      cause: err,
+      refused: err instanceof KonteError && isAuthFailure(err),
+    });
+  }
+
+  if (history) {
+    const outcome = historyOutcome(history);
+    if (outcome === "error") throw historyFailure(history);
+    if (outcome === "success") return "done";
+    onExecutionStarted?.();
+    registerGonePoll(state, true, Date.now());
+  } else if (presence === "gone" || presence === "orphaned") {
+    throw promptDisappearedError(promptId, presence);
+  }
+  return "pending";
+}
+
 type ComfyWsMessageHandlers = {
   // Every execution-start observer routes here (see WaitOptions.onExecutionStarted).
   onExecutionStarted?: () => void;
@@ -179,6 +233,7 @@ export class ComfyUIWsClient {
   readonly clientId: string;
   private readonly timing: ComfyUITiming;
   private readonly headerTemplates: Readonly<Record<string, string>>;
+  private readonly http: ComfyUIHttpClient;
   private ws: WebSocket | null = null;
 
   constructor(
@@ -191,13 +246,7 @@ export class ComfyUIWsClient {
     this.clientId = clientId;
     this.timing = timing;
     this.headerTemplates = headers;
-  }
-
-  private httpClient(): ComfyUIHttpClient {
-    return new ComfyUIHttpClient(this.baseUrl, {
-      clientId: this.clientId,
-      headers: this.headerTemplates,
-    });
+    this.http = new ComfyUIHttpClient(baseUrl, { clientId, headers });
   }
 
   async connect(): Promise<void> {
@@ -225,21 +274,17 @@ export class ComfyUIWsClient {
       onUnconfirmedChange?: (info: { unconfirmed: boolean; lastError: string | null }) => void;
     },
   ): Promise<PromptWaitResult> {
-    const httpClient = this.httpClient();
     // A transient failure on this opening check just means we can't take the fast path;
     // fall through to the (resilient) waiters rather than failing the whole job.
     let history: Awaited<ReturnType<ComfyUIHttpClient["getHistory"]>> = null;
     try {
-      history = await httpClient.getHistory(promptId);
+      history = await this.http.getHistory(promptId);
     } catch {
       history = null;
     }
     if (history) {
       const outcome = historyOutcome(history);
-      if (outcome === "error") {
-        const detail = extractHistoryError(history);
-        throw new KonteError("COMFYUI_ERROR", detail ?? "ComfyUI execution failed");
-      }
+      if (outcome === "error") throw historyFailure(history);
       if (outcome === "success") return { kind: "done" };
       // A running-history on the opening fast-path check: execution has already begun, so record
       // it now — the WebSocket we're about to join may never re-emit a start we'd otherwise miss.
@@ -271,24 +316,6 @@ export class ComfyUIWsClient {
     }
   }
 
-  // Classifies a prompt's presence (cancelled/removed externally, or orphaned by a ComfyUI
-  // crash/restart) by checking the live queue and feeding the result to the reconciler.
-  // `onRunning` fires when the prompt is found in queue_running — the polling-side signal that
-  // execution has begun (the WebSocket "executing" event's equivalent), so a job whose WebSocket
-  // was evicted still records its execution start rather than looking forever un-started.
-  private async classifyPromptPresence(
-    httpClient: ComfyUIHttpClient,
-    promptId: string,
-    state: GoneState,
-    onRunning?: () => void,
-  ): Promise<PromptPresence> {
-    const queue = await httpClient.getQueue();
-    const running = queue.queue_running.some((item) => Array.isArray(item) && item[1] === promptId);
-    const pending = queue.queue_pending.some((item) => Array.isArray(item) && item[1] === promptId);
-    if (running) onRunning?.();
-    return registerGonePoll(state, running || pending, Date.now());
-  }
-
   private async waitViaWebSocket(
     promptId: string,
     options?: WaitForPromptOptions,
@@ -302,8 +329,6 @@ export class ComfyUIWsClient {
       throw new KonteError("COMFYUI_WS_UNAVAILABLE", "WebSocket not connected");
     }
 
-    const httpClient = this.httpClient();
-
     return new Promise<PromptWaitResult>((resolve, reject) => {
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
       let settled = false;
@@ -315,45 +340,28 @@ export class ComfyUIWsClient {
       // emit no WebSocket completion event and would otherwise hang forever.
       const goneState: GoneState = { seen: false, goneStreak: 0, absentSince: null };
       const pollId = setInterval(async () => {
+        let outcome: "done" | "pending";
         try {
-          const history = await httpClient.getHistory(promptId);
-          if (history) {
-            const outcome = historyOutcome(history);
-            if (outcome === "running") {
+          outcome = await observePrompt(this.http, promptId, goneState, () => {
+            try {
               options?.onExecutionStarted?.();
-              goneState.seen = true;
-              goneState.goneStreak = 0;
-              goneState.absentSince = null;
-              return;
+            } catch {
+              // A throwing callback must not end the wait.
             }
-            options?.onLog?.("Completion detected via HTTP polling safety net");
-            cleanup();
-            if (outcome === "error") {
-              const detail = extractHistoryError(history);
-              reject(new KonteError("COMFYUI_ERROR", detail ?? "ComfyUI execution failed"));
-            } else {
-              resolve({ kind: "done" });
-            }
+          });
+        } catch (err) {
+          if (err instanceof TransientPollError) {
+            options?.onLog?.(`Polling safety net error: ${err.message}`);
             return;
           }
-          const presence = await this.classifyPromptPresence(
-            httpClient,
-            promptId,
-            goneState,
-            options?.onExecutionStarted,
-          );
-          if (presence === "gone" || presence === "orphaned") {
-            options?.onLog?.(
-              presence === "orphaned"
-                ? "Prompt absent from ComfyUI past the grace window (likely a crash/restart) — failing as orphaned"
-                : "Prompt disappeared from ComfyUI (cancelled or removed externally)",
-            );
-            cleanup();
-            reject(promptDisappearedError(promptId, presence));
-          }
-        } catch (err) {
-          options?.onLog?.(`Polling safety net error: ${errorMessage(err)}`);
+          cleanup();
+          reject(err);
+          return;
         }
+        if (outcome === "pending") return;
+        options?.onLog?.("Completion detected via HTTP polling safety net");
+        cleanup();
+        resolve({ kind: "done" });
       }, this.timing.safetyNetIntervalMs);
 
       const cleanup = () => {
@@ -429,49 +437,14 @@ export class ComfyUIWsClient {
     promptId: string,
     options?: WaitForPromptOptions,
   ): Promise<PromptWaitResult> {
-    const httpClient = this.httpClient();
     const goneState: GoneState = { seen: false, goneStreak: 0, absentSince: null };
 
     const poll = await pollUntilTerminal<void>(
-      async () => {
-        // A failed /history or /queue read (connection refused, 5xx, request timeout, a refused
-        // credential) is never a job verdict.
-        let history: Awaited<ReturnType<ComfyUIHttpClient["getHistory"]>>;
-        let presence: PromptPresence = "absent";
-        try {
-          history = await httpClient.getHistory(promptId);
-          if (!history) {
-            presence = await this.classifyPromptPresence(
-              httpClient,
-              promptId,
-              goneState,
-              options?.onExecutionStarted,
-            );
-          }
-        } catch (err) {
-          throw new TransientPollError(errorMessage(err), {
-            cause: err,
-            refused: err instanceof KonteError && isAuthFailure(err),
-          });
-        }
-
-        if (history) {
-          const outcome = historyOutcome(history);
-          if (outcome === "error") {
-            const detail = extractHistoryError(history);
-            throw new KonteError("COMFYUI_ERROR", detail ?? "ComfyUI execution failed");
-          }
-          if (outcome === "success") return { state: "done", result: undefined };
-          // Not terminal → a running-history entry: execution has begun.
-          options?.onExecutionStarted?.();
-          goneState.seen = true;
-          goneState.goneStreak = 0;
-          goneState.absentSince = null;
-        } else if (presence === "gone" || presence === "orphaned") {
-          throw promptDisappearedError(promptId, presence);
-        }
-        return { state: "pending" };
-      },
+      async () =>
+        (await observePrompt(this.http, promptId, goneState, options?.onExecutionStarted)) ===
+        "done"
+          ? { state: "done", result: undefined }
+          : { state: "pending" },
       {
         deadline: options?.deadline,
         pollIntervalMs: this.timing.pollIntervalMs,

@@ -33,6 +33,79 @@ describe("ComfyUIWsClient.connect", () => {
   });
 });
 
+describe("ComfyUIWsClient.waitForPrompt safety net", () => {
+  // A socket that never reports, so only the HTTP safety net can end the wait.
+  async function withSilentComfy(
+    history: () => Response,
+    run: (client: ComfyUIWsClient) => Promise<void>,
+  ): Promise<void> {
+    const server = Bun.serve({
+      port: 0,
+      hostname: "127.0.0.1",
+      fetch(req, srv) {
+        const { pathname } = new URL(req.url);
+        if (pathname === "/ws") {
+          return srv.upgrade(req) ? undefined : new Response(null, { status: 400 });
+        }
+        if (pathname === "/history/p1") return history();
+        if (pathname === "/queue") {
+          return Response.json({ queue_running: [[0, "p1"]], queue_pending: [] });
+        }
+        return new Response(null, { status: 404 });
+      },
+      websocket: { message() {} },
+    });
+    try {
+      await run(
+        new ComfyUIWsClient(`http://127.0.0.1:${server.port}`, "c1", {
+          ...DEFAULT_COMFYUI_TIMING,
+          safetyNetIntervalMs: 20,
+        }),
+      );
+    } finally {
+      await server.stop(true);
+    }
+  }
+
+  const entry = (status_str: string, completed: boolean, messages: unknown[] = []) =>
+    Response.json({ p1: { outputs: {}, status: { status_str, completed, messages } } });
+
+  it("fails the wait with the execution error the history records", async () => {
+    let reads = 0;
+    await withSilentComfy(
+      () =>
+        ++reads === 1
+          ? Response.json({})
+          : entry("error", false, [
+              ["execution_error", { node_id: "7", exception_message: "out of memory" }],
+            ]),
+      async (client) => {
+        await expect(client.waitForPrompt("p1")).rejects.toMatchObject({
+          code: "COMFYUI_ERROR",
+          message: expect.stringContaining("out of memory"),
+        });
+      },
+    );
+  });
+
+  it("keeps waiting through a failed read and finishes on a later success", async () => {
+    let reads = 0;
+    const onLog = vi.fn();
+    await withSilentComfy(
+      () => {
+        reads++;
+        if (reads === 1) return Response.json({});
+        if (reads === 2) return new Response("down", { status: 503 });
+        return entry("success", true);
+      },
+      async (client) => {
+        await expect(client.waitForPrompt("p1", { onLog })).resolves.toEqual({ kind: "done" });
+        expect(onLog).toHaveBeenCalledWith(expect.stringContaining("Polling safety net error"));
+      },
+    );
+  });
+});
+
 function freshState(): GoneState {
   return { seen: false, goneStreak: 0, absentSince: null };
 }

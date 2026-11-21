@@ -1,4 +1,4 @@
-import type { KonteError } from "../core/errors.js";
+import { KonteError } from "../core/errors.js";
 import type { ComfyUIHistoryEntry } from "./types.js";
 
 type ComfyUIHistoryOutcome = "running" | "success" | "error";
@@ -36,6 +36,13 @@ export function extractHistoryError(history: ComfyUIHistoryEntry): string | null
   }
 
   return "ComfyUI execution failed";
+}
+
+export function historyFailure(history: ComfyUIHistoryEntry): KonteError {
+  return new KonteError(
+    "COMFYUI_ERROR",
+    extractHistoryError(history) ?? "ComfyUI execution failed",
+  );
 }
 
 const AUTH_FAILURES = ["COMFYUI_UNAUTHORIZED", "MISSING_TOKEN"] as const;
