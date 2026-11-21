@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { x264Args } from "./ffmpeg.js";
 import { ffprobeBin } from "./ffmpeg-binary.js";
 import { runFfmpeg } from "./ffmpeg-exec.js";
 import { inferMediaType } from "./media-type.js";
@@ -160,12 +161,7 @@ export async function normalizeKeyframesIfSparse(
         "0",
         "-c",
         "copy",
-        "-c:v",
-        "libx264",
-        "-preset",
-        "veryfast",
-        "-crf",
-        "18",
+        ...x264Args({ crf: 18 }),
         "-g",
         String(gop),
         "-keyint_min",

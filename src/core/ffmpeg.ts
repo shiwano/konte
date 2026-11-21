@@ -17,6 +17,12 @@ export async function ensureFfprobe(): Promise<void> {
   await ffprobeBin();
 }
 
+export function x264Args({ crf, preset = "veryfast" }: { crf: number; preset?: string }): string[] {
+  return ["-c:v", "libx264", "-preset", preset, "-crf", String(crf)];
+}
+
+const AAC_STEREO_ARGS = ["-c:a", "aac", "-ar", "44100", "-ac", "2"] as const;
+
 function escapeConcatPath(filePath: string): string {
   return filePath.replace(/'/g, "'\\''");
 }
@@ -43,12 +49,7 @@ export async function trimVideo(options: {
     inputFile,
     "-t",
     String(duration),
-    "-c:v",
-    "libx264",
-    "-preset",
-    "veryfast",
-    "-crf",
-    "18",
+    ...x264Args({ crf: 18 }),
     "-pix_fmt",
     "yuv420p",
     "-c:a",
@@ -115,6 +116,28 @@ function trackFilter(track: MuxAudioTrack, inputIdx: number, label: string): str
   return `[${inputIdx}:a]${tempo}${trim}${volume},${fade}adelay=${startMs}:all=1[${label}]`;
 }
 
+// Pushes each track's input onto `args`, the first at input `firstInput`, and returns the
+// filtergraph placing them with the label of their sum, `[<sum>]`: a lone track is its own sum,
+// several are summed by amix (normalize=0 keeps each track's own gain).
+function mixGraph(
+  args: string[],
+  tracks: readonly MuxAudioTrack[],
+  firstInput: number,
+  sum = "mix",
+): { parts: string[]; sum: string } {
+  const labels: string[] = [];
+  const parts: string[] = [];
+  tracks.forEach((track, i) => {
+    pushTrackInput(args, track);
+    const label = `a${i}`;
+    labels.push(`[${label}]`);
+    parts.push(trackFilter(track, firstInput + i, label));
+  });
+  if (tracks.length === 1) return { parts, sum: labels[0]! };
+  parts.push(`${labels.join("")}amix=inputs=${tracks.length}:normalize=0[${sum}]`);
+  return { parts, sum: `[${sum}]` };
+}
+
 // Build the ffmpeg args that lay timeline audio tracks over a video's picture. Video is taken
 // from input 0 only (`-map 0:v`), so any audio already baked into `videoFile` is discarded — the
 // composited audio is fully reconstructed here, decode-accurate and seam-free. Pure (no I/O) so
@@ -126,43 +149,26 @@ export function buildMuxArgs(
   videoDuration?: number,
 ): string[] {
   const args = ["-y", "-i", videoFile];
+  // Tracks follow the video at input 0.
+  const { parts, sum } = mixGraph(args, tracks, 1);
 
-  const labels: string[] = [];
-  const filterParts: string[] = [];
-
-  tracks.forEach((track, i) => {
-    pushTrackInput(args, track);
-    const label = `a${i}`;
-    labels.push(`[${label}]`);
-    filterParts.push(trackFilter(track, i + 1, label)); // tracks follow the video at input 0
-  });
-
-  // Sum the tracks (normalize=0 keeps each track's own gain) and limit only to prevent clipping
-  // when overlapping tracks push past 0dBFS. No loudness normalization — that is a creative choice.
-  // Clamp the mix to the picture length (amix runs to the longest input, so a track longer than the
-  // timeline would otherwise stretch the file past the video and freeze the last frame in players).
-  const mixed =
-    tracks.length === 1
-      ? labels[0]
-      : `${labels.join("")}amix=inputs=${tracks.length}:normalize=0[mix];[mix]`;
+  // Limit only to prevent clipping when overlapping tracks push past 0dBFS. No loudness
+  // normalization — that is a creative choice. Clamp the mix to the picture length (amix runs to the
+  // longest input, so a track longer than the timeline would otherwise stretch the file past the
+  // video and freeze the last frame in players).
   const clamp = videoDuration != null ? `,atrim=0:${videoDuration}` : "";
-  filterParts.push(`${mixed}alimiter=level=false:limit=0.95${clamp}[aout]`);
+  parts.push(`${sum}alimiter=level=false:limit=0.95${clamp}[aout]`);
 
   args.push(
     "-filter_complex",
-    filterParts.join(";"),
+    parts.join(";"),
     "-map",
     "0:v",
     "-map",
     "[aout]",
     "-c:v",
     "copy",
-    "-c:a",
-    "aac",
-    "-ar",
-    "44100",
-    "-ac",
-    "2",
+    ...AAC_STEREO_ARGS,
     outputFile,
   );
 
@@ -183,33 +189,8 @@ const MUX_CHUNK_SIZE = 48;
  */
 function buildChunkMixArgs(tracks: MuxAudioTrack[], outputFile: string): string[] {
   const args = ["-y"];
-  const labels: string[] = [];
-  const filterParts: string[] = [];
-
-  tracks.forEach((track, i) => {
-    pushTrackInput(args, track);
-    const label = `a${i}`;
-    labels.push(`[${label}]`);
-    filterParts.push(trackFilter(track, i, label));
-  });
-
-  let outLabel: string;
-  if (tracks.length === 1) {
-    outLabel = labels[0]!;
-  } else {
-    filterParts.push(`${labels.join("")}amix=inputs=${tracks.length}:normalize=0[aout]`);
-    outLabel = "[aout]";
-  }
-
-  args.push(
-    "-filter_complex",
-    filterParts.join(";"),
-    "-map",
-    outLabel,
-    "-c:a",
-    "pcm_f32le",
-    outputFile,
-  );
+  const { parts, sum } = mixGraph(args, tracks, 0, "aout");
+  args.push("-filter_complex", parts.join(";"), "-map", sum, "-c:a", "pcm_f32le", outputFile);
   return args;
 }
 
@@ -271,28 +252,16 @@ export function buildAudioMixArgs(
   duration?: number,
 ): string[] {
   const args = ["-y"];
-  const labels: string[] = [];
-  const filterParts: string[] = [];
-
-  tracks.forEach((track, i) => {
-    pushTrackInput(args, track);
-    const label = `a${i}`;
-    labels.push(`[${label}]`);
-    filterParts.push(trackFilter(track, i, label)); // no video — tracks start at input 0
-  });
-
-  const mixed =
-    tracks.length === 1
-      ? labels[0]
-      : `${labels.join("")}amix=inputs=${tracks.length}:normalize=0[mix];[mix]`;
+  // No video — tracks start at input 0.
+  const { parts, sum } = mixGraph(args, tracks, 0);
   // A clamp shorter than the mix has to pad as well as trim: a stem whose only take is shorter than
   // the window would otherwise hand the model a clip shorter than the shot.
   const clamp = duration != null ? `,apad=whole_dur=${duration},atrim=0:${duration}` : "";
-  filterParts.push(`${mixed}alimiter=level=false:limit=0.95${clamp}[aout]`);
+  parts.push(`${sum}alimiter=level=false:limit=0.95${clamp}[aout]`);
 
   args.push(
     "-filter_complex",
-    filterParts.join(";"),
+    parts.join(";"),
     "-map",
     "[aout]",
     "-ar",
@@ -355,12 +324,7 @@ export async function concatenateShots(options: {
             "-pix_fmt",
             "yuv420p",
             ...(fps !== undefined ? ["-r", String(fps)] : []),
-            "-c:a",
-            "aac",
-            "-ar",
-            "44100",
-            "-ac",
-            "2",
+            ...AAC_STEREO_ARGS,
           ]
         : ["-c", "copy"];
     const cropArgs = crop
@@ -454,12 +418,7 @@ export async function padVideoClip(options: {
     "-t",
     String(limit),
     "-an",
-    "-c:v",
-    "libx264",
-    "-preset",
-    "veryfast",
-    "-crf",
-    "16",
+    ...x264Args({ crf: 16 }),
     "-pix_fmt",
     "yuv420p",
     "-movflags",

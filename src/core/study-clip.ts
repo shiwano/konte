@@ -12,6 +12,7 @@ import {
   planContactSheetLayout,
 } from "./contact-sheet.js";
 import { KonteError, errorMessage } from "./errors.js";
+import { x264Args } from "./ffmpeg.js";
 import { runFfmpeg } from "./ffmpeg-exec.js";
 import { separateSong } from "./sherpa-binary.js";
 import { type SongTempo, songTempo } from "./song-grid.js";
@@ -198,12 +199,7 @@ export async function makeProxy(file: string, out: string): Promise<void> {
       "-an",
       "-vf",
       `scale='if(gt(iw,ih),-2,trunc(min(${s},iw)/2)*2)':'if(gt(iw,ih),trunc(min(${s},ih)/2)*2,-2)'`,
-      "-c:v",
-      "libx264",
-      "-preset",
-      "ultrafast",
-      "-crf",
-      "26",
+      ...x264Args({ crf: 26, preset: "ultrafast" }),
       out,
     ],
     "ffmpeg could not make the study proxy",
