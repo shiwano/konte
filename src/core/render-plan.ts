@@ -87,8 +87,7 @@ export interface RenderPlan {
   fps: number;
   typography: Typography;
   size: { width: number; height: number };
-  // The working format the plan was built at (size/fps). `size` above may be mutated to a delivery
-  // resolution during export; `format` stays the working canvas the timeline fn is invoked with.
+  // The working format the plan was built at (size/fps), the canvas the timeline fn is invoked with.
   format: VideoFormat;
   shots: ShotRenderPlan[];
   outputDir: string;
@@ -307,16 +306,17 @@ export function buildRenderPlan(
   if (!allowNotReady) {
     const missingAssets: string[] = [];
 
+    const missingEntry = (addr: string): string | null => {
+      if (!allowUnaccepted) return hasAcceptedVariant(addr, manager) ? null : addr;
+      const target = manager.getState().assets[addr];
+      return hasReadyVariant(target, addr, manager)
+        ? null
+        : `${addr} — ${describeNotReady(target, addr, manager)}`;
+    };
     const collectMissing = (addr: string): void => {
       if (options.requireOnly && !options.requireOnly.has(addr)) return;
-      const target = manager.getState().assets[addr];
-      if (allowUnaccepted) {
-        if (!hasReadyVariant(target, addr, manager)) {
-          missingAssets.push(`${addr} — ${describeNotReady(target, addr, manager)}`);
-        }
-      } else if (!hasAcceptedVariant(addr, manager)) {
-        missingAssets.push(addr);
-      }
+      const entry = missingEntry(addr);
+      if (entry !== null) missingAssets.push(entry);
     };
 
     if (video.topLevelAssets) {
@@ -332,51 +332,52 @@ export function buildRenderPlan(
       }
     }
     if (missingAssets.length > 0) {
-      if (allowUnaccepted) {
-        throw new KonteError(
-          "RENDER_PLAN_FAILED",
-          `${missingAssets.length} asset(s) have no ready variant — generate them first`,
-          missingAssets.map((a) => `  ${a}`),
-        );
-      } else {
-        throw new KonteError(
-          "RENDER_PLAN_FAILED",
-          `${missingAssets.length} asset(s) have no accepted variant — accept them, or use ` +
-            "--preview to render with ready (non-accepted) variants",
-          missingAssets.map((a) => `  ${a}`),
-        );
-      }
+      throw new KonteError(
+        "RENDER_PLAN_FAILED",
+        allowUnaccepted
+          ? `${missingAssets.length} asset(s) have no ready variant — generate them first`
+          : `${missingAssets.length} asset(s) have no accepted variant — accept them, or use ` +
+              "--preview to render with ready (non-accepted) variants",
+        missingAssets.map((a) => `  ${a}`),
+      );
     }
   }
+
+  const resolveInto = (
+    addr: string,
+    assetName: string,
+    into: {
+      files: Record<string, string>;
+      variants: Record<string, string>;
+      unaccepted: string[];
+      notReady: string[];
+    },
+  ): void => {
+    const result = allowUnaccepted
+      ? manager.resolveReference(addr, { includeStale: allowNotReady })
+      : manager.resolveReference(addr, { requireAccepted: true });
+    if (result) {
+      into.files[assetName] = result.file;
+      into.variants[assetName] = result.variantId;
+      if (allowUnaccepted && !result.isAccepted) into.unaccepted.push(addr);
+    } else if (allowUnaccepted && allowNotReady) {
+      into.notReady.push(
+        `${assetName} — ${describeNotReady(manager.getState().assets[addr], addr, manager)}`,
+      );
+    }
+  };
 
   const timelineResolvedFiles: Record<string, string> = {};
   const timelineResolvedVariants: Record<string, string> = {};
   const unacceptedTimelineAssets: string[] = [];
   const timelineNotReadyAssets: string[] = [];
-  if (video.topLevelAssets) {
-    for (const [assetName] of Object.entries(video.topLevelAssets)) {
-      const addr = timelineAddr(assetName);
-      if (allowUnaccepted) {
-        const result = manager.resolveReference(addr, { includeStale: allowNotReady });
-        if (result) {
-          timelineResolvedFiles[assetName] = result.file;
-          timelineResolvedVariants[assetName] = result.variantId;
-          if (!result.isAccepted) {
-            unacceptedTimelineAssets.push(addr);
-          }
-        } else if (allowNotReady) {
-          timelineNotReadyAssets.push(
-            `${assetName} — ${describeNotReady(manager.getState().assets[addr], addr, manager)}`,
-          );
-        }
-      } else {
-        const result = manager.resolveReference(addr, { requireAccepted: true });
-        if (result) {
-          timelineResolvedFiles[assetName] = result.file;
-          timelineResolvedVariants[assetName] = result.variantId;
-        }
-      }
-    }
+  for (const assetName of Object.keys(video.topLevelAssets ?? {})) {
+    resolveInto(timelineAddr(assetName), assetName, {
+      files: timelineResolvedFiles,
+      variants: timelineResolvedVariants,
+      unaccepted: unacceptedTimelineAssets,
+      notReady: timelineNotReadyAssets,
+    });
   }
 
   const shotPlans: ShotRenderPlan[] = [];
@@ -414,27 +415,12 @@ export function buildRenderPlan(
 
     if (shot.shotFn) {
       for (const assetName of shownShotAssetNames(stage, video.shots, shot)) {
-        const addr = shotAddr(shot, assetName);
-        if (allowUnaccepted) {
-          const result = manager.resolveReference(addr, { includeStale: allowNotReady });
-          if (result) {
-            plan.resolvedFiles[assetName] = result.file;
-            plan.resolvedVariants[assetName] = result.variantId;
-            if (!result.isAccepted) {
-              plan.unacceptedAssets.push(addr);
-            }
-          } else if (allowNotReady) {
-            plan.notReadyAssets.push(
-              `${assetName} — ${describeNotReady(manager.getState().assets[addr], addr, manager)}`,
-            );
-          }
-        } else {
-          const result = manager.resolveReference(addr, { requireAccepted: true });
-          if (result) {
-            plan.resolvedFiles[assetName] = result.file;
-            plan.resolvedVariants[assetName] = result.variantId;
-          }
-        }
+        resolveInto(shotAddr(shot, assetName), assetName, {
+          files: plan.resolvedFiles,
+          variants: plan.resolvedVariants,
+          unaccepted: plan.unacceptedAssets,
+          notReady: plan.notReadyAssets,
+        });
       }
 
       // Resolved the way the render will resolve them. Reported, never thrown on — see the field
