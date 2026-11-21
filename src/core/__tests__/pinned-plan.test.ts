@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { RenderPlan } from "../render-plan.js";
-import { pinPlanFiles } from "../render-video.js";
+import { pinnedPlan } from "../render-video.js";
 
-describe("pinPlanFiles", () => {
+describe("pinnedPlan", () => {
   it("draws a job's pinned takes in the slots the plan resolved live", () => {
     const plan = {
       stage: "video",
@@ -12,7 +12,7 @@ describe("pinPlanFiles", () => {
         { shotId: "02", resolvedFiles: { motion: "/live/02.mp4" } },
       ],
     } as unknown as RenderPlan;
-    pinPlanFiles(
+    const pinned = pinnedPlan(
       plan,
       new Map([
         ["video:shot.01.motion", "/pinned/01.mp4"],
@@ -21,10 +21,12 @@ describe("pinPlanFiles", () => {
         ["animatic:shot.02.first", "/pinned/first.png"],
       ]),
     );
-    expect(plan.shots.map((s) => s.resolvedFiles)).toEqual([
+    expect(pinned.shots.map((s) => s.resolvedFiles)).toEqual([
       { motion: "/pinned/01.mp4" },
       { motion: "/live/02.mp4" },
     ]);
-    expect(plan.timelineResolvedFiles).toEqual({ bed: "/pinned/bed.mp3" });
+    expect(pinned.timelineResolvedFiles).toEqual({ bed: "/pinned/bed.mp3" });
+    expect(plan.shots[0]!.resolvedFiles).toEqual({ motion: "/live/01.mp4" });
+    expect(plan.timelineResolvedFiles).toEqual({ bed: "/live/bed.mp3" });
   });
 });

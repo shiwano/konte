@@ -1,6 +1,7 @@
 import { exportThumbnail, type RederiveLocal } from "./export-thumbnail.js";
 import { mixedSoundtracks } from "./song-bed.js";
 import { existsSync } from "node:fs";
+import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
 // How many shot compositions render at once. Each render is a full browser capture, so the
@@ -43,7 +44,12 @@ import { concatenateShots, ensureFfmpeg, muxTimelineAudio, tagDeliverable } from
 import { loadReferenceDefinition, loadAnimaticDefinition } from "./loader.js";
 import { compositeWithHyperFrames, ensureHyperFrames } from "./hyperframes.js";
 import { escapeHtml, renderToHtml } from "./jsx-html.js";
-import type { OverlayDefinition, StageDefinition, Typography } from "./types/definition.js";
+import type {
+  OverlayDefinition,
+  StageDefinition,
+  TimelineFunction,
+  Typography,
+} from "./types/definition.js";
 import { inferMediaType } from "./media-type.js";
 import {
   buildRenderPlan,
@@ -205,25 +211,7 @@ function sanitizeShotId(shotId: string): string {
 
 type RenderResult = { outputFile: string; warnings: string[] };
 
-// Render the video to a delivered MP4. This is the work an `export` job performs:
-// it resolves variants, re-composites at delivery resolution (substituting upscaled
-// #delivery layers when the video has delivery config), stitches the shots, and writes
-// metadata. Loads its own fresh state (the job may run long after registration). It does
-// NOT submit any jobs or print — the caller (export command / job runner) owns those.
-export async function renderVideoToFile(
-  opts: Parameters<typeof renderVideoFile>[0],
-): Promise<RenderResult> {
-  try {
-    return await renderVideoFile(opts);
-  } catch (err) {
-    // The per-shot intermediates of a render that did not finish.
-    const fs = await import("node:fs/promises");
-    await fs.rm(path.join(opts.outputDir, "shots"), { recursive: true, force: true });
-    throw err;
-  }
-}
-
-async function renderVideoFile(opts: {
+type RenderVideoOptions = {
   onLog?: (line: string) => void;
   videoRoot: string;
   video: VideoDefinition;
@@ -239,9 +227,47 @@ async function renderVideoFile(opts: {
   noDelivery: boolean;
   // How a thumbnail asset built on an upscaled layer is made again from the upscale.
   rederiveLocal?: RederiveLocal;
-}): Promise<RenderResult> {
-  const { videoRoot, video, animatic, allowUnaccepted, outputDir, exportSignature, noDelivery } =
-    opts;
+};
+
+// Render the video to a delivered MP4. This is the work an `export` job performs:
+// it resolves variants, re-composites at delivery resolution (substituting upscaled
+// #delivery layers when the video has delivery config), stitches the shots, and writes
+// metadata. Loads its own fresh state (the job may run long after registration). It does
+// NOT submit any jobs or print — the caller (export command / job runner) owns those.
+export async function renderVideoToFile(opts: RenderVideoOptions): Promise<RenderResult> {
+  try {
+    return await renderVideoFile(opts);
+  } catch (err) {
+    // The per-shot intermediates of a render that did not finish.
+    await fs.rm(path.join(opts.outputDir, "shots"), { recursive: true, force: true });
+    throw err;
+  }
+}
+
+async function renderVideoFile(opts: RenderVideoOptions): Promise<RenderResult> {
+  const ctx = await prepareExport(opts);
+  // The delivered frame, or undefined for a working-size render.
+  const deliverySize = opts.noDelivery ? undefined : getDeliverySize(opts.video);
+  const picture =
+    deliverySize && getDeliveryUpscaleFn(opts.video, "frame")
+      ? await renderFramePicture(ctx, deliverySize)
+      : await renderLayeredPicture(ctx, deliverySize);
+  return await finishExport(ctx, picture, deliverySize);
+}
+
+// What the export settled before drawing a frame: the plan it renders, with every gate passed.
+type ExportContext = {
+  opts: RenderVideoOptions;
+  manager: StateManager;
+  plan: RenderPlan;
+  resolvedForManifest: Map<string, ResolvedForManifest>;
+  allUnacceptedParts: string[];
+  resolveAssetSrc: (src: string) => string;
+  mediaOf: (absFile: string) => VariantMedia | undefined;
+};
+
+async function prepareExport(opts: RenderVideoOptions): Promise<ExportContext> {
+  const { videoRoot, video, animatic, allowUnaccepted, outputDir } = opts;
 
   // The reference stage is a separate entry; load it (if any) so the file-asset sync covers
   // reference files and a reference address resolves.
@@ -274,9 +300,6 @@ async function renderVideoFile(opts: {
     }
   }
 
-  const derivedFromOf = (address: string, variantId: string): string | null =>
-    manager.getState().assets[address]?.variants?.[variantId]?.derivedFrom ?? null;
-
   const plan = buildRenderPlan(video, manager, { outputDir, allowUnaccepted: true });
 
   if (plan.shots.length === 0) {
@@ -303,12 +326,6 @@ async function renderVideoFile(opts: {
   // from state here. A src that is not a placeholder (a real file path) is returned untouched.
   const resolveAssetSrc = (src: string): string =>
     resolvePlaceholderSrc(src, (address) => resolveCompositionRef(manager, address)?.file);
-
-  // Snapshot each shot's resolved files BEFORE any per-layer delivery substitution so timeline
-  // audio (esp. <Video hasAudio>) is read from the original sources — audio never needs upscaling.
-  const originalShotFiles = new Map(
-    plan.shots.map((s) => [s.shotId, { ...s.resolvedFiles }] as const),
-  );
 
   // An out-of-shot ref with no ready variant would composite as a raw placeholder — a black layer.
   // `konte export` refuses to register on this, but the worker reloads state (it may have drifted
@@ -343,178 +360,148 @@ async function renderVideoFile(opts: {
     );
   }
 
-  // Frame delivery: the delivery config upscales the whole composited shot (not per-layer). Each
-  // shot's composite was already rendered (working res) and upscaled to a
-  // `shot.<id>#composition#delivery` variant by the export command — here we just gather and
-  // stitch those upscaled composites. No re-composite (text is upscaled with the frame).
-  const frameFn = noDelivery ? undefined : getDeliveryUpscaleFn(video, "frame");
-  const frameDeliverySize = noDelivery ? undefined : getDeliverySize(video);
-  // Each composite was upscaled to the cover frame (see computeDeliveryTarget); the delivered frame
-  // is cut from its centre when the two differ.
-  const frameCover = frameDeliverySize ? deliveryCoverSize(video) : null;
-  const frameDeliveryCrop =
-    frameDeliverySize &&
-    frameCover &&
-    (frameCover.width !== frameDeliverySize.width || frameCover.height !== frameDeliverySize.height)
-      ? frameDeliverySize
-      : null;
-  if (frameFn && frameDeliverySize) {
-    const state = manager.getState();
-    const frameWarnings: string[] = [];
-    const shotFiles: string[] = [];
-    const frameShotFileById = new Map<string, string>();
-    const frameDeliveryVariants = new Map<string, { address: string; variantId: string }>();
-    for (const shotPlan of plan.shots) {
-      const compAddr = formatCompositionAddress(shotPlan.stage, shotPlan.shotId);
-      const deliveryAddr = deliveryAddressOf(compAddr);
-      const cacheKey = compositionCacheKey(manager, video, shotPlan.shotId);
-      const fresh = cacheKey
-        ? findFreshDeliveryVariant(state, video, deliveryAddr, compAddr, cacheKey)
-        : null;
-      if (!fresh) {
-        throw new KonteError(
-          "DEPENDENCY_NOT_RESOLVED",
-          `Frame delivery upscale ${deliveryAddr} is not ready — re-run "konte export" to (re)build it.`,
-        );
-      }
-      const resolved = path.resolve(videoRoot, fresh.file);
-      shotFiles.push(resolved);
-      frameShotFileById.set(shotPlan.shotId, resolved);
-      frameDeliveryVariants.set(shotPlan.shotId, {
-        address: deliveryAddr,
-        variantId: fresh.variantId,
-      });
-    }
-    await ensureFfmpeg();
-    const finalOutput = path.join(outputDir, "video.mp4");
-    const fs = await import("node:fs/promises");
-    await fs.mkdir(path.dirname(finalOutput), { recursive: true });
-    if (shotFiles.length > 1) {
-      // Composites come from arbitrary upscalers — re-encode to a uniform codec when stitching,
-      // and conform to format.fps (upscalers may change the source rate).
-      await concatenateShots({
-        inputFiles: shotFiles,
-        outputFile: finalOutput,
-        reencode: true,
-        fps: plan.fps,
-        ...(frameDeliveryCrop ? { crop: frameDeliveryCrop } : {}),
-      });
-    } else {
-      // A lone composite still inherits its upscaler's fps; conform to format.fps if it drifted,
-      // otherwise copy as-is to avoid a needless re-encode. A crop is a re-encode either way.
-      const probed = await probeVideo(shotFiles[0]!);
-      if (Math.abs(probed.fps - plan.fps) > 0.01 || frameDeliveryCrop) {
-        await concatenateShots({
-          inputFiles: shotFiles,
-          outputFile: finalOutput,
-          reencode: true,
-          fps: plan.fps,
-          ...(frameDeliveryCrop ? { crop: frameDeliveryCrop } : {}),
-        });
-      } else {
-        await fs.copyFile(shotFiles[0]!, finalOutput);
-      }
-    }
+  return {
+    opts,
+    manager,
+    plan,
+    resolvedForManifest,
+    allUnacceptedParts,
+    resolveAssetSrc,
+    mediaOf,
+  };
+}
 
-    // Frame composites carry no audio (upscalers are video-only); reconstruct it by muxing the
-    // composition's timeline audio over the stitched picture. Re-run the timeline here to get the
-    // shot inputs (the frame path otherwise skips rendering entirely).
-    const frameTimelineRun = plan.timelineFn
-      ? runTimelineInRenderMode(
-          "video",
-          () => plan.timelineFn!({ format: { size: plan.size, fps: plan.fps } }),
-          plan.timelineResolvedFiles,
-          plan.timelineResolvedFiles,
-        )
-      : null;
-    await applyTimelineAudio({
-      plan,
-      size: plan.size,
-      renderShotInputs: frameTimelineRun?.shots ?? null,
-      soundtracks: mixedSoundtracks(video, frameTimelineRun?.soundtracks),
-      originalShotFiles,
-      shotFileById: frameShotFileById,
-      finalOutput,
-      resolveAssetSrc,
-      mediaOf,
-    });
+type TimelineRun = ReturnType<TimelineFunction>;
 
-    const thumbnailFile = await renderThumbnail({
-      video,
-      manager,
-      outputDir,
-      deliverable: finalOutput,
-      noDelivery,
-      delivered: new Map(),
-      allowUnaccepted,
-      warnings: frameWarnings,
-    });
-
-    if (allUnacceptedParts.length > 0) {
-      frameWarnings.push(`non-accepted: ${allUnacceptedParts.join(", ")}`);
-    }
-
-    // Record the delivery resolution (the stitched composites' size) in the manifest.
-    plan.size = frameDeliverySize;
-    await commitManifest(
-      buildManifest(plan, {
-        allWarnings: frameWarnings,
-        allowUnaccepted,
-        exportSignature,
-        deliveryUpscale: "frame",
-        canvas: video.format.size,
-        resolved: resolvedForManifest,
-        derivedFromOf,
-        deliverySubstitutions: new Map(),
-        frameDeliveryVariants,
-      }),
-      outputDir,
-      finalOutput,
-      frameWarnings,
-      thumbnailFile,
-    );
-
-    return { outputFile: finalOutput, warnings: frameWarnings };
-  }
-
-  // Per-layer delivery upscale: when the video declares `export.delivery.upscale.video`, each
-  // video layer was upscaled to the delivery resolution by separate upscale jobs (this export
-  // job depends on them). Re-composite at that resolution so overlays/telops stay native and
-  // sharp, substituting the upscaled #delivery file for each video layer.
-  let deliverySubstitutions = new Map<string, Record<string, DeliverySubstitution>>();
-  let deliveryUpscale: "video" | "frame" | null = null;
-  // The delivery frame, captured from the centre of the cover-scaled composition (`plan.size`).
-  let deliveryCrop: { width: number; height: number } | undefined;
-  if (video.export?.delivery && !noDelivery) {
-    const size = getDeliverySize(video);
-    const fn = getDeliveryUpscaleFn(video, "video");
-    if (size) {
-      plan.size = deliveryCoverSize(video);
-      deliveryCrop = size;
-    }
-    if (size && fn) {
-      deliverySubstitutions = await resolveDeliverySubstitutions({
-        video,
-        shots: plan.shots,
-        manager,
-        videoRoot,
-      });
-      applyDeliverySubstitutions(plan.shots, deliverySubstitutions);
-      deliveryUpscale = "video";
-    }
-  }
-
-  await ensureHyperFrames();
-  await ensureFfmpeg();
-
-  const timelineRun = plan.timelineFn
+// The timeline in render mode on a `size` canvas, its assets drawn from their files.
+function runExportTimeline(
+  plan: RenderPlan,
+  size: { width: number; height: number },
+): TimelineRun | null {
+  return plan.timelineFn
     ? runTimelineInRenderMode(
         "video",
-        () => plan.timelineFn!({ format: { size: plan.size, fps: plan.fps } }),
+        () => plan.timelineFn!({ format: { size, fps: plan.fps } }),
         plan.timelineResolvedFiles,
         plan.timelineResolvedFiles,
       )
     : null;
+}
+
+// The stitched, silent picture at `video.mp4`, and what the tail needs of how it was drawn.
+type ExportPicture = {
+  finalOutput: string;
+  // The canvas the timeline ran on; the audio cues are collected against it.
+  size: { width: number; height: number };
+  timelineRun: TimelineRun | null;
+  shotFileById: Map<string, string>;
+  warnings: string[];
+  deliveryUpscale: "video" | "frame" | null;
+  deliverySubstitutions: Map<string, Record<string, DeliverySubstitution>>;
+  frameDeliveryVariants: Map<string, { address: string; variantId: string }>;
+};
+
+// Frame delivery: the delivery config upscales the whole composited shot. Each
+// shot's composite was already rendered (working res) and upscaled to a
+// `shot.<id>#composition#delivery` variant by the export command — here we gather and
+// stitch those upscaled composites. No re-composite (text is upscaled with the frame).
+async function renderFramePicture(
+  ctx: ExportContext,
+  deliverySize: { width: number; height: number },
+): Promise<ExportPicture> {
+  const { manager, plan } = ctx;
+  const { video, videoRoot, outputDir } = ctx.opts;
+  // Each composite was upscaled to the cover frame (see computeDeliveryTarget); the delivered frame
+  // is cut from its centre when the two differ.
+  const cover = deliveryCoverSize(video);
+  const crop =
+    cover.width !== deliverySize.width || cover.height !== deliverySize.height
+      ? deliverySize
+      : null;
+  const state = manager.getState();
+  const shotFiles: string[] = [];
+  const shotFileById = new Map<string, string>();
+  const frameDeliveryVariants = new Map<string, { address: string; variantId: string }>();
+  for (const shotPlan of plan.shots) {
+    const compAddr = formatCompositionAddress(shotPlan.stage, shotPlan.shotId);
+    const deliveryAddr = deliveryAddressOf(compAddr);
+    const cacheKey = compositionCacheKey(manager, video, shotPlan.shotId);
+    const fresh = cacheKey
+      ? findFreshDeliveryVariant(state, video, deliveryAddr, compAddr, cacheKey)
+      : null;
+    if (!fresh) {
+      throw new KonteError(
+        "DEPENDENCY_NOT_RESOLVED",
+        `Frame delivery upscale ${deliveryAddr} is not ready — re-run "konte export" to (re)build it.`,
+      );
+    }
+    const resolved = path.resolve(videoRoot, fresh.file);
+    shotFiles.push(resolved);
+    shotFileById.set(shotPlan.shotId, resolved);
+    frameDeliveryVariants.set(shotPlan.shotId, {
+      address: deliveryAddr,
+      variantId: fresh.variantId,
+    });
+  }
+  await ensureFfmpeg();
+  const finalOutput = path.join(outputDir, "video.mp4");
+  await fs.mkdir(path.dirname(finalOutput), { recursive: true });
+  // Composites come from arbitrary upscalers — re-encode to a uniform codec when stitching, and
+  // conform to format.fps (upscalers may change the source rate). A lone composite is copied as-is
+  // when its fps already matches and nothing is cropped.
+  const copyLone =
+    shotFiles.length === 1 &&
+    Math.abs((await probeVideo(shotFiles[0]!)).fps - plan.fps) <= 0.01 &&
+    !crop;
+  if (copyLone) {
+    await fs.copyFile(shotFiles[0]!, finalOutput);
+  } else {
+    await concatenateShots({
+      inputFiles: shotFiles,
+      outputFile: finalOutput,
+      reencode: true,
+      fps: plan.fps,
+      ...(crop ? { crop } : {}),
+    });
+  }
+
+  // Frame composites carry no audio (upscalers are video-only); the tail muxes the timeline's audio
+  // over them, so the timeline is run here for its shot inputs at the working size.
+  return {
+    finalOutput,
+    size: plan.size,
+    timelineRun: runExportTimeline(plan, plan.size),
+    shotFileById,
+    warnings: [],
+    deliveryUpscale: "frame",
+    deliverySubstitutions: new Map(),
+    frameDeliveryVariants,
+  };
+}
+
+// Per-layer delivery upscale: when the video declares `export.delivery.upscale.video`, each
+// video layer was upscaled to the delivery resolution by separate upscale jobs (this export
+// job depends on them). Re-composite at that resolution so overlays/telops stay native and
+// sharp, substituting the upscaled #delivery file for each video layer. With no delivery size, the
+// shots composite at the working size.
+async function renderLayeredPicture(
+  ctx: ExportContext,
+  deliverySize: { width: number; height: number } | undefined,
+): Promise<ExportPicture> {
+  const { manager, plan } = ctx;
+  const { video, videoRoot, outputDir } = ctx.opts;
+  // The delivery frame is captured from the centre of the cover-scaled composition.
+  const size = deliverySize ? deliveryCoverSize(video) : plan.size;
+  const upscaled = deliverySize !== undefined && getDeliveryUpscaleFn(video, "video") !== undefined;
+  const deliverySubstitutions = upscaled
+    ? await resolveDeliverySubstitutions({ video, shots: plan.shots, manager, videoRoot })
+    : new Map<string, Record<string, DeliverySubstitution>>();
+  const shots = deliveredShots(plan.shots, deliverySubstitutions);
+
+  await ensureHyperFrames();
+  await ensureFfmpeg();
+
+  const timelineRun = runExportTimeline(plan, size);
   const renderShotInputs = timelineRun?.shots ?? null;
   const overlay = await renderOverlayOf(video, timelineRun, manager);
 
@@ -522,7 +509,7 @@ async function renderVideoFile(opts: {
   // workspace — so a small pool keeps a few Chromium captures in flight instead of paying
   // full serial wall-clock across every shot. Results keep plan order.
   const renderResults = await mapConcurrent(
-    plan.shots,
+    shots,
     SHOT_RENDER_CONCURRENCY,
     async (shotPlan, _i, signal) => {
       const shotOutputFile = path.join(
@@ -532,16 +519,16 @@ async function renderVideoFile(opts: {
       );
 
       const renderWarnings = await renderShotPlan(shotPlan, {
-        onLog: opts.onLog,
+        onLog: ctx.opts.onLog,
         outputFile: shotOutputFile,
         fps: plan.fps,
-        size: plan.size,
-        crop: deliveryCrop,
+        size,
+        crop: deliverySize,
         typography: plan.typography,
         videoRoot,
         renderShotInputs,
         manager,
-        shots: plan.shots,
+        shots,
         ...(overlay ? { overlay } : {}),
         timelineFiles: plan.timelineResolvedFiles,
         signal,
@@ -551,28 +538,48 @@ async function renderVideoFile(opts: {
     },
   );
   const shotOutputFiles = renderResults.map((r) => r.shotOutputFile);
-  const allWarnings = renderResults.flatMap((r) => r.warnings);
 
   const finalOutput = path.join(outputDir, "video.mp4");
 
   if (shotOutputFiles.length > 1) {
     await concatenateShots({ inputFiles: shotOutputFiles, outputFile: finalOutput });
   } else if (shotOutputFiles.length === 1) {
-    const fs = await import("node:fs/promises");
     await fs.mkdir(path.dirname(finalOutput), { recursive: true });
     await fs.copyFile(shotOutputFiles[0]!, finalOutput);
   }
 
+  return {
+    finalOutput,
+    size,
+    timelineRun,
+    shotFileById: new Map(plan.shots.map((s, i) => [s.shotId, shotOutputFiles[i]!] as const)),
+    warnings: renderResults.flatMap((r) => r.warnings),
+    deliveryUpscale: upscaled ? "video" : null,
+    deliverySubstitutions,
+    frameDeliveryVariants: new Map(),
+  };
+}
+
+// The sound, the thumbnail and the manifest over a stitched picture. The manifest records the
+// delivered resolution (the captured frame), not the larger one it was cut from.
+async function finishExport(
+  ctx: ExportContext,
+  picture: ExportPicture,
+  deliverySize: { width: number; height: number } | undefined,
+): Promise<RenderResult> {
+  const { manager, plan, allUnacceptedParts } = ctx;
+  const { video, outputDir, noDelivery, allowUnaccepted, exportSignature } = ctx.opts;
+  const { finalOutput, warnings, deliverySubstitutions } = picture;
+
   await applyTimelineAudio({
     plan,
-    size: plan.size,
-    renderShotInputs,
-    soundtracks: mixedSoundtracks(video, timelineRun?.soundtracks),
-    originalShotFiles,
-    shotFileById: new Map(plan.shots.map((s, i) => [s.shotId, shotOutputFiles[i]!] as const)),
+    size: picture.size,
+    renderShotInputs: picture.timelineRun?.shots ?? null,
+    soundtracks: mixedSoundtracks(video, picture.timelineRun?.soundtracks),
+    shotFileById: picture.shotFileById,
     finalOutput,
-    resolveAssetSrc,
-    mediaOf,
+    resolveAssetSrc: ctx.resolveAssetSrc,
+    mediaOf: ctx.mediaOf,
   });
 
   const thumbnailFile = await renderThumbnail({
@@ -588,40 +595,39 @@ async function renderVideoFile(opts: {
         ),
       ),
     ),
-    ...(opts.rederiveLocal ? { rederive: opts.rederiveLocal } : {}),
+    ...(ctx.opts.rederiveLocal ? { rederive: ctx.opts.rederiveLocal } : {}),
     allowUnaccepted,
-    warnings: allWarnings,
+    warnings,
   });
 
   if (allUnacceptedParts.length > 0) {
-    allWarnings.push(`non-accepted: ${allUnacceptedParts.join(", ")}`);
+    warnings.push(`non-accepted: ${allUnacceptedParts.join(", ")}`);
   }
 
-  // Record the delivered resolution (the captured frame), not the larger one it was cut from.
-  if (deliveryCrop) plan.size = deliveryCrop;
   await commitManifest(
     buildManifest(plan, {
-      allWarnings,
+      allWarnings: warnings,
       allowUnaccepted,
       exportSignature,
-      deliveryUpscale,
+      size: deliverySize ?? plan.size,
+      deliveryUpscale: picture.deliveryUpscale,
       canvas: video.format.size,
-      resolved: resolvedForManifest,
-      derivedFromOf,
+      resolved: ctx.resolvedForManifest,
+      derivedFromOf: (address, variantId) =>
+        manager.getState().assets[address]?.variants?.[variantId]?.derivedFrom ?? null,
       deliverySubstitutions,
-      frameDeliveryVariants: new Map(),
+      frameDeliveryVariants: picture.frameDeliveryVariants,
     }),
     outputDir,
     finalOutput,
-    allWarnings,
+    warnings,
     thumbnailFile,
   );
 
-  const fs = await import("node:fs/promises");
   // Per-shot files are intermediates only used to build video.mp4; drop them after concatenation.
   await fs.rm(path.join(outputDir, "shots"), { recursive: true, force: true });
 
-  return { outputFile: finalOutput, warnings: allWarnings };
+  return { outputFile: finalOutput, warnings };
 }
 
 // Lay the composition's standalone audio (the beds, `<Audio>`, `<Video hasAudio>`) over the
@@ -633,7 +639,6 @@ async function applyTimelineAudio(opts: {
   size: { width: number; height: number };
   renderShotInputs: Array<{ id: string; fn: () => React.ReactElement }> | null;
   soundtracks: ReadonlyArray<SoundtrackEntry>;
-  originalShotFiles: Map<string, Record<string, string>>;
   shotFileById: Map<string, string>;
   finalOutput: string;
   resolveAssetSrc: (src: string) => string;
@@ -644,7 +649,6 @@ async function applyTimelineAudio(opts: {
     size,
     renderShotInputs,
     soundtracks,
-    originalShotFiles,
     shotFileById,
     finalOutput,
     resolveAssetSrc,
@@ -660,9 +664,7 @@ async function applyTimelineAudio(opts: {
   const audioByShot = new Map<string, RawShotAudio[]>();
   for (const shotPlan of plan.shots) {
     if (!shotPlan.shotFn) continue;
-    const original = originalShotFiles.get(shotPlan.shotId);
     const renderFn = renderShotInputs?.find((s) => s.id === shotPlan.shotId)?.fn ?? shotPlan.shotFn;
-    const absoluteFiles = original ?? shotPlan.resolvedFiles;
     // `onRenderError: "throw"`: a render failure here means the export would silently lose this
     // shot's audio. Audio is load-bearing, so fail the export loudly rather than ship a muted video.
     const shotAudio = collectShotAudioCues({
@@ -671,14 +673,14 @@ async function applyTimelineAudio(opts: {
       duration: shotPlan.duration,
       renderFn,
       size,
-      resolvedFiles: absoluteFiles,
+      resolvedFiles: shotPlan.resolvedFiles,
       timelineFiles: plan.timelineResolvedFiles,
       cueLevels: shotPlan.cueLevels,
       cueKinds: cueKindsBySrc({
         stage: shotPlan.stage,
         shotId: shotPlan.shotId,
         cueKinds: shotPlan.cueKinds,
-        resolvedFiles: absoluteFiles,
+        resolvedFiles: shotPlan.resolvedFiles,
         timelineFiles: plan.timelineResolvedFiles,
       }),
       onRenderError: "throw",
@@ -716,7 +718,6 @@ async function applyTimelineAudio(opts: {
   // past the video (which freezes the last frame in players).
   const videoDuration = (await probeMediaDuration(finalOutput)) ?? undefined;
 
-  const fs = await import("node:fs/promises");
   const tmpOutput = `${finalOutput}.mux.mp4`;
   try {
     await muxTimelineAudio({
@@ -755,12 +756,21 @@ export async function renderShotCompositeToFile(opts: {
     return m;
   });
 
-  const plan = buildRenderPlan(video, manager, {
+  const pinned =
+    opts.pinned &&
+    new Map(
+      Object.entries(opts.pinned).map(([address, file]) => [
+        address,
+        path.resolve(videoRoot, file),
+      ]),
+    );
+  const livePlan = buildRenderPlan(video, manager, {
     shotId,
     outputDir: path.dirname(outputFile),
     allowUnaccepted: true,
     ...(opts.pinned ? { requireOnly: new Set(Object.keys(opts.pinned)) } : {}),
   });
+  const plan = pinned ? pinnedPlan(livePlan, pinned) : livePlan;
   const shotPlan = planShotById(plan.shots, shotId);
   if (!shotPlan) {
     throw new KonteError("NO_RENDERABLE_ASSET", `Shot "${shotId}" not found for frame delivery`);
@@ -772,30 +782,12 @@ export async function renderShotCompositeToFile(opts: {
     );
   }
 
-  const pinned =
-    opts.pinned &&
-    new Map(
-      Object.entries(opts.pinned).map(([address, file]) => [
-        address,
-        path.resolve(videoRoot, file),
-      ]),
-    );
-  if (pinned) pinPlanFiles(plan, pinned);
-
   await ensureHyperFrames();
   await ensureFfmpeg();
 
-  const timelineRun = plan.timelineFn
-    ? runTimelineInRenderMode(
-        "video",
-        () => plan.timelineFn!({ format: { size: plan.size, fps: plan.fps } }),
-        plan.timelineResolvedFiles,
-        plan.timelineResolvedFiles,
-      )
-    : null;
+  const timelineRun = runExportTimeline(plan, plan.size);
   const overlay = await renderOverlayOf(video, timelineRun, manager);
 
-  const fs = await import("node:fs/promises");
   await fs.mkdir(path.dirname(outputFile), { recursive: true });
   await renderShotPlan(shotPlan, {
     outputFile,
@@ -814,31 +806,36 @@ export async function renderShotCompositeToFile(opts: {
 
 // A take a job pinned stands in for what its address resolves to now, in every slot the plan
 // resolved it into.
-export function pinPlanFiles(plan: RenderPlan, pinned: ReadonlyMap<string, string>): void {
+export function pinnedPlan(plan: RenderPlan, pinned: ReadonlyMap<string, string>): RenderPlan {
+  const timelineResolvedFiles = { ...plan.timelineResolvedFiles };
+  const shots = plan.shots.map((s) => ({ ...s, resolvedFiles: { ...s.resolvedFiles } }));
   for (const [address, file] of pinned) {
     const parsed = tryParseAddress(address);
     if (parsed?.stage !== plan.stage) continue;
-    if (parsed.kind === "timeline" && plan.timelineResolvedFiles[parsed.assetName]) {
-      plan.timelineResolvedFiles[parsed.assetName] = file;
+    if (parsed.kind === "timeline" && timelineResolvedFiles[parsed.assetName]) {
+      timelineResolvedFiles[parsed.assetName] = file;
     }
     if (parsed.kind !== "shot") continue;
-    const shot = plan.shots.find((s) => s.shotId === parsed.shotId);
+    const shot = shots.find((s) => s.shotId === parsed.shotId);
     if (shot?.resolvedFiles[parsed.assetName]) shot.resolvedFiles[parsed.assetName] = file;
   }
+  return { ...plan, timelineResolvedFiles, shots };
 }
 
-// Swap each shot's video layers in resolvedFiles for their upscaled #delivery files before rendering.
-function applyDeliverySubstitutions(
+// The shots with each video layer drawn from its upscaled #delivery file.
+function deliveredShots(
   shots: ShotRenderPlan[],
   substitutions: Map<string, Record<string, DeliverySubstitution>>,
-): void {
-  for (const shot of shots) {
+): ShotRenderPlan[] {
+  return shots.map((shot) => {
     const sub = substitutions.get(shot.shotId);
-    if (!sub) continue;
+    if (!sub) return shot;
+    const resolvedFiles = { ...shot.resolvedFiles };
     for (const [assetName, { absFile }] of Object.entries(sub)) {
-      if (assetName in shot.resolvedFiles) shot.resolvedFiles[assetName] = absFile;
+      if (assetName in resolvedFiles) resolvedFiles[assetName] = absFile;
     }
-  }
+    return { ...shot, resolvedFiles };
+  });
 }
 
 // The export is the final deliverable, so its shot composites render at the highest quality.
@@ -874,7 +871,7 @@ interface ShotRenderInputs {
 // The file a SIBLING shot's own render reads for `address`, or null when the ref does not name one
 // of this video's shot assets. Consulted before state so a cross-shot ref (`shot(…).video(…)`)
 // composites from the very file its owning shot composites from — including the upscaled #delivery
-// layer `applyDeliverySubstitutions` swapped into that shot's `resolvedFiles`. Resolving it from
+// layer `deliveredShots` swapped into that shot's `resolvedFiles`. Resolving it from
 // state instead would hand back the working-size source and leave that one layer soft at delivery
 // resolution. The #delivery variant always exists here: the asset is a video layer of its own shot,
 // so the export job already depended on its upscale.
@@ -1091,7 +1088,6 @@ async function commitManifest(
   } catch (err) {
     warnings.push(`could not tag the deliverable with its manifest id: ${errorMessage(err)}`);
   }
-  const fs = await import("node:fs/promises");
   await fs.mkdir(outputDir, { recursive: true });
   await fs.writeFile(
     path.join(outputDir, EXPORT_MANIFEST_FILE),
@@ -1107,6 +1103,8 @@ export function buildManifest(
     allWarnings: string[];
     allowUnaccepted: boolean;
     exportSignature: string | null;
+    // The delivered resolution.
+    size: { width: number; height: number };
     deliveryUpscale: "video" | "frame" | null;
     canvas: { width: number; height: number };
     // Every address the definitions declare, resolved the way the render resolved it.
@@ -1121,6 +1119,7 @@ export function buildManifest(
     allWarnings,
     allowUnaccepted,
     exportSignature,
+    size,
     deliveryUpscale,
     canvas,
     resolved,
@@ -1171,7 +1170,7 @@ export function buildManifest(
     exportSignature,
     allowUnaccepted,
     fps: plan.fps,
-    size: plan.size,
+    size,
     canvas,
     deliveryUpscale,
     thumbnail: null,

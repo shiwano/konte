@@ -64,6 +64,7 @@ function build(p: RenderPlan, overrides: Partial<Parameters<typeof buildManifest
     allWarnings: [],
     allowUnaccepted: false,
     exportSignature: "sig-abc123",
+    size: p.size,
     deliveryUpscale: null,
     canvas: FORMAT.size,
     deliverySubstitutions: new Map<string, Record<string, DeliverySubstitution>>(),
