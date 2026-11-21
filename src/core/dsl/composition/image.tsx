@@ -1,4 +1,4 @@
-import type { MediaAsset } from "../builders.js";
+import type { MediaAsset } from "../../types/media.js";
 import { getRenderContext } from "../../jsx-html.js";
 
 type ImgElementProps = React.ComponentPropsWithoutRef<"img">;

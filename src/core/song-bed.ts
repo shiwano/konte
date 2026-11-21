@@ -1,4 +1,4 @@
-import type { SoundtrackEntry } from "./dsl/builders.js";
+import type { SoundtrackEntry } from "./types/soundtrack.js";
 import { makeAddressPlaceholder } from "./dsl/shot-context.js";
 
 export const SONG_BED_ID = "#song";

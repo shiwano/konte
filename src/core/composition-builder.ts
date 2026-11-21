@@ -1,3 +1,4 @@
+import type { ShotFunction } from "./types/definition.js";
 import { mixedSoundtracks } from "./song-bed.js";
 import * as path from "node:path";
 import {
@@ -43,7 +44,6 @@ import {
   runInRenderMode,
   runTimelineInDiscoveryMode,
   runTimelineInRenderMode,
-  type ShotFunction,
 } from "./dsl/shot-context.js";
 import { KonteError } from "./errors.js";
 import { HYPERFRAME_RUNTIME } from "./generated/hyperframes-assets.js";

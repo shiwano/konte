@@ -1,6 +1,6 @@
+import type { MediaKind } from "../../types/media.js";
 import { KonteError } from "../../errors.js";
 import type { FileAssetDefinition } from "../../types/index.js";
-import type { MediaKind } from "../builders.js";
 import { ASSET_SITES, type AssetAdapter } from "../adapter.js";
 
 const FILES_PREFIX = "assets/files/";

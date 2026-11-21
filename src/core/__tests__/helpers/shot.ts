@@ -1,10 +1,11 @@
+import type { ShotFunction } from "../../types/definition.js";
+import type { SoundtrackEntry } from "../../types/soundtrack.js";
 import type {
   AnyShotInput,
   AsideShotInput,
   PendingShotInput,
   ShotInput,
   ShotOptions,
-  SoundtrackEntry,
 } from "../../dsl/builders.js";
 import { defineDirection } from "../../dsl/direction.js";
 import { getDirectionIndex } from "../../dsl/direction.js";
@@ -13,7 +14,6 @@ import { directionDefaults, testDirection } from "./direction.js";
 import { defineAnimatic } from "../../dsl/animatic-builders.js";
 import { defineReference } from "../../dsl/reference-builders.js";
 import type { AnimaticDefinition, ReferenceDefinition } from "../../types/index.js";
-import type { ShotFunction } from "../../dsl/shot-context.js";
 import type { StageTimelineReturn, StageTerminal } from "../../dsl/animatic-builders.js";
 import type { Identifier } from "../../dsl/validate-identifier.js";
 

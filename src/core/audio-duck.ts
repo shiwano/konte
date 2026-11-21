@@ -1,21 +1,7 @@
+import type { Duck, DuckOptions } from "./types/soundtrack.js";
 import { duckTargetDepth } from "./audio-level.js";
 import type { AudioLoudness } from "./audio-loudness.js";
 import { KonteError } from "./errors.js";
-
-/** How far a bed yields to the lines over it, and how quickly. */
-export interface DuckOptions {
-  /** Gain the bed is held at under a line; 1 is no duck. Default 0.35 (≈ −9 dB). */
-  depth?: number;
-  /** Seconds the bed takes to drop, ending as the line starts. Default 0.15. */
-  attack?: number;
-  /** Seconds the bed takes to come back. Default 0.4. */
-  release?: number;
-  /** Seconds the bed stays down after the line before releasing. Default 0.2. */
-  hold?: number;
-}
-
-/** `duck` as authored: `true` takes the defaults, `false` yields to nothing. */
-export type Duck = boolean | DuckOptions;
 
 const DEFAULTS = { depth: 0.35, attack: 0.15, release: 0.4, hold: 0.2 };
 // A ramp of zero length is a division by zero in the filter expression, and a step no ear wants.

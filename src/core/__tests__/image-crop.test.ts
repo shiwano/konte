@@ -1,6 +1,6 @@
+import type { MediaAsset } from "../types/media.js";
 import { describe, expect, it } from "vitest";
 import { imageCrop } from "../dsl/adapters/index.js";
-import type { MediaAsset } from "../dsl/builders.js";
 import { asset } from "../dsl/adapter.js";
 import {
   runInPlateDiscoveryMode,

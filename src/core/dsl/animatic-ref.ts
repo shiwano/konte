@@ -1,3 +1,4 @@
+import type { MediaAsset, MediaKind } from "../types/media.js";
 import {
   formatAddress,
   formatNarrationStemAddress,
@@ -9,7 +10,7 @@ import {
 import { KonteError } from "../errors.js";
 import { isRendering } from "../jsx-html.js";
 import type { AnimaticDefinition } from "../types/animatic.js";
-import type { MediaAsset, MediaKind, HeardStem, ShotHandle } from "./builders.js";
+import type { HeardStem, ShotHandle } from "./builders.js";
 import { makeMediaAsset } from "./builders.js";
 import { withSongSpan } from "./song-window.js";
 import { markPanel } from "./panel-collect.js";

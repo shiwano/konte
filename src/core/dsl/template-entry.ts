@@ -12,12 +12,11 @@ export type {
   DeliveryUpscaleFn,
   DeliveryUpscaleInput,
   ShotJoin,
+  ShotFunction,
 } from "../types/definition.js";
 export type { TrimInputs, AudioRetimeInputs, AudioConcatInputs } from "./adapters/index.js";
 export type { AnimaticDefinition, AnimaticFormat, PanelDefinition } from "../types/animatic.js";
 export type {
-  MediaKind,
-  MediaAsset,
   HeardStem,
   ShotInput,
   PendingShotInput,
@@ -25,9 +24,6 @@ export type {
   AsideShotOptions,
   AnyShotInput,
   ShotOptions,
-  ShotAnchor,
-  SoundtrackOptions,
-  SoundtrackEntry,
   OverlayContext,
   ThumbnailContext,
   ThumbnailSpec,
@@ -131,8 +127,9 @@ export {
   type ReferenceViews,
 } from "./reference-builders.js";
 export { definePatch, type PatchBuild, type PatchContext, type PatchDefinition } from "./patch.js";
-export type { PromptFinding, PromptFindingCode, PromptOccurrence } from "../prompt-check.js";
-export type { PinFinding, PinFindingCode, PinOccurrence } from "../pin-check.js";
+export type { PromptFinding, PromptFindingCode } from "../prompt-check.js";
+export type { PinFinding, PinFindingCode } from "../pin-check.js";
+export type { PinOccurrence, PromptOccurrence } from "../types/stage-build.js";
 export type { ReferenceDefinition } from "../types/reference.js";
 export {
   defineComfyAsset,
@@ -186,7 +183,6 @@ export {
   type SubtitleProps,
   type VideoProps,
 } from "./composition/index.js";
-export type { ShotFunction } from "./shot-context.js";
 export {
   defineAnimatic,
   type DefineAnimaticOptions,
@@ -210,6 +206,8 @@ export {
   type ScriptOf,
 } from "./animatic-builders.js";
 export type { AnimaticRef, AnimaticShotRef } from "./animatic-ref.js";
+export type { MediaKind, MediaAsset } from "../types/media.js";
+export type { ShotAnchor, SoundtrackOptions, SoundtrackEntry } from "../types/soundtrack.js";
 import {
   audioConcat,
   audioFile,

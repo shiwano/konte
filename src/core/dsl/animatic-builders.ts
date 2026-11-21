@@ -1,13 +1,15 @@
+import type { ShotFunction } from "../types/definition.js";
+import type { SoundtrackEntry } from "../types/soundtrack.js";
+import type { MediaAsset } from "../types/media.js";
 import { formatPlateAddress, formatShotAddress } from "../address.js";
 import type { ShotStage } from "../address.js";
 import { KonteError } from "../errors.js";
-import type { BuildFinding } from "../finding.js";
 import type { AnimaticDefinition } from "../types/animatic.js";
 import type { AssetDefinition, VideoFormat } from "../types/index.js";
 import type { ScriptLine } from "../types/script.js";
 import { lineText } from "../types/script.js";
 import type { ShotScript } from "./shot-script.js";
-import type { AnyShotInput, MediaAsset, OverlayContext, SoundtrackEntry } from "./builders.js";
+import type { AnyShotInput, OverlayContext } from "./builders.js";
 import { readAnimaticShot } from "./animatic.js";
 import { setShotPanels } from "./panel-collect.js";
 import { type AnimaticRef, createAnimaticRef } from "./animatic-ref.js";
@@ -21,7 +23,6 @@ import type {
 } from "./stage-chain.js";
 import { assertRespellings } from "./respell.js";
 import { makePlatePlaceholder, parsePlaceholder, runInPlateDiscoveryMode } from "./shot-context.js";
-import type { ShotFunction } from "./shot-context.js";
 import { defineStage, openStage } from "./stage-define.js";
 import { assertCuesFitShot, tightenDerivedClipLengths } from "../clip-fit.js";
 import {
@@ -31,6 +32,7 @@ import {
   saysLine,
   spokenTextsUnder,
 } from "../spoken-text.js";
+import type { BuildFinding } from "../types/stage-build.js";
 
 // The direction's shot ids as an ORDERED tuple, flattened across the arc tree in depth-first direction order.
 // Unlike `ShotIdOf<D>` (an unordered union) this preserves order, so a chain can compute each shot's

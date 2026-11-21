@@ -1,3 +1,4 @@
+import type { SoundtrackEntry } from "./types/soundtrack.js";
 import { exportThumbnail, type RederiveLocal } from "./export-thumbnail.js";
 import { mixedSoundtracks } from "./song-bed.js";
 import { existsSync } from "node:fs";
@@ -35,7 +36,7 @@ import {
   getDeliverySize,
   getDeliveryUpscaleFn,
 } from "./delivery.js";
-import { runInRenderMode, runTimelineInRenderMode, type ShotFunction } from "./dsl/shot-context.js";
+import { runInRenderMode, runTimelineInRenderMode } from "./dsl/shot-context.js";
 import { KonteError, errorMessage } from "./errors.js";
 import { STAGE_ENTRY_FILE } from "./roots.js";
 import { syncFileAssets } from "./file-sync.js";
@@ -49,6 +50,7 @@ import type {
   StageDefinition,
   TimelineFunction,
   Typography,
+  ShotFunction,
 } from "./types/definition.js";
 import { inferMediaType } from "./media-type.js";
 import {
@@ -68,7 +70,6 @@ import {
   type RawShotAudio,
   resolveSoundtracks,
 } from "./timeline-audio.js";
-import type { SoundtrackEntry } from "./dsl/builders.js";
 import {
   EXPORT_MANIFEST_FILE,
   type ExportManifest,

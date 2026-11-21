@@ -1,4 +1,5 @@
-import type { MediaAsset, HeardStem } from "../builders.js";
+import type { MediaAsset } from "../../types/media.js";
+import type { HeardStem } from "../builders.js";
 import { assertAudioGain } from "../../audio-gain.js";
 import { applyLevelGain } from "../../audio-level.js";
 import { getRenderContext } from "../../jsx-html.js";

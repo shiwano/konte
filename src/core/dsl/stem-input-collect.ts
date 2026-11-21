@@ -1,10 +1,6 @@
+import type { StemInputOccurrence } from "../types/stage-build.js";
 import type { AdapterMeta } from "./adapter.js";
 import { parsePlaceholder } from "./shot-context.js";
-
-export type StemInputOccurrence = {
-  address: string;
-  source: string;
-};
 
 // Where a stage's wired `stem` inputs are gathered as `asset()` runs, read by `stem-unmouthed` and the line marks.
 let sink: StemInputOccurrence[] | null = null;

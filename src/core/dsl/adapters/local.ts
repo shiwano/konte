@@ -1,8 +1,8 @@
+import type { MediaAsset } from "../../types/media.js";
 import { z } from "zod";
 import { MAX_RETIME_RATE } from "../../audio-retime.js";
 import type { LocalAssetDefinition } from "../../types/index.js";
 import { KonteError } from "../../errors.js";
-import type { MediaAsset } from "../builders.js";
 import { getActiveFormat } from "../shot-context.js";
 import { ASSET_SITES, type AssetAdapter } from "../adapter.js";
 

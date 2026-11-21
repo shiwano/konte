@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { defineDirection, type Direction } from "../dsl/direction.js";
 import { findUnheldLandmarks } from "../landmark-held-check.js";
-import type { PromptOccurrence } from "../prompt-check.js";
 import { directionDefaults } from "./helpers/direction.js";
+import type { PromptOccurrence } from "../types/stage-build.js";
 
 const direction = defineDirection({
   ...directionDefaults,

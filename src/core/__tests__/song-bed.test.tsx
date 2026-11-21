@@ -1,3 +1,4 @@
+import type { MediaAsset } from "../types/media.js";
 import { describe, expect, it } from "vitest";
 import type React from "react";
 import { listShotStems } from "../address.js";
@@ -11,7 +12,6 @@ import { adapters, asset, defineAnimatic, defineVideo, soundtrack } from "../dsl
 import { makeAddressPlaceholder } from "../dsl/shot-context.js";
 import { withSongVariants } from "../dsl/song-context.js";
 import type { ShotScript } from "../dsl/shot-script.js";
-import type { MediaAsset } from "../dsl/builders.js";
 import { SONG_BED_ID, mixedSoundtracks } from "../song-bed.js";
 import type { AnimaticDefinition, VideoDefinition } from "../types/index.js";
 import { directionDefaults } from "./helpers/direction.js";

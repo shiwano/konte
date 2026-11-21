@@ -1,3 +1,5 @@
+import type { SoundtrackEntry } from "../types/soundtrack.js";
+import type { MediaKind } from "../types/media.js";
 import {
   formatReferenceAddress,
   formatShotAddress,
@@ -6,7 +8,6 @@ import {
   type ShotStage,
   THUMBNAIL_FRAME_ADDRESS,
 } from "../address.js";
-import type { BuildFinding } from "../finding.js";
 import { isConsumableAddress, partitionShotRefs } from "../composition-refs.js";
 import { renderToHtml, type RenderContext } from "../jsx-html.js";
 import type {
@@ -22,7 +23,7 @@ import type {
   VideoFormat,
 } from "../types/index.js";
 import { KonteError } from "../errors.js";
-import type { AnyShotInput, MediaKind, SoundtrackEntry, ThumbnailSpec } from "./builders.js";
+import type { AnyShotInput, ThumbnailSpec } from "./builders.js";
 import type { OverlayDefinition } from "../types/index.js";
 import { endsOnSeam, getDirectionIndex } from "./direction.js";
 import { shotSongStem, spanSongContext, timedShot } from "./direction-timeline.js";
@@ -45,6 +46,7 @@ import {
   runInThumbnailMode,
   runTimelineInDiscoveryMode,
 } from "./shot-context.js";
+import type { BuildFinding } from "../types/stage-build.js";
 
 // The two composition stages are built the same way — one timeline callback that declares shared
 // assets and walks the direction, then one discovery pass per shot. This module is that shared

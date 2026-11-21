@@ -1,7 +1,7 @@
+import type { MediaAsset } from "../types/media.js";
 import { describe, expect, it } from "vitest";
 import { Animate, Audio, Image, Video } from "../dsl/composition/index.js";
 import { jsxImage } from "../dsl/adapters/index.js";
-import type { MediaAsset } from "../dsl/builders.js";
 import {
   runInDiscoveryMode,
   runInReferenceDiscoveryMode,

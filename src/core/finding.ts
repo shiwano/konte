@@ -2,6 +2,7 @@
 // findings; what a finding is is a property of its code, fixed in DIRECTION_FINDINGS for a direction
 // code and in OTHER_TRAITS for the rest. The gates, `status` and FINDINGS.md all read the tables.
 
+import type { BuildFindingCode } from "./types/stage-build.js";
 import { type AssetStage, type Stage, getStage, matchesAddressScope } from "./address.js";
 import {
   type DirectionFindingCode,
@@ -58,26 +59,6 @@ export type FindingCode =
   | "pending-reference"
   // A locator of `brief.source` — a digest's `at`, or the span — past the original's chunks.
   | "source-locator-out-of-range";
-
-// What a stage build finds of itself instead of refusing to load: a demand the direction makes that
-// the stage file has not caught up with, after an edit to the direction alone.
-type BuildFindingCode =
-  // A shot the direction gives lines to that does not sound them.
-  | "script-unvoiced"
-  // A shot whose `<Cutin>` and the direction's `cutin` disagree on whether there is one.
-  | "cutin-required"
-  | "cutin-undeclared"
-  // A plate filed under a setup the direction does not declare.
-  | "plate-undeclared-setup"
-  // A soundtrack anchored to a shot the direction does not declare.
-  | "soundtrack-anchor-unknown";
-
-export type BuildFinding = {
-  code: BuildFindingCode;
-  subject: string;
-  message: string;
-  targets: readonly string[];
-};
 
 // The file a finding is fixed in: a stage's entry file, or the patch script of one take.
 export type SourceFile = { stage: Stage; patch?: string };

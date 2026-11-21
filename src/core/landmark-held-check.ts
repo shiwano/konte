@@ -5,8 +5,7 @@ import { tryParseAddress } from "./address.js";
 import { collectShotFrames } from "./direction-frames.js";
 import { setupHolds } from "./direction.js";
 import type { Direction } from "./dsl/direction.js";
-import type { ImageInputOccurrence } from "./image-inputs.js";
-import type { PromptOccurrence } from "./prompt-check.js";
+import type { ImageInputOccurrence, PromptOccurrence } from "./types/stage-build.js";
 
 export type UnheldLandmark = {
   address: string;

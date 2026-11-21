@@ -5,6 +5,7 @@
 // of any DSL/runtime import (like direction-check.ts) so the gate, status and unit tests can pull
 // it in standalone. English only.
 
+import type { PromptOccurrence } from "./types/stage-build.js";
 import type { Finding, SourceFile } from "./finding.js";
 
 /**
@@ -22,27 +23,6 @@ const PROMPT_FINDING_CODES = [
 ] as const;
 
 export type PromptFindingCode = (typeof PROMPT_FINDING_CODES)[number];
-
-// One `"prompt"` / `"negativePrompt"` / `"spokenText"` input's value, as declared at one address.
-// `negative` marks the second kind, which reverses which phrasing is the finding; `spoken` the
-// third, collected for listing but never checked. `exemptions` are the declaring adapter's
-// (`promptExemptions`); `script` is the direction's spoken lines, a line quoted verbatim cut out
-// before the value is read. `spokenWithin` holds the words a `"prompt"` value carries for a model
-// that takes its lines there (`spokenTextPattern`) — the value stays a prompt and is checked as one.
-export type PromptOccurrence = {
-  address: string;
-  input: string;
-  value: string;
-  // What the declaring adapter outputs.
-  media: "image" | "video" | "audio";
-  negative?: true;
-  spoken?: true;
-  spokenWithin?: readonly string[];
-  // The marked text each `spokenWithin` span was written inside, in the same order.
-  spokenMarks?: readonly string[];
-  exemptions?: readonly RegExp[];
-  script?: readonly string[];
-};
 
 // The words a take at one address speaks: a `"spokenText"` input's whole value, or the spans a
 // prompt-borne model's lines were marked at (`spokenTextPattern`). Read at the address itself, never

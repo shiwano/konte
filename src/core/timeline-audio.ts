@@ -1,14 +1,13 @@
+import type { SoundtrackEntry, Duck } from "./types/soundtrack.js";
 import type { ShotStage } from "./address.js";
 import { runInRenderMode } from "./dsl/shot-context.js";
 import type { AudioLevelling, CueKind, ShotCueLevels } from "./audio-level.js";
 import { clampEffectiveGain, cueBySrc, isVoiceKind, loudnessOf } from "./audio-level.js";
-import type { SoundtrackEntry } from "./dsl/builders.js";
 import {
   buildDuckEnvelope,
   duckSettings,
   narrationDuck,
   voiceTriggerSpan,
-  type Duck,
   type DuckStep,
   type Span,
 } from "./audio-duck.js";

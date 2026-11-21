@@ -1,8 +1,7 @@
 import { z } from "zod";
-import type { PinOccurrence } from "../pin-check.js";
-import type { PromptOccurrence } from "../prompt-check.js";
 import type { AssetDefinition } from "./definition.js";
 import { AssetDefinitionSchema, PinsSchema, PromptsSchema } from "./definition.js";
+import type { PinOccurrence, PromptOccurrence } from "./stage-build.js";
 
 /**
  * A reference is the shared upstream stage: a flat pool of named assets (characters, backgrounds,

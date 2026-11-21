@@ -1,10 +1,9 @@
 import { assertNever } from "./assert.js";
 import { IMAGED_VIEWS, VIEW_NAME_BODY, viewAssetName, type ImagedView } from "./view.js";
 import { KonteError } from "./errors.js";
-import type { PinOccurrence } from "./pin-check.js";
-import type { PromptOccurrence } from "./prompt-check.js";
 import { shotById } from "./shot-index.js";
 import type { AssetDefinition } from "./types/index.js";
+import type { PinOccurrence, PromptOccurrence } from "./types/stage-build.js";
 
 // The four stages. `direction` is the one that owns no asset — its addresses are feedback-only
 // targets.

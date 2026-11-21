@@ -5,6 +5,7 @@
 // any DSL/runtime import (like prompt-check.ts) so the gate, status and unit tests can pull it in
 // standalone.
 
+import type { PinOccurrence } from "./types/stage-build.js";
 import { tryParseAddress } from "./address.js";
 import type { Finding, SourceFile } from "./finding.js";
 
@@ -16,24 +17,6 @@ export type PinFindingCode = "pin-unanchored";
 
 // What a pinned address turns out to be, when it is not a frame.
 type PinSubject = "sheet" | "plate";
-
-// One `pin` input's wiring, as declared at one address. `source` is the address it was passed, never
-// what that resolves to.
-export type PinOccurrence = {
-  address: string;
-  input: string;
-  pin: "start" | "end";
-  // Absent where the adapter declares the slot and the author passed nothing. `join-unpinned` reads
-  // those to tell a model that CANNOT carry a seam from one whose author did not; every other reader
-  // is about what a pin points at, and skips them.
-  source?: string;
-  // How long the take at `address` is, where its adapter declares the length, and where in it an end
-  // image lands — the frame index a workflow anchors it at, else the take's last frame. What says
-  // whether a composition that plays the take cuts on the landing.
-  clip?: { sec: number; frameSec: number; landsAt: number };
-  // The adapter also takes an image that is not pinned.
-  referable?: true;
-};
 
 // The unit is the pinned SOURCE: one sheet pinned across thirty shots is one finding listing thirty
 // sites.

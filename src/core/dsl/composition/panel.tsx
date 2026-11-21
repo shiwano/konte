@@ -1,6 +1,6 @@
+import type { MediaAsset } from "../../types/media.js";
 import { KonteError } from "../../errors.js";
 import { getRenderContext } from "../../jsx-html.js";
-import type { MediaAsset } from "../builders.js";
 import { isCollectingPanels, nextPanelIndex, recordPanel } from "../panel-collect.js";
 import { parsePlaceholder } from "../shot-context.js";
 

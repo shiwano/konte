@@ -1,3 +1,5 @@
+import type { ShotFunction } from "../types/definition.js";
+import type { MediaAsset, MediaKind } from "../types/media.js";
 import type { ShotStage } from "../address.js";
 import { formatAddress, formatSongStemAddress } from "../address.js";
 import { KonteError } from "../errors.js";
@@ -26,8 +28,6 @@ import {
   makeMediaAsset,
   type AnyShotInput,
   type AsideShotInput,
-  type MediaAsset,
-  type MediaKind,
 } from "./builders.js";
 import type { DirectionIndex } from "./direction.js";
 import {
@@ -38,7 +38,7 @@ import {
   songUnread,
 } from "./direction-timeline.js";
 import { markPanel, shotPanelsOf } from "./panel-collect.js";
-import type { DiscoveryResult, ShotFunction } from "./shot-context.js";
+import type { DiscoveryResult } from "./shot-context.js";
 import {
   getActiveFormat,
   makeAddressPlaceholder,

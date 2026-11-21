@@ -1,6 +1,6 @@
-import type { PinOccurrence } from "../pin-check.js";
 import type { AdapterMeta } from "./adapter.js";
 import { parsePlaceholder } from "./shot-context.js";
+import type { PinOccurrence } from "../types/stage-build.js";
 
 // Where a stage's `pin` inputs are gathered while it is being built, read at the spend gate and by
 // `status`. Collected as `asset()` runs, like the prompts (see prompt-collect).

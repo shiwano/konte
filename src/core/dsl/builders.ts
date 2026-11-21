@@ -1,3 +1,6 @@
+import type { MediaAsset, MediaKind } from "../types/media.js";
+import type { SoundtrackEntry, SoundtrackOptions } from "../types/soundtrack.js";
+import type { ShotFunction } from "../types/definition.js";
 import { KonteError } from "../errors.js";
 import type { ShotSongOf } from "./animatic-builders.js";
 import type {
@@ -7,12 +10,10 @@ import type {
   VideoDefinition,
   VideoFormat,
 } from "../types/index.js";
-import type { BuildFinding } from "../finding.js";
 import { formatShotAddress } from "../address.js";
 import { assertRespellings } from "./respell.js";
 import { attachCueKinds } from "../spoken-text.js";
 import { assertHeardStemsHeard } from "../heard-stem.js";
-import type { ShotFunction } from "./shot-context.js";
 import type { DirectionEntry } from "./direction.js";
 import type {
   StageGraphicShotStarter,
@@ -24,14 +25,8 @@ import type { StageTimelineReturn } from "./animatic-builders.js";
 import { defineStage, openStage } from "./stage-define.js";
 import { validateAssetName } from "./validate-identifier.js";
 import { assertAudioGain } from "../audio-gain.js";
-import { assertDuck, type Duck } from "../audio-duck.js";
-
-export type MediaKind = "image" | "video" | "audio";
-
-export interface MediaAsset<T extends MediaKind = MediaKind> {
-  readonly src: string;
-  readonly __kind?: T;
-}
+import { assertDuck } from "../audio-duck.js";
+import type { BuildFinding } from "../types/stage-build.js";
 
 /**
  * A board shot's mix of lines no mouth in its frame speaks — `animatic.shot(id).narrationStem`, or
@@ -111,45 +106,6 @@ export function isPendingShotInput(input: AnyShotInput): input is PendingShotInp
 
 export function isAsideShotInput(input: AnyShotInput): input is AsideShotInput {
   return "__asideShot" in input && input.__asideShot === true;
-}
-
-export interface ShotAnchor<TId extends string = string> {
-  /** The shot this anchor is relative to. */
-  shot: TId;
-  /** Seconds from that shot's start. Defaults: `from`→0 (shot head), `until`→the shot's end. */
-  at?: number;
-}
-
-export interface SoundtrackOptions<TId extends string = string> {
-  /**
-   * Whether this bed yields to the spoken lines over it — `true` for the default curve, `false` for
-   * a bed that holds its level through them. Required: konte cannot tell which lines a bed runs
-   * under until the shots have real durations, long after this is written.
-   */
-  duck: Duck;
-  /** Span start anchor. Omitted = the timeline start (0). */
-  from?: ShotAnchor<TId>;
-  /** Span end anchor. Omitted = the timeline end. */
-  until?: ShotAnchor<TId>;
-  /** Offset into the source media in seconds. */
-  mediaStart?: number;
-  /** Gain 0–MAX_AUDIO_GAIN (+12 dB), 1 = unity. */
-  volume?: number;
-  /** Fade-in seconds. */
-  fadeIn?: number;
-  /** Fade-out seconds. */
-  fadeOut?: number;
-  /** Loop the source to fill the span if it is shorter than the span. Defaults to true. */
-  loop?: boolean;
-}
-
-export interface SoundtrackEntry<TId extends string = string> {
-  __soundtrackEntry: true;
-  id: string;
-  src: MediaAsset<"audio">;
-  options: SoundtrackOptions<TId>;
-  // The song bed konte lays under a piece with `policy.song` (see `mixedSoundtracks`).
-  song?: true;
 }
 
 /**

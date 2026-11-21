@@ -1,9 +1,9 @@
-import type { PromptOccurrence } from "../prompt-check.js";
 import type { AdapterMeta } from "./adapter.js";
 import { beginClipLengthCollection } from "./clip-length-collect.js";
 import { beginImageInputCollection } from "./image-input-collect.js";
 import { beginPinCollection } from "./pin-collect.js";
 import { beginStemInputCollection } from "./stem-input-collect.js";
+import type { PromptOccurrence } from "../types/stage-build.js";
 
 // Where a stage's `"prompt"`, `"negativePrompt"` and `"spokenText"` values are gathered while it
 // is being built, read at the spend gate and by `konte inspect --prompts`.

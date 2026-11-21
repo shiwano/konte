@@ -14,8 +14,8 @@ import type {
   TimelineFunction,
   Typography,
   VideoFormat,
+  ShotFunction,
 } from "./types/definition.js";
-import type { ShotFunction } from "./dsl/shot-context.js";
 import type { ShotStage } from "./address.js";
 import {
   formatAddress,

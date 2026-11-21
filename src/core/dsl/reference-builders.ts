@@ -1,12 +1,11 @@
+import type { MediaAsset, MediaKind } from "../types/media.js";
 import type { ReferenceDefinition } from "../types/reference.js";
-import { makeMediaAsset, type MediaAsset, type MediaKind } from "./builders.js";
+import { makeMediaAsset } from "./builders.js";
 import { endPinCollection } from "./pin-collect.js";
 import { beginPromptCollection, endPromptCollection } from "./prompt-collect.js";
 import { beginRespellCollection, endRespellCollection } from "./respell.js";
 import { KonteError } from "../errors.js";
 import type { AssetDefinition, Respelling, VideoFormat } from "../types/definition.js";
-import type { PromptOccurrence } from "../prompt-check.js";
-import type { PinOccurrence } from "../pin-check.js";
 import { declaredViews, type DirectionIndex } from "./direction.js";
 import { scriptTexts } from "./shot-script.js";
 import {
@@ -24,6 +23,7 @@ import {
 } from "./direction.js";
 import { IMAGED_VIEWS, isImagedView, viewAssetName } from "../view.js";
 import { deriveReferenceSize } from "../canvas.js";
+import type { PromptOccurrence, PinOccurrence } from "../types/stage-build.js";
 
 type ReferenceAssetMap = Record<string, MediaAsset<MediaKind>>;
 

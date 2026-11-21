@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import type { PromptOccurrence } from "../../../../core/prompt-check.js";
 import type { AssetDefinition } from "../../../../core/types/index.js";
 import type {
   AssetGenerationInfo,
@@ -7,6 +6,7 @@ import type {
   AssetPatchInfo,
 } from "../../../../core/types/review-state.js";
 import { type PatchChainVariants, createAssetInfoBuilder } from "../asset-info.js";
+import type { PromptOccurrence } from "../../../../core/types/stage-build.js";
 
 const PROMPT = "a girl at a desk";
 const NEGATIVE = "blurry";

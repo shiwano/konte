@@ -1,10 +1,10 @@
 import type { AssetStage } from "../../core/address.js";
 import { assertNever } from "../../core/assert.js";
 import { loadAnimatic, loadReference } from "../../core/loader.js";
-import type { PromptOccurrence } from "../../core/prompt-check.js";
 import { loadVideoAndAnimatic } from "../../core/stage-definitions.js";
 import type { Respelling } from "../../core/types/definition.js";
 import type { AssetDefinition, ShotDefinition } from "../../core/types/index.js";
+import type { PromptOccurrence } from "../../core/types/stage-build.js";
 
 export interface ShotLike {
   id: string;

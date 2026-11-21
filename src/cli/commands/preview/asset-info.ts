@@ -1,6 +1,5 @@
 import { assetNameOf, parseAddress } from "../../../core/address.js";
 import { parsePlaceholder } from "../../../core/dsl/shot-context.js";
-import type { PromptOccurrence } from "../../../core/prompt-check.js";
 import type { AssetDefinition } from "../../../core/types/index.js";
 import type {
   AssetGenerationInfo,
@@ -10,6 +9,7 @@ import type {
   AssetPromptInfo,
   AssetRefInfo,
 } from "../../../core/types/review-state.js";
+import type { PromptOccurrence } from "../../../core/types/stage-build.js";
 
 function refOf(def: AssetDefinition): string {
   switch (def.kind) {

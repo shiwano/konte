@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { checkPins, pinFindings, type PinOccurrence } from "../pin-check.js";
+import { checkPins, pinFindings } from "../pin-check.js";
+import type { PinOccurrence } from "../types/stage-build.js";
 
 function pin(address: string, input: string, source: string, end: "start" | "end" = "start") {
   return { address, input, pin: end, source } satisfies PinOccurrence;

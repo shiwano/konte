@@ -11,7 +11,6 @@ import {
 } from "./address.js";
 import { isImagedView, parseViewName, type View } from "./view.js";
 import type { PinWindow, VideoShotPins } from "./direction-check.js";
-import type { PinOccurrence } from "./pin-check.js";
 import { parsePlaceholder } from "./dsl/shot-context.js";
 import {
   type AssetDefinition,
@@ -34,6 +33,7 @@ import { extractRefs, exposedPlateIdsOf, LANES, lanePanels, platesOf } from "./g
 import { definitionHashForAddress } from "./leaf-hash.js";
 import type { Accepted } from "./sign-off.js";
 import type { StateManager } from "./state/index.js";
+import type { PinOccurrence } from "./types/stage-build.js";
 
 /**
  * One camera frame the direction places on a board shot: which lane of which shot, on which setup.

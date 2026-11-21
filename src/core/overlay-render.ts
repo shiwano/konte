@@ -1,7 +1,8 @@
+import type { ShotFunction } from "./types/definition.js";
 import type { ShotStage } from "./address.js";
 import { injectBaseTimeline } from "./composition-builder.js";
 import { replaceTimedElements, setAttr } from "./html-attr.js";
-import { runInRenderMode, type ShotFunction } from "./dsl/shot-context.js";
+import { runInRenderMode } from "./dsl/shot-context.js";
 import { renderToHtml } from "./jsx-html.js";
 import type { LineTiming } from "./subtitle-timing.js";
 import type { OverlayDefinition, Typography } from "./types/index.js";

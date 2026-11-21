@@ -1,5 +1,5 @@
+import type { MediaAsset } from "../../types/media.js";
 import type { LocalAssetDefinition } from "../../types/index.js";
-import type { MediaAsset } from "../builders.js";
 import { ASSET_SITES, type AssetAdapter } from "../adapter.js";
 import { parseColorString } from "./local.js";
 

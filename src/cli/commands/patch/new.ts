@@ -1,7 +1,7 @@
+import type { MediaKind } from "../../../core/types/media.js";
 import * as fs from "node:fs/promises";
 import type { Command } from "commander";
 import { isDeliveryAddress, isMaterializedLeafAddress } from "../../../core/address.js";
-import type { MediaKind } from "../../../core/dsl/builders.js";
 import { KonteError } from "../../../core/errors.js";
 import { inferMediaType } from "../../../core/media-type.js";
 import { assertPatchableTarget, patchFilePath, patchesDir } from "../../../core/patch.js";

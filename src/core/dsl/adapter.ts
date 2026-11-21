@@ -1,10 +1,10 @@
+import type { MediaKind, MediaAsset } from "../types/media.js";
 import type {
   AssetDefinition,
   ComfyModelDeclaration,
   ComfyNodeDeclaration,
 } from "../types/index.js";
 import { KonteError } from "../errors.js";
-import type { MediaKind, MediaAsset } from "./builders.js";
 import { makeMediaAsset } from "./builders.js";
 import {
   getPatchContext,
@@ -23,7 +23,6 @@ import {
   type BuildFormat,
 } from "./shot-context.js";
 import { recordImageInputs } from "./image-input-collect.js";
-import type { PinOccurrence } from "../pin-check.js";
 import { clipLengthOf } from "./clip-length-collect.js";
 import { recordPinInputs } from "./pin-collect.js";
 import { recordStemInputs } from "./stem-input-collect.js";
@@ -37,6 +36,7 @@ import {
 import type { Identifier } from "./validate-identifier.js";
 import { validateAssetName } from "./validate-identifier.js";
 import { shiftSongSpan, songSpanOfInputs, withSongSpan } from "./song-window.js";
+import type { PinOccurrence } from "../types/stage-build.js";
 
 export type AdapterBackendKind = "comfy" | "fal" | "local" | "file";
 

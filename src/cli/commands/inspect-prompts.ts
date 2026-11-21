@@ -19,7 +19,6 @@ import {
   selectGenerationAssets,
 } from "../../core/generation-selection.js";
 import { JobManager } from "../../core/job-manager.js";
-import type { PromptOccurrence } from "../../core/prompt-check.js";
 import {
   formatOffscreen,
   loadPromptShots,
@@ -32,6 +31,7 @@ import type { PanelDefinition, PanelLane, Respelling } from "../../core/types/de
 import { openVideoSession } from "../../core/video-session.js";
 import { spendHeldAssets } from "../finding-gates.js";
 import { type DefinitionWithDuration, loadDefinitionWithDuration } from "./inspect-definition.js";
+import type { PromptOccurrence } from "../../core/types/stage-build.js";
 
 export type PromptScope =
   | { level: "asset"; stage: AssetStage; address: string }

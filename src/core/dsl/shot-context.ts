@@ -1,3 +1,5 @@
+import type { ShotFunction } from "../types/definition.js";
+import type { MediaAsset, MediaKind } from "../types/media.js";
 import {
   formatAddress,
   type AssetStage,
@@ -7,10 +9,7 @@ import {
   formatThumbnailAddress,
 } from "../address.js";
 import type { AssetDefinition, Typography } from "../types/index.js";
-import type { MediaAsset, MediaKind } from "./builders.js";
 import type { SongSpan } from "./song-window.js";
-
-export type ShotFunction = () => React.ReactElement;
 
 /**
  * The stage canvas an adapter's format-derived inputs (width/height/fps) resolve against at

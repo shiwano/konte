@@ -1,3 +1,4 @@
+import type { MediaKind, MediaAsset } from "../types/media.js";
 import type {
   ComfyAssetDefinition,
   ComfyModelDeclaration,
@@ -5,7 +6,6 @@ import type {
 } from "../types/index.js";
 import { KonteError } from "../errors.js";
 import { workflowContentHash } from "../workflow-content-hash.js";
-import type { MediaKind, MediaAsset } from "./builders.js";
 import { getActiveFormat, getShotContext, seed, type BuildFormat } from "./shot-context.js";
 import { panelInputs } from "./panel-collect.js";
 import { estimateSpeechSec } from "../speech-duration.js";

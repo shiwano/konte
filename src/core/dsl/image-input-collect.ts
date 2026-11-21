@@ -1,6 +1,6 @@
-import type { ImageInputOccurrence } from "../image-inputs.js";
 import type { AdapterMeta } from "./adapter.js";
 import { parsePlaceholder } from "./shot-context.js";
+import type { ImageInputOccurrence } from "../types/stage-build.js";
 
 // Where a stage's plain image inputs are gathered while it is being built, read by `panel-unlinked`,
 // `plate-unnested` and `landmark-unheld`. Collected as `asset()` runs, like the pins (see

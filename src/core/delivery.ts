@@ -1,3 +1,4 @@
+import type { MediaAsset } from "./types/media.js";
 import {
   COMPOSITION_ASSET_NAME,
   isDeliveryAddress,
@@ -5,14 +6,14 @@ import {
   sourceAddressOfDelivery,
 } from "./address.js";
 import { computeDefinitionHash } from "./definition-hash.js";
-import { makeMediaAsset, type MediaAsset } from "./dsl/builders.js";
+import { makeMediaAsset } from "./dsl/builders.js";
 import { endPinCollection } from "./dsl/pin-collect.js";
 import { beginPromptCollection, endPromptCollection } from "./dsl/prompt-collect.js";
 import { endRespellCollection } from "./dsl/respell.js";
 import { makePlaceholder, makeTimelinePlaceholder } from "./dsl/shot-context.js";
 import { KonteError } from "./errors.js";
-import type { PinCheckSubject, PinOccurrence } from "./pin-check.js";
-import type { PromptCheckSubject, PromptOccurrence } from "./prompt-check.js";
+import type { PinCheckSubject } from "./pin-check.js";
+import type { PromptCheckSubject } from "./prompt-check.js";
 import type {
   AssetDefinition,
   DeliveryUpscaleFn,
@@ -20,6 +21,7 @@ import type {
   KonteState,
   VideoDefinition,
 } from "./types/index.js";
+import type { PinOccurrence, PromptOccurrence } from "./types/stage-build.js";
 
 // Two delivery upscale modes, distinguished by the #delivery source:
 //   - "video": source is one video layer  (shot.<id>.<layer>#delivery)        → upscale.video

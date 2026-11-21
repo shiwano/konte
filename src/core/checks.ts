@@ -39,8 +39,8 @@ import type { FindingTraits } from "./finding-traits.js";
 import { type DependencyGraph, extractRefs, listBoardlessVideoShots } from "./graph.js";
 import { acceptedIn, listReferenceImageTexts, listViewAnchorGaps } from "./board-analysis.js";
 import { findUnheldLandmarks } from "./landmark-held-check.js";
-import { type PinOccurrence, pinFindings } from "./pin-check.js";
-import { type PromptOccurrence, promptFindings } from "./prompt-check.js";
+import { pinFindings } from "./pin-check.js";
+import { promptFindings } from "./prompt-check.js";
 import { findAllUnmetPrerequisites, prerequisiteShot } from "./review-prerequisites.js";
 import type { StateManager } from "./state/index.js";
 import { type ClassSubject, checkTailwindClasses } from "./tailwind-classes.js";
@@ -60,6 +60,7 @@ import { type Accepted, withAwaitingAccept } from "./sign-off.js";
 import { isVendorBackendAsset } from "./vendor-backend.js";
 import { rosterReferenceNames } from "./roots.js";
 import { unvouchedFindings } from "./variant-check.js";
+import type { PinOccurrence, PromptOccurrence } from "./types/stage-build.js";
 
 // The prompts and pins one outstanding patch script would spend on, and its steps.
 export type PatchSubject = {

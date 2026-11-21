@@ -1,6 +1,6 @@
+import type { MediaAsset } from "../types/media.js";
 import { describe, expect, it } from "vitest";
 import { imageOrbit } from "../dsl/adapters/index.js";
-import type { MediaAsset } from "../dsl/builders.js";
 import { runInPlateDiscoveryMode } from "../dsl/shot-context.js";
 import type { LocalAssetDefinition } from "../types/index.js";
 

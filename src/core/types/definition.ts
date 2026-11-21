@@ -1,12 +1,14 @@
+import type { SoundtrackEntry } from "./soundtrack.js";
+import type { MediaAsset } from "./media.js";
 import { z } from "zod";
-import type { PinOccurrence } from "../pin-check.js";
-import type { ImageInputOccurrence } from "../image-inputs.js";
-import type { PromptOccurrence } from "../prompt-check.js";
-import type { StemInputOccurrence } from "../dsl/stem-input-collect.js";
-import type { BuildFinding } from "../finding.js";
 import { FONT_FAMILY_PATTERN, isLanguageTag, type LanguageTag } from "../typography.js";
-import type { MediaAsset, SoundtrackEntry } from "../dsl/builders.js";
-import type { ShotFunction } from "../dsl/shot-context.js";
+import type {
+  PinOccurrence,
+  ImageInputOccurrence,
+  PromptOccurrence,
+  StemInputOccurrence,
+  BuildFinding,
+} from "./stage-build.js";
 
 const ComfyModelTypeSchema = z.enum([
   "checkpoint",
@@ -481,3 +483,5 @@ export const VideoDefinitionSchema = StageDefinitionSchema.extend({
 });
 
 export type VideoDefinition = z.infer<typeof VideoDefinitionSchema>;
+
+export type ShotFunction = () => React.ReactElement;

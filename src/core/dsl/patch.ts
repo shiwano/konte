@@ -1,9 +1,7 @@
+import type { MediaAsset, MediaKind } from "../types/media.js";
 import { KonteError } from "../errors.js";
 import type { AssetStage } from "../address.js";
 import type { AssetDefinition } from "../types/index.js";
-import type { PinOccurrence } from "../pin-check.js";
-import type { PromptOccurrence } from "../prompt-check.js";
-import type { MediaAsset, MediaKind } from "./builders.js";
 import { makeMediaAsset } from "./builders.js";
 import { endPinCollection } from "./pin-collect.js";
 import { beginPromptCollection, endPromptCollection } from "./prompt-collect.js";
@@ -14,6 +12,7 @@ import {
   makePatchPlaceholder,
   runInPatchDiscoveryMode,
 } from "./shot-context.js";
+import type { PinOccurrence, PromptOccurrence } from "../types/stage-build.js";
 
 /**
  * What a patch file's callback receives. `source` is the variant being patched, as a MediaAsset

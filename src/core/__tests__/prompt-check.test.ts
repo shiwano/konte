@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  checkPrompts,
-  promptFindings,
-  spokenLinesAt,
-  type PromptOccurrence,
-} from "../prompt-check.js";
+import { checkPrompts, promptFindings, spokenLinesAt } from "../prompt-check.js";
+import type { PromptOccurrence } from "../types/stage-build.js";
 
 function at(address: string, value: string, exemptions?: readonly RegExp[]): PromptOccurrence {
   return { address, input: "prompt", media: "image", value, ...(exemptions ? { exemptions } : {}) };

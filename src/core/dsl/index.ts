@@ -1,3 +1,5 @@
+export type { MediaKind, MediaAsset } from "../types/media.js";
+export type { ShotAnchor, SoundtrackOptions, SoundtrackEntry } from "../types/soundtrack.js";
 import {
   audioConcat,
   audioFile,
@@ -24,8 +26,6 @@ export {
 export {
   defineVideo,
   soundtrack,
-  type MediaKind,
-  type MediaAsset,
   type HeardStem,
   type ShotOptions,
   type ShotInput,
@@ -33,9 +33,6 @@ export {
   type AsideShotInput,
   type AsideShotOptions,
   type AnyShotInput,
-  type ShotAnchor,
-  type SoundtrackOptions,
-  type SoundtrackEntry,
   type OverlayContext,
   type ThumbnailContext,
   type ThumbnailSpec,
@@ -77,8 +74,9 @@ export {
   type ReferenceViews,
 } from "./reference-builders.js";
 export { definePatch, type PatchBuild, type PatchContext, type PatchDefinition } from "./patch.js";
-export type { PromptFinding, PromptFindingCode, PromptOccurrence } from "../prompt-check.js";
-export type { PinFinding, PinFindingCode, PinOccurrence } from "../pin-check.js";
+export type { PromptFinding, PromptFindingCode } from "../prompt-check.js";
+export type { PinFinding, PinFindingCode } from "../pin-check.js";
+export type { PinOccurrence, PromptOccurrence } from "../types/stage-build.js";
 export type { ReferenceDefinition } from "../types/reference.js";
 export { imageFile, videoFile, audioFile } from "./adapters/index.js";
 export { jsxImage, type JsxImageInputs, type JsxImageCanvas } from "./adapters/index.js";
@@ -96,6 +94,7 @@ export type {
   ComfyModelDeclaration,
   ComfyModelType,
   ComfyNodeDeclaration,
+  ShotFunction,
 } from "../types/definition.js";
 export {
   formatCutTime,
@@ -136,12 +135,7 @@ export {
   type SubtitleProps,
   type VideoProps,
 } from "./composition/index.js";
-export {
-  seed,
-  type ShotFunction,
-  runInRenderMode,
-  runTimelineInRenderMode,
-} from "./shot-context.js";
+export { seed, runInRenderMode, runTimelineInRenderMode } from "./shot-context.js";
 export { upscale } from "./delivery-upscale.js";
 export type {
   VideoFormat,
