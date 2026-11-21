@@ -51,7 +51,7 @@ import { StateManager } from "../../core/state/index.js";
 import { readVariantThumbnails } from "../../core/variant-thumbnails.js";
 import { generatedOrigin, isReviewLeaf } from "../../core/variant-lineage.js";
 import { variantOwningFile } from "../../core/variant-dir.js";
-import type { AssetDefinition, AssetState, VariantState } from "../../core/types/index.js";
+import type { AssetDefinition, VariantState } from "../../core/types/index.js";
 import { type ScriptLine, scriptLinesToView } from "../../core/types/script.js";
 import {
   loadDefinitionForAddress,
@@ -151,14 +151,6 @@ function timelineLeafEntries(definition: DefinitionWithDuration, stage: AssetSta
   return [leafEntry(formatTimelineStemAddress(stage), "stem")];
 }
 
-function tryGetAssetState(manager: StateManager, address: string): AssetState | null {
-  try {
-    return manager.getAssetState(address);
-  } catch {
-    return null;
-  }
-}
-
 async function loadManager(videoRoot: string): Promise<StateManager | null> {
   try {
     return await StateManager.load(videoRoot);
@@ -222,7 +214,7 @@ async function inspectComposition(videoRoot: string, address: string): Promise<v
   const depPaths = [...(graph.dependencies.get(address) ?? [])];
 
   const manager = await loadManager(videoRoot);
-  const assetState = manager ? tryGetAssetState(manager, address) : null;
+  const assetState = manager?.tryGetAssetState(address) ?? null;
   const state = manager?.getState() ?? null;
   const view = manager?.stalenessView();
   const feedback = (await assetFeedbackReader(videoRoot, parsed.stage, state, view))(address);
@@ -310,7 +302,7 @@ async function inspectAsset(videoRoot: string, address: string): Promise<void> {
       ? view!.patchStepStaleness(address, v, stepDefinitionHash)
       : view!.staleness(address, v);
 
-  let assetState = manager ? tryGetAssetState(manager, address) : null;
+  let assetState = manager?.tryGetAssetState(address) ?? null;
   const parsed = parseAddress(address);
   const feedback = (
     await assetFeedbackReader(videoRoot, parsed.stage, manager?.getState() ?? null, view)
