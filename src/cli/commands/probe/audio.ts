@@ -29,7 +29,10 @@ import {
 } from "../../../core/song-variant.js";
 import { barAt, songBars } from "../../../core/song-report.js";
 import type { SongAnalysis } from "../../../core/types/index.js";
-import { type LyricPlacementEntry, placeDirectionLyrics } from "../../../core/dsl/direction.js";
+import {
+  type LyricPlacementEntry,
+  placeDirectionLyrics,
+} from "../../../core/dsl/direction-timeline.js";
 import { probeEach } from "./shared.js";
 import { formatSeconds, formatSecondsRange } from "../../../core/format-duration.js";
 

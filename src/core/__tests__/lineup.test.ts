@@ -4,9 +4,9 @@ import {
   directionShotWaivers,
   frameReturns,
   offscreenSides,
-  setupView,
-  validateDirectionStructure,
 } from "../direction.js";
+import { setupView } from "../direction-frames.js";
+import { validateDirectionStructure } from "../direction-structure.js";
 import type { StagingStageState } from "../direction.js";
 import type { PinWindow } from "../direction-check.js";
 import { defineDirection } from "../dsl/direction.js";

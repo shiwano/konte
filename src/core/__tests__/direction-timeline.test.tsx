@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import type React from "react";
 import { Composition, Panel, asset, defineAnimatic, defineDirection } from "../dsl/index.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
+import { readDirectionTimeline } from "../dsl/direction-timeline.js";
 import {
-  readDirectionTimeline,
   resolveDirectionTimeline,
   type Direction,
   type DirectionPolicy,

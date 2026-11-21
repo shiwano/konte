@@ -1,8 +1,9 @@
 // A video take driven by a board stem whose lines no one in the shot's frame speaks.
 
 import { formatShotStemAddress, tryParseAddress } from "./address.js";
-import { collectArcShots, shotFrames } from "./direction.js";
-import { type Direction, isGraphicShot } from "./dsl/direction.js";
+import { collectArcShots, shotFrames } from "./direction-frames.js";
+import { type Direction } from "./dsl/direction.js";
+import { isGraphicShot } from "./dsl/shot-kind.js";
 import {
   isPendingAnimaticShot,
   isPendingShot,

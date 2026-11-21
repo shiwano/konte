@@ -11,26 +11,18 @@ import type { AnyShotInput, MediaAsset, OverlayContext, SoundtrackEntry } from "
 import { readAnimaticShot } from "./animatic.js";
 import { setShotPanels } from "./panel-collect.js";
 import { type AnimaticRef, createAnimaticRef } from "./animatic-ref.js";
+import type { DirectionEntry, DirectionIndex, Framing } from "./direction.js";
+import { shotStartsOf } from "./direction-timeline.js";
 import type {
-  DirectionEntry,
-  Framing,
   StageAsideShotStarter,
   StageGraphicShotStarter,
   StagePendingShotStarter,
   StageShotStarter,
-} from "./direction.js";
-import {
-  getDirectionIndex,
-  makeAnimaticShotStarter,
-  shotStartsOf,
-  type DirectionIndex,
-} from "./direction.js";
-import { beginPromptCollection } from "./prompt-collect.js";
-import { assertRespellings, beginRespellCollection } from "./respell.js";
+} from "./stage-chain.js";
+import { assertRespellings } from "./respell.js";
 import { makePlatePlaceholder, parsePlaceholder, runInPlateDiscoveryMode } from "./shot-context.js";
-import { scriptTexts } from "./shot-script.js";
 import type { ShotFunction } from "./shot-context.js";
-import { defineStage } from "./stage-define.js";
+import { defineStage, openStage } from "./stage-define.js";
 import { assertCuesFitShot, tightenDerivedClipLengths } from "../clip-fit.js";
 import {
   assertLinesAttributable,
@@ -475,15 +467,7 @@ export function defineAnimatic<
   direction: DirectionEntry<D>,
   opts: DefineAnimaticOptions<D, Ids, TPlates>,
 ): AnimaticDefinition & AnimaticRef {
-  const index = getDirectionIndex(direction);
-  const starter = makeAnimaticShotStarter(index);
-  const shot = starter.shot as unknown as StageShotStarter<D, "animatic">;
-  const graphicShot = starter.graphicShot as unknown as StageGraphicShotStarter<D, "animatic">;
-  const pendingShot = starter.pendingShot as unknown as StagePendingShotStarter<D, "animatic">;
-  const asideShot = starter.asideShot as unknown as StageAsideShotStarter<D>;
-
-  beginPromptCollection(scriptTexts(index.scriptById));
-  beginRespellCollection();
+  const { index, starters } = openStage(direction, "animatic");
   // Before the timeline: a shot's panel takes its plate as an input, so the placeholders must exist
   // by the time the chain is walked. Prompt collection already spans both.
   const plates = buildPlates(direction, index, opts.plates);
@@ -491,14 +475,7 @@ export function defineAnimatic<
     stage: "animatic",
     index,
     runTimeline: (format) =>
-      opts.timeline({
-        format,
-        shot,
-        graphicShot,
-        pendingShot,
-        asideShot,
-        plates: plates.returned as TPlates,
-      }),
+      opts.timeline({ format, ...starters, plates: plates.returned as TPlates }),
     perShot: ({ input, element, context, cutin }) => {
       const continuedBy = index.continuedById.get(input.id);
       const { panels, cutinPanels } = readAnimaticShot({

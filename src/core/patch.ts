@@ -14,9 +14,9 @@ import {
   getDirectionIndex,
   resolveDirectionFormat,
   resolveDirectionTimeline,
-  timedShot,
   type DirectionEntry,
 } from "./dsl/direction.js";
+import { timedShot } from "./dsl/direction-timeline.js";
 import type { PatchBuild } from "./dsl/patch.js";
 import type { BuildFormat } from "./dsl/shot-context.js";
 import { KonteError, errorMessage } from "./errors.js";

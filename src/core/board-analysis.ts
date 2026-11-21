@@ -27,7 +27,8 @@ import {
 
 import { harvestShotPictureCues } from "./composition-builder.js";
 import type { AnimaticSetupState } from "./direction-check.js";
-import { collectShotFrames, setupView, type StagingStageState } from "./direction.js";
+import { collectShotFrames, setupView } from "./direction-frames.js";
+import { type StagingStageState } from "./direction.js";
 import type { Direction } from "./dsl/direction.js";
 import { extractRefs, exposedPlateIdsOf, LANES, lanePanels, platesOf } from "./graph.js";
 import { definitionHashForAddress } from "./leaf-hash.js";

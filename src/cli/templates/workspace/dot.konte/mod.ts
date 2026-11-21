@@ -763,189 +763,6 @@ export type IdentifierViolation<T extends string> = {
 };
 export type ValidatedIdentifier<T extends string> =
   Identifier<T> extends never ? IdentifierViolation<T> : T;
-export type Voice = {
-  id: string;
-  description: string;
-};
-export type Character = {
-  name: string;
-  promptDepiction: string;
-  description: string;
-  voice?: Voice;
-};
-export type Prop = {
-  name: string;
-  promptDepiction: string;
-  description: string;
-};
-type Location$1 = {
-  name: string;
-  description: string;
-  landmarks: Record<string, Landmark>;
-  views: LocationViews;
-};
-export type LocationViews = {
-  front: LocationView;
-} & {
-  [V in ImagedView]?: LocationView;
-};
-export type LocationView = {
-  holds: readonly string[];
-};
-export type Landmark = {
-  name: string;
-  promptDepiction: string;
-  description: string;
-};
-export type Framing = "wide" | "medium" | "close" | "insert";
-export type Setup = {
-  name: string;
-  description: string;
-  location: string;
-  framing: Framing;
-  holds: readonly string[];
-} & (
-  | {
-      within: string;
-      view?: never;
-    }
-  | {
-      within?: null;
-      view: View;
-    }
-);
-export type LocationIdOf<D> = D extends {
-  locations: infer L;
-}
-  ? Extract<keyof L, string>
-  : string;
-export type ViewsOf<D, L> = D extends {
-  locations: infer M;
-}
-  ? L extends keyof M
-    ? M[L] extends {
-        views: infer V;
-      }
-      ? Extract<keyof V, View>
-      : View
-    : View
-  : View;
-export type BriefReference = {
-  clip: string;
-  link?: string;
-  take: string;
-  avoid: string;
-};
-export type BriefSource = {
-  span: string;
-  keep?: readonly string[];
-  drop?: readonly string[];
-};
-export type DirectionBrief = {
-  logline: string;
-  hook?: string;
-  audience?: string;
-  tone?: string;
-  look?: string;
-  outOfScope?: readonly string[];
-  tolerances?: readonly string[];
-  references?: readonly BriefReference[];
-  source?: BriefSource;
-};
-export type DirectionFormat = {
-  fps: number;
-  size: CanvasBudget;
-};
-export type ResolvedDirectionFormat = {
-  fps: number;
-  size: CanvasBudget & {
-    base: CanvasSize;
-  };
-};
-export type DirectionPolicy = {
-  format: DirectionFormat;
-  lang: LanguageTag;
-  fonts?: readonly string[];
-  song?: string;
-};
-export type NarrativeShot = Omit<ArcItem<string>, "synopsis" | "duration"> & {
-  kind?: "shot";
-  action: string;
-  setup: string;
-  duration?: number;
-  beats?: number;
-  script?: readonly ScriptLine[];
-  telop?: readonly string[];
-  lineup: readonly string[];
-  lineupTo?: readonly string[];
-  passing?: readonly string[];
-  props?: readonly string[];
-  join?: ShotJoin;
-  cutin?: Cutin;
-  coverage?: true;
-};
-export type Cutin = {
-  setup: string;
-  lineup: readonly string[];
-  lineupTo?: readonly string[];
-  passing?: readonly string[];
-  props?: readonly string[];
-  join?: ShotJoin;
-};
-export type GraphicShot = Omit<
-  NarrativeShot,
-  "kind" | "setup" | "lineup" | "lineupTo" | "passing" | "props" | "join" | "coverage"
-> & {
-  kind: "graphic";
-  cutin?: Cutin;
-};
-export type AsideShot = {
-  kind: "aside";
-  id: string;
-  label: string;
-  duration?: number;
-  beats?: number;
-  telop?: readonly string[];
-};
-export type Shot = NarrativeShot | GraphicShot | AsideShot;
-export declare function isAsideShot(shot: Shot): shot is AsideShot;
-export declare function isGraphicShot(shot: Shot): shot is GraphicShot;
-export type DirectionNode = {
-  id?: string;
-  role?: string;
-  synopsis?: string;
-  lens: string;
-  pleasure: Pleasure;
-  shots?: Shot[];
-  sequences?: DirectionNode[];
-};
-export type Singer = string | readonly [string, ...string[]];
-export type LyricLine =
-  | string
-  | {
-      text: string;
-      singer: Singer;
-    };
-export type LyricSection = {
-  label: string;
-  singer: Singer;
-  lines: readonly LyricLine[];
-};
-export type DirectionLyrics = readonly LyricSection[];
-export declare function lyricText(line: LyricLine): string;
-export type Direction = {
-  brief: DirectionBrief;
-  characters: Record<string, Character>;
-  props?: Record<string, Prop>;
-  locations: Record<string, Location$1>;
-  setups: Record<string, Setup>;
-  narrator?: Voice;
-  lenses?: LensSpec<string>[];
-  policy: DirectionPolicy;
-  lyrics?: DirectionLyrics;
-  waivers?: Record<string, string>;
-  sequence: DirectionNode;
-};
 export type NarrativeShotShape = {
   id: string;
   kind?: "shot";
@@ -1805,6 +1622,228 @@ export type LyricSingerIdsOf<L> = L extends readonly (infer S)[]
             : never)
     : never
   : never;
+export declare function lyricText(line: LyricLine): string;
+export type TimedShotTiming = {
+  start: number;
+  duration: number;
+  startBeat?: number;
+  beats?: number;
+};
+export type BeatShotTiming = {
+  start: null;
+  duration: null;
+  startBeat: number;
+  beats: number;
+};
+export type ShotTiming = TimedShotTiming | BeatShotTiming;
+export type DirectionTimeline = {
+  fps: number;
+  song: string | null;
+  songGrid: {
+    beatSec: (beat: number) => number;
+    beatAt: (sec: number) => number;
+    beatsPerBar: number;
+  } | null;
+  leadFrames: number;
+  timings: Map<string, ShotTiming>;
+};
+export type LyricPlacementEntry = {
+  key: string;
+  section: string;
+  text: string;
+  singer: readonly string[];
+} & (
+  | {
+      start: number;
+      end: number;
+      set: boolean;
+    }
+  | {
+      start: null;
+      end: null;
+      set: false;
+    }
+);
+export type Voice = {
+  id: string;
+  description: string;
+};
+export type Character = {
+  name: string;
+  promptDepiction: string;
+  description: string;
+  voice?: Voice;
+};
+export type Prop = {
+  name: string;
+  promptDepiction: string;
+  description: string;
+};
+type Location$1 = {
+  name: string;
+  description: string;
+  landmarks: Record<string, Landmark>;
+  views: LocationViews;
+};
+export type LocationViews = {
+  front: LocationView;
+} & {
+  [V in ImagedView]?: LocationView;
+};
+export type LocationView = {
+  holds: readonly string[];
+};
+export type Landmark = {
+  name: string;
+  promptDepiction: string;
+  description: string;
+};
+export type Framing = "wide" | "medium" | "close" | "insert";
+export type Setup = {
+  name: string;
+  description: string;
+  location: string;
+  framing: Framing;
+  holds: readonly string[];
+} & (
+  | {
+      within: string;
+      view?: never;
+    }
+  | {
+      within?: null;
+      view: View;
+    }
+);
+export type LocationIdOf<D> = D extends {
+  locations: infer L;
+}
+  ? Extract<keyof L, string>
+  : string;
+export type ViewsOf<D, L> = D extends {
+  locations: infer M;
+}
+  ? L extends keyof M
+    ? M[L] extends {
+        views: infer V;
+      }
+      ? Extract<keyof V, View>
+      : View
+    : View
+  : View;
+export type BriefReference = {
+  clip: string;
+  link?: string;
+  take: string;
+  avoid: string;
+};
+export type BriefSource = {
+  span: string;
+  keep?: readonly string[];
+  drop?: readonly string[];
+};
+export type DirectionBrief = {
+  logline: string;
+  hook?: string;
+  audience?: string;
+  tone?: string;
+  look?: string;
+  outOfScope?: readonly string[];
+  tolerances?: readonly string[];
+  references?: readonly BriefReference[];
+  source?: BriefSource;
+};
+export type DirectionFormat = {
+  fps: number;
+  size: CanvasBudget;
+};
+export type ResolvedDirectionFormat = {
+  fps: number;
+  size: CanvasBudget & {
+    base: CanvasSize;
+  };
+};
+export type DirectionPolicy = {
+  format: DirectionFormat;
+  lang: LanguageTag;
+  fonts?: readonly string[];
+  song?: string;
+};
+export type NarrativeShot = Omit<ArcItem<string>, "synopsis" | "duration"> & {
+  kind?: "shot";
+  action: string;
+  setup: string;
+  duration?: number;
+  beats?: number;
+  script?: readonly ScriptLine[];
+  telop?: readonly string[];
+  lineup: readonly string[];
+  lineupTo?: readonly string[];
+  passing?: readonly string[];
+  props?: readonly string[];
+  join?: ShotJoin;
+  cutin?: Cutin;
+  coverage?: true;
+};
+export type Cutin = {
+  setup: string;
+  lineup: readonly string[];
+  lineupTo?: readonly string[];
+  passing?: readonly string[];
+  props?: readonly string[];
+  join?: ShotJoin;
+};
+export type GraphicShot = Omit<
+  NarrativeShot,
+  "kind" | "setup" | "lineup" | "lineupTo" | "passing" | "props" | "join" | "coverage"
+> & {
+  kind: "graphic";
+  cutin?: Cutin;
+};
+export type AsideShot = {
+  kind: "aside";
+  id: string;
+  label: string;
+  duration?: number;
+  beats?: number;
+  telop?: readonly string[];
+};
+export type Shot = NarrativeShot | GraphicShot | AsideShot;
+export type DirectionNode = {
+  id?: string;
+  role?: string;
+  synopsis?: string;
+  lens: string;
+  pleasure: Pleasure;
+  shots?: Shot[];
+  sequences?: DirectionNode[];
+};
+export type Singer = string | readonly [string, ...string[]];
+export type LyricLine =
+  | string
+  | {
+      text: string;
+      singer: Singer;
+    };
+export type LyricSection = {
+  label: string;
+  singer: Singer;
+  lines: readonly LyricLine[];
+};
+export type DirectionLyrics = readonly LyricSection[];
+export type Direction = {
+  brief: DirectionBrief;
+  characters: Record<string, Character>;
+  props?: Record<string, Prop>;
+  locations: Record<string, Location$1>;
+  setups: Record<string, Setup>;
+  narrator?: Voice;
+  lenses?: LensSpec<string>[];
+  policy: DirectionPolicy;
+  lyrics?: DirectionLyrics;
+  waivers?: Record<string, string>;
+  sequence: DirectionNode;
+};
 export type ShotIdOf<D> = DirectionIdTuple<D>[number];
 export declare function deriveShotHinges(
   direction: Direction,
@@ -1858,6 +1897,9 @@ export type DirectionHandle<D> = DirectionIndex & {
 export type DirectionEntry<D> = D & {
   readonly [DIRECTION]: DirectionHandle<D>;
 };
+export declare function defineDirection<const D extends DirectionInput>(
+  direction: D & ConstrainIds<D> & NoInfer<ConstrainKnownFields<D, DirectionInput>>,
+): DirectionEntry<D>;
 export type StageShotStarter<D, TStage extends ShotStage> = <TId extends string>(
   id: StepId<D, DirectionIdTuple<D>, TId, "shot", true>,
   build: (
@@ -1892,50 +1934,6 @@ export type StartChain<D, TId extends string, TStage extends ShotStage> = StageC
   StepIds<DirectionIdTuple<D>, TId>,
   TStage
 >;
-export type TimedShotTiming = {
-  start: number;
-  duration: number;
-  startBeat?: number;
-  beats?: number;
-};
-export type BeatShotTiming = {
-  start: null;
-  duration: null;
-  startBeat: number;
-  beats: number;
-};
-export type ShotTiming = TimedShotTiming | BeatShotTiming;
-export type DirectionTimeline = {
-  fps: number;
-  song: string | null;
-  songGrid: {
-    beatSec: (beat: number) => number;
-    beatAt: (sec: number) => number;
-    beatsPerBar: number;
-  } | null;
-  leadFrames: number;
-  timings: Map<string, ShotTiming>;
-};
-export type LyricPlacementEntry = {
-  key: string;
-  section: string;
-  text: string;
-  singer: readonly string[];
-} & (
-  | {
-      start: number;
-      end: number;
-      set: boolean;
-    }
-  | {
-      start: null;
-      end: null;
-      set: false;
-    }
-);
-export declare function defineDirection<const D extends DirectionInput>(
-  direction: D & ConstrainIds<D> & NoInfer<ConstrainKnownFields<D, DirectionInput>>,
-): DirectionEntry<D>;
 export type MapIds<
   S extends readonly {
     id: string;
@@ -8855,6 +8853,8 @@ export declare const imageOrbit: AssetAdapter<ImageOrbitInputs, "image">;
  * No hash reads it.
  */
 export declare function respell(line: string, as: string): string;
+export declare function isAsideShot(shot: Shot): shot is AsideShot;
+export declare function isGraphicShot(shot: Shot): shot is GraphicShot;
 /**
  * Apply an upscale adapter to its inputs, returning the definition (AssetDefinition). Used
  * inside `export.delivery.upscale.video` / `.frame` to wire konte's injected

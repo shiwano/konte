@@ -12,11 +12,8 @@ import {
 } from "../dsl/index.js";
 import type { PendingShotInput, ShotHandle } from "../dsl/builders.js";
 import { isPendingShotInput } from "../dsl/builders.js";
-import {
-  getDirectionIndex,
-  makeAnimaticShotStarter,
-  makeVideoShotStarter,
-} from "../dsl/direction.js";
+import { getDirectionIndex } from "../dsl/direction.js";
+import { makeStageShotStarter } from "../dsl/stage-chain.js";
 import type { Framing } from "../dsl/direction.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { directionDefaults } from "./helpers/direction.js";
@@ -28,9 +25,9 @@ import { ASSET_SITES } from "../dsl/adapter.js";
 // These tests exercise the starter's runtime directly (duration/action/script/framing injection, the
 // chain, the `shot` handle), so they build the starter from a direction's index the same way.
 const vShot = (d: Parameters<typeof getDirectionIndex>[0]) =>
-  makeVideoShotStarter(getDirectionIndex(d));
+  makeStageShotStarter("video", getDirectionIndex(d));
 const sbShot = (d: Parameters<typeof getDirectionIndex>[0]) =>
-  makeAnimaticShotStarter(getDirectionIndex(d));
+  makeStageShotStarter("animatic", getDirectionIndex(d));
 
 const imageComfy = defineComfyAsset({
   allowedIn: ASSET_SITES,

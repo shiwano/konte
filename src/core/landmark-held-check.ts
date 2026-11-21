@@ -2,7 +2,8 @@
 // whose frame moves by declaration — `coverage`, `lineupTo` — is not read.
 
 import { tryParseAddress } from "./address.js";
-import { collectShotFrames, setupHolds } from "./direction.js";
+import { collectShotFrames } from "./direction-frames.js";
+import { setupHolds } from "./direction.js";
 import type { Direction } from "./dsl/direction.js";
 import type { ImageInputOccurrence } from "./image-inputs.js";
 import type { PromptOccurrence } from "./prompt-check.js";

@@ -20,8 +20,10 @@ import {
   directionAcceptanceView,
   directionCascadeReferenceIds,
 } from "../../../core/direction-acceptance.js";
-import { type Direction, placeDirectionLyrics } from "../../../core/dsl/direction.js";
-import { lyricLines, songLinesRefusal } from "../../../core/direction.js";
+import { type Direction } from "../../../core/dsl/direction.js";
+import { placeDirectionLyrics } from "../../../core/dsl/direction-timeline.js";
+import { lyricLines } from "../../../core/direction-structure.js";
+import { songLinesRefusal } from "../../../core/direction.js";
 import { KonteError } from "../../../core/errors.js";
 import { songAnalysisOf } from "../../../core/song-reading.js";
 import { setSongLines, songAddressOf } from "../../../core/song-variant.js";

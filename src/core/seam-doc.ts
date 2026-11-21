@@ -1,7 +1,8 @@
 import { format } from "oxfmt";
 import { formatAddress } from "./address.js";
 import type { DirectionFinding, ShotPanels, VideoShotPins } from "./direction-check.js";
-import { checkDirection, validateDirectionStructure, type StagingStageState } from "./direction.js";
+import { checkDirection, type StagingStageState } from "./direction.js";
+import { validateDirectionStructure } from "./direction-structure.js";
 import type { Direction, NarrativeShot, Setup, Shot } from "./dsl/direction.js";
 
 // The source of `docs/SEAMS.md`: the boundary rules (`join`, the lineup across it, the previous

@@ -168,13 +168,6 @@ export {
   defineDirection,
   deriveShotHinges,
   defineLens,
-  isAsideShot,
-  isGraphicShot,
-  lyricText,
-  type StageShotStarter,
-  type StagePendingShotStarter,
-  type StageAsideShotStarter,
-  type VideoAsideShotStarter,
   type Direction,
   type DirectionEntry,
   type DirectionNode,
@@ -208,6 +201,14 @@ export {
   type DirectionFinding,
   type DirectionFindingCode,
 } from "./direction.js";
+export { isAsideShot, isGraphicShot } from "./shot-kind.js";
+export { lyricText } from "./direction-timeline.js";
+export {
+  type StageShotStarter,
+  type StagePendingShotStarter,
+  type StageAsideShotStarter,
+  type VideoAsideShotStarter,
+} from "./stage-chain.js";
 export {
   defineSourceChunk,
   type SourceChunk,

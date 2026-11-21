@@ -1,4 +1,4 @@
-import { collectArcShots } from "../../../core/direction.js";
+import { collectArcShots } from "../../../core/direction-frames.js";
 import type { Direction } from "../../../core/dsl/direction.js";
 import type { ScriptLine } from "../../../core/types/script.js";
 import { IMAGED_VIEWS, viewAssetName } from "../../../core/view.js";

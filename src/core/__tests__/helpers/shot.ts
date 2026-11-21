@@ -7,11 +7,8 @@ import type {
   SoundtrackEntry,
 } from "../../dsl/builders.js";
 import { defineDirection } from "../../dsl/direction.js";
-import {
-  getDirectionIndex,
-  makeAnimaticShotStarter,
-  makeVideoShotStarter,
-} from "../../dsl/direction.js";
+import { getDirectionIndex } from "../../dsl/direction.js";
+import { makeStageShotStarter } from "../../dsl/stage-chain.js";
 import { directionDefaults, testDirection } from "./direction.js";
 import { defineAnimatic } from "../../dsl/animatic-builders.js";
 import { defineReference } from "../../dsl/reference-builders.js";
@@ -40,7 +37,7 @@ export function shot<TId extends string>(
 ): ShotInput<TId> {
   const { duration, action = "test shot", build } = options;
   const index = getDirectionIndex(inlineDirection(id, action, duration));
-  return makeVideoShotStarter(index).shot(
+  return makeStageShotStarter("video", index).shot(
     id,
     build as (ctx: { duration: number }) => ReturnType<ShotFunction>,
   ).__shots[0]! as ShotInput<TId>;
@@ -55,7 +52,7 @@ export function pendingShot<TId extends string>(
 ): PendingShotInput<TId> {
   const { duration, action = "test shot" } = options;
   const index = getDirectionIndex(inlineDirection(id, action, duration));
-  return makeVideoShotStarter(index).pendingShot(id).__shots[0] as PendingShotInput<TId>;
+  return makeStageShotStarter("video", index).pendingShot(id).__shots[0] as PendingShotInput<TId>;
 }
 
 // Test-only terse `asideShot(id, { duration, label })` — the board's form, which takes no build, so
@@ -70,7 +67,9 @@ export function asideShot<TId extends string>(
 ): AsideShotInput<TId> {
   const { duration, label = "test aside", build } = options;
   const index = getDirectionIndex(inlineAsideDirection(id, label, duration));
-  const starter = build ? makeVideoShotStarter(index) : makeAnimaticShotStarter(index);
+  const starter = build
+    ? makeStageShotStarter("video", index)
+    : makeStageShotStarter("animatic", index);
   return (starter.asideShot as (i: string, b?: unknown) => { __shots: unknown[] })(id, build)
     .__shots[0] as AsideShotInput<TId>;
 }

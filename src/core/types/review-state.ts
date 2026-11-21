@@ -1,6 +1,6 @@
 import type { RoleFunction } from "../direction-check.js";
 import type { DirectionPartStatus, DirectionSectionStatus } from "../direction-acceptance.js";
-import type { PanelRole } from "../direction.js";
+import type { PanelRole } from "../direction-frames.js";
 import type { Framing } from "../dsl/direction.js";
 import type { ShotJoin } from "./definition.js";
 import type { SongLineBody } from "./review-submit.js";

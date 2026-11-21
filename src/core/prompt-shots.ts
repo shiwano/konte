@@ -1,20 +1,13 @@
-import {
-  collectShots,
-  continuousFrameKeys,
-  frameReturns,
-  offscreenSides,
-  setupHolds,
-  setupView,
-} from "./direction.js";
+import { collectShots, continuousFrameKeys, setupView } from "./direction-frames.js";
+import { frameReturns, offscreenSides, setupHolds } from "./direction.js";
 import type { OffscreenFigure } from "./direction-check.js";
 import {
   type Direction,
   type View,
   deriveShotHinges,
-  isAsideShot,
-  isGraphicShot,
   resolveDirectionTimeline,
 } from "./dsl/direction.js";
+import { isAsideShot, isGraphicShot } from "./dsl/shot-kind.js";
 import { formatShotSpan } from "./format-duration.js";
 import { loadDirectionIfPresent } from "./stage-definitions.js";
 

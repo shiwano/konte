@@ -12,10 +12,10 @@ import { generatedOrigin, isReviewLeaf } from "../../../core/variant-lineage.js"
 import { variantOwningFile } from "../../../core/variant-dir.js";
 import { mediaVisualSize } from "../../../core/variant-media.js";
 import { errorMessage } from "../../../core/errors.js";
-import { resolveLens } from "../../../core/direction.js";
+import { resolveLens } from "../../../core/direction-structure.js";
 import { ROLE_FUNCTION_LABEL } from "../../../core/lenses.js";
 import type { Direction, DirectionNode, Framing } from "../../../core/dsl/direction.js";
-import { isAsideShot, isGraphicShot } from "../../../core/dsl/direction.js";
+import { isAsideShot, isGraphicShot } from "../../../core/dsl/shot-kind.js";
 import type {
   AssetInfo,
   FeedbackInfo,

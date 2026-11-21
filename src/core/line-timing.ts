@@ -5,7 +5,7 @@ import { tryParseAddress } from "./address.js";
 import { loudnessOf } from "./audio-level.js";
 import { buildShotClips, type CompositionClip } from "./composition-builder.js";
 import type { StageDefinitions } from "./definition-hashes.js";
-import { collectShots } from "./direction.js";
+import { collectShots } from "./direction-frames.js";
 import type { Direction } from "./dsl/direction.js";
 import { loadHearing } from "./hearing/index.js";
 import { alignHeard } from "./line-hearing.js";

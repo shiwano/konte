@@ -12,7 +12,7 @@ How konte turns `direction.ts` into two verdicts the spend gate acts on: a machi
 - It reads each item's `fn` off the matched lens role and reports `DirectionFinding`s — it never throws and never decides severity.
 - `walkArcTree` (`direction.ts`) runs it once per node with a resolvable lens (a leaf's shots, a branch's meta-arc over children); every finding then folds against `direction.waivers`.
 
-`ConstrainIds` (`dsl/direction.ts`) settles five in the type, each blamed in the field written:
+`ConstrainIds` (`dsl/direction-constraints.ts`) settles five in the type, each blamed in the field written:
 
 - `off-grid-duration` — asides outside it, as in `checkDurations`
 - `empty-synopsis` — `action` / `synopsis`

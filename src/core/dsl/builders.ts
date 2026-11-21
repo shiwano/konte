@@ -9,22 +9,19 @@ import type {
 } from "../types/index.js";
 import type { BuildFinding } from "../finding.js";
 import { formatShotAddress } from "../address.js";
-import { beginPromptCollection } from "./prompt-collect.js";
-import { assertRespellings, beginRespellCollection } from "./respell.js";
-import { scriptTexts } from "./shot-script.js";
+import { assertRespellings } from "./respell.js";
 import { attachCueKinds } from "../spoken-text.js";
 import { assertHeardStemsHeard } from "../heard-stem.js";
 import type { ShotFunction } from "./shot-context.js";
+import type { DirectionEntry } from "./direction.js";
 import type {
-  DirectionEntry,
   StageGraphicShotStarter,
   StagePendingShotStarter,
   StageShotStarter,
   VideoAsideShotStarter,
-} from "./direction.js";
-import { getDirectionIndex, makeVideoShotStarter } from "./direction.js";
+} from "./stage-chain.js";
 import type { StageTimelineReturn } from "./animatic-builders.js";
-import { defineStage } from "./stage-define.js";
+import { defineStage, openStage } from "./stage-define.js";
 import { validateAssetName } from "./validate-identifier.js";
 import { assertAudioGain } from "../audio-gain.js";
 import { assertDuck, type Duck } from "../audio-duck.js";
@@ -299,12 +296,7 @@ export function defineVideo<const D, Ids extends string = string>(
   direction: DirectionEntry<D>,
   opts: DefineVideoOptions<D, Ids>,
 ): VideoDefinition {
-  const index = getDirectionIndex(direction);
-  const starter = makeVideoShotStarter(index);
-  const shot = starter.shot as unknown as StageShotStarter<D, "video">;
-  const graphicShot = starter.graphicShot as unknown as StageGraphicShotStarter<D, "video">;
-  const pendingShot = starter.pendingShot as unknown as StagePendingShotStarter<D, "video">;
-  const asideShot = starter.asideShot as unknown as VideoAsideShotStarter<D>;
+  const { index, starters } = openStage(direction, "video");
 
   // Delivery is export-only: assemble it permissively (either half may be absent) and let the export
   // gate validate the pairing + aspect. Throwing on load would break read-only and reference-stage
@@ -315,19 +307,10 @@ export function defineVideo<const D, Ids extends string = string>(
   const exportDef: Export | undefined =
     deliverySize || hasUpscaler ? { delivery: { size: deliverySize, upscale } } : undefined;
 
-  beginPromptCollection(scriptTexts(index.scriptById));
-  beginRespellCollection();
   const { definition, thumbnail } = defineStage({
     stage: "video",
     index,
-    runTimeline: (format) =>
-      opts.timeline({
-        format,
-        shot,
-        graphicShot,
-        pendingShot,
-        asideShot,
-      }),
+    runTimeline: (format) => opts.timeline({ format, ...starters }),
     ...(opts.thumbnail ? { thumbnail: opts.thumbnail as ThumbnailSpec } : {}),
   });
 

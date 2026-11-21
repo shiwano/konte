@@ -2,10 +2,9 @@ import { parseAddress, patchSourceVariantIdOf } from "../../../core/address.js";
 import {
   collectArcShots,
   collectShotFrames,
-  frameReturns,
-  offscreenSides,
   type ShotFrame,
-} from "../../../core/direction.js";
+} from "../../../core/direction-frames.js";
+import { frameReturns, offscreenSides } from "../../../core/direction.js";
 import {
   deriveShotHinges,
   resolveDirectionTimeline,

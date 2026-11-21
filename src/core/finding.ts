@@ -9,7 +9,7 @@ import {
   directionFindingSpec,
   isDirectionFindingCode,
 } from "./direction-findings.js";
-import type { DirectionErrorCode } from "./direction.js";
+import type { DirectionErrorCode } from "./direction-structure.js";
 import { STAGE_ENTRY_FILE } from "./roots.js";
 import { DIRECTION_ERROR_REMEDY } from "./finding-remedy/direction-error.js";
 import { OTHER_FINDING_REMEDY } from "./finding-remedy/other.js";

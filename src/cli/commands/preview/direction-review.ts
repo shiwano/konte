@@ -24,7 +24,8 @@ import {
   isDirectionBriefListField,
 } from "../../../core/address.js";
 import { errorResponse, jsonResponse } from "../../page-host/http.js";
-import { resolveLens, setupView } from "../../../core/direction.js";
+import { resolveLens } from "../../../core/direction-structure.js";
+import { setupView } from "../../../core/direction-frames.js";
 import { directionWaiverKey } from "../../../core/direction-findings.js";
 import { ROLE_FUNCTION_LABEL, PLEASURE_GLOSS } from "../../../core/lenses.js";
 import { directionHash, directionPartHashes } from "../../../core/direction-hash.js";
@@ -47,13 +48,11 @@ import type {
 } from "../../../core/dsl/direction.js";
 import {
   declaredViews,
-  isAsideShot,
-  isGraphicShot,
-  lyricText,
   resolveDirectionFormat,
   resolveDirectionTimeline,
-  singersOf,
 } from "../../../core/dsl/direction.js";
+import { isAsideShot, isGraphicShot } from "../../../core/dsl/shot-kind.js";
+import { lyricText, singersOf } from "../../../core/dsl/direction-timeline.js";
 import type { RoleFunction } from "../../../core/direction-check.js";
 import type {
   BriefReferenceInfo,

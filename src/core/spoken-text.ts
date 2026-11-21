@@ -1,6 +1,7 @@
 import { isNarrationStemAddress, isOffFrameStemAddress, tryParseAddress } from "./address.js";
 import type { CueKind } from "./audio-level.js";
-import { type DirectionIndex, framedCharacterIds } from "./dsl/direction.js";
+import { type DirectionIndex } from "./dsl/direction.js";
+import { framedCharacterIds } from "./dsl/direction-timeline.js";
 import { KonteError } from "./errors.js";
 import { extractRefs } from "./graph.js";
 import type { AssetDefinition, StageDefinition } from "./types/index.js";

@@ -9,11 +9,8 @@ import {
   defineVideo,
 } from "../dsl/index.js";
 import { isAsideShotInput, isPendingShotInput } from "../dsl/builders.js";
-import {
-  getDirectionIndex,
-  makeAnimaticShotStarter,
-  makeVideoShotStarter,
-} from "../dsl/direction.js";
+import { getDirectionIndex } from "../dsl/direction.js";
+import { makeStageShotStarter } from "../dsl/stage-chain.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { directionDefaults } from "./helpers/direction.js";
 import { ASSET_SITES } from "../dsl/adapter.js";
@@ -46,8 +43,8 @@ const direction = defineDirection({
   },
 });
 
-const animaticStarter = () => makeAnimaticShotStarter(getDirectionIndex(direction));
-const videoStarter = () => makeVideoShotStarter(getDirectionIndex(direction));
+const animaticStarter = () => makeStageShotStarter("animatic", getDirectionIndex(direction));
+const videoStarter = () => makeStageShotStarter("video", getDirectionIndex(direction));
 
 describe("asideShot", () => {
   it("places an aside on the board with no build", () => {

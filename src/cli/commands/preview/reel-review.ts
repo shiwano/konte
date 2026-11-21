@@ -69,12 +69,8 @@ import type {
   VariantStatus,
 } from "../../../core/types/review-state.js";
 import { buildReelReviewPlan, reelShotAcceptability } from "../../../core/review-acceptability.js";
-import {
-  continuousFrameKeys,
-  directionShotWaivers,
-  panelRole,
-  type WaiverCoverage,
-} from "../../../core/direction.js";
+import { continuousFrameKeys, panelRole } from "../../../core/direction-frames.js";
+import { directionShotWaivers, type WaiverCoverage } from "../../../core/direction.js";
 import { shotWaiversAwaitingAccept } from "../../../core/direction-acceptance.js";
 import { loadCheckContext } from "../../../core/check-context.js";
 import { waiverCoverageOf } from "../../../core/checks.js";

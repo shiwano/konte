@@ -4,7 +4,7 @@ import { writeFileAtomic } from "./atomic-write.js";
 import { FFMPEG_CONCURRENCY, mapConcurrent } from "./concurrency.js";
 import { definitionForAddress, type StageDefinitions } from "./definition-hashes.js";
 import { tryParseAddress } from "./address.js";
-import { collectShots } from "./direction.js";
+import { collectShots } from "./direction-frames.js";
 import type { Direction } from "./dsl/direction.js";
 import { type HearingProfile, loadHearing } from "./hearing/index.js";
 import { lineMishearing, type SaidLine } from "./line-hearing.js";

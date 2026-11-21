@@ -1,4 +1,4 @@
-import type { DirectionErrorCode } from "../direction.js";
+import type { DirectionErrorCode } from "../direction-structure.js";
 import { VIEWS } from "../view.js";
 
 const ASSET_NAME = "a-z, A-Z, 0-9, -, _";

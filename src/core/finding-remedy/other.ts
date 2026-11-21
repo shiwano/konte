@@ -1,4 +1,4 @@
-import type { DirectionErrorCode } from "../direction.js";
+import type { DirectionErrorCode } from "../direction-structure.js";
 import type { DirectionFindingCode } from "../direction-findings.js";
 import type { FindingCode } from "../finding.js";
 

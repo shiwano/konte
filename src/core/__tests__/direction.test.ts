@@ -9,13 +9,9 @@ import {
 } from "../direction-check.js";
 import type { Pleasure } from "../lenses.js";
 import { defineLens } from "../lenses.js";
-import {
-  checkDirection,
-  continuousFrameKeys,
-  directionFindings,
-  panelRole,
-  validateDirectionStructure,
-} from "../direction.js";
+import { checkDirection, directionFindings } from "../direction.js";
+import { continuousFrameKeys, panelRole } from "../direction-frames.js";
+import { validateDirectionStructure } from "../direction-structure.js";
 import {
   directionFindingSpec,
   directionWaiverKey,

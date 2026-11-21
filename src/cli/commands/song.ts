@@ -1,8 +1,8 @@
 import type { Command } from "commander";
 import { KonteError } from "../../core/errors.js";
 import { isJobTerminal, JobManager } from "../../core/job-manager.js";
-import { lyricLines } from "../../core/direction.js";
-import { placeDirectionLyrics } from "../../core/dsl/direction.js";
+import { lyricLines } from "../../core/direction-structure.js";
+import { placeDirectionLyrics } from "../../core/dsl/direction-timeline.js";
 import { syncFileAssets } from "../../core/file-sync.js";
 import { unreadSongVariants } from "../../core/song-queue.js";
 import {

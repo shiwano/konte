@@ -33,8 +33,9 @@ import {
   formatDefinitionValue,
   readDefinitionSnapshot,
 } from "../../core/definition-snapshot.js";
-import { collectShots } from "../../core/direction.js";
-import { isAsideShot, isGraphicShot, resolveDirectionTimeline } from "../../core/dsl/direction.js";
+import { collectShots } from "../../core/direction-frames.js";
+import { isAsideShot, isGraphicShot } from "../../core/dsl/shot-kind.js";
+import { resolveDirectionTimeline } from "../../core/dsl/direction.js";
 import { formatShotSpan } from "../../core/format-duration.js";
 import { directionShotCascadeTargets } from "../../core/direction-acceptance.js";
 import { KonteError } from "../../core/errors.js";

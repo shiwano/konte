@@ -16,15 +16,9 @@ import {
   parseAddress,
 } from "./address.js";
 import type { Direction, DirectionNode } from "./dsl/direction.js";
-import { isAsideShot } from "./dsl/direction.js";
-import {
-  type ArcShot,
-  type ShotWaiver,
-  type WaiverCoverage,
-  directionHasShots,
-  directionShotWaivers,
-  shotFrames,
-} from "./direction.js";
+import { isAsideShot } from "./dsl/shot-kind.js";
+import { type ArcShot, directionHasShots, shotFrames } from "./direction-frames.js";
+import { type ShotWaiver, type WaiverCoverage, directionShotWaivers } from "./direction.js";
 import { directionHash, directionPartHashes } from "./direction-hash.js";
 import type { DirectionAcceptance } from "./types/index.js";
 

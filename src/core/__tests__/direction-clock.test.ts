@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { checkDirection, type SongVariantState, validateDirectionStructure } from "../direction.js";
+import { checkDirection, type SongVariantState } from "../direction.js";
+import { validateDirectionStructure } from "../direction-structure.js";
 import { directionWaiverKey } from "../direction-findings.js";
 import { directionPartHashes } from "../direction-hash.js";
 import { directionPartContents } from "../direction-parts.js";
 import type { Direction, LyricLine, NarrativeShot } from "../dsl/direction.js";
-import { placeDirectionLyrics } from "../dsl/direction.js";
+import { placeDirectionLyrics } from "../dsl/direction-timeline.js";
 import { setSongFirstBeat, setSongLine, setSongLines } from "../song-variant.js";
 import { steadySong } from "./helpers/song.js";
 import { directionDefaults } from "./helpers/direction.js";

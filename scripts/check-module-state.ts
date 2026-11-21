@@ -11,7 +11,7 @@ const DSL = path.join(ROOT, "src", "core", "dsl");
 
 const ALLOWED = new Set([
   "clip-length-collect.ts:sink",
-  "direction.ts:declarationsByInput",
+  "stage-chain.ts:declarationsByInput",
   "image-input-collect.ts:readers",
   "image-input-collect.ts:seen",
   "image-input-collect.ts:sink",

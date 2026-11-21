@@ -62,7 +62,7 @@ import {
   summarizeDirectionAcceptance,
 } from "./direction-acceptance.js";
 import { directionPartHashes } from "./direction-hash.js";
-import { directionHasShots, leafSequenceShotIds } from "./direction.js";
+import { directionHasShots, leafSequenceShotIds } from "./direction-frames.js";
 import { type Direction } from "./dsl/direction.js";
 import { KonteError } from "./errors.js";
 import { computeExportSignature } from "./export-signature.js";

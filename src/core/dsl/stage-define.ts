@@ -24,22 +24,19 @@ import type {
 import { KonteError } from "../errors.js";
 import type { AnyShotInput, MediaKind, SoundtrackEntry, ThumbnailSpec } from "./builders.js";
 import type { OverlayDefinition } from "../types/index.js";
-import {
-  endsOnSeam,
-  makeStageShots,
-  shotSongStem,
-  spanSongContext,
-  timedShot,
-} from "./direction.js";
+import { endsOnSeam, getDirectionIndex } from "./direction.js";
+import { shotSongStem, spanSongContext, timedShot } from "./direction-timeline.js";
+import { makeStageShots, makeStageShotStarter, type StageStarters } from "./stage-chain.js";
 import { isAsideShotInput, isPendingShotInput, makeMediaAsset } from "./builders.js";
 import { Composition } from "./composition/index.js";
-import type { DirectionIndex } from "./direction.js";
+import type { DirectionEntry, DirectionIndex } from "./direction.js";
 import { endClipLengthCollection, type ClipLength } from "./clip-length-collect.js";
 import { endImageInputCollection } from "./image-input-collect.js";
 import { endPinCollection } from "./pin-collect.js";
 import { endStemInputCollection } from "./stem-input-collect.js";
-import { endPromptCollection } from "./prompt-collect.js";
-import { endRespellCollection } from "./respell.js";
+import { beginPromptCollection, endPromptCollection } from "./prompt-collect.js";
+import { beginRespellCollection, endRespellCollection } from "./respell.js";
+import { scriptTexts } from "./shot-script.js";
 import {
   collectPlaceholderRefs,
   makeAddressPlaceholder,
@@ -53,6 +50,19 @@ import {
 // assets and walks the direction, then one discovery pass per shot. This module is that shared
 // build; `defineAnimatic` and `defineVideo` supply what is theirs (an animatic's keyframes and
 // stem, a video's export wiring) through `perShot`.
+
+// A stage build's opening: the direction's index and the starters its timeline ctx receives, with
+// prompt and respelling collection begun.
+export function openStage<D, TStage extends ShotStage>(
+  direction: DirectionEntry<D>,
+  stage: TStage,
+): { index: DirectionIndex; starters: StageStarters<D, TStage> } {
+  const index = getDirectionIndex(direction);
+  const starters = makeStageShotStarter(stage, index) as unknown as StageStarters<D, TStage>;
+  beginPromptCollection(scriptTexts(index.scriptById));
+  beginRespellCollection();
+  return { index, starters };
+}
 
 // A shot's discovery-mode element is the raw `jsx(Composition, …)` result (Composition itself runs
 // later, at renderToHtml), so its `type` is the Composition function reference — the signal that

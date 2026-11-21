@@ -6,7 +6,7 @@ import {
   type DirectionFindingCode,
   directionFindingSpec,
 } from "./direction-findings.js";
-import { type DirectionErrorCode } from "./direction.js";
+import { type DirectionErrorCode } from "./direction-structure.js";
 import { type FindingCode, findingTraits, spendStages } from "./finding.js";
 import type { FindingTraits } from "./finding-traits.js";
 import { STAGE_ENTRY_FILE } from "./roots.js";

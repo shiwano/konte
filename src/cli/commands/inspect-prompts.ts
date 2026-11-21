@@ -12,7 +12,7 @@ import {
   shotLaneChains,
 } from "../../core/board-analysis.js";
 import { loadCheckContext } from "../../core/check-context.js";
-import { panelRole } from "../../core/direction.js";
+import { panelRole } from "../../core/direction-frames.js";
 import { spellingsOf } from "../../core/dsl/respell.js";
 import {
   liveGenerationVariantIds,

@@ -35,12 +35,11 @@ import type {
 } from "./dsl/direction.js";
 import {
   declaredViews,
-  isAsideShot,
-  isGraphicShot,
   resolveDirectionFormat,
   resolveDirectionTimeline,
-  singersOf,
 } from "./dsl/direction.js";
+import { isAsideShot, isGraphicShot } from "./dsl/shot-kind.js";
+import { singersOf } from "./dsl/direction-timeline.js";
 import type { ShotJoin } from "./types/definition.js";
 import type { ScriptLine } from "./types/script.js";
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { checkDirection, validateDirectionStructure } from "../direction.js";
+import { checkDirection } from "../direction.js";
+import { validateDirectionStructure } from "../direction-structure.js";
 import { directionPartHashes } from "../direction-hash.js";
 import { directionPartContents } from "../direction-parts.js";
 import type { AsideShot, Direction, NarrativeShot, Setup } from "../dsl/direction.js";
