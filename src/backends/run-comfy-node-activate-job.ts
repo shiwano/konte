@@ -22,9 +22,9 @@ const REBOOT_LOCK_STALE_MS = 8 * 60 * 1000;
 // Directory for the machine-global reboot lock. Shared across users (two people driving the same
 // ComfyUI server must not reboot it at once), so it is created sticky + world-writable like /tmp
 // itself — a plain 0755 dir would EACCES the second user's lock file and hard-fail their job.
-// A pre-existing dir we can't chmod (an older konte made it 0755, owned by someone else) falls
-// back to a per-user dir: reboots then serialize per user rather than machine-wide, which is a
-// degradation, not a failure.
+// A pre-existing dir we can't chmod and can't write (another user's, before its chmod lands or made
+// by something else) falls back to a per-user dir: reboots then serialize per user rather than
+// machine-wide.
 async function resolveRebootLockDir(): Promise<string> {
   const shared = path.join(os.tmpdir(), "konte");
   try {
