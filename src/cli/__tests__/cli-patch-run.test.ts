@@ -190,6 +190,23 @@ describe("patch command", () => {
       expect(sm.resolveReference("reference:latentA")?.variantId).toBe(sourceId);
     });
 
+    it("removes every cache a produced take owns", async () => {
+      const projectDir = await initPatchProject();
+      const sourceId = await generateSource(projectDir);
+      await writePatch(projectDir, sourceId);
+      await run(["patch", "apply", sourceId], projectDir);
+      await run(["job", "run"], projectDir).catch(() => undefined);
+      const [producedId] = (await patchedVariants(projectDir, sourceId))[0]!;
+      const caches = ["audio", "motion", "preroll", "crops", "song-parts"].map((kind) =>
+        path.join(projectDir, ".konte", "cache", kind, producedId),
+      );
+      for (const dir of caches) await fs.mkdir(dir, { recursive: true });
+
+      await run(["patch", "remove", sourceId, "-y"], projectDir);
+
+      for (const dir of caches) await expect(fs.access(dir)).rejects.toThrow();
+    });
+
     it("keeps a source whose correction is accepted", async () => {
       const projectDir = await initPatchProject();
       const sourceId = await generateSource(projectDir);

@@ -1,33 +1,17 @@
 import * as fs from "node:fs/promises";
-import * as path from "node:path";
 import type { Command } from "commander";
 import { KonteError } from "../../../core/errors.js";
 import { activeGenerationVariantIds } from "../../../core/job-index.js";
 import { JobManager } from "../../../core/job-manager.js";
 import { patchChainTargets, patchFilePath } from "../../../core/patch.js";
 import { StateManager } from "../../../core/state/index.js";
-import { patchChainDir, variantDir } from "../../../core/variant-dir.js";
-import { addressToCacheSegments, getAssetStage } from "../../../core/address.js";
+import { patchChainDir } from "../../../core/variant-dir.js";
+import { getAssetStage } from "../../../core/address.js";
 import { collectDescendants } from "../../../core/variant-lineage.js";
 import { confirmDeletion, printAborted, NO_FLAG_DESCRIPTION } from "../../confirm.js";
 import { requireVideoRoots } from "../../context.js";
 import { getPathSize, removePathSafely } from "../clean-utils.js";
-import { prerollVariantDir } from "../../../core/preview-preroll.js";
-
-// Everything on disk keyed by one variant, the patch script included. A patch's output cannot be
-// patched (`assertPatchableTarget` refuses to scaffold one and refuses to load one), but nothing
-// stops a file being written at that name by hand — and it names a take about to stop existing.
-function variantPaths(videoRoot: string, address: string, vid: string): string[] {
-  return [
-    variantDir(videoRoot, address, vid),
-    path.join(videoRoot, ".konte", "logs", `${vid}.log`),
-    path.join(videoRoot, ".konte", "cache", "thumbnails", ...addressToCacheSegments(address), vid),
-    path.join(videoRoot, ".konte", "cache", "audio", vid),
-    path.join(videoRoot, ".konte", "cache", "motion", vid),
-    prerollVariantDir(videoRoot, vid),
-    patchFilePath(videoRoot, vid),
-  ];
-}
+import { variantPaths } from "../clean-orphans.js";
 
 export function registerPatchRemoveCommand(parent: Command): void {
   parent
