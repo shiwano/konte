@@ -7,7 +7,7 @@ import { scriptLinesToView, type ScriptLineView } from "../../../core/types/scri
 
 // The direction facts the animatic's shot band prints beside each shot's action: its dramatic
 // function, framing, and the NAME of its location. The raw `role` is deliberately left behind —
-// see handleGetDirectionState for why the reviewer is shown the function instead. `script` is the
+// see direction-view.ts roleFunctionOf for why the reviewer is shown the function instead. `script` is the
 // shot's lines, which an undeveloped shot's tile prints in place of the panel-placed ones it has
 // none of; `telop` is the unspoken text laid over the same shot. Empty when the video has no
 // direction.ts, which the band then simply omits.

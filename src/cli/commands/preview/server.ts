@@ -38,7 +38,8 @@ import {
   printReviewOutcome,
   recoverOutcome,
 } from "./review-outcome.js";
-import { STUDY_SHEET_BASE, handleGetDirectionState } from "./direction-review.js";
+import { handleGetDirectionState } from "./direction-review.js";
+import { STUDY_SHEET_BASE } from "./direction-view.js";
 import { studiesDir } from "../../../core/study-clip.js";
 import { workspaceRootOrNull } from "../../../core/workspace-context.js";
 import { handleGetReferenceState } from "./reference-review.js";
