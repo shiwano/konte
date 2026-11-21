@@ -1,5 +1,5 @@
 import type React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { formatShotAddress } from "../../../core/address.js";
 import { reviewStageOf } from "../../../core/review-mode.js";
 import { submitReview } from "../api.js";
@@ -15,6 +15,7 @@ import { liveFeedback } from "../review/live-feedback.js";
 import { commentedAddresses } from "../review/undecided.js";
 import { useEffectiveVariants } from "../review/use-effective-variants.js";
 import { useFillLayout } from "../review/use-fill-layout.js";
+import { useElementBox, useTheater } from "../review/use-theater.js";
 import { useHighlightedFeedback } from "../review/use-highlighted-feedback.js";
 import { type SubmitInput, useReviewSession } from "../review/use-review-session.js";
 import { useReviewShortcuts } from "../review/use-review-shortcuts.js";
@@ -23,6 +24,7 @@ import { useKeepChoices } from "../review/use-keep-choices.js";
 import { buildReelSubmitPayload } from "../review/reel-submit-payload.js";
 import { reelTakes, servedTakes } from "../review/reel-takes.js";
 import { thumbnailSwitched } from "../review/thumbnail-view.js";
+import { type FocusPick, focusTargetOf } from "../review/focus-target.js";
 import { useReelComposition } from "../review/use-reel-composition.js";
 import {
   hasReelMarks,
@@ -138,9 +140,7 @@ export function VideoPreview({ state }: { state: ReelPreviewState }): React.Reac
   // are sticky picks (each spans shots, so seeking to hear or watch one must not snap the panel back
   // to whatever shot the playhead landed in). Only an explicit shot gesture — picking a card, J/K/N,
   // placing a pin — points it back at the shot.
-  const [noteTarget, setNoteTarget] = useState<"shot" | "soundtrack" | "overlay" | "thumbnail">(
-    "shot",
-  );
+  const [noteTarget, setNoteTarget] = useState<FocusPick>("shot");
 
   // The take whose declaration panel is open, stacked over the gallery when opened from there.
   const [infoVariant, setInfoVariant] = useState<InfoVariant | null>(null);
@@ -157,21 +157,12 @@ export function VideoPreview({ state }: { state: ReelPreviewState }): React.Reac
 
   const [showNotes, setShowNotes] = useState(true);
 
-  // Theater: the review fills the window below the header, the frame taking every pixel the
-  // controls, the timeline and the two side columns leave — the columns stay, so a note is still
-  // written where it always was. The browser's fullscreen is asked for on top of it; where it is
-  // refused (no user activation, an embedding that forbids it) the in-window mode still stands,
-  // so the toggle never silently does nothing.
-  const [theater, setTheater] = useState(false);
   // Theater hides the header, so the review's toggles and actions are portaled into this slot at
   // the top of the shots column instead (see ReviewShell's actionsTarget).
   const [theaterActionsEl, setTheaterActionsEl] = useState<HTMLElement | null>(null);
 
-  // A phone fills the screen with the review whether or not theater was asked for — the three
-  // columns have nowhere to stand at that width. Both paths hand the viewport its height, so
-  // everything below reads `immersive` rather than the toggle; `theater` stays the toggle alone.
   const { fill, bandSide } = useFillLayout(state.size.width / state.size.height);
-  const immersive = theater || fill;
+  const { theater, immersive, toggleTheater, exitTheater } = useTheater(fill);
 
   const [marks, setMarks] = useState<ReelMarks>(NO_REEL_MARKS);
   const keep = useKeepChoices();
@@ -182,7 +173,7 @@ export function VideoPreview({ state }: { state: ReelPreviewState }): React.Reac
 
   const timelineRef = useRef<ReviewTimelineRef>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
-  const [viewportBox, setViewportBox] = useState({ width: 0, height: 0 });
+  const viewportBox = useElementBox(viewportRef);
 
   // Which reel this page is playing. One page serves both composition stages, so every address it
   // mints and the endpoint it submits to are the mode's.
@@ -221,25 +212,17 @@ export function VideoPreview({ state }: { state: ReelPreviewState }): React.Reac
 
   const focusedShot = state.shots[focusedShotIdx];
 
-  // A reload that drops the soundtracks takes the panel's target with it, so the pick is read
-  // through the stem's presence rather than trusted on its own.
-  const soundtrackFocused = noteTarget === "soundtrack" && !!state.timelineStem;
-  // The overlay, when it is offered on its own: every shot accept stands and it changed after them.
-  const offeredOverlay = state.overlay?.offered ? state.overlay : undefined;
-  const focusedOverlay = noteTarget === "overlay" ? offeredOverlay : undefined;
-  const focusedThumbnail = noteTarget === "thumbnail" ? state.thumbnail : undefined;
-  // The target the panel shows when it is not a shot.
-  const spanTarget = useMemo(
-    () =>
-      soundtrackFocused && state.timelineStem
-        ? { address: state.timelineStem.address, label: "Soundtrack" }
-        : focusedOverlay
-          ? { address: focusedOverlay.address, label: "Overlay" }
-          : focusedThumbnail
-            ? { address: focusedThumbnail.target, label: "Thumbnail" }
-            : null,
-    [soundtrackFocused, state.timelineStem, focusedOverlay, focusedThumbnail],
+  const focus = useMemo(
+    () => focusTargetOf(noteTarget, state, focusedShot),
+    [noteTarget, state, focusedShot],
   );
+  // The target the panel shows when it is not a shot.
+  const spanTarget = focus.kind === "shot" ? null : focus;
+  const panelShot = focus.kind === "shot" ? focus.shot : undefined;
+  const soundtrackFocused = focus.kind === "soundtrack";
+  const focusedOverlay = focus.kind === "overlay" ? focus.overlay : undefined;
+  const focusedThumbnail = focus.kind === "thumbnail" ? focus.thumbnail : undefined;
+  const offeredOverlay = state.overlay?.offered ? state.overlay : undefined;
 
   // Every asset with takes to show — the shots' and the audio beds' — for the player and the
   // submit snapshots.
@@ -265,39 +248,20 @@ export function VideoPreview({ state }: { state: ReelPreviewState }): React.Reac
     }
   }
 
-  const assetByAddress = useMemo(() => {
-    const map = new Map<string, GalleryAsset>();
-    for (const s of state.shots) {
-      for (const a of s.assets) {
-        map.set(a.address, {
-          address: a.address,
-          assetName: a.assetName,
-          mediaKind: a.mediaKind,
-          variantId: a.variantId,
-          variants: a.variants,
-        });
-      }
-    }
-    for (const a of state.audioAssets) {
-      map.set(a.address, {
-        address: a.address,
-        assetName: a.assetName,
-        mediaKind: "audio",
-        variantId: a.variantId,
-        variants: a.variants,
-      });
-    }
-    for (const a of state.thumbnail?.assets ?? []) {
-      map.set(a.address, {
-        address: a.address,
-        assetName: a.assetName,
-        mediaKind: a.mediaKind,
-        variantId: a.variantId,
-        variants: a.variants,
-      });
-    }
-    return map;
-  }, [state.shots, state.audioAssets, state.thumbnail]);
+  const assetByAddress = useMemo(
+    () =>
+      new Map<string, GalleryAsset>(
+        [
+          ...state.shots.flatMap((s) => s.assets),
+          ...state.audioAssets.map((a) => ({ ...a, mediaKind: "audio" as const })),
+          ...(state.thumbnail?.assets ?? []),
+        ].map(({ address, assetName, mediaKind, variantId, variants }) => [
+          address,
+          { address, assetName, mediaKind, variantId, variants },
+        ]),
+      ),
+    [state.shots, state.audioAssets, state.thumbnail],
+  );
 
   const thumbnailSwitchedTo = useMemo(
     () => (state.thumbnail ? thumbnailSwitched(state.thumbnail, effectiveVariants) : []),
@@ -315,27 +279,23 @@ export function VideoPreview({ state }: { state: ReelPreviewState }): React.Reac
     const thumbnail = state.thumbnail
       ? { subject: "Thumbnail", tabs: state.thumbnail.assets.map((a) => a.address) }
       : null;
-    const focused = soundtrackFocused
-      ? soundtrack
-      : focusedThumbnail
-        ? thumbnail
-        : focusedOverlay
-          ? null
-          : focusedShot && shots[focusedShotIdx];
+    const focused = (() => {
+      switch (focus.kind) {
+        case "soundtrack":
+          return soundtrack;
+        case "thumbnail":
+          return thumbnail;
+        case "overlay":
+          return null;
+        case "shot":
+          return focus.shot ? (shots[focusedShotIdx] ?? null) : null;
+      }
+    })();
     return {
-      focused: focused ?? null,
+      focused,
       all: [...(focused ? [focused] : []), ...shots, soundtrack, ...(thumbnail ? [thumbnail] : [])],
     };
-  }, [
-    state.shots,
-    state.audioAssets,
-    state.thumbnail,
-    soundtrackFocused,
-    focusedThumbnail,
-    focusedOverlay,
-    focusedShot,
-    focusedShotIdx,
-  ]);
+  }, [state.shots, state.audioAssets, state.thumbnail, focus, focusedShotIdx]);
   const galleryTabOf = useCallback(
     (address: string): GalleryTab | null => {
       const a = assetByAddress.get(address);
@@ -375,61 +335,6 @@ export function VideoPreview({ state }: { state: ReelPreviewState }): React.Reac
   });
 
   const shotFrames = useShotFrames(state.shots, compositionHtml, effectiveVariants);
-
-  // Height as well as width: in theater the viewport's height is handed to it by the column
-  // rather than derived from its width, so it has to be measured to scale the frame into it.
-  useEffect(() => {
-    const el = viewportRef.current;
-    if (!el) return;
-    setViewportBox({ width: el.clientWidth, height: el.clientHeight });
-    const ro = new ResizeObserver((entries) => {
-      for (const entry of entries)
-        setViewportBox({ width: entry.contentRect.width, height: entry.contentRect.height });
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  useEffect(() => {
-    document.body.classList.toggle("theater-mode", immersive);
-    document.body.classList.toggle("fill-mode", fill);
-    return () => {
-      document.body.classList.remove("theater-mode");
-      document.body.classList.remove("fill-mode");
-    };
-  }, [immersive, fill]);
-
-  // Escape leaves the browser's fullscreen without the click that would tell us; drop the
-  // in-window mode with it, so the two never disagree.
-  useEffect(() => {
-    const onFullscreenChange = () => {
-      if (!document.fullscreenElement) setTheater(false);
-    };
-    document.addEventListener("fullscreenchange", onFullscreenChange);
-    return () => {
-      document.removeEventListener("fullscreenchange", onFullscreenChange);
-      // The review is going away (submitted, reloaded into another stage) — give the screen back
-      // rather than leave the closing message holding it.
-      if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
-    };
-  }, []);
-
-  const theaterRef = useRef(theater);
-  theaterRef.current = theater;
-
-  const exitTheater = useCallback(() => {
-    setTheater(false);
-    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
-  }, []);
-
-  const toggleTheater = useCallback(() => {
-    if (theaterRef.current) {
-      exitTheater();
-      return;
-    }
-    setTheater(true);
-    void document.documentElement.requestFullscreen?.().catch(() => {});
-  }, [exitTheater]);
 
   const {
     keepGraph,
@@ -823,20 +728,17 @@ export function VideoPreview({ state }: { state: ReelPreviewState }): React.Reac
   // Accept whatever the panel is pointed at, so this signs off the soundtrack the same way it
   // signs off a shot.
   const acceptFocused = useCallback(() => {
-    if (soundtrackFocused) toggleTimelineStem();
-    else if (focusedOverlay) toggleOverlay();
-    else if (focusedThumbnail) toggleThumbnail();
-    else if (focusedShot) toggleShotDecision(focusedShot.shotId);
-  }, [
-    soundtrackFocused,
-    toggleTimelineStem,
-    focusedOverlay,
-    toggleOverlay,
-    focusedThumbnail,
-    toggleThumbnail,
-    focusedShot,
-    toggleShotDecision,
-  ]);
+    switch (focus.kind) {
+      case "soundtrack":
+        return toggleTimelineStem();
+      case "overlay":
+        return toggleOverlay();
+      case "thumbnail":
+        return toggleThumbnail();
+      case "shot":
+        if (focus.shot) toggleShotDecision(focus.shot.shotId);
+    }
+  }, [focus, toggleTimelineStem, toggleOverlay, toggleThumbnail, toggleShotDecision]);
 
   useReviewShortcuts({
     blocked:
@@ -886,6 +788,23 @@ export function VideoPreview({ state }: { state: ReelPreviewState }): React.Reac
     [session.showChangedOnly, state.audioAssets, audioAccepted],
   );
 
+  const focusedVerdict = ((): { accepted: boolean; what: string; disabled: boolean } => {
+    switch (focus.kind) {
+      case "soundtrack":
+        return { accepted: timelineStemAccepted, what: "soundtrack", disabled: false };
+      case "overlay":
+        return { accepted: overlayAccepted, what: "overlay", disabled: false };
+      case "thumbnail":
+        return { accepted: thumbnailAccepted, what: "thumbnail", disabled: false };
+      case "shot":
+        return {
+          accepted: !!focus.shot && !!shotAccepted[focus.shot.shotId],
+          what: `shot ${focus.shot?.shotId ?? ""}`,
+          disabled: !(focus.shot && shotAcceptable(focus.shot)),
+        };
+    }
+  })();
+
   const boxWidth = viewportBox.width || Math.min(state.size.width, 960);
   // Filling the screen (theater, or a phone), the column gives the viewport what the controls and
   // scrubber leave, so its measured height is the box. Otherwise the box is a slot cut from the
@@ -914,34 +833,7 @@ export function VideoPreview({ state }: { state: ReelPreviewState }): React.Reac
         <ReviewHeaderActions
           // Only when the frame fills the screen: elsewhere the shot list carries the verdict, and
           // a second button for the same mark would be two places to look.
-          acceptCurrent={
-            fill
-              ? {
-                  accepted: soundtrackFocused
-                    ? timelineStemAccepted
-                    : focusedOverlay
-                      ? overlayAccepted
-                      : focusedThumbnail
-                        ? thumbnailAccepted
-                        : !!focusedShot && !!shotAccepted[focusedShot.shotId],
-                  what: soundtrackFocused
-                    ? "soundtrack"
-                    : focusedOverlay
-                      ? "overlay"
-                      : focusedThumbnail
-                        ? "thumbnail"
-                        : `shot ${focusedShot?.shotId ?? ""}`,
-                  disabled: soundtrackFocused
-                    ? !state.timelineStem
-                    : focusedOverlay
-                      ? false
-                      : focusedThumbnail
-                        ? false
-                        : !(focusedShot && shotAcceptable(focusedShot)),
-                  onClick: acceptFocused,
-                }
-              : undefined
-          }
+          acceptCurrent={fill ? { ...focusedVerdict, onClick: acceptFocused } : undefined}
           acceptAll={{
             done: everythingAccepted,
             what: "every shot and all audio",
@@ -1172,22 +1064,20 @@ export function VideoPreview({ state }: { state: ReelPreviewState }): React.Reac
         <div className="vp-side">
           <div className="vp-col vp-col-target">
             <TargetPanel
-              subject={spanTarget ? spanTarget.label : focusedShot && `Shot ${focusedShot.shotId}`}
+              subject={spanTarget ? spanTarget.label : panelShot && `Shot ${panelShot.shotId}`}
               frame={
                 focusedThumbnail?.frame
                   ? `shot ${focusedThumbnail.frame.shotId} at ${formatPlayerTime(focusedThumbnail.frame.shotTime)}`
                   : undefined
               }
               address={
-                focusedThumbnail
-                  ? focusedThumbnail.target
-                  : spanTarget
-                    ? undefined
-                    : focusedShot && shotFeedbackAddress(focusedShot.shotId)
+                focus.kind === "thumbnail"
+                  ? focus.address
+                  : panelShot && shotFeedbackAddress(panelShot.shotId)
               }
               pinnable={!spanTarget}
-              script={spanTarget ? undefined : focusedShot?.script}
-              moves={spanTarget ? undefined : focusedShot?.moves}
+              script={panelShot?.script}
+              moves={panelShot?.moves}
               board={reelStage === "animatic"}
               variants={
                 focusedGalleryTabs.length > 0
@@ -1202,8 +1092,8 @@ export function VideoPreview({ state }: { state: ReelPreviewState }): React.Reac
                     }
                   : undefined
               }
-              waivers={spanTarget ? undefined : focusedShot?.waivers}
-              handoffNotes={spanTarget ? undefined : focusedShot?.handoffNotes}
+              waivers={panelShot?.waivers}
+              handoffNotes={panelShot?.handoffNotes}
               comments={panelComments}
               highlightedId={highlightedFeedbackId}
               draft={noteDraft}
@@ -1215,9 +1105,7 @@ export function VideoPreview({ state }: { state: ReelPreviewState }): React.Reac
               onCloseComposer={closeNoteComposer}
               onQuote={handleQuote}
               lineMarks={
-                spanTarget || !focusedShot
-                  ? undefined
-                  : shownLineMarks(focusedShot.heardTakes, effectiveVariants)
+                panelShot ? shownLineMarks(panelShot.heardTakes, effectiveVariants) : undefined
               }
               onPlay={playSpan}
             />
