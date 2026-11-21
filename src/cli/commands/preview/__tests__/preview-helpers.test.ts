@@ -9,18 +9,20 @@ import type { Direction } from "../../../../core/dsl/direction.js";
 import type { VideoDefinition } from "../../../../core/types/index.js";
 import {
   applyFeedbackMutations,
-  shotFactsIndex,
   buildAddressFeedback,
+  recordFeedbackFor,
+  withShotLocalTime,
+} from "../feedback-apply.js";
+import { shotFactsIndex } from "../shot-facts.js";
+import {
   buildVariantCandidates,
   consumedVariantPreviewUrl,
   displayedVariantStatus,
   hasUndecidedBesideAccepted,
   patchChainVariants,
-  recordFeedbackFor,
   variantPreviewUrl,
   videoVariantThumbUrl,
-  withShotLocalTime,
-} from "../review-shared.js";
+} from "../variant-view.js";
 import { unacceptReelShots } from "../reel-submit.js";
 import {
   variantDefinitionSnapshot,

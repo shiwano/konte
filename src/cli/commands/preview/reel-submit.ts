@@ -72,13 +72,11 @@ import { StateManager } from "../../../core/state/index.js";
 import { JobManager } from "../../../core/job-manager.js";
 import {
   applyFeedbackMutations,
-  applyKeepDecisions,
-  applyRegenerateDecisions,
-  handoffRecordFields,
-  persistReview,
   withShotLocalTime,
   type FeedbackMutationResult,
-} from "./review-shared.js";
+} from "./feedback-apply.js";
+import { applyKeepDecisions, applyRegenerateDecisions } from "./keep-apply.js";
+import { handoffRecordFields, persistReview } from "./review-shared.js";
 import { reviewModeOf } from "../../../core/review-mode.js";
 import { reloadStageDefinition } from "./load-definitions.js";
 import { downstreamVideoOf, type ReviewContext } from "./submit.js";

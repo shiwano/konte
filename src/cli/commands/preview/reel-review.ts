@@ -94,15 +94,14 @@ import {
   consumedVariantPreviewUrl,
   patchChainVariants,
   buildVariantCandidates,
-  shotFactsIndex,
   displayedVariantStatus,
   hasUndecidedBesideAccepted,
   variantMediaUrl,
   variantPreviewUrl,
-  buildAddressFeedback,
-  handoffNotesForShot,
-  unroutedReelHandoffNotes,
-} from "./review-shared.js";
+} from "./variant-view.js";
+import { shotFactsIndex } from "./shot-facts.js";
+import { buildAddressFeedback } from "./feedback-apply.js";
+import { handoffNotesForShot, unroutedReelHandoffNotes } from "./review-shared.js";
 import { createAssetInfoBuilder } from "./asset-info.js";
 import { buildKeepGraph } from "./keep-graph.js";
 

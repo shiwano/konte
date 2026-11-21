@@ -75,13 +75,12 @@ import { FeedbackManager } from "../../../core/feedback/index.js";
 import { StateManager } from "../../../core/state/index.js";
 import {
   buildAddressFeedback,
-  shotFrameResolver,
   applyFeedbackMutations,
   staleFlagsBeforeDecisions,
   recordFeedbackFor,
-  handoffRecordFields,
-  persistReview,
-} from "./review-shared.js";
+} from "./feedback-apply.js";
+import { shotFrameResolver } from "./shot-facts.js";
+import { handoffRecordFields, persistReview } from "./review-shared.js";
 import { emptyOutcome } from "./review-outcome.js";
 import type { ReviewContext } from "./submit.js";
 import { reviewHeldError, reviewHeldFindings } from "../../finding-gates.js";

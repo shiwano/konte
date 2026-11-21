@@ -53,7 +53,9 @@ import {
   variantPreviewUrl,
   variantMediaUrl,
   buildVariantCandidates,
-  buildAddressFeedback,
+} from "./variant-view.js";
+import { buildAddressFeedback } from "./feedback-apply.js";
+import {
   addressReviewTouchesNothing,
   applyAddressReview,
   handoffRecordFields,
