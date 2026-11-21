@@ -61,7 +61,7 @@ import { assertTailwindClasses, type ClassSubject } from "./tailwind-classes.js"
 import { bedPasses, cueDuration, cueTrigger, resolveSoundtrackSpan } from "./timeline-audio.js";
 import { mediaDurationSec, mediaHasAudio } from "./variant-media.js";
 import type { StateManager } from "./state/index.js";
-import type { StageDefinition } from "./types/index.js";
+import type { StageDefinition, TimelineFunction } from "./types/index.js";
 
 interface ShotCompositionInfo {
   shotId: string;
@@ -146,6 +146,27 @@ function buildHttpResolvedFiles(
     httpFiles[assetName] = buildAssetUrl(assetBaseUrl, address, variantId, filePath);
   }
   return httpFiles;
+}
+
+// The timeline in render mode, its own assets served from `assetBaseUrl`.
+function previewTimelineRun(
+  plan: RenderPlan,
+  assetBaseUrl: string,
+): ReturnType<TimelineFunction> | null {
+  return plan.timelineFn
+    ? runTimelineInRenderMode(
+        plan.stage,
+        () => plan.timelineFn!({ format: plan.format }),
+        buildHttpResolvedFiles(
+          plan.stage,
+          "",
+          plan.timelineResolvedFiles,
+          plan.timelineResolvedVariants,
+          assetBaseUrl,
+          true,
+        ),
+      )
+    : null;
 }
 
 // A composition reaches outside its own shot for an animatic panel (`animatic.shot("01").image("first")`),
@@ -1024,20 +1045,7 @@ export async function buildShotCompositionHtml(
 
   const { resolvedFiles, resolvedVariants } = shotPlan;
 
-  const timelineRun = plan.timelineFn
-    ? runTimelineInRenderMode(
-        plan.stage,
-        () => plan.timelineFn!({ format: plan.format }),
-        buildHttpResolvedFiles(
-          plan.stage,
-          "",
-          plan.timelineResolvedFiles,
-          plan.timelineResolvedVariants,
-          assetBaseUrl,
-          true,
-        ),
-      )
-    : null;
+  const timelineRun = previewTimelineRun(plan, assetBaseUrl);
   const renderShotInputs = timelineRun?.shots ?? null;
 
   // Levelled against the take actually shown: a candidate previewed here is a different recording
@@ -1529,20 +1537,7 @@ export async function buildFullCompositionHtml(
     overrideByAddress,
   );
 
-  const timelineRun = plan.timelineFn
-    ? runTimelineInRenderMode(
-        plan.stage,
-        () => plan.timelineFn!({ format: plan.format }),
-        buildHttpResolvedFiles(
-          plan.stage,
-          "",
-          plan.timelineResolvedFiles,
-          plan.timelineResolvedVariants,
-          assetBaseUrl,
-          true,
-        ),
-      )
-    : null;
+  const timelineRun = previewTimelineRun(plan, assetBaseUrl);
   const timelineSoundtracks = mixedSoundtracks(video, timelineRun?.soundtracks);
   const timing = shotSpans(plan.shots, plan.fps);
 
@@ -1679,28 +1674,6 @@ export interface CompositionClip {
   cueId: string | null;
 }
 
-// Resolve the shared result and per-shot render inputs once, mirroring the setup
-// buildFullCompositionHtml does before rendering each shot.
-function prepareShotInputs(
-  plan: RenderPlan,
-  assetBaseUrl: string,
-): Array<{ id: string; fn: () => React.ReactElement }> | null {
-  return plan.timelineFn
-    ? runTimelineInRenderMode(
-        plan.stage,
-        () => plan.timelineFn!({ format: plan.format }),
-        buildHttpResolvedFiles(
-          plan.stage,
-          "",
-          plan.timelineResolvedFiles,
-          plan.timelineResolvedVariants,
-          assetBaseUrl,
-          true,
-        ),
-      ).shots
-    : null;
-}
-
 // Recover the owning address from a clip's `src`. A shot asset resolves to an HTTP URL of the
 // form `${assetBaseUrl}/<stage>/<suffix>/...` whose first two path segments (the address split at
 // `:`) decode back to the address. A reference/timeline asset pulled into the composition via
@@ -1769,7 +1742,7 @@ export function buildShotClips(
   plan: RenderPlan,
   assetBaseUrl: string,
 ): Map<string, CompositionClip[]> {
-  const renderShotInputs = prepareShotInputs(plan, assetBaseUrl);
+  const renderShotInputs = previewTimelineRun(plan, assetBaseUrl)?.shots ?? null;
   const byShot = new Map<string, CompositionClip[]>();
   for (const shotPlan of plan.shots) {
     const clips: CompositionClip[] = [];
