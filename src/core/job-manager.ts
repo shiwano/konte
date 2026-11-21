@@ -26,7 +26,7 @@ import {
 // Fields an update may set: any field of any job kind except the immutable id.
 // (Omit over the union would keep only fields common to every kind, so we union
 // the per-variant field sets instead.)
-type JobUpdate = Partial<Omit<GenerationJob, "id" | "variantId">> &
+export type JobUpdate = Partial<Omit<GenerationJob, "id" | "variantId">> &
   Partial<Omit<ComfyModelDownloadJob, "id">> &
   Partial<Omit<ComfyNodeInstallJob, "id">> &
   Partial<Omit<ComfyNodeActivateJob, "id">> &

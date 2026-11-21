@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { withFileLock } from "../core/file-lock.js";
 import { redactUrls } from "../core/redact.js";
 
-export type WorkerLogLevel = "debug" | "info" | "warning" | "error";
+export type WorkerLogLevel = "info" | "warning" | "error";
 
 const MAX_LOG_BYTES = 5 * 1024 * 1024;
 
@@ -32,7 +32,6 @@ export class WorkerLog {
   }
 
   write(level: WorkerLogLevel, data: object): void {
-    if (level === "debug") return;
     const entry = redactUrls(
       `[${new Date().toISOString()}] ${this.prefix} ${level} ${JSON.stringify(data)}\n`,
     );

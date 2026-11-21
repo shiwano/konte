@@ -21,6 +21,7 @@ import {
 import { runComfyNodeActivateJob } from "../backends/run-comfy-node-activate-job.js";
 import { runExportJob } from "../backends/run-export-job.js";
 import { runSongAnalysisJob } from "../backends/run-song-analysis-job.js";
+import type { LeasedJobResult } from "../backends/run-leased-job.js";
 import { loadDirectionDefinition, loadIfPresent } from "../core/loader.js";
 import { stageEntryPath } from "../core/roots.js";
 import { queueSongAnalyses } from "../core/song-queue.js";
@@ -82,7 +83,6 @@ export class JobWatcher {
   private scanTimer: ReturnType<typeof setTimeout> | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private readonly handledJobs = new Set<string>();
-  private readonly loggedSubmissions = new Set<string>();
   // The failure each job's watch last reported, for dedup — see reportWatchFailure.
   private readonly watchFailures = new Map<string, string>();
   // Ids of jobs already terminal when this watcher started — the pre-session backlog, which fires
@@ -215,9 +215,6 @@ export class JobWatcher {
     for (const id of this.handledJobs) {
       if (stale(id)) this.handledJobs.delete(id);
     }
-    for (const vid of this.loggedSubmissions) {
-      if (stale(vid)) this.loggedSubmissions.delete(vid);
-    }
     // NOT the same rule: a watch failure is recorded on a job that is still running, which
     // `stale` calls stale. Only a job gone from disk drops its entry.
     for (const vid of this.watchFailures.keys()) {
@@ -315,50 +312,14 @@ export class JobWatcher {
     this.drive(id, () => this.runStandaloneJob(id, kind));
   }
 
-  private readonly runners: Record<
-    StandaloneKind,
-    (id: string) => Promise<{ status: JobRecord["status"]; released?: boolean }>
-  > = {
-    "comfy-model-download": (id) =>
-      runComfyModelDownloadJob(this.jobManager, this.roots, id, {
-        onProgress: ({ label, done, total }) =>
-          this.sendLog("debug", {
-            event: "job_progress",
-            variantId: id,
-            model: label,
-            progress: done,
-            progressMax: total,
-          }),
-      }),
-    "comfy-node-install": (id) =>
-      runComfyNodeInstallJob(this.jobManager, this.roots, id, {
-        onProgress: ({ label, done, total }) =>
-          this.sendLog("debug", {
-            event: "job_progress",
-            variantId: id,
-            node: label,
-            progress: done,
-            progressMax: total,
-          }),
-      }),
+  private readonly runners: Record<StandaloneKind, (id: string) => Promise<LeasedJobResult>> = {
+    "comfy-model-download": (id) => runComfyModelDownloadJob(this.jobManager, this.roots, id),
+    "comfy-node-install": (id) => runComfyNodeInstallJob(this.jobManager, this.roots, id),
     // A hold by a SIBLING video's comfy job changes no file this watcher watches, so a deferred
     // activation is retried by the periodic poll, not fs.watch.
-    "comfy-node-activate": (id) =>
-      runComfyNodeActivateJob(this.jobManager, this.roots, id, {
-        onLog: (line) => this.sendLog("debug", { event: "node_activate", variantId: id, line }),
-        onDeferred: ({ reason }) =>
-          this.sendLog("debug", { event: "node_activate_deferred", variantId: id, line: reason }),
-      }),
-    export: (id) =>
-      runExportJob(this.jobManager, this.videoRoot, id, {
-        onStarted: ({ outputDir }) =>
-          this.sendLog("debug", { event: "export_started", variantId: id, outputDir }),
-      }),
-    "song-analysis": (id) =>
-      runSongAnalysisJob(this.jobManager, this.videoRoot, id, {
-        onStarted: ({ address }) =>
-          this.sendLog("debug", { event: "song_analysis_started", variantId: id, address }),
-      }),
+    "comfy-node-activate": (id) => runComfyNodeActivateJob(this.jobManager, this.roots, id),
+    export: (id) => runExportJob(this.jobManager, this.videoRoot, id),
+    "song-analysis": (id) => runSongAnalysisJob(this.jobManager, this.videoRoot, id),
   };
 
   private async runStandaloneJob(id: string, kind: StandaloneKind): Promise<void> {
@@ -430,25 +391,9 @@ export class JobWatcher {
       const definitions = await this.loadDefinitions();
       const result = await waitForJob(this.jobManager, variantId, this.roots, definitions, {
         workerId: this.workerId,
-        onProgress: (p) =>
-          this.sendLog("debug", {
-            event: "job_progress",
-            variantId: p.variantId,
-            address: p.address,
-            progress: p.value,
-            progressMax: p.max,
-            node: p.node,
-          }),
         onStateUpdateError: ({ variantId: vid, address, error }) =>
           this.sendLog("warning", {
             event: "state_update_failed",
-            variantId: vid,
-            address,
-            error,
-          }),
-        onThumbnailError: ({ variantId: vid, address, error }) =>
-          this.sendLog("debug", {
-            event: "thumbnail_extraction_failed",
             variantId: vid,
             address,
             error,
@@ -581,19 +526,7 @@ export class JobWatcher {
         () => this.loadDefinitions(),
         {
           workerId: this.workerId,
-          onSubmitted: (vid) => {
-            // Logged once per variant: overlapping cascade passes (see runCascadeSubmit) can report
-            // the same submission twice. startWaitingForJob is idempotent on its own, so it stays
-            // outside the guard.
-            if (!this.loggedSubmissions.has(vid)) {
-              this.loggedSubmissions.add(vid);
-              this.sendLog("debug", {
-                event: "pending_job_submitted",
-                variantId: vid,
-              });
-            }
-            this.startWaitingForJob(vid);
-          },
+          onSubmitted: (vid) => this.startWaitingForJob(vid),
         },
       );
       if (released.length > 0) await this.jobManager.flushLogs();

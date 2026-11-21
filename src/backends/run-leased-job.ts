@@ -1,39 +1,44 @@
 import { randomBytes } from "node:crypto";
-import { type JobManager, RUN_LEASE_TTL_MS } from "../core/job-manager.js";
+import { errorMessage } from "../core/errors.js";
+import { type JobManager, type JobUpdate, RUN_LEASE_TTL_MS } from "../core/job-manager.js";
 import { startLeaseHeartbeat } from "../core/lease-heartbeat.js";
 
+// `released`: the job was claimed and handed back unrun because this process's loaded definitions
+// proved older than the files on disk; a fresh process runs it.
+export type LeasedJobResult = { released?: boolean };
+
 type LeasedJobContext = {
-  // The lease owner id — pass to finishIfOwner so only the current owner commits terminal state.
   workerId: string;
   // Whether `konte job cancel` flipped the job to "cancelled" since the claim.
   isCancelled: () => Promise<boolean>;
+  // Commits "completed" while this worker still owns the job; `line` is logged only on a commit.
+  complete: (line: string, update?: JobUpdate) => Promise<boolean>;
 };
 
 // Atomically claim a job under a run lease, keep the lease alive with a heartbeat while `work`
 // runs, and always stop the heartbeat when it settles. The claim is the cross-worker mutual-
 // exclusion guarantee — if another live worker owns the job (or it already went terminal), the
-// claim returns null and `onClaimFailed` decides the return value without running the work. A
-// crashed worker stops renewing, its lease lapses, and a later pass reclaims and retries.
+// claim returns null and the work does not run. A crashed worker stops renewing, its lease lapses,
+// and a later pass reclaims and retries.
 //
-// This owns only the claim → heartbeat → release scaffold; `work` owns the job-specific commit
-// (finishIfOwner) and error handling.
-export async function runLeasedJob<T>(
+// A throw from `work` fails the job. Every terminal commit goes through finishIfOwner, and its log
+// line is written only when the commit lands: a worker that lost the lease, or a job cancelled
+// meanwhile, leaves both untouched.
+export async function runLeasedJob(
   jobManager: JobManager,
   id: string,
   handlers: {
-    onClaimFailed: () => Promise<T>;
-    work: (ctx: LeasedJobContext) => Promise<T>;
+    // The job log's noun for a failure line, e.g. "Export" → "Export failed: …".
+    failureLabel: string;
+    work: (ctx: LeasedJobContext) => Promise<LeasedJobResult>;
   },
-): Promise<T> {
+): Promise<LeasedJobResult> {
   const workerId = `w-${randomBytes(8).toString("hex")}`;
   const claimed = await jobManager.claimJobForRun(id, workerId, RUN_LEASE_TTL_MS);
-  if (!claimed) {
-    return handlers.onClaimFailed();
-  }
+  if (!claimed) return {};
 
-  // Renew the lease while working so a live job is never reclaimed mid-flight; a crashed worker
-  // stops renewing and another worker reclaims after the lease lapses. Started before the try so
-  // the finally below ALWAYS stops it — including if `work` throws before its own try.
+  // Started before the try so the finally below ALWAYS stops it — including if `work` throws
+  // before its own try.
   const stopHeartbeat = startLeaseHeartbeat(jobManager, id, workerId);
 
   const isCancelled = async (): Promise<boolean> => {
@@ -41,8 +46,29 @@ export async function runLeasedJob<T>(
     return current?.status === "cancelled";
   };
 
+  const complete = async (line: string, update: JobUpdate = {}): Promise<boolean> => {
+    const committed = await jobManager.finishIfOwner(id, workerId, {
+      ...update,
+      status: "completed",
+      error: null,
+      progress: 100,
+      completedAt: new Date().toISOString(),
+    });
+    if (committed) jobManager.appendLog(id, line);
+    return committed;
+  };
+
   try {
-    return await handlers.work({ workerId, isCancelled });
+    return await handlers.work({ workerId, isCancelled, complete });
+  } catch (err) {
+    const msg = errorMessage(err);
+    const committed = await jobManager.finishIfOwner(id, workerId, {
+      status: "failed",
+      error: msg,
+      completedAt: new Date().toISOString(),
+    });
+    if (committed) jobManager.appendLog(id, `${handlers.failureLabel} failed: ${msg}`);
+    return {};
   } finally {
     stopHeartbeat();
   }

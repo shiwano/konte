@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { KonteError, errorMessage } from "../core/errors.js";
+import { KonteError } from "../core/errors.js";
 import { computeDefinitionSourceFingerprint } from "../core/definition-source.js";
 import { computeExportPlanDigest, computeExportSignature } from "../core/export-signature.js";
 import { JobIndex, prerequisiteVerdict } from "../core/job-index.js";
@@ -7,23 +7,10 @@ import { isJobTerminal, type JobManager } from "../core/job-manager.js";
 import { loadVideoAndAnimatic } from "../core/stage-definitions.js";
 import { renderVideoToFile } from "../core/render-video.js";
 import { LocalBackend } from "../local/backend.js";
-import { runLeasedJob } from "./run-leased-job.js";
+import { type LeasedJobResult, runLeasedJob } from "./run-leased-job.js";
 import { buildTimestamp } from "../core/review-record.js";
 import { StateManager } from "../core/state/index.js";
-import type { ExportJob, JobRecord, KonteState } from "../core/types/index.js";
-
-type ExportJobHooks = {
-  onStarted?: (info: { id: string; outputDir: string }) => void;
-};
-
-type RunExportJobResult = {
-  id: string;
-  status: JobRecord["status"];
-  outputFile: string | null;
-  // True when this caller claimed the job and handed it back unrendered because its own loaded
-  // definitions proved older than the files on disk (see decideExportRender).
-  released?: boolean;
-};
+import type { ExportJob, KonteState } from "../core/types/index.js";
 
 type ExportRenderDecision = "render" | "release";
 
@@ -94,71 +81,49 @@ export function evaluateExportJob(
 // so it is never reclaimed; a crashed render's lease lapses and another worker reclaims it.
 // Each attempt renders into its own timestamped dir and only commits the result if it still
 // owns the lease — so a stalled-but-alive owner cannot collide with or clobber a reclaimer.
-// A not-yet-ready job returns status "pending"; a later pass retries.
+// A not-yet-ready job stays "pending"; a later pass retries.
 export async function runExportJob(
   jobManager: JobManager,
   videoRoot: string,
   id: string,
-  hooks: ExportJobHooks = {},
-): Promise<RunExportJobResult> {
+): Promise<LeasedJobResult> {
   const job = await jobManager.getJob(id);
   if (job.kind !== "export") {
     throw new KonteError("VALIDATION_FAILED", `Job "${id}" is not an export job`);
   }
-  if (isJobTerminal(job.status)) {
-    return { id, status: job.status, outputFile: job.outputFile };
-  }
+  if (isJobTerminal(job.status)) return {};
 
   // Jobs before state, as the generation pass reads them: an upscale finishing in between is then
   // a job still running over a state that already has its take, never the reverse.
   const allJobs = await jobManager.listJobs();
   const manager = await StateManager.load(videoRoot);
   const evaluation = evaluateExportJob(job, manager.getState(), new JobIndex(allJobs));
-  if (evaluation.action === "wait") {
-    return { id, status: "pending", outputFile: null };
-  }
+  if (evaluation.action === "wait") return {};
   if (evaluation.action === "fail") {
     // Compare-and-set so a concurrent worker/cancel that already finished this job isn't
     // clobbered — honor its terminal state instead.
-    const committed = await jobManager.updateIfNotTerminal(id, {
+    await jobManager.updateIfNotTerminal(id, {
       status: "failed",
       error: evaluation.reason,
       completedAt: new Date().toISOString(),
     });
-    if (!committed) {
-      const current = await jobManager.getJob(id).catch(() => null);
-      return {
-        id,
-        status: current?.status ?? "failed",
-        outputFile: current?.kind === "export" ? current.outputFile : null,
-      };
-    }
-    return { id, status: "failed", outputFile: null };
+    return {};
   }
 
-  return runLeasedJob<RunExportJobResult>(jobManager, id, {
-    onClaimFailed: async () => {
-      // Owned by a live worker (lease valid) or already terminal — don't re-render.
-      const current = await jobManager.getJob(id).catch(() => null);
-      return {
-        id,
-        status: current?.status ?? "running",
-        outputFile: current?.kind === "export" ? current.outputFile : null,
-      };
-    },
-    work: async ({ workerId }) => {
-      try {
-        hooks.onStarted?.({ id, outputDir: job.outputDir });
-        jobManager.appendLog(id, `Export render started (worker ${workerId})`);
+  return runLeasedJob(jobManager, id, {
+    failureLabel: "Export",
+    work: async ({ workerId, complete }) => {
+      jobManager.appendLog(id, `Export render started (worker ${workerId})`);
 
-        const { video, animatic } = await loadVideoAndAnimatic(videoRoot, { reload: true });
-        const decision = decideExportRender(
-          job,
-          computeExportPlanDigest(video),
-          await computeDefinitionSourceFingerprint(videoRoot),
-        );
-        if (decision === "release") {
-          const released = await jobManager.releaseIfOwner(id, workerId, "stale");
+      const { video, animatic } = await loadVideoAndAnimatic(videoRoot, { reload: true });
+      const decision = decideExportRender(
+        job,
+        computeExportPlanDigest(video),
+        await computeDefinitionSourceFingerprint(videoRoot),
+      );
+      if (decision === "release") {
+        const released = await jobManager.releaseIfOwner(id, workerId, "stale");
+        if (released) {
           jobManager.appendLog(
             id,
             `Released without rendering: this process (pid ${process.pid}) reloaded a definition ` +
@@ -166,87 +131,55 @@ export async function runExportJob(
               `definition file changed since — its loaded definitions are stale. A fresh process ` +
               `renders it.`,
           );
-          const current = await jobManager.getJob(id).catch(() => null);
-          return {
-            id,
-            status: released ? "pending" : (current?.status ?? "running"),
-            outputFile: null,
-            released,
-          };
         }
-        // Render into a fresh per-attempt dir under the job's base output dir, so a reclaimer
-        // never writes the same files as a stalled prior owner.
-        const outputDir = path.resolve(
-          videoRoot,
-          job.outputDir,
-          job.noDelivery ? `${buildTimestamp()}_no_delivery` : buildTimestamp(),
-        );
-        // Stamped from the definition we ACTUALLY rendered (reloaded above), not the submit-time
-        // one — so an edit between submit and render can't leave this export wearing a stale
-        // signature. A no-delivery run is a working-size check, not a real deliverable, so it
-        // carries no signature (and is excluded from `Last export`).
-        const exportSignature = job.noDelivery ? null : computeExportSignature(video);
-        const result = await renderVideoToFile({
-          onLog: (line) => jobManager.appendLog(id, line),
-          videoRoot,
-          video,
-          animatic,
-          allowUnaccepted: job.allowUnaccepted,
-          outputDir,
-          exportSignature,
-          noDelivery: job.noDelivery,
-          rederiveLocal: async (address, definition, resolvedDependencies, outputDir) => {
-            const backend = new LocalBackend(videoRoot);
-            await backend.submit({
-              address,
-              assetDefinition: definition,
-              variantId: `thumbnail-${id}`,
-              outputDir,
-              resolvedDependencies,
-            });
-            const done = await backend.waitForCompletion("", outputDir);
-            if (done.kind !== "done" || !done.result.files[0]) {
-              throw new KonteError("GENERATION_FAILED", `${address} made no file`);
-            }
-            return done.result.files[0];
-          },
-        });
-        const outputFileRel = path.relative(videoRoot, result.outputFile);
-        const committed = await jobManager.finishIfOwner(id, workerId, {
-          status: "completed",
-          progress: 100,
-          outputFile: outputFileRel,
-          completedAt: new Date().toISOString(),
-          exportSignature,
-        });
-        if (!committed) {
-          // Lost the lease mid-render (we stalled past the TTL and were reclaimed) — discard.
-          jobManager.appendLog(
-            id,
-            `Export render superseded by another worker; discarding result.`,
-          );
-          const current = await jobManager.getJob(id).catch(() => null);
-          return {
-            id,
-            status: current?.status ?? "running",
-            outputFile: current?.kind === "export" ? current.outputFile : null,
-          };
-        }
-        jobManager.appendLog(id, `Export rendered: ${outputFileRel}`);
-        for (const w of result.warnings) jobManager.appendLog(id, `Warning: ${w}`);
-        return { id, status: "completed", outputFile: outputFileRel };
-      } catch (err) {
-        const msg = errorMessage(err);
-        const committed = await jobManager.finishIfOwner(id, workerId, {
-          status: "failed",
-          error: msg,
-          completedAt: new Date().toISOString(),
-        });
-        if (committed) {
-          jobManager.appendLog(id, `Export failed: ${msg}`);
-        }
-        return { id, status: "failed", outputFile: null };
+        return { released };
       }
+      // Render into a fresh per-attempt dir under the job's base output dir, so a reclaimer
+      // never writes the same files as a stalled prior owner.
+      const outputDir = path.resolve(
+        videoRoot,
+        job.outputDir,
+        job.noDelivery ? `${buildTimestamp()}_no_delivery` : buildTimestamp(),
+      );
+      // Stamped from the definition we ACTUALLY rendered (reloaded above), not the submit-time
+      // one — so an edit between submit and render can't leave this export wearing a stale
+      // signature. A no-delivery run is a working-size check, not a real deliverable, so it
+      // carries no signature (and is excluded from `Last export`).
+      const exportSignature = job.noDelivery ? null : computeExportSignature(video);
+      const result = await renderVideoToFile({
+        onLog: (line) => jobManager.appendLog(id, line),
+        videoRoot,
+        video,
+        animatic,
+        allowUnaccepted: job.allowUnaccepted,
+        outputDir,
+        exportSignature,
+        noDelivery: job.noDelivery,
+        rederiveLocal: async (address, definition, resolvedDependencies, outputDir) => {
+          const backend = new LocalBackend(videoRoot);
+          await backend.submit({
+            address,
+            assetDefinition: definition,
+            variantId: `thumbnail-${id}`,
+            outputDir,
+            resolvedDependencies,
+          });
+          const done = await backend.waitForCompletion("", outputDir);
+          if (done.kind !== "done" || !done.result.files[0]) {
+            throw new KonteError("GENERATION_FAILED", `${address} made no file`);
+          }
+          return done.result.files[0];
+        },
+      });
+      const outputFileRel = path.relative(videoRoot, result.outputFile);
+      const committed = await complete(`Export rendered: ${outputFileRel}`, {
+        outputFile: outputFileRel,
+        exportSignature,
+      });
+      if (committed) {
+        for (const w of result.warnings) jobManager.appendLog(id, `Warning: ${w}`);
+      }
+      return {};
     },
   });
 }

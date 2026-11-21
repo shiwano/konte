@@ -1,42 +1,21 @@
 import { randomUUID } from "node:crypto";
 import { type ComfyInstallOutcome, ComfyUIBackend } from "../comfyui/backend.js";
 import { resolveComfyUIConfig } from "../comfyui/config.js";
-import type { ManagerQueueStatus } from "../comfyui/manager-client.js";
 import type { ModelDownloadProgress } from "../comfyui/model-downloader.js";
-import { KonteError, errorMessage } from "../core/errors.js";
+import { KonteError } from "../core/errors.js";
 import { isJobTerminal, type JobManager } from "../core/job-manager.js";
 import { TransientPollError } from "../core/poll-until-terminal.js";
 import type { ComfyModelDownloadJob, ComfyNodeInstallJob, JobRecord } from "../core/types/index.js";
 import { resolveUrlTokens } from "../comfyui/token-resolver.js";
 import { startProgressWriter } from "./progress-writer.js";
-import { runLeasedJob } from "./run-leased-job.js";
+import { type LeasedJobResult, runLeasedJob } from "./run-leased-job.js";
 import type { VideoRoots } from "../core/roots.js";
 
 type ComfyInstallOpts = {
-  onProgress?: (status: ManagerQueueStatus) => void;
   // Only konte's own downloader can report this; a Manager-driven install reports whole models.
   onBytes?: (p: ModelDownloadProgress) => void;
   onLog?: (msg: string) => void;
   shouldCancel?: () => boolean | Promise<boolean>;
-};
-
-// Hooks shared by the two install job kinds — `label` is the filename for a model download, the
-// node id for a node install.
-type ComfyInstallHooks = {
-  onStarted?: (info: { id: string; label: string }) => void;
-  onProgress?: (info: {
-    id: string;
-    label: string;
-    done: number;
-    total: number;
-    inProgress: number;
-  }) => void;
-  onLog?: (line: string) => void;
-};
-
-type RunComfyInstallResult = {
-  id: string;
-  status: JobRecord["status"];
 };
 
 type ComfyInstallSpec<J extends JobRecord> = {
@@ -68,8 +47,7 @@ async function runComfyInstallJob<J extends JobRecord>(
   roots: VideoRoots,
   id: string,
   spec: ComfyInstallSpec<J>,
-  hooks: ComfyInstallHooks = {},
-): Promise<RunComfyInstallResult> {
+): Promise<LeasedJobResult> {
   const job = await jobManager.getJob(id);
   if (job.kind !== spec.kind) {
     throw new KonteError("VALIDATION_FAILED", `Job "${id}" is not a ${spec.kind} job`);
@@ -77,22 +55,14 @@ async function runComfyInstallJob<J extends JobRecord>(
   const typedJob = job as J;
   const label = spec.getLabel(typedJob);
 
-  if (isJobTerminal(job.status)) {
-    return { id, status: job.status };
-  }
+  if (isJobTerminal(job.status)) return {};
 
-  return runLeasedJob<RunComfyInstallResult>(jobManager, id, {
-    onClaimFailed: async () => {
-      // Owned by a live worker (lease valid) or just went terminal. Don't re-run; the owner
-      // drives completion and the cascade. If the owner crashed, a later pass reclaims this job.
-      const current = await jobManager.getJob(id).catch(() => null);
-      return { id, status: current?.status ?? "running" };
-    },
-    work: async ({ workerId, isCancelled }) => {
+  return runLeasedJob(jobManager, id, {
+    failureLabel: spec.logNoun,
+    work: async ({ isCancelled, complete }) => {
       const progress = startProgressWriter(jobManager, id, typedJob.progress);
 
       try {
-        hooks.onStarted?.({ id, label });
         jobManager.appendLog(id, `${spec.logNoun} started: ${label}`);
 
         const config = await resolveComfyUIConfig(roots.workspace);
@@ -113,111 +83,62 @@ async function runComfyInstallJob<J extends JobRecord>(
         const backend = new ComfyUIBackend({ ...config, clientId }, roots);
 
         const outcome = await spec.install(backend, typedJob, {
-          onLog: (line) => {
-            jobManager.appendLog(id, line);
-            hooks.onLog?.(line);
-          },
-          onProgress: (status) =>
-            hooks.onProgress?.({
-              id,
-              label,
-              done: status.done_count,
-              total: 1,
-              inProgress: status.in_progress_count,
-            }),
+          onLog: (line) => jobManager.appendLog(id, line),
           onBytes: (p) => {
             if (p.total !== null) progress.write(p.received, p.total);
-            if (p.total !== null && p.total > 0) {
-              hooks.onProgress?.({
-                id,
-                label,
-                done: p.received,
-                total: p.total,
-                inProgress: 1,
-              });
-            }
           },
           shouldCancel: isCancelled,
         });
         await progress.settle();
 
-        if (outcome.kind === "cancelled" || (await isCancelled())) {
-          return { id, status: "cancelled" };
-        }
+        if (outcome.kind === "cancelled") return {};
 
         // The waiter's deadline elapsed — NOT a failure. The Manager has no abort API, so the
         // work keeps running server-side and is re-observable via its queue. Leave the job
         // non-terminal (status stays "running"; the lease lapses when the heartbeat stops) so a
-        // later pass reclaims and re-attaches. Crucially a returned value — not a thrown error
-        // the catch below could mark failed.
+        // later pass reclaims and re-attaches.
         if (outcome.kind === "timedOut") {
           jobManager.appendLog(
             id,
             `Stopped waiting for ${label}; the ${spec.runNoun} continues server-side and will be re-observed.`,
           );
-          return { id, status: "running" };
+          return {};
         }
 
-        // finishIfOwner guards against a stalled-but-alive worker overwriting a reclaimer's
-        // result — only the current lease owner commits the terminal state.
-        await jobManager.finishIfOwner(id, workerId, {
-          status: "completed",
-          progress: 100,
-          completedAt: new Date().toISOString(),
-        });
-        jobManager.appendLog(id, `${spec.logNoun} completed: ${label}`);
-        return { id, status: "completed" };
+        await complete(`${spec.logNoun} completed: ${label}`);
+        return {};
       } catch (err) {
         await progress.settle();
-        // A cancel that raced with the error wins — leave the cancelled state.
-        if (await isCancelled()) {
-          return { id, status: "cancelled" };
-        }
         // A transient comms failure (Manager/ComfyUI briefly unreachable, 5xx) is NOT an install
         // failure — leave the job non-terminal (running; lease lapses) so a later pass re-observes
         // and retries, mirroring how generation waits never fail on transient.
-        if (err instanceof TransientPollError) {
+        if (err instanceof TransientPollError && !(await isCancelled())) {
           jobManager.appendLog(
             id,
             `Stopped on a transient comms failure (${err.message}); ${label} is re-observable and will be retried.`,
           );
-          return { id, status: "running" };
+          return {};
         }
-        const msg = errorMessage(err);
-        await jobManager.finishIfOwner(id, workerId, {
-          status: "failed",
-          error: msg,
-          completedAt: new Date().toISOString(),
-        });
-        jobManager.appendLog(id, `${spec.logNoun} failed: ${msg}`);
-        return { id, status: "failed" };
+        throw err;
       }
     },
   });
 }
 
-// Run a comfy-model-download job. `onProgress`'s `done`/`total` count bytes when konte downloads
-// the model itself and whole models when ComfyUI-Manager does; one job only ever takes one path.
+// Run a comfy-model-download job.
 export function runComfyModelDownloadJob(
   jobManager: JobManager,
   roots: VideoRoots,
   id: string,
-  hooks: ComfyInstallHooks = {},
-): Promise<RunComfyInstallResult> {
-  return runComfyInstallJob<ComfyModelDownloadJob>(
-    jobManager,
-    roots,
-    id,
-    {
-      kind: "comfy-model-download",
-      logNoun: "Model download",
-      runNoun: "download",
-      getLabel: (job) => job.model.filename,
-      install: (backend, job, opts) =>
-        backend.installModel(job.model, resolveUrlTokens(job.model.url), opts),
-    },
-    hooks,
-  );
+): Promise<LeasedJobResult> {
+  return runComfyInstallJob<ComfyModelDownloadJob>(jobManager, roots, id, {
+    kind: "comfy-model-download",
+    logNoun: "Model download",
+    runNoun: "download",
+    getLabel: (job) => job.model.filename,
+    install: (backend, job, opts) =>
+      backend.installModel(job.model, resolveUrlTokens(job.model.url), opts),
+  });
 }
 
 // Run a comfy-node-install job — installs the pack to disk only; loading it (a ComfyUI reboot)
@@ -226,19 +147,12 @@ export function runComfyNodeInstallJob(
   jobManager: JobManager,
   roots: VideoRoots,
   id: string,
-  hooks: ComfyInstallHooks = {},
-): Promise<RunComfyInstallResult> {
-  return runComfyInstallJob<ComfyNodeInstallJob>(
-    jobManager,
-    roots,
-    id,
-    {
-      kind: "comfy-node-install",
-      logNoun: "Node install",
-      runNoun: "install",
-      getLabel: (job) => job.node.id,
-      install: (backend, job, opts) => backend.installNode(job.node, opts),
-    },
-    hooks,
-  );
+): Promise<LeasedJobResult> {
+  return runComfyInstallJob<ComfyNodeInstallJob>(jobManager, roots, id, {
+    kind: "comfy-node-install",
+    logNoun: "Node install",
+    runNoun: "install",
+    getLabel: (job) => job.node.id,
+    install: (backend, job, opts) => backend.installNode(job.node, opts),
+  });
 }

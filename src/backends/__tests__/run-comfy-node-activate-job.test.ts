@@ -96,9 +96,9 @@ describe("runComfyNodeActivateJob", () => {
       cnrIds: [NODE.id],
     });
 
-    const result = await runComfyNodeActivateJob(jobManager, roots, activate.id);
+    await runComfyNodeActivateJob(jobManager, roots, activate.id);
 
-    expect(result.status).toBe("pending");
+    expect((await jobManager.getJob(activate.id)).status).toBe("pending");
     expect(activateNodesMock).not.toHaveBeenCalled();
   });
 
@@ -111,9 +111,8 @@ describe("runComfyNodeActivateJob", () => {
       cnrIds: [NODE.id],
     });
 
-    const result = await runComfyNodeActivateJob(jobManager, roots, activate.id);
+    await runComfyNodeActivateJob(jobManager, roots, activate.id);
 
-    expect(result.status).toBe("completed");
     expect(activateNodesMock).toHaveBeenCalledWith([NODE.id], expect.anything());
     expect((await jobManager.getJob(activate.id)).status).toBe("completed");
   });
@@ -126,9 +125,9 @@ describe("runComfyNodeActivateJob", () => {
       cnrIds: [NODE.id],
     });
 
-    const result = await runComfyNodeActivateJob(jobManager, roots, activate.id);
+    await runComfyNodeActivateJob(jobManager, roots, activate.id);
 
-    expect(result.status).toBe("failed");
+    expect((await jobManager.getJob(activate.id)).status).toBe("failed");
     expect((await jobManager.getJob(activate.id)).error).toContain("install broke");
   });
 
@@ -143,9 +142,9 @@ describe("runComfyNodeActivateJob", () => {
       cnrIds: [NODE.id],
     });
 
-    const result = await runComfyNodeActivateJob(jobManager, roots, activate.id);
+    await runComfyNodeActivateJob(jobManager, roots, activate.id);
 
-    expect(result.status).toBe("failed");
+    expect((await jobManager.getJob(activate.id)).status).toBe("failed");
     expect((await jobManager.getJob(activate.id)).error).toContain("restart ComfyUI");
   });
 
@@ -159,14 +158,11 @@ describe("runComfyNodeActivateJob", () => {
     });
     const activateId = await makeReadyActivateJob();
 
-    const onDeferred = vi.fn();
-    const result = await runComfyNodeActivateJob(jobManager, roots, activateId, { onDeferred });
+    await runComfyNodeActivateJob(jobManager, roots, activateId);
 
-    expect(result.status).toBe("pending");
-    expect(onDeferred).toHaveBeenCalledWith({
-      id: activateId,
-      reason: expect.stringContaining("1 prompt(s) in ComfyUI's queue"),
-    });
+    await jobManager.flushLogs();
+
+    expect(await jobManager.readLog(activateId)).toContain("1 prompt(s) in ComfyUI's queue");
     expect(activateNodesMock).not.toHaveBeenCalled();
     // Left claimable, not half-claimed: a later pass must be able to pick it up.
     expect((await jobManager.getJob(activateId)).status).toBe("pending");
@@ -182,11 +178,9 @@ describe("runComfyNodeActivateJob", () => {
       status: "running",
     });
 
-    const onDeferred = vi.fn();
-    const result = await runComfyNodeActivateJob(jobManager, roots, activateId, { onDeferred });
+    await runComfyNodeActivateJob(jobManager, roots, activateId);
 
-    expect(result.status).toBe("pending");
-    expect(onDeferred.mock.calls[0]![0].reason).toContain("v1/video:shot.01.v-submitting");
+    expect((await jobManager.getJob(activateId)).status).toBe("pending");
     expect(activateNodesMock).not.toHaveBeenCalled();
   });
 
@@ -199,11 +193,10 @@ describe("runComfyNodeActivateJob", () => {
       status: "running",
     });
 
-    const onDeferred = vi.fn();
-    const result = await runComfyNodeActivateJob(jobManager, roots, activateId, { onDeferred });
+    await runComfyNodeActivateJob(jobManager, roots, activateId);
 
-    expect(result.status).toBe("pending");
-    expect(onDeferred.mock.calls[0]![0].reason).toContain("v2/video:shot.01.v-sibling");
+    expect((await jobManager.getJob(activateId)).status).toBe("pending");
+    expect(activateNodesMock).not.toHaveBeenCalled();
   });
 
   // A record left "running" by a waiter that died says nothing about the server. Trusting it over
@@ -218,9 +211,9 @@ describe("runComfyNodeActivateJob", () => {
       backendJobId: "prompt-long-gone",
     });
 
-    const result = await runComfyNodeActivateJob(jobManager, roots, activateId);
+    await runComfyNodeActivateJob(jobManager, roots, activateId);
 
-    expect(result.status).toBe("completed");
+    expect((await jobManager.getJob(activateId)).status).toBe("completed");
     expect(activateNodesMock).toHaveBeenCalledWith([NODE.id], expect.anything());
   });
 
@@ -233,9 +226,9 @@ describe("runComfyNodeActivateJob", () => {
     getQueueMock.mockRejectedValue(new Error("connection refused"));
     const activateId = await makeReadyActivateJob();
 
-    const result = await runComfyNodeActivateJob(jobManager, roots, activateId);
+    await runComfyNodeActivateJob(jobManager, roots, activateId);
 
-    expect(result.status).not.toBe("pending");
+    expect((await jobManager.getJob(activateId)).status).not.toBe("pending");
     expect(activateNodesMock).toHaveBeenCalled();
   });
 
@@ -253,9 +246,9 @@ describe("runComfyNodeActivateJob", () => {
       status: "completed",
     });
 
-    const result = await runComfyNodeActivateJob(jobManager, roots, activateId);
+    await runComfyNodeActivateJob(jobManager, roots, activateId);
 
-    expect(result.status).toBe("completed");
+    expect((await jobManager.getJob(activateId)).status).toBe("completed");
     expect(activateNodesMock).toHaveBeenCalledWith([NODE.id], expect.anything());
   });
 
@@ -284,15 +277,13 @@ describe("runComfyNodeActivateJob", () => {
         return realListJobs.call(this, filter);
       });
 
-    const onDeferred = vi.fn();
-    const result = await runComfyNodeActivateJob(jobManager, roots, activateId, {
-      onDeferred,
-    }).finally(() => spy.mockRestore());
+    await runComfyNodeActivateJob(jobManager, roots, activateId).finally(() => spy.mockRestore());
 
     expect(injected).toBe(true);
 
-    expect(result.status).toBe("pending");
-    expect(onDeferred.mock.calls[0]![0].reason).toContain("v-late");
+    await jobManager.flushLogs();
+
+    expect(await jobManager.readLog(activateId)).toContain("v-late");
     expect(activateNodesMock).not.toHaveBeenCalled();
     expect((await jobManager.getJob(activateId)).status).toBe("pending");
     expect((await jobManager.getJob(activateId)).lease).toBeNull();
@@ -305,9 +296,8 @@ describe("runComfyNodeActivateJob", () => {
       return { rebooted: true };
     });
 
-    const result = await runComfyNodeActivateJob(jobManager, roots, activateId);
+    await runComfyNodeActivateJob(jobManager, roots, activateId);
 
-    expect(result.status).toBe("cancelled");
     expect((await jobManager.getJob(activateId)).status).toBe("cancelled");
   });
 });

@@ -477,16 +477,13 @@ describe("JobWatcher dedup pruning", () => {
     const watcher = new JobWatcher(roots, "v1", { log: fake.log });
     const internals = watcher as unknown as {
       handledJobs: Set<string>;
-      loggedSubmissions: Set<string>;
       pruneDedupState(jobs: JobRecord[]): void;
     };
     internals.handledJobs.add("v-reset001");
-    internals.loggedSubmissions.add("v-reset001");
 
     internals.pruneDedupState(await jobManager.listJobs());
 
     expect(internals.handledJobs.has("v-reset001")).toBe(false);
-    expect(internals.loggedSubmissions.has("v-reset001")).toBe(false);
   });
 
   it("keeps a handled id while its job stays terminal", async () => {

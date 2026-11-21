@@ -85,20 +85,12 @@ type WaitForJobHooks = {
   // The worker id this wait claims under; a live lease the same worker already holds (its own
   // submit's) is taken over rather than monitored out.
   workerId?: string;
-  onProgress?: (p: {
-    variantId: string;
-    address: string;
-    value: number;
-    max: number;
-    node: string | null;
-  }) => void;
   onStateUpdateError?: (info: {
     variantId: string;
     address: string;
     phase: "completed" | "failed";
     error: string;
   }) => void;
-  onThumbnailError?: (info: { variantId: string; address: string; error: string }) => void;
   // Fired when a job crosses into (unconfirmed=true) or out of (unconfirmed=false) a long
   // run of transient status-check failures. The job keeps polling and is never auto-failed;
   // this is purely to surface "status unconfirmed" to the human.
@@ -306,16 +298,7 @@ async function runAsOwner(
         result: await backend.waitForCompletion(backendJobId, outputDir, {
           outputNodeId,
           onExecutionStarted: () => stampProcessingStart(),
-          onProgress: (progress) => {
-            progressWriter.write(progress.value, progress.max);
-            hooks.onProgress?.({
-              variantId,
-              address: job.address,
-              value: progress.value,
-              max: progress.max,
-              node: progress.node ?? null,
-            });
-          },
+          onProgress: (progress) => progressWriter.write(progress.value, progress.max),
           timeoutMs: deadline ? Math.max(1, deadline - Date.now()) : undefined,
           onLog: (line) => {
             jobManager.appendLog(variantId, line);
@@ -544,7 +527,6 @@ async function runAsOwner(
     } catch (thumbErr) {
       const msg = errorMessage(thumbErr);
       jobManager.appendLog(variantId, `Thumbnail extraction failed: ${msg}`);
-      hooks.onThumbnailError?.({ variantId, address: job.address, error: msg });
     }
 
     return {

@@ -28,17 +28,6 @@ it("tags each worker's lines with its own instance id in one shared file", async
   expect(lines[0]).toMatch(/ pid=\d+ info \{"event":"runner_started"\}$/);
 });
 
-it("leaves debug lines out of the file", async () => {
-  const log = new WorkerLog(root);
-  log.write("debug", { event: "job_progress" });
-  log.write("info", { event: "job_completed" });
-  await log.flush();
-
-  const text = await fs.readFile(workerLogPath(root), "utf-8");
-  expect(text).toContain("job_completed");
-  expect(text).not.toContain("job_progress");
-});
-
 it("strips a URL's query before it reaches disk", async () => {
   const log = new WorkerLog(root);
   log.write("error", { error: "fetch https://cdn.example/out.png?token=secret failed" });

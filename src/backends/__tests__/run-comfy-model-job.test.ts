@@ -59,23 +59,19 @@ describe("runComfyModelDownloadJob", () => {
     installModelMock.mockResolvedValue({ kind: "installed" });
     const { id } = await jobManager.ensureComfyModelDownloadJob(MODEL);
 
-    const started: string[] = [];
-    const result = await runComfyModelDownloadJob(jobManager, roots, id, {
-      onStarted: ({ label }) => started.push(label),
-    });
+    await runComfyModelDownloadJob(jobManager, roots, id);
 
-    expect(result.status).toBe("completed");
-    expect(started).toEqual([MODEL.filename]);
     expect((await jobManager.getJob(id)).status).toBe("completed");
+    await jobManager.flushLogs();
+    expect(await jobManager.readLog(id)).toContain(`Model download completed: ${MODEL.filename}`);
   });
 
   it("marks the job failed when the install throws", async () => {
     installModelMock.mockRejectedValue(new Error("network down"));
     const { id } = await jobManager.ensureComfyModelDownloadJob(MODEL);
 
-    const result = await runComfyModelDownloadJob(jobManager, roots, id);
+    await runComfyModelDownloadJob(jobManager, roots, id);
 
-    expect(result.status).toBe("failed");
     const job = await jobManager.getJob(id);
     expect(job.status).toBe("failed");
     expect(job.error).toContain("network down");
@@ -85,9 +81,8 @@ describe("runComfyModelDownloadJob", () => {
     installModelMock.mockResolvedValue({ kind: "timedOut" });
     const { id } = await jobManager.ensureComfyModelDownloadJob(MODEL);
 
-    const result = await runComfyModelDownloadJob(jobManager, roots, id);
+    await runComfyModelDownloadJob(jobManager, roots, id);
 
-    expect(result.status).toBe("running");
     const job = await jobManager.getJob(id);
     expect(job.status).toBe("running");
     expect(job.error).toBeNull();
@@ -97,9 +92,8 @@ describe("runComfyModelDownloadJob", () => {
     installModelMock.mockRejectedValue(new TransientHttpError("HTTP 503", { status: 503 }));
     const { id } = await jobManager.ensureComfyModelDownloadJob(MODEL);
 
-    const result = await runComfyModelDownloadJob(jobManager, roots, id);
+    await runComfyModelDownloadJob(jobManager, roots, id);
 
-    expect(result.status).toBe("running");
     const job = await jobManager.getJob(id);
     expect(job.status).toBe("running");
     expect(job.error).toBeNull();
@@ -120,10 +114,34 @@ describe("runComfyModelDownloadJob", () => {
       },
     );
 
-    const result = await runComfyModelDownloadJob(jobManager, roots, id);
+    await runComfyModelDownloadJob(jobManager, roots, id);
 
-    expect(result.status).toBe("cancelled");
     expect((await jobManager.getJob(id)).status).toBe("cancelled");
+  });
+
+  it.each([
+    ["completes", async () => ({ kind: "installed" })],
+    [
+      "fails",
+      async () => {
+        throw new Error("network down");
+      },
+    ],
+  ])("writes nothing once a reclaimer holds the lease, when the install %s", async (_, end) => {
+    const { id } = await jobManager.ensureComfyModelDownloadJob(MODEL);
+    const reclaimer = { owner: "w-reclaimer", expiresAt: "2999-01-01T00:00:00.000Z" };
+    installModelMock.mockImplementation(async () => {
+      await jobManager.updateJob(id, { lease: reclaimer });
+      return end();
+    });
+
+    await runComfyModelDownloadJob(jobManager, roots, id);
+
+    const job = await jobManager.getJob(id);
+    expect(job.status).toBe("running");
+    expect(job.lease).toEqual(reclaimer);
+    await jobManager.flushLogs();
+    expect(await jobManager.readLog(id)).not.toMatch(/Model download (completed|failed)/);
   });
 
   it("lets only one of two concurrent runners perform the install", async () => {

@@ -6,13 +6,13 @@ import * as path from "node:path";
 import { ComfyUIBackend } from "../comfyui/backend.js";
 import { resolveComfyUIConfig } from "../comfyui/config.js";
 import type { ComfyUIHttpClient } from "../comfyui/http-client.js";
-import { KonteError, errorMessage } from "../core/errors.js";
+import { KonteError } from "../core/errors.js";
 import { withFileLock } from "../core/file-lock.js";
 import { JobIndex, prerequisiteVerdict } from "../core/job-index.js";
 import { isJobTerminal, JobManager } from "../core/job-manager.js";
 import type { JobRecord } from "../core/types/index.js";
 import { listVideos, type VideoRoots, VIDEOS_DIR } from "../core/roots.js";
-import { runLeasedJob } from "./run-leased-job.js";
+import { type LeasedJobResult, runLeasedJob } from "./run-leased-job.js";
 
 // Acquiring the server-wide reboot lock may have to wait out another run's whole
 // reboot-and-verify cycle (waitUntilReachable can take minutes), so allow well over that.
@@ -40,19 +40,6 @@ async function resolveRebootLockDir(): Promise<string> {
     return own;
   }
 }
-
-type ComfyNodeActivateJobHooks = {
-  onStarted?: (info: { id: string }) => void;
-  // The activation was held back because the ComfyUI server is not idle. Fired on every pass a
-  // caller polls, so a caller that surfaces it should de-duplicate.
-  onDeferred?: (info: { id: string; reason: string }) => void;
-  onLog?: (line: string) => void;
-};
-
-type RunComfyNodeActivateJobResult = {
-  id: string;
-  status: JobRecord["status"];
-};
 
 /**
  * A konte job whose work is ABOUT to reach the server but is not in its queue yet: claimed for
@@ -158,34 +145,28 @@ export async function runComfyNodeActivateJob(
   jobManager: JobManager,
   roots: VideoRoots,
   id: string,
-  hooks: ComfyNodeActivateJobHooks = {},
-): Promise<RunComfyNodeActivateJobResult> {
+): Promise<LeasedJobResult> {
   const job = await jobManager.getJob(id);
   if (job.kind !== "comfy-node-activate") {
     throw new KonteError("VALIDATION_FAILED", `Job "${id}" is not a comfy node activate job`);
   }
-  if (isJobTerminal(job.status)) {
-    return { id, status: job.status };
-  }
-
-  const currentStatus = async (fallback: JobRecord["status"]): Promise<JobRecord["status"]> =>
-    (await jobManager.getJob(id).catch(() => null))?.status ?? fallback;
+  if (isJobTerminal(job.status)) return {};
 
   // Compare-and-set so a concurrent `job cancel` (or another worker) that already moved this job
   // to a terminal state isn't clobbered back to "failed" — honor its terminal state instead.
-  const failActivation = async (reason: string): Promise<RunComfyNodeActivateJobResult> => {
-    const committed = await jobManager.updateIfNotTerminal(id, {
+  const failActivation = async (reason: string): Promise<LeasedJobResult> => {
+    await jobManager.updateIfNotTerminal(id, {
       status: "failed",
       error: reason,
       completedAt: new Date().toISOString(),
     });
-    return { id, status: committed ? "failed" : await currentStatus("failed") };
+    return {};
   };
 
   // Gate on the install jobs this activation depends on.
   const allJobs = new JobIndex(await jobManager.listJobs());
   const prerequisites = prerequisiteVerdict(job.dependsOnJobs, (id) => allJobs.get(id));
-  if (prerequisites.verdict === "wait") return { id, status: "pending" };
+  if (prerequisites.verdict === "wait") return {};
   if (prerequisites.verdict === "doomed") {
     const { depId, dep } = prerequisites;
     if (!dep) return failActivation(`Prerequisite node install ${depId} is gone (it was cleaned).`);
@@ -196,89 +177,57 @@ export async function runComfyNodeActivateJob(
   // Gate on the ComfyUI server being idle: the reboot below kills whatever it is running. The
   // cheap half runs here, before the claim, so a pass that is not this worker's turn costs neither
   // a state change nor a network round trip; the authoritative half runs under the reboot lock.
-  const busy = await findPendingComfySubmits(roots.workspace);
-  if (busy.length > 0) {
-    const reason = describeBusy(busy);
-    hooks.onDeferred?.({ id, reason });
-    return { id, status: "pending" };
-  }
+  if ((await findPendingComfySubmits(roots.workspace)).length > 0) return {};
 
-  return runLeasedJob<RunComfyNodeActivateJobResult>(jobManager, id, {
-    onClaimFailed: async () => ({ id, status: await currentStatus("running") }),
-    work: async ({ workerId }) => {
-      try {
-        hooks.onStarted?.({ id });
-        jobManager.appendLog(id, `Node activation started (${job.cnrIds.length} pack(s))`);
+  return runLeasedJob(jobManager, id, {
+    failureLabel: "Node activation",
+    work: async ({ workerId, complete }) => {
+      jobManager.appendLog(id, `Node activation started (${job.cnrIds.length} pack(s))`);
 
-        const config = await resolveComfyUIConfig(roots.workspace);
-        const backend = new ComfyUIBackend(config, roots);
+      const config = await resolveComfyUIConfig(roots.workspace);
+      const backend = new ComfyUIBackend(config, roots);
 
-        // One reboot at a time across the whole machine for this ComfyUI server. The lock is
-        // keyed by baseUrl and lives in a machine-global dir (NOT the video's .konte) so two
-        // DIFFERENT projects targeting the same server also serialize their reboots; each
-        // re-checks what is still unloaded and only reboots if needed. (Processes with a
-        // different TMPDIR don't share the dir, so they don't serialize against each other — a
-        // limit of keying the lock to tmp.)
-        const lockDir = await resolveRebootLockDir();
-        const lockPath = path.join(
-          lockDir,
-          `comfy-reboot-${sha256Hex(config.baseUrl).slice(0, 12)}.lock`,
-        );
-        // Mutated inside the lock rather than returned from it, so the deferral is handled after
-        // the lock is released — the retry belongs to a later pass, not to this critical section.
-        const deferral: { reason: string | null } = { reason: null };
-        await withFileLock(
-          lockPath,
-          async () => {
-            // Acquiring the lock can wait out another run's whole reboot-and-verify cycle
-            // (minutes), and the pre-claim gate above is that stale by now. A prompt submitted in
-            // that window is exactly what this gate exists to protect.
-            const stillBusy = await findComfyServerWork(roots.workspace, backend.httpClient);
-            if (stillBusy.length > 0) {
-              deferral.reason = describeBusy(stillBusy);
-              return;
-            }
-            await backend.activateNodes(job.cnrIds, {
-              onLog: (line) => {
-                jobManager.appendLog(id, line);
-                hooks.onLog?.(line);
-              },
-            });
-          },
-          { timeoutMs: REBOOT_LOCK_TIMEOUT_MS, staleMs: REBOOT_LOCK_STALE_MS },
-        );
-
-        if (deferral.reason !== null) {
-          if (!(await jobManager.releaseIfOwner(id, workerId, "deferred"))) {
-            return { id, status: await currentStatus("running") };
+      // One reboot at a time across the whole machine for this ComfyUI server. The lock is
+      // keyed by baseUrl and lives in a machine-global dir (NOT the video's .konte) so two
+      // DIFFERENT projects targeting the same server also serialize their reboots; each
+      // re-checks what is still unloaded and only reboots if needed. (Processes with a
+      // different TMPDIR don't share the dir, so they don't serialize against each other — a
+      // limit of keying the lock to tmp.)
+      const lockDir = await resolveRebootLockDir();
+      const lockPath = path.join(
+        lockDir,
+        `comfy-reboot-${sha256Hex(config.baseUrl).slice(0, 12)}.lock`,
+      );
+      // Mutated inside the lock rather than returned from it, so the deferral is handled after
+      // the lock is released — the retry belongs to a later pass, not to this critical section.
+      const deferral: { reason: string | null } = { reason: null };
+      await withFileLock(
+        lockPath,
+        async () => {
+          // Acquiring the lock can wait out another run's whole reboot-and-verify cycle
+          // (minutes), and the pre-claim gate above is that stale by now. A prompt submitted in
+          // that window is exactly what this gate exists to protect.
+          const stillBusy = await findComfyServerWork(roots.workspace, backend.httpClient);
+          if (stillBusy.length > 0) {
+            deferral.reason = describeBusy(stillBusy);
+            return;
           }
-          jobManager.appendLog(id, `Node activation deferred: ${deferral.reason}`);
-          hooks.onDeferred?.({ id, reason: deferral.reason });
-          return { id, status: "pending" };
-        }
+          await backend.activateNodes(job.cnrIds, {
+            onLog: (line) => jobManager.appendLog(id, line),
+          });
+        },
+        { timeoutMs: REBOOT_LOCK_TIMEOUT_MS, staleMs: REBOOT_LOCK_STALE_MS },
+      );
 
-        const committed = await jobManager.finishIfOwner(id, workerId, {
-          status: "completed",
-          progress: 100,
-          completedAt: new Date().toISOString(),
-        });
-        if (!committed) {
-          jobManager.appendLog(id, `Node activation superseded; not committing its result.`);
-          return { id, status: await currentStatus("running") };
+      if (deferral.reason !== null) {
+        if (await jobManager.releaseIfOwner(id, workerId, "deferred")) {
+          jobManager.appendLog(id, `Node activation deferred: ${deferral.reason}`);
         }
-        jobManager.appendLog(id, `Node activation completed`);
-        return { id, status: "completed" };
-      } catch (err) {
-        const msg = errorMessage(err);
-        const committed = await jobManager.finishIfOwner(id, workerId, {
-          status: "failed",
-          error: msg,
-          completedAt: new Date().toISOString(),
-        });
-        if (!committed) return { id, status: await currentStatus("running") };
-        jobManager.appendLog(id, `Node activation failed: ${msg}`);
-        return { id, status: "failed" };
+        return {};
       }
+
+      await complete("Node activation completed");
+      return {};
     },
   });
 }

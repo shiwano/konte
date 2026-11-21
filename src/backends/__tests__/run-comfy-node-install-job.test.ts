@@ -49,23 +49,19 @@ describe("runComfyNodeInstallJob", () => {
     installNodeMock.mockResolvedValue({ kind: "installed" });
     const { id } = await jobManager.ensureComfyNodeInstallJob(NODE);
 
-    const started: string[] = [];
-    const result = await runComfyNodeInstallJob(jobManager, roots, id, {
-      onStarted: ({ label }) => started.push(label),
-    });
+    await runComfyNodeInstallJob(jobManager, roots, id);
 
-    expect(result.status).toBe("completed");
-    expect(started).toEqual([NODE.id]);
     expect((await jobManager.getJob(id)).status).toBe("completed");
+    await jobManager.flushLogs();
+    expect(await jobManager.readLog(id)).toContain(`Node install completed: ${NODE.id}`);
   });
 
   it("marks the job failed when the install throws", async () => {
     installNodeMock.mockRejectedValue(new Error("registry down"));
     const { id } = await jobManager.ensureComfyNodeInstallJob(NODE);
 
-    const result = await runComfyNodeInstallJob(jobManager, roots, id);
+    await runComfyNodeInstallJob(jobManager, roots, id);
 
-    expect(result.status).toBe("failed");
     const job = await jobManager.getJob(id);
     expect(job.status).toBe("failed");
     expect(job.error).toContain("registry down");
@@ -75,9 +71,8 @@ describe("runComfyNodeInstallJob", () => {
     installNodeMock.mockResolvedValue({ kind: "timedOut" });
     const { id } = await jobManager.ensureComfyNodeInstallJob(NODE);
 
-    const result = await runComfyNodeInstallJob(jobManager, roots, id);
+    await runComfyNodeInstallJob(jobManager, roots, id);
 
-    expect(result.status).toBe("running");
     const job = await jobManager.getJob(id);
     expect(job.status).toBe("running");
     expect(job.error).toBeNull();
@@ -87,9 +82,8 @@ describe("runComfyNodeInstallJob", () => {
     installNodeMock.mockRejectedValue(new TransientHttpError("HTTP 503", { status: 503 }));
     const { id } = await jobManager.ensureComfyNodeInstallJob(NODE);
 
-    const result = await runComfyNodeInstallJob(jobManager, roots, id);
+    await runComfyNodeInstallJob(jobManager, roots, id);
 
-    expect(result.status).toBe("running");
     const job = await jobManager.getJob(id);
     expect(job.status).toBe("running");
     expect(job.error).toBeNull();
@@ -108,9 +102,8 @@ describe("runComfyNodeInstallJob", () => {
       },
     );
 
-    const result = await runComfyNodeInstallJob(jobManager, roots, id);
+    await runComfyNodeInstallJob(jobManager, roots, id);
 
-    expect(result.status).toBe("cancelled");
     expect((await jobManager.getJob(id)).status).toBe("cancelled");
   });
 

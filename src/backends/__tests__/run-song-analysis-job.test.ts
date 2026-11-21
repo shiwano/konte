@@ -101,9 +101,7 @@ async function runPendingSongAnalyses(jobManager: JobManager, videoRoot: string)
   const jobs = (await jobManager.listJobs()).filter(
     (j) => j.kind === "song-analysis" && (j.status === "pending" || j.status === "running"),
   );
-  const results = [];
-  for (const j of jobs) results.push(await runSongAnalysisJob(jobManager, videoRoot, j.id));
-  return results;
+  for (const j of jobs) await runSongAnalysisJob(jobManager, videoRoot, j.id);
 }
 
 describe("song analysis", () => {
@@ -114,8 +112,8 @@ describe("song analysis", () => {
     expect(
       await queueSongAnalyses({ videoRoot, direction, state: await state(), jobManager }),
     ).toEqual(["song-v-take1"]);
-    const results = await runPendingSongAnalyses(jobManager, videoRoot);
-    expect(results.map((r) => r.status)).toEqual(["completed"]);
+    await runPendingSongAnalyses(jobManager, videoRoot);
+    expect((await jobManager.getJob("song-v-take1")).status).toBe("completed");
 
     const variant = resolveSongVariant(videoRoot, await state(), "reference:song");
     expect(variant?.variantId).toBe("v-take1");
@@ -153,12 +151,13 @@ describe("song analysis", () => {
       state: await state(),
       jobManager,
     });
-    const result = await runSongAnalysisJob(jobManager, videoRoot, id!, {
-      onStarted: () => {
-        void jobManager.updateIfNotTerminal(id!, { status: "cancelled" });
-      },
-    });
-    expect(result.status).toBe("cancelled");
+    const claim = jobManager.claimJobForRun.bind(jobManager);
+    jobManager.claimJobForRun = async (...args) => {
+      const claimed = await claim(...args);
+      await jobManager.updateIfNotTerminal(id!, { status: "cancelled" });
+      return claimed;
+    };
+    await runSongAnalysisJob(jobManager, videoRoot, id!);
     expect((await jobManager.getJob(id!)).status).toBe("cancelled");
     expect((await state()).assets["reference:song"]?.variants?.["v-take1"]?.song).toBeUndefined();
   });
@@ -260,9 +259,8 @@ describe("song analysis", () => {
       lang: relanged.policy.lang,
       again: true,
     });
-    expect(await runSongAnalysisJob(jobManager, videoRoot, job.id)).toMatchObject({
-      status: "completed",
-    });
+    await runSongAnalysisJob(jobManager, videoRoot, job.id);
+    expect((await jobManager.getJob(job.id)).status).toBe("completed");
     expect(await song()).toMatchObject({ firstBeatSet, lines });
     expect((await song())!.reading).toBe(before);
   });
@@ -277,8 +275,7 @@ describe("song analysis", () => {
       jobManager,
     });
     expect(await jobManager.claimJobForRun(id!, "w-dead", -1)).toBeTruthy();
-    const result = await runSongAnalysisJob(jobManager, videoRoot, id!);
+    await runSongAnalysisJob(jobManager, videoRoot, id!);
     expect(await jobManager.getJob(id!)).toMatchObject({ status: "completed", error: null });
-    expect(result).toMatchObject({ status: "completed" });
   });
 });
