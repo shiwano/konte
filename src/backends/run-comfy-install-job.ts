@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { type ComfyInstallOutcome, ComfyUIBackend } from "../comfyui/backend.js";
 import { resolveComfyUIConfig } from "../comfyui/config.js";
+import { type ComfyInstallOutcome, ComfyProvisioner } from "../comfyui/provisioner.js";
 import type { ModelDownloadProgress } from "../comfyui/model-downloader.js";
 import { KonteError } from "../core/errors.js";
 import { isJobTerminal, type JobManager } from "../core/job-manager.js";
@@ -26,7 +26,7 @@ type ComfyInstallSpec<J extends JobRecord> = {
   runNoun: string;
   getLabel: (job: J) => string;
   install: (
-    backend: ComfyUIBackend,
+    provisioner: ComfyProvisioner,
     job: J,
     opts: ComfyInstallOpts,
   ) => Promise<ComfyInstallOutcome>;
@@ -69,7 +69,7 @@ async function runComfyInstallJob<J extends JobRecord>(
         // Persist a ComfyUI client_id on the job (set-once, like a generation job's
         // comfyClientId) and reuse it across reclaims. The Manager's install queue is client_id
         // scoped, so a reclaimer that shares this id can observe the original owner's in-flight
-        // download (see ComfyUIBackend.installModel) instead of blindly re-queueing it.
+        // download (see ComfyProvisioner.installModel) instead of blindly re-queueing it.
         const persisted =
           typeof typedJob.metadata.comfyClientId === "string"
             ? typedJob.metadata.comfyClientId
@@ -80,9 +80,9 @@ async function runComfyInstallJob<J extends JobRecord>(
             metadata: { ...typedJob.metadata, comfyClientId: clientId },
           });
         }
-        const backend = new ComfyUIBackend({ ...config, clientId }, roots);
+        const provisioner = new ComfyProvisioner({ ...config, clientId });
 
-        const outcome = await spec.install(backend, typedJob, {
+        const outcome = await spec.install(provisioner, typedJob, {
           onLog: (line) => jobManager.appendLog(id, line),
           onBytes: (p) => {
             if (p.total !== null) progress.write(p.received, p.total);
@@ -136,8 +136,8 @@ export function runComfyModelDownloadJob(
     logNoun: "Model download",
     runNoun: "download",
     getLabel: (job) => job.model.filename,
-    install: (backend, job, opts) =>
-      backend.installModel(job.model, resolveUrlTokens(job.model.url), opts),
+    install: (provisioner, job, opts) =>
+      provisioner.installModel(job.model, resolveUrlTokens(job.model.url), opts),
   });
 }
 
@@ -153,6 +153,6 @@ export function runComfyNodeInstallJob(
     logNoun: "Node install",
     runNoun: "install",
     getLabel: (job) => job.node.id,
-    install: (backend, job, opts) => backend.installNode(job.node, opts),
+    install: (provisioner, job, opts) => provisioner.installNode(job.node, opts),
   });
 }

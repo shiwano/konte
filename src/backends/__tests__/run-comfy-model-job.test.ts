@@ -8,7 +8,7 @@ import type { VideoRoots } from "../../core/roots.js";
 
 const { installModelMock, backendClientIds } = vi.hoisted(() => ({
   installModelMock: vi.fn(),
-  // client_id passed to each ComfyUIBackend construction, in order — lets tests assert the job's
+  // client_id passed to each ComfyProvisioner construction, in order — lets tests assert the job's
   // persisted comfyClientId is set once and reused across a reclaim.
   backendClientIds: [] as (string | undefined)[],
 }));
@@ -21,8 +21,8 @@ vi.mock("../../comfyui/config.js", () => ({
     autoRebootAfterNodeInstall: true,
   }),
 }));
-vi.mock("../../comfyui/backend.js", () => ({
-  ComfyUIBackend: class {
+vi.mock("../../comfyui/provisioner.js", () => ({
+  ComfyProvisioner: class {
     installModel = installModelMock;
     constructor(config: { clientId?: string }) {
       backendClientIds.push(config?.clientId);

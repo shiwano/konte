@@ -18,8 +18,8 @@ vi.mock("../../comfyui/config.js", () => ({
     autoRebootAfterNodeInstall: true,
   }),
 }));
-vi.mock("../../comfyui/backend.js", () => ({
-  ComfyUIBackend: class {
+vi.mock("../../comfyui/provisioner.js", () => ({
+  ComfyProvisioner: class {
     installNode = installNodeMock;
   },
 }));

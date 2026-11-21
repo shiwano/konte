@@ -3,8 +3,8 @@ import {
   type SpendItem,
   type SpendRoutes,
 } from "../backends/backend-policy.js";
-import { ComfyUIBackend } from "../comfyui/backend.js";
 import { resolveComfyUIConfig } from "../comfyui/config.js";
+import { ComfyProvisioner } from "../comfyui/provisioner.js";
 import { resolveUrlTokens } from "../comfyui/token-resolver.js";
 import { comfyModelJobId, type JobManager } from "../core/job-manager.js";
 import { formatNotice } from "../core/notice.js";
@@ -56,8 +56,8 @@ async function resolveMissingComfyModels(
 ): Promise<MissingComfyAssets> {
   if (!autoInstallModels || models.length === 0) return { ids: new Set(), confirmed: true };
   const config = await resolveComfyUIConfig(roots.workspace);
-  const backend = new ComfyUIBackend(config, roots);
-  const { missing, confirmed } = await backend.managerClient.filterMissingModels(models);
+  const { managerClient } = new ComfyProvisioner(config);
+  const { missing, confirmed } = await managerClient.filterMissingModels(models);
   return { ids: new Set(missing.map(comfyModelJobId)), confirmed };
 }
 
@@ -73,14 +73,14 @@ async function resolveMissingComfyNodes(
     return { ids: new Set(), confirmed: true, unloaded: new Set() };
   }
   const config = await resolveComfyUIConfig(roots.workspace);
-  const backend = new ComfyUIBackend(config, roots);
-  const { missing, confirmed } = await backend.managerClient.filterMissingNodes(cnrIds);
+  const { managerClient } = new ComfyProvisioner(config);
+  const { missing, confirmed } = await managerClient.filterMissingNodes(cnrIds);
   const ids = new Set(missing);
   // Only the ones already on disk can be merely unloaded; the rest are covered by their install.
   // An unobservable answer yields nothing — a reboot is too destructive to schedule on a guess,
   // and `activateNodes` re-checks before it reboots anyway.
   const installed = cnrIds.filter((id) => !ids.has(id));
-  const loaded = await backend.managerClient.filterUnloadedNodes(installed);
+  const loaded = await managerClient.filterUnloadedNodes(installed);
   return { ids, confirmed, unloaded: new Set(loaded.kind === "known" ? loaded.unloaded : []) };
 }
 

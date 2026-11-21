@@ -3,8 +3,8 @@ import { constants as fsConstants } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { ComfyUIBackend } from "../comfyui/backend.js";
 import { resolveComfyUIConfig } from "../comfyui/config.js";
+import { ComfyProvisioner } from "../comfyui/provisioner.js";
 import type { ComfyUIHttpClient } from "../comfyui/http-client.js";
 import { KonteError } from "../core/errors.js";
 import { withFileLock } from "../core/file-lock.js";
@@ -185,7 +185,7 @@ export async function runComfyNodeActivateJob(
       jobManager.appendLog(id, `Node activation started (${job.cnrIds.length} pack(s))`);
 
       const config = await resolveComfyUIConfig(roots.workspace);
-      const backend = new ComfyUIBackend(config, roots);
+      const provisioner = new ComfyProvisioner(config);
 
       // One reboot at a time across the whole machine for this ComfyUI server. The lock is
       // keyed by baseUrl and lives in a machine-global dir (NOT the video's .konte) so two
@@ -207,12 +207,12 @@ export async function runComfyNodeActivateJob(
           // Acquiring the lock can wait out another run's whole reboot-and-verify cycle
           // (minutes), and the pre-claim gate above is that stale by now. A prompt submitted in
           // that window is exactly what this gate exists to protect.
-          const stillBusy = await findComfyServerWork(roots.workspace, backend.httpClient);
+          const stillBusy = await findComfyServerWork(roots.workspace, provisioner.httpClient);
           if (stillBusy.length > 0) {
             deferral.reason = describeBusy(stillBusy);
             return;
           }
-          await backend.activateNodes(job.cnrIds, {
+          await provisioner.activateNodes(job.cnrIds, {
             onLog: (line) => jobManager.appendLog(id, line),
           });
         },

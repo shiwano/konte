@@ -21,8 +21,8 @@ vi.mock("../../comfyui/config.js", () => ({
     autoRebootAfterNodeInstall: true,
   }),
 }));
-vi.mock("../../comfyui/backend.js", () => ({
-  ComfyUIBackend: class {
+vi.mock("../../comfyui/provisioner.js", () => ({
+  ComfyProvisioner: class {
     activateNodes = activateNodesMock;
     httpClient = { getQueue: getQueueMock };
   },
@@ -220,7 +220,7 @@ describe("runComfyNodeActivateJob", () => {
   // A server answering nothing holds nothing a reboot could destroy, so the gate must not treat an
   // unreadable queue as "busy" — that would never resolve, and a `job run` with no ComfyUI
   // running would spin forever. Refusing to reboot an uninspectable server belongs to
-  // activateNodes, which fails with a reason (see the ComfyUIBackend.activateNodes tests).
+  // activateNodes, which fails with a reason (see the ComfyProvisioner.activateNodes tests).
   it("does not spin on a server whose queue it cannot read", async () => {
     activateNodesMock.mockResolvedValue({ rebooted: true });
     getQueueMock.mockRejectedValue(new Error("connection refused"));

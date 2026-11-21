@@ -2,6 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ComfyUIBackend } from "../../comfyui/backend.js";
+import { ComfyProvisioner } from "../../comfyui/provisioner.js";
 import { JobManager } from "../../core/job-manager.js";
 import type { JobRecord } from "../../core/types/index.js";
 import { StateManager } from "../../core/state/manager.js";
@@ -70,7 +71,7 @@ describe("job run command", () => {
     // is. Stub it, because the honest failure needs a ComfyUI to reach: an unreachable one is
     // deliberately transient (the job stays re-observable, see ComfyUIManagerClient.isAvailable),
     // so a run driving a real download would never settle here.
-    vi.spyOn(ComfyUIBackend.prototype, "installModel").mockRejectedValue(
+    vi.spyOn(ComfyProvisioner.prototype, "installModel").mockRejectedValue(
       new Error("HTTP 404 Not Found"),
     );
 
