@@ -12,7 +12,7 @@ import { carriedSpelling } from "./spoken-text.js";
 import { lineText } from "./types/script.js";
 import { spokenLinesAt } from "./prompt-check.js";
 import { runFfmpeg } from "./ffmpeg-exec.js";
-import { type HeardTokens, recognizeSpeech } from "./sherpa-binary.js";
+import { type HeardTokens, recognizeSpeech } from "./sherpa.js";
 import { type HeardSpeech, HeardSpeechSchema } from "./types/index.js";
 import { variantDir } from "./variant-dir.js";
 

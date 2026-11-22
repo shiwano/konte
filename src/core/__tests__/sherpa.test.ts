@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { recognizesSpeechIn } from "../sherpa-binary.js";
+import { recognizesSpeechIn } from "../sherpa.js";
 
 describe("recognizesSpeechIn", () => {
   it("recognizes SenseVoice's languages and Parakeet's", () => {

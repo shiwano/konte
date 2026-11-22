@@ -2,7 +2,7 @@ import { ensureChromium } from "../../../core/chromium.js";
 import { ensureFfmpeg, ensureFfprobe } from "../../../core/ffmpeg.js";
 import { ensureHyperFramesEnv } from "../../../core/hyperframes-env.js";
 import { ensureSherpa } from "../../../core/sherpa-binary.js";
-import { ensureTsc } from "../../../core/tsc.js";
+import { ensureTsc } from "../../../core/tsc-binary.js";
 import { errorMessage } from "../../../core/errors.js";
 
 /**

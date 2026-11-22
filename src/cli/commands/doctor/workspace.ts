@@ -3,7 +3,7 @@ import * as path from "node:path";
 import pkg from "../../../../package.json" with { type: "json" };
 import { errorMessage } from "../../../core/errors.js";
 import type { VideoSelection } from "../../../core/roots.js";
-import { type TypeDiagnostic, typeCheckWorkspace } from "../../../core/tsc.js";
+import { type TypeDiagnostic, typeCheckWorkspace } from "../../../core/type-check.js";
 import { checkForUpdate } from "../../../core/update-check.js";
 import type { CheckResult, DoctorVideo } from "./types.js";
 

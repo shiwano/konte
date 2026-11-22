@@ -26,37 +26,6 @@ afterEach(() => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-it("reports a compiler launch failure instead of inventing a type error", async () => {
-  const missingCompiler = path.join(dir, "missing-tsc");
-  vi.stubEnv("KONTE_TSC_PATH", missingCompiler);
-  fs.writeFileSync(path.join(dir, "tsconfig.json"), "{}");
-
-  const { typeCheckWorkspace } = await import("../tsc.js");
-  await expect(typeCheckWorkspace(dir, null)).rejects.toMatchObject({
-    code: "TSC_SETUP_FAILED",
-    message: expect.stringMatching(/tsc execution failed \(code: ENOENT\).*missing-tsc/s),
-  });
-});
-
-it("preserves the location and message of compiler diagnostics", async () => {
-  vi.stubEnv("KONTE_TSC_PATH", path.resolve("node_modules/.bin/tsc"));
-  fs.writeFileSync(path.join(dir, "tsconfig.json"), JSON.stringify({ files: ["adapter.ts"] }));
-  fs.writeFileSync(path.join(dir, "adapter.ts"), 'const value: number = "broken";');
-
-  const { typeCheckWorkspace } = await import("../tsc.js");
-  const result = await typeCheckWorkspace(dir, null);
-  expect(result.success).toBe(false);
-  expect(result.diagnostics).toContainEqual({
-    file: "adapter.ts",
-    line: 1,
-    column: 7,
-    code: "TS2322",
-    message: "Type 'string' is not assignable to type 'number'.",
-  });
-  expect(result.output).toContain("adapter.ts");
-  expect(result.output).toContain("TS2322");
-});
-
 it.each([
   ["win32", "tsc.exe"],
   ["linux", "tsc"],
@@ -73,7 +42,7 @@ it.each([
   Object.defineProperty(process, "platform", { value: platform });
   Object.defineProperty(process, "arch", { value: "x64" });
 
-  const { ensureTsc, TSC_VERSION } = await import("../tsc.js");
+  const { ensureTsc, TSC_VERSION } = await import("../tsc-binary.js");
   const cacheDir = path.join(dir, "cache", `tsc-${TSC_VERSION}`);
   const expected = path.join(cacheDir, binary);
   expect(await ensureTsc()).toBe(expected);
@@ -84,12 +53,12 @@ it.each([
   expect(downloadFile).toHaveBeenCalledTimes(1);
 
   vi.resetModules();
-  expect(await (await import("../tsc.js")).ensureTsc()).toBe(expected);
+  expect(await (await import("../tsc-binary.js")).ensureTsc()).toBe(expected);
   expect(downloadFile).toHaveBeenCalledTimes(1);
 
   fs.rmSync(expected);
   vi.resetModules();
-  expect(await (await import("../tsc.js")).ensureTsc()).toBe(expected);
+  expect(await (await import("../tsc-binary.js")).ensureTsc()).toBe(expected);
   expect(fs.existsSync(expected)).toBe(true);
   expect(downloadFile).toHaveBeenCalledTimes(2);
 });

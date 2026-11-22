@@ -10,7 +10,7 @@ import { openProbeTargets } from "./resolve-arg.js";
 import { capInline } from "../../format-list.js";
 import { loadDirectionIfPresent } from "../../../core/stage-definitions.js";
 import { songAnalysisOf } from "../../../core/song-reading.js";
-import { recognizesSpeechIn } from "../../../core/sherpa-binary.js";
+import { recognizesSpeechIn } from "../../../core/sherpa.js";
 import {
   heardText,
   linesSaidAt,

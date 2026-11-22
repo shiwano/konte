@@ -14,7 +14,7 @@ import {
 import { KonteError, errorMessage } from "./errors.js";
 import { x264Args } from "./ffmpeg.js";
 import { runFfmpeg } from "./ffmpeg-exec.js";
-import { separateSong } from "./sherpa-binary.js";
+import { separateSong } from "./sherpa.js";
 import { type SongTempo, songTempo } from "./song-grid.js";
 import { hearWindows, joinHeardWindows } from "./speech-hearing.js";
 import { detectSceneChanges, extractFrameAt, lastSeekableTime } from "./frame-extract.js";

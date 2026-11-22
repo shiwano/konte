@@ -30,8 +30,8 @@ import { execFileAsync } from "../../core/exec-file.js";
 import { ASSET_SITES } from "../../core/dsl/adapter.js";
 
 const recognizeSpeech = vi.hoisted(() => vi.fn());
-vi.mock("../../core/sherpa-binary.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../core/sherpa-binary.js")>()),
+vi.mock("../../core/sherpa.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../core/sherpa.js")>()),
   recognizeSpeech,
 }));
 

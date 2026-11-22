@@ -5,7 +5,7 @@ import { KonteError } from "../../../core/errors.js";
 import { formatSecondsRange } from "../../../core/format-duration.js";
 import { stageLineTimings } from "../../../core/line-timing.js";
 import { buildRenderPlan } from "../../../core/render-plan.js";
-import { recognizesSpeechIn } from "../../../core/sherpa-binary.js";
+import { recognizesSpeechIn } from "../../../core/sherpa.js";
 import { loadAnimatic } from "../../../core/loader.js";
 import { loadVideoAndAnimatic } from "../../../core/stage-definitions.js";
 import { StateManager } from "../../../core/state/index.js";

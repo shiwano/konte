@@ -14,7 +14,7 @@ import {
   SPLEETER_URL,
   sherpaDownloadUrl,
 } from "../sherpa-binary.js";
-import { tscDownloadUrl } from "../tsc.js";
+import { tscDownloadUrl } from "../tsc-binary.js";
 
 // `toolDownloadUrls()` hand-lists the platform/arch each tool builds for, so an omission there
 // would silently narrow what the coverage test below checks. Sweep the whole product instead — every

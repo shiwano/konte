@@ -7,7 +7,7 @@ import { KonteError, errorMessage } from "./errors.js";
 import { formatSeconds } from "./format-duration.js";
 import { normalizeKeyframesIfSparse } from "./keyframe-normalize.js";
 import { type PatchOutputOrigin, materializePatchOutput } from "./patch-output.js";
-import { recognizesSpeechIn } from "./sherpa-binary.js";
+import { recognizesSpeechIn } from "./sherpa.js";
 import { hearSpeech, writeHeardSpeech } from "./speech-hearing.js";
 import { StateManager } from "./state/index.js";
 import type { GenerationJob } from "./types/index.js";

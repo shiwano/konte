@@ -10,7 +10,7 @@ import {
   SPLEETER_URL,
   sherpaDownloadUrl,
 } from "../../src/core/sherpa-binary.js";
-import { tscDownloadUrl } from "../../src/core/tsc.js";
+import { tscDownloadUrl } from "../../src/core/tsc-binary.js";
 
 type Target = { platform: NodeJS.Platform; arch: string };
 

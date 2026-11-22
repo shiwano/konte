@@ -5,7 +5,7 @@ import { runFfmpeg } from "./ffmpeg-exec.js";
 import { ANALYSIS_RATE, readSongBeat, readSungPhrases } from "./song-beat.js";
 import { songParts } from "./song-parts.js";
 import { formatSongTempo, songTempo } from "./song-variant.js";
-import { recognizesSpeechIn } from "./sherpa-binary.js";
+import { recognizesSpeechIn } from "./sherpa.js";
 import { hearSpeech } from "./speech-hearing.js";
 import type { SongReading } from "./types/index.js";
 

@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { sha256Hex } from "./content-hash.js";
 import { runFfmpeg } from "./ffmpeg-exec.js";
-import { separateSong } from "./sherpa-binary.js";
+import { separateSong } from "./sherpa.js";
 import { songPartsVariantDir } from "./video-cache.js";
 
 type SongPart = "vocals" | "instrumental";

@@ -48,7 +48,7 @@ import { parseTimecode } from "../../core/timecode.js";
 import type { SourceIndex } from "../../core/types/index.js";
 import { getPathSize } from "./clean-utils.js";
 import { confirmDeletion, printAborted, NO_FLAG_DESCRIPTION } from "../confirm.js";
-import { typeCheckWorkspace } from "../../core/tsc.js";
+import { typeCheckWorkspace } from "../../core/type-check.js";
 import { requireVideoRoot, requireWorkspaceRoot } from "../context.js";
 import { loadDirectionIfPresent } from "../../core/stage-definitions.js";
 import { declareScope } from "../scope.js";

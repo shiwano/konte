@@ -4,7 +4,7 @@ import { Command } from "commander";
 import pkg from "../../package.json" with { type: "json" };
 import { KonteError } from "../core/errors.js";
 import { assertWorkspaceSynced } from "../core/template-sync.js";
-import { typeCheckWorkspace } from "../core/tsc.js";
+import { typeCheckWorkspace } from "../core/type-check.js";
 import { exitWithError } from "./error-output.js";
 import { scopeOf } from "./scope.js";
 import { applyCwdOption, enterScope } from "./startup.js";

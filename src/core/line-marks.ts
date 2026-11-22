@@ -8,7 +8,7 @@ import { definitionForAddress, type StageDefinitions } from "./definition-hashes
 import type { Direction } from "./dsl/direction.js";
 import { alignHeard, type HeardLine, markedGaps, type SaidLine } from "./line-hearing.js";
 import { definitionHashForAddress } from "./leaf-hash.js";
-import { recognizesSpeechIn } from "./sherpa-binary.js";
+import { recognizesSpeechIn } from "./sherpa.js";
 import { type HearingProfile, loadHearing } from "./hearing/index.js";
 import { linesSaidAt, readHeardSpeech } from "./speech-hearing.js";
 import type { StateManager } from "./state/index.js";
