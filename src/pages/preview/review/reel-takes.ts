@@ -7,7 +7,7 @@ export type ReelTakesState = Pick<
 
 // What the page was served: the take each gallery-backed address resolves to, and what the
 // compositions were drawn from (a board panel, a reference sheet, an overlay's own takes).
-export type ServedTakes = {
+type ServedTakes = {
   galleried: ReadonlyMap<string, string | null>;
   drawn: Readonly<Record<string, string>>;
 };

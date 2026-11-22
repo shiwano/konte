@@ -318,8 +318,12 @@ describe("buildVariantCandidates", () => {
     mgr.setAccepted(addr, v1);
     await setThumbnail(mgr, addr, v3, ".konte/cache/thumbnails/v3.jpg");
 
-    const candidates = buildVariantCandidates(mgr, addr, v1, (vid, v) =>
-      videoVariantThumbUrl(tmpDir, addr, vid, v),
+    const candidates = buildVariantCandidates(
+      mgr,
+      addr,
+      v1,
+      (vid, v) => videoVariantThumbUrl(tmpDir, addr, vid, v),
+      () => null,
     );
 
     expect(candidates.map((c) => c.variantId)).toEqual([v3, v2, v1]);
@@ -337,8 +341,12 @@ describe("buildVariantCandidates", () => {
     mgr.reserveVariantId(addr); // no file
     setFile(mgr, addr, v1, "v1.mp4");
 
-    const candidates = buildVariantCandidates(mgr, addr, null, (vid, v) =>
-      videoVariantThumbUrl(tmpDir, addr, vid, v),
+    const candidates = buildVariantCandidates(
+      mgr,
+      addr,
+      null,
+      (vid, v) => videoVariantThumbUrl(tmpDir, addr, vid, v),
+      () => null,
     );
     expect(candidates.map((c) => c.variantId)).toEqual([v1]);
   });
@@ -356,7 +364,13 @@ describe("buildVariantCandidates", () => {
       height: 1536,
     };
 
-    const candidates = buildVariantCandidates(mgr, addr, null, () => null);
+    const candidates = buildVariantCandidates(
+      mgr,
+      addr,
+      null,
+      () => null,
+      () => null,
+    );
 
     expect(candidates.find((c) => c.variantId === measured)?.size).toEqual({
       width: 1024,
@@ -381,8 +395,12 @@ describe("buildVariantCandidates", () => {
       isDeterministic: () => false,
     });
 
-    const candidates = buildVariantCandidates(mgr, addr, v1, (vid, v) =>
-      videoVariantThumbUrl(tmpDir, addr, vid, v),
+    const candidates = buildVariantCandidates(
+      mgr,
+      addr,
+      v1,
+      (vid, v) => videoVariantThumbUrl(tmpDir, addr, vid, v),
+      () => null,
     );
 
     // Fresh pending variant is recommended first; stale accepted one is pushed down.
@@ -400,8 +418,12 @@ describe("buildVariantCandidates", () => {
     mgr.setAccepted(addr, v1);
     setReady(mgr, addr, v2, "v2.mp4", "2026-06-02T00:00:02.000Z");
 
-    const candidates = buildVariantCandidates(mgr, addr, v1, (vid, v) =>
-      videoVariantThumbUrl(tmpDir, addr, vid, v),
+    const candidates = buildVariantCandidates(
+      mgr,
+      addr,
+      v1,
+      (vid, v) => videoVariantThumbUrl(tmpDir, addr, vid, v),
+      () => null,
     );
     expect(candidates.find((c) => c.variantId === v2)?.undecidedBesideAccepted).toBe(true);
     expect(candidates.find((c) => c.variantId === v1)?.undecidedBesideAccepted).toBe(false);
@@ -461,8 +483,12 @@ describe("buildVariantCandidates", () => {
     setReady(mgr, addr, v2, "v2.mp4", "2026-06-02T00:00:02.000Z");
     mgr.setAccepted(addr, v2, { dismiss: [v1] });
 
-    const candidates = buildVariantCandidates(mgr, addr, v2, (vid, v) =>
-      videoVariantThumbUrl(tmpDir, addr, vid, v),
+    const candidates = buildVariantCandidates(
+      mgr,
+      addr,
+      v2,
+      (vid, v) => videoVariantThumbUrl(tmpDir, addr, vid, v),
+      () => null,
     );
     expect(candidates.map((c) => c.variantId)).toEqual([v2, v1]);
     expect(candidates.find((c) => c.variantId === v1)?.dismissed).toBe(true);

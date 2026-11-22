@@ -5,10 +5,7 @@ import { Modal } from "./modal.js";
 
 // "Next" with the count of what still needs a verdict — the same progress signal on every review
 // page (remaining, not a fraction). Un-accepting raises it.
-export type NextToReview = { count: number; onClick: () => void } & (
-  | { noun: string }
-  | { title: string }
-);
+type NextToReview = { count: number; onClick: () => void } & ({ noun: string } | { title: string });
 
 export function NextUnreviewedButton(next: NextToReview): React.ReactElement {
   const { count, onClick } = next;

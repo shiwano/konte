@@ -484,12 +484,13 @@ describe("ComfyUIManagerClient", () => {
       expect(typeof (installReq?.body as { client_id?: unknown })?.client_id).toBe("string");
     });
 
-    it("defaults name to filename and ui_id to konte-<filename> when not provided", async () => {
+    it("defaults name to filename when not provided", async () => {
       mock = await startMockServer({});
       const client = newClient(mock.baseUrl);
       await client.queueInstall({
         model: { filename: "a.safetensors", type: "lora", url: "u" },
         resolvedUrl: "https://h.example/a.safetensors",
+        uiId: "konte-a.safetensors",
       });
       const installReq = mock.requests.find(
         (r) => r.pathname === "/api/v2/manager/queue/install_model",
@@ -508,6 +509,7 @@ describe("ComfyUIManagerClient", () => {
         client.queueInstall({
           model: { filename: "a.safetensors", type: "lora", url: "u" },
           resolvedUrl: "u",
+          uiId: "konte-a.safetensors",
         }),
       ).rejects.toMatchObject({ code: "COMFYUI_MANAGER_UNAVAILABLE" });
     });
@@ -692,7 +694,9 @@ describe("ComfyUIManagerClient", () => {
     it("throws COMFYUI_MANAGER_UNAVAILABLE on non-2xx", async () => {
       mock = await startMockServer({ nodeInstallResponse: { status: 403 } });
       const client = newClient(mock.baseUrl);
-      await expect(client.queueInstallNode({ node: { id: "pack-a" } })).rejects.toMatchObject({
+      await expect(
+        client.queueInstallNode({ node: { id: "pack-a" }, uiId: "konte-pack-a" }),
+      ).rejects.toMatchObject({
         code: "COMFYUI_MANAGER_UNAVAILABLE",
       });
     });

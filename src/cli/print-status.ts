@@ -3,7 +3,8 @@ import { formatReferenceAddress } from "../core/address.js";
 import { formatRelativeTime } from "../core/format-timestamp.js";
 import { capList, moreLine } from "./format-list.js";
 import { type SuggestedAction, formatSuggestedActions } from "../core/suggested-actions.js";
-import { formatStaleWaiverLine, type StaleWaiverLine } from "../core/checks.js";
+import { formatStaleWaiverLine } from "../core/checks.js";
+import type { StaleWaiver } from "../core/direction.js";
 import { type Finding, formatFindingBlocks, groupByFixIn } from "../core/finding.js";
 
 import type { StatusReport } from "../core/status-report.js";
@@ -73,7 +74,7 @@ export function printStatusReport(
     directionAcceptance?: DirectionAcceptanceSummary | null;
     directionEmpty?: boolean;
     findings?: readonly Finding[];
-    staleWaivers?: readonly StaleWaiverLine[];
+    staleWaivers?: readonly StaleWaiver[];
   },
 ): void {
   const { sections, readiness, lastExports } = report;

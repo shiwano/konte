@@ -50,7 +50,6 @@ import { loadCheckContext } from "./check-context.js";
 import {
   type CheckContext,
   type PatchSubject,
-  type StaleWaiverLine,
   collectFindings,
   waiverCoverageOf,
 } from "./checks.js";
@@ -82,7 +81,7 @@ import {
 } from "./direction-acceptance.js";
 import { directionPartHashes } from "./direction-hash.js";
 import { directionHasShots, leafSequenceShotIds } from "./direction-frames.js";
-import { type ShotWaiver, type WaiverCoverage } from "./direction.js";
+import { type ShotWaiver, type StaleWaiver, type WaiverCoverage } from "./direction.js";
 import { type Direction } from "./dsl/direction.js";
 import { KonteError } from "./errors.js";
 import { computeExportSignature } from "./export-signature.js";
@@ -719,7 +718,7 @@ type ProjectStatus = {
   directionAcceptance: DirectionAcceptanceSummary | null;
   directionEmpty: boolean;
   findings: Finding[];
-  staleWaivers: StaleWaiverLine[];
+  staleWaivers: StaleWaiver[];
 };
 
 // Everything `konte status` reports over one video, read-only: file assets are synced in memory, and
@@ -860,7 +859,6 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
 
   const suggestedActions = suggestForStatus({
     state,
-    stalenessView: readView,
     feedbackAddresses: [...feedbackAddresses],
     findings,
     spendHeldStages,

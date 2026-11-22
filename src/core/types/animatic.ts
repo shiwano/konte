@@ -18,7 +18,7 @@ export type { PanelDefinition } from "./definition.js";
 
 // An animatic shot is a video shot that also carries keyframes — same `<Composition>` build, same
 // refs, same materialized leaves.
-export type AnimaticShotDefinition = ShotDefinition;
+type AnimaticShotDefinition = ShotDefinition;
 
 export function isPendingAnimaticShot(shot: AnimaticShotDefinition): boolean {
   return shot.pending === true;

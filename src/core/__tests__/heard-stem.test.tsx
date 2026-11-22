@@ -578,7 +578,6 @@ describe("the video delivers the board's off-frame lines", () => {
         cueTakes: "played",
         videoRoot: "",
         direction: null,
-        directionAccepted: true,
         directionUnlocked: true,
         reference: null,
         animatic: board,

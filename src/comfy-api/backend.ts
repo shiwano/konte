@@ -264,7 +264,6 @@ export class ComfyApiBackend implements GenerationBackend {
     outputDir: string,
     options?: WaitOptions,
   ): Promise<WaitForCompletionResult> {
-    const startMark = performance.now();
     const { jobId, ...site } = decodeComfyApiJobId(backendJobId);
     const { target } = site;
     const log = options?.onLog ?? (() => {});
@@ -319,7 +318,6 @@ export class ComfyApiBackend implements GenerationBackend {
       result: {
         files,
         metadata: { comfyApiJobId: jobId, comfyTarget: target },
-        durationMs: Math.round(performance.now() - startMark),
       },
     };
   }

@@ -224,7 +224,6 @@ export async function handleGetReferenceState(
       direction,
       exposed.map((address) => address.slice("reference:".length)),
     ),
-    size: { width: 1920, height: 1080 },
     keep: referenceKeepGraph(manager, reference, animatic, video),
     ...(handoff?.summary ? { handoffSummary: handoff.summary } : {}),
   } satisfies ReferencePreviewState);
@@ -288,7 +287,7 @@ export async function handleReferenceSubmit(
     return jsonResponse({ saved: false, filePath: null } satisfies AddressReviewSubmitResponse);
   }
 
-  const outcome = await applyAddressReview(videoRoot, "reference", body, reviewedAt, {
+  const outcome = await applyAddressReview(videoRoot, body, reviewedAt, {
     animatic,
     findings: async (mgr) =>
       collectFindings(

@@ -1,7 +1,6 @@
 import * as net from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_COMFYUI_TIMING } from "../config.js";
-import { ComfyUIWsClient } from "../ws-client.js";
+import { openComfyWebSocket } from "../ws-client.js";
 import { wsProxyFor } from "../ws-proxy.js";
 
 const HTTP = "http://proxy.test:3128";
@@ -64,12 +63,15 @@ const isolateProxyEnv = () => {
   afterEach(() => vi.unstubAllEnvs());
 };
 
-describe("ComfyUIWsClient with a proxy Bun refuses", () => {
+describe("openComfyWebSocket with a proxy Bun refuses", () => {
   isolateProxyEnv();
 
   it("fails the connect with COMFYUI_WS_UNAVAILABLE", async () => {
     vi.stubEnv("HTTP_PROXY", "socks5://user:secret@127.0.0.1:1080");
-    const connecting = new ComfyUIWsClient("http://comfy.test:8188", "c1").connect();
+    const connecting = openComfyWebSocket("http://comfy.test:8188", "c1", {
+      headers: {},
+      handshakeTimeoutMs: 1000,
+    });
     await expect(connecting).rejects.toMatchObject({ code: "COMFYUI_WS_UNAVAILABLE" });
     await expect(connecting).rejects.not.toMatchObject({
       message: expect.stringContaining("secret"),
@@ -83,7 +85,7 @@ const hasSecondLoopback = await new Promise<boolean>((resolve) => {
   probe.listen(0, "127.0.0.2", () => probe.close(() => resolve(true)));
 });
 
-describe.skipIf(!hasSecondLoopback)("ComfyUIWsClient through a proxy", () => {
+describe.skipIf(!hasSecondLoopback)("openComfyWebSocket through a proxy", () => {
   const servers: net.Server[] = [];
   isolateProxyEnv();
   afterEach(() => {
@@ -106,10 +108,7 @@ describe.skipIf(!hasSecondLoopback)("ComfyUIWsClient through a proxy", () => {
   };
 
   const connect = (origin: string) =>
-    new ComfyUIWsClient(origin, "c1", {
-      ...DEFAULT_COMFYUI_TIMING,
-      handshakeTimeoutMs: 1000,
-    }).connect();
+    openComfyWebSocket(origin, "c1", { headers: {}, handshakeTimeoutMs: 1000 });
 
   it("tunnels the handshake through HTTP_PROXY", async () => {
     const proxy = await recordingServer("127.0.0.1");

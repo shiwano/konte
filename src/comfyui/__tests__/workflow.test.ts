@@ -3,12 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ComfyUIWorkflow } from "../types.js";
-import {
-  computeInputHash,
-  computeWorkflowHash,
-  loadWorkflow,
-  parameterizeWorkflow,
-} from "../workflow.js";
+import { loadWorkflow, parameterizeWorkflow } from "../workflow.js";
 
 const sampleWorkflow: ComfyUIWorkflow = {
   "3": {
@@ -370,30 +365,5 @@ describe("parameterizeWorkflow", () => {
       expect(startOnly["126"]!.inputs.conditioning).toEqual(["166", 0]);
       expect(startOnly["166"]!.inputs.positive).toEqual(["136", 0]);
     });
-  });
-});
-
-describe("computeWorkflowHash", () => {
-  it("returns consistent hash for the same workflow", () => {
-    const hash1 = computeWorkflowHash(sampleWorkflow);
-    const hash2 = computeWorkflowHash(sampleWorkflow);
-    expect(hash1).toBe(hash2);
-    expect(hash1).toMatch(/^[a-f0-9]{64}$/);
-  });
-
-  it("returns different hash for different workflows", () => {
-    const modified = structuredClone(sampleWorkflow);
-    modified["3"]!.inputs.seed = 999;
-    expect(computeWorkflowHash(sampleWorkflow)).not.toBe(computeWorkflowHash(modified));
-  });
-});
-
-describe("computeInputHash", () => {
-  it("returns consistent hash for the same inputs", () => {
-    const inputs = { "3": { seed: 42 }, "6": { text: "hello" } };
-    const hash1 = computeInputHash(inputs);
-    const hash2 = computeInputHash(inputs);
-    expect(hash1).toBe(hash2);
-    expect(hash1).toMatch(/^[a-f0-9]{64}$/);
   });
 });

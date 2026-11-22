@@ -4,7 +4,7 @@ import { createContext, useContext } from "react";
 import type { DirectionPartInfo } from "../../../../core/types/review-state.js";
 
 // What sets a part apart on a direction some of which is signed off: reworded since, or never read.
-export type PartMark = "changed" | "new";
+type PartMark = "changed" | "new";
 
 export const PartMarksContext = createContext<ReadonlyMap<string, PartMark>>(new Map());
 

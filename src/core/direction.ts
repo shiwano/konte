@@ -920,7 +920,7 @@ function showsSubjectOf(other: ShotFrame, frame: ShotFrame): boolean {
  * latest one on that setup, where that one is not the frame just before it (the `join` rules own
  * that boundary).
  */
-export type FrameReturn = FramePair;
+type FrameReturn = FramePair;
 
 // None across a story-time jump or an aside, from a coverage shot,
 // between frames holding no subject in common, into a frame an axis cut already carries, across a

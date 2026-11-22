@@ -58,6 +58,7 @@ describe("suggestForStatus", () => {
   it("gives each file a finding is fixed in its own edit step, direction first", () => {
     const actions = suggestForStatus({
       state: { schemaVersion: 2, assets: {} },
+      pendingReviewAddresses: [],
       findings: [
         finding("line-truncated", "animatic", { subject: "animatic:shot.09#stem" }),
         finding("line-truncated", "direction", { subject: "animatic:shot.10#stem" }),
@@ -77,36 +78,19 @@ describe("suggestForStatus", () => {
     ]);
   });
 
-  it("suggests preview video for video pending variants", () => {
-    const state = makeState({
-      "video:shot.01.motion": {
-        variants: {
-          v001: {
-            status: "none",
-            outputHash: null,
-            createdAt: "2026-01-01T00:00:00.000Z",
-            inputFingerprints: {},
-            file: "out.mp4",
-            definitionHash: null,
-            metadata: {},
-          },
-        },
-      },
-    });
-
-    const actions = suggestForStatus({ state });
-    expect(actions.some((a) => a.command?.includes("preview video"))).toBe(true);
-    expect(actions.some((a) => a.command?.includes("preview animatic"))).toBe(false);
-  });
-
   it("offers the video spend that re-mixes a board stem the video took over", () => {
     const actions = suggestForStatus({
       state: makeState({}),
+      pendingReviewAddresses: [],
       boardRemixAddresses: ["animatic:shot.02#stem"],
     });
     expect(actions.map((a) => a.command)).toContain("konte generate video");
     expect(
-      suggestForStatus({ state: makeState({}), boardRemixAddresses: [] }).map((a) => a.command),
+      suggestForStatus({
+        state: makeState({}),
+        pendingReviewAddresses: [],
+        boardRemixAddresses: [],
+      }).map((a) => a.command),
     ).not.toContain("konte generate video");
   });
 
@@ -121,34 +105,6 @@ describe("suggestForStatus", () => {
     expect(result).toBe(
       ["Next steps:", "  konte preview video — a comment stands; 1 shot held"].join("\n"),
     );
-  });
-
-  it("honors an explicit Needs review set over the state-only heuristic", () => {
-    // The state-only fallback (`hasFreshPending`) would flag this variant as pending
-    // review, but the caller's definition-aware set excludes it (e.g. a definition-stale
-    // composition) — so no preview is suggested.
-    const state = makeState({
-      "video:shot.03#composition": {
-        variants: {
-          v001: {
-            status: "none",
-            outputHash: null,
-            createdAt: "2026-01-01T00:00:00.000Z",
-            inputFingerprints: {},
-            file: "composition.mp4",
-            definitionHash: null,
-            metadata: {},
-          },
-        },
-      },
-    });
-
-    expect(suggestForStatus({ state }).some((a) => a.command?.includes("preview"))).toBe(true);
-    expect(
-      suggestForStatus({ state, pendingReviewAddresses: [] }).some((a) =>
-        a.command?.includes("preview"),
-      ),
-    ).toBe(false);
   });
 
   it("probes a variant finding in place of the review it holds", () => {
@@ -173,127 +129,20 @@ describe("suggestForStatus", () => {
     ]);
   });
 
-  it("suggests preview animatic for animatic pending variants", () => {
-    const state = makeState({
-      "animatic:shot.01.first": {
-        variants: {
-          v001: {
-            status: "none",
-            outputHash: null,
-            createdAt: "2026-01-01T00:00:00.000Z",
-            inputFingerprints: {},
-            file: "out.png",
-            definitionHash: null,
-            metadata: {},
-          },
-        },
-      },
+  it("suggests one preview per stage with takes to review", () => {
+    const actions = suggestForStatus({
+      state: makeState({}),
+      pendingReviewAddresses: [
+        "animatic:shot.01.first",
+        "video:shot.01.motion",
+        "video:shot.02.motion",
+      ],
     });
-
-    const actions = suggestForStatus({ state });
-    expect(actions.some((a) => a.command?.includes("preview animatic"))).toBe(true);
-    expect(actions.some((a) => a.command?.includes("preview video"))).toBe(false);
+    expect(actions.map((a) => a.command)).toEqual([
+      "konte preview animatic",
+      "konte preview video",
+    ]);
   });
-
-  it("suggests both previews when both stages have pending variants", () => {
-    const state = makeState({
-      "animatic:shot.01.first": {
-        variants: {
-          v001: {
-            status: "none",
-            outputHash: null,
-            createdAt: "2026-01-01T00:00:00.000Z",
-            inputFingerprints: {},
-            file: "out.png",
-            definitionHash: null,
-            metadata: {},
-          },
-        },
-      },
-      "video:shot.01.motion": {
-        variants: {
-          v002: {
-            status: "none",
-            outputHash: null,
-            createdAt: "2026-01-01T00:00:00.000Z",
-            inputFingerprints: {},
-            file: "out.mp4",
-            definitionHash: null,
-            metadata: {},
-          },
-        },
-      },
-    });
-
-    const actions = suggestForStatus({ state });
-    expect(actions.some((a) => a.command?.includes("preview animatic"))).toBe(true);
-    expect(actions.some((a) => a.command?.includes("preview video"))).toBe(true);
-  });
-
-  it("does not suggest re-review when an asset is accepted but has leftover unpicked variants", () => {
-    const state = makeState({
-      "video:shot.01.motion": {
-        variants: {
-          v001: {
-            status: "accepted",
-            outputHash: null,
-            createdAt: "2026-01-01T00:00:00.000Z",
-            inputFingerprints: {},
-            file: "picked.mp4",
-            definitionHash: null,
-            metadata: {},
-          },
-          v002: {
-            status: "none",
-            outputHash: null,
-            createdAt: "2026-01-01T00:00:00.000Z",
-            inputFingerprints: {},
-            file: "alt.mp4",
-            definitionHash: null,
-            metadata: {},
-          },
-        },
-      },
-    });
-
-    const actions = suggestForStatus({ state });
-    expect(actions.some((a) => a.command?.includes("preview"))).toBe(false);
-  });
-
-  it("excludes input-stale variants from needs review", () => {
-    const state = makeState({
-      "video:shot.01.bg": {
-        variants: {
-          "v-up": {
-            status: "accepted",
-            outputHash: "current",
-            createdAt: "2026-01-01T00:00:00.000Z",
-            inputFingerprints: {},
-            file: "bg.mp4",
-            definitionHash: null,
-            metadata: {},
-          },
-        },
-      },
-      "video:shot.01.motion": {
-        variants: {
-          v001: {
-            status: "none",
-            outputHash: null,
-            createdAt: "2026-01-01T00:00:00.000Z",
-            inputFingerprints: { "video:shot.01.bg": "outdated" },
-            file: "out.mp4",
-            definitionHash: null,
-            metadata: {},
-          },
-        },
-      },
-    });
-
-    const actions = suggestForStatus({ state });
-    expect(actions.some((a) => a.command?.includes("preview"))).toBe(false);
-  });
-
   it("suggests clean for problem assets", () => {
     const state = makeState({
       "video:shot.01.motion": {
@@ -311,7 +160,11 @@ describe("suggestForStatus", () => {
       },
     });
 
-    const actions = suggestForStatus({ state, problemAddresses: ["video:shot.01.motion"] });
+    const actions = suggestForStatus({
+      state,
+      pendingReviewAddresses: [],
+      problemAddresses: ["video:shot.01.motion"],
+    });
     expect(actions.some((a) => a.command === "konte clean video:shot.01.motion")).toBe(true);
   });
 
@@ -349,6 +202,7 @@ describe("suggestForStatus", () => {
 
     const actions = suggestForStatus({
       state,
+      pendingReviewAddresses: [],
       problemAddresses: ["video:shot.01.motion", "video:shot.02.motion", "animatic:shot.01.first"],
     });
     const cleanCommands = actions
@@ -367,6 +221,7 @@ describe("suggestForStatus", () => {
 
     const actions = suggestForStatus({
       state,
+      pendingReviewAddresses: [],
       problemAddresses: ["video:shot.01.motion", "video:shot.02.motion"],
     });
     const cleanCommands = actions.filter((a) => a.command?.startsWith("konte clean"));
@@ -404,7 +259,7 @@ describe("suggestForStatus", () => {
       },
     });
 
-    const actions = suggestForStatus({ state });
+    const actions = suggestForStatus({ state, pendingReviewAddresses: [] });
     expect(actions.map((a) => a.command)).toEqual([]);
   });
 
@@ -425,7 +280,7 @@ describe("suggestForStatus", () => {
       },
     });
 
-    const actions = suggestForStatus({ state });
+    const actions = suggestForStatus({ state, pendingReviewAddresses: [] });
     expect(actions.some((a) => a.command?.startsWith("konte reroll"))).toBe(false);
   });
 
@@ -457,7 +312,7 @@ describe("suggestForStatus", () => {
 
     // No readiness: nothing is awaiting a first generate, so the stale routing is the only thing
     // that can put a command in the block.
-    const actions = suggestForStatus({ state });
+    const actions = suggestForStatus({ state, pendingReviewAddresses: [] });
     expect(actions.map((a) => a.command)).toEqual([]);
   });
 
@@ -465,6 +320,7 @@ describe("suggestForStatus", () => {
   it("groups deterministic stale accepts into a stage-wide generate", () => {
     const actions = suggestForStatus({
       state: makeState({}),
+      pendingReviewAddresses: [],
       staleAddresses: [],
       deterministicStaleAddresses: ["video:shot.01.depth", "video:shot.02.depth"],
     });
@@ -488,13 +344,14 @@ describe("suggestForStatus", () => {
       },
     });
 
-    const actions = suggestForStatus({ state });
+    const actions = suggestForStatus({ state, pendingReviewAddresses: [] });
     expect(actions).toEqual([]);
   });
 
   it("names undeveloped video shots whose board is accepted", () => {
     const actions = suggestForStatus({
       state: makeState({}),
+      pendingReviewAddresses: [],
       boardedPendingVideoShots: ["03", "04"],
       nextSequencePendingShots: { animatic: [], video: ["03", "04"] },
     });
@@ -510,6 +367,7 @@ describe("suggestForStatus", () => {
   it("names the next sequence's undeveloped shots once nothing else is left", () => {
     const actions = suggestForStatus({
       state: makeState({}),
+      pendingReviewAddresses: [],
       nextSequencePendingShots: { animatic: ["05"], video: ["05"] },
     });
     expect(actions).toEqual([
@@ -524,6 +382,7 @@ describe("suggestForStatus", () => {
   it("holds the next sequence back while other work is offered", () => {
     const actions = suggestForStatus({
       state: makeState({}),
+      pendingReviewAddresses: [],
       readiness: [readinessFor("animatic", ["shot.01.first"])],
       nextSequencePendingShots: { animatic: ["05"], video: ["05"] },
     });
@@ -533,6 +392,7 @@ describe("suggestForStatus", () => {
   it("names no development while the direction holds the spend", () => {
     const actions = suggestForStatus({
       state: makeState({}),
+      pendingReviewAddresses: [],
       directionReviewNeeded: true,
       boardedPendingVideoShots: ["03"],
     });
@@ -544,6 +404,7 @@ describe("suggestForStatus", () => {
 
     const actions = suggestForStatus({
       state,
+      pendingReviewAddresses: [],
       readiness: [readinessFor("video", ["shot.01.motion"])],
     });
     expect(actions.some((a) => a.command?.includes("generate video"))).toBe(true);
@@ -553,6 +414,7 @@ describe("suggestForStatus", () => {
   it("suggests generate for a stage whose only takes have gone stale", () => {
     const actions = suggestForStatus({
       state: makeState({}),
+      pendingReviewAddresses: [],
       readiness: [readinessFor("video", [], ["shot.01.motion"])],
     });
     expect(actions).toEqual([
@@ -568,6 +430,7 @@ describe("suggestForStatus", () => {
     const stale = ["01", "02", "03", "04", "05", "06", "07"].map((id) => `shot.${id}.key`);
     const actions = suggestForStatus({
       state: makeState({}),
+      pendingReviewAddresses: [],
       readiness: [readinessFor("animatic", [], stale)],
     });
     expect(actions).toEqual([
@@ -584,6 +447,7 @@ describe("suggestForStatus", () => {
     // definition-declared asset is waiting to be made.
     const actions = suggestForStatus({
       state: makeState({}),
+      pendingReviewAddresses: [],
       readiness: [readinessFor("animatic", ["shot.01.first"])],
     });
     expect(actions).toEqual([{ command: "konte generate animatic" }]);
@@ -598,6 +462,7 @@ describe("suggestForStatus", () => {
 
     const actions = suggestForStatus({
       state,
+      pendingReviewAddresses: [],
       readiness: [readinessFor("animatic", ["shot.01.first"])],
     });
     expect(actions.some((a) => a.command?.includes("generate animatic"))).toBe(true);
@@ -616,6 +481,7 @@ describe("suggestForStatus", () => {
 
     const actions = suggestForStatus({
       state,
+      pendingReviewAddresses: [],
       readiness: [
         readinessFor("animatic", ["shot.01.first"]),
         readinessFor("video", ["shot.01.motion"]),
@@ -635,6 +501,7 @@ describe("suggestForStatus", () => {
 
     const actions = suggestForStatus({
       state,
+      pendingReviewAddresses: [],
       readiness: [
         readinessFor("animatic", ["shot.01.first"]),
         readinessFor("video", ["shot.01.motion"]),
@@ -655,6 +522,7 @@ describe("suggestForStatus", () => {
 
     const actions = suggestForStatus({
       state,
+      pendingReviewAddresses: [],
       readiness: [
         readinessFor("reference", ["ferry"]),
         readinessFor("animatic", ["shot.01.first"]),
@@ -712,7 +580,11 @@ describe("formatSuggestedActions", () => {
     // exists — so it names the command that shows the words, and counts what is waiting.
     it("points at the comments rather than guessing the fix", () => {
       const rendered = formatSuggestedActions(
-        suggestForStatus({ state: makeState({}), feedbackAddresses: addresses }),
+        suggestForStatus({
+          state: makeState({}),
+          pendingReviewAddresses: [],
+          feedbackAddresses: addresses,
+        }),
       );
       expect(rendered).toContain("konte review feedback list");
       expect(rendered).toContain("4 addresses carry comments");
@@ -722,7 +594,11 @@ describe("formatSuggestedActions", () => {
 
     it("counts one address in the singular", () => {
       const rendered = formatSuggestedActions(
-        suggestForStatus({ state: makeState({}), feedbackAddresses: addresses.slice(0, 1) }),
+        suggestForStatus({
+          state: makeState({}),
+          pendingReviewAddresses: [],
+          feedbackAddresses: addresses.slice(0, 1),
+        }),
       );
       expect(rendered).toContain("1 address carries a comment");
     });
@@ -731,6 +607,7 @@ describe("formatSuggestedActions", () => {
     it("surfaces them even while the direction gate blocks every spend", () => {
       const commands = suggestForStatus({
         state: makeState({}),
+        pendingReviewAddresses: [],
         feedbackAddresses: addresses,
         directionReviewNeeded: true,
       }).flatMap((a) => (a.command === null ? [] : [a.command]));
@@ -739,7 +616,11 @@ describe("formatSuggestedActions", () => {
 
     it("says nothing with no standing comment", () => {
       const rendered = formatSuggestedActions(
-        suggestForStatus({ state: makeState({}), feedbackAddresses: [] }),
+        suggestForStatus({
+          state: makeState({}),
+          pendingReviewAddresses: [],
+          feedbackAddresses: [],
+        }),
       );
       expect(rendered).not.toContain("carries a comment");
       expect(rendered).not.toContain("konte review feedback list");
@@ -749,6 +630,7 @@ describe("formatSuggestedActions", () => {
   it("directs a completed working-size export to verification instead of another export", () => {
     const actions = suggestForStatus({
       state: makeState({}),
+      pendingReviewAddresses: [],
       lastExports: [
         {
           label: "video",
@@ -768,6 +650,7 @@ describe("formatSuggestedActions", () => {
     const exportOf = (leavesUnsigned: boolean) =>
       suggestForStatus({
         state: makeState({}),
+        pendingReviewAddresses: [],
         readiness: [{ ...accepted, leavesUnsigned }],
       }).some((a) => a.command === "konte export video");
     expect(exportOf(false)).toBe(true);
@@ -821,6 +704,7 @@ describe("a source's digest gaps", () => {
   it("names the readers the span still owes, ahead of the direction review", () => {
     const actions = suggestForStatus({
       state: makeState({}),
+      pendingReviewAddresses: [],
       directionReviewNeeded: true,
       sourceGaps: {
         source: "videos/main/source",
@@ -839,18 +723,27 @@ describe("a source's digest gaps", () => {
 
 describe("direction review is surfaced first", () => {
   it("prepends `konte preview direction` when the direction is unaccepted", () => {
-    const actions = suggestForStatus({ state: makeState({}), directionReviewNeeded: true });
+    const actions = suggestForStatus({
+      state: makeState({}),
+      pendingReviewAddresses: [],
+      directionReviewNeeded: true,
+    });
     expect(actions[0]).toEqual({ command: "konte preview direction" });
   });
 
   it("omits it when the direction is accepted", () => {
-    const actions = suggestForStatus({ state: makeState({}), directionReviewNeeded: false });
+    const actions = suggestForStatus({
+      state: makeState({}),
+      pendingReviewAddresses: [],
+      directionReviewNeeded: false,
+    });
     expect(actions.some((a) => a.command === "konte preview direction")).toBe(false);
   });
 
   it("prepends it ahead of the other suggestions", () => {
     const actions = suggestForStatus({
       state: makeState({}),
+      pendingReviewAddresses: [],
       directionReviewNeeded: true,
     });
     expect(actions[0]?.command).toBe("konte preview direction");
@@ -869,6 +762,7 @@ describe("the finding edit step names the file the fix belongs in", () => {
   it("points at reference.tsx, keeping the waiver's file as the other way out", () => {
     const [step] = editSteps({
       state: makeState({}),
+      pendingReviewAddresses: [],
       findings: [
         finding("character-unreferenced", "reference"),
         finding("narrator-unreferenced", "reference"),
@@ -882,6 +776,7 @@ describe("the finding edit step names the file the fix belongs in", () => {
   it("points every file's step down the page at the findings", () => {
     const steps = editSteps({
       state: makeState({}),
+      pendingReviewAddresses: [],
       findings: [
         finding("character-unreferenced", "reference"),
         finding("setup-unrealized", "animatic"),
@@ -899,6 +794,7 @@ describe("the finding edit step names the file the fix belongs in", () => {
   it("names no waiver where no finding in the file is waivable", () => {
     const [step] = editSteps({
       state: makeState({}),
+      pendingReviewAddresses: [],
       findings: [finding("duplicate-id", "direction")],
     });
     expect(step?.detail).toBe("Fix the 1 finding(s) listed under it below");
@@ -907,6 +803,7 @@ describe("the finding edit step names the file the fix belongs in", () => {
   it("keeps offering animatic generation while only video findings hold", () => {
     const actions = suggestForStatus({
       state: makeState({}),
+      pendingReviewAddresses: [],
       findings: [finding("passer-unconsumed", "video"), finding("passer-unnamed", "video")],
       spendHeldStages: ["video"],
       readiness: [
@@ -921,6 +818,7 @@ describe("the finding edit step names the file the fix belongs in", () => {
   it("omits the steps for a shotless direction, which has its own note", () => {
     const steps = editSteps({
       state: makeState({}),
+      pendingReviewAddresses: [],
       findings: [finding("character-unreferenced", "reference")],
       directionEmpty: true,
     });
@@ -937,7 +835,12 @@ describe("suggestForStatus cast gate scope", () => {
   const commands = (
     cast: { id: string; declared: boolean; missingFile: string | null; blocks: "all" | "video" }[],
   ) =>
-    suggestForStatus({ state: makeState({}), readiness, unacceptedCast: cast })
+    suggestForStatus({
+      state: makeState({}),
+      pendingReviewAddresses: [],
+      readiness,
+      unacceptedCast: cast,
+    })
       .map((a) => ("command" in a ? a.command : null))
       .filter((c): c is string => c !== null);
 
@@ -961,6 +864,7 @@ describe("suggestForStatus cast gate scope", () => {
     });
     const offered = suggestForStatus({
       state: dismissedSheet,
+      pendingReviewAddresses: [],
       readiness,
       unacceptedCast: [{ id: "hero", declared: true, missingFile: null, blocks: "all" }],
     })

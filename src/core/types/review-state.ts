@@ -503,7 +503,6 @@ export interface ReferencePreviewState {
   assets: ReferenceAssetInfo[];
   // Every asset, under the subject it realizes, in review order.
   groups: ReferenceGroupInfo[];
-  size: { width: number; height: number };
   keep: KeepGraphInfo;
   handoffSummary?: string;
 }

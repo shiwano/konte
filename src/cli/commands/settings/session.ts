@@ -2,7 +2,7 @@ import { constantTimeEquals, newSessionToken } from "../../page-host/auth.js";
 import { errorResponse, jsonResponse, parseJsonBody } from "../../page-host/http.js";
 import { SESSION_HEADER, type RedeemTokenResponse } from "../../../pages/settings/types.js";
 
-export interface SettingsSession {
+interface SettingsSession {
   /** Handles `REDEEM_TOKEN_PATH`; the first request carrying the launch token gets the session. */
   redeem(req: Request): Promise<Response>;
   refuse(req: Request): Response | null;

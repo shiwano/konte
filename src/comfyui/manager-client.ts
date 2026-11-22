@@ -107,12 +107,12 @@ const MANAGER_SETTLE_POLL_MS = 2000;
 interface ManagerInstallArgs {
   model: ComfyModelDeclaration;
   resolvedUrl: string;
-  uiId?: string;
+  uiId: string;
 }
 
 interface ManagerNodeInstallArgs {
   node: ComfyNodeDeclaration;
-  uiId?: string;
+  uiId: string;
 }
 
 export interface WaitOptions {
@@ -358,7 +358,7 @@ export class ComfyUIManagerClient {
       save_path: model.savePath ?? "default",
       name: model.displayName ?? model.filename,
       client_id: this.httpClient.clientId,
-      ui_id: uiId ?? `konte-${model.filename}`,
+      ui_id: uiId,
     };
     if (model.base) body.base = model.base;
 
@@ -510,7 +510,7 @@ export class ComfyUIManagerClient {
     // `InstallPackParams.repository` is recorded in the task history but never read.
     const body = {
       kind: "install",
-      ui_id: uiId ?? `konte-${node.id}`,
+      ui_id: uiId,
       client_id: this.httpClient.clientId,
       params: {
         id: node.id,

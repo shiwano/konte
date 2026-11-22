@@ -96,7 +96,7 @@ export type OrphanDefinitions = {
   directionParts: string[];
 };
 
-export type OrphanPlan = {
+type OrphanPlan = {
   targets: OrphanedTarget[];
   feedbackOnly: string[];
   jobs: OrphanedJob[];

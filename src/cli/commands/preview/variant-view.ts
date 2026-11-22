@@ -32,7 +32,7 @@ export function buildVariantCandidates(
   addr: string,
   acceptedId: string | null,
   buildVariantUrl: (variantId: string, variant: VariantState) => string | null,
-  buildFileUrl?: (variantId: string, variant: VariantState) => string | null,
+  buildFileUrl: (variantId: string, variant: VariantState) => string | null,
   buildInfo?: (variantId: string) => AssetInfo | undefined,
   buildSong?: (variantId: string) => SongReadingInfo | undefined,
   // What the mix levels this address as; its audio takes are auditioned at that level.
@@ -64,7 +64,7 @@ export function buildVariantCandidates(
           dismissed: v.status === "dismissed",
           createdAt: v.createdAt,
           imageUrl: buildVariantUrl(vid, v),
-          fileUrl: buildFileUrl ? buildFileUrl(vid, v) : null,
+          fileUrl: buildFileUrl(vid, v),
           before:
             v.derivedFrom && source?.file
               ? {
@@ -73,7 +73,7 @@ export function buildVariantCandidates(
                     ? "accepted"
                     : "none") as VariantStatus,
                   imageUrl: buildVariantUrl(v.derivedFrom, source),
-                  fileUrl: buildFileUrl ? buildFileUrl(v.derivedFrom, source) : null,
+                  fileUrl: buildFileUrl(v.derivedFrom, source),
                   ...(sourceGain !== undefined ? { auditionGain: sourceGain } : {}),
                 }
               : null,

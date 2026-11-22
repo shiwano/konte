@@ -7,10 +7,10 @@ import type {
   SubmitResult,
   WaitForCompletionResult,
   WaitOptions,
-} from "./backend.js";
-import { KonteError } from "./errors.js";
-import type { JobRecord } from "./types/index.js";
-import { sleep } from "./sleep.js";
+} from "../../backend.js";
+import { KonteError } from "../../errors.js";
+import type { JobRecord } from "../../types/index.js";
+import { sleep } from "../../sleep.js";
 
 interface FakeBackendOptions {
   delayMs?: number;
@@ -42,8 +42,6 @@ export class FakeBackend implements GenerationBackend {
     const jobId = `fake-job-${this.nextJobId++}`;
     this.activeJobs.add(jobId);
 
-    const start = performance.now();
-
     if (this.delayMs > 0) {
       await sleep(this.delayMs);
     }
@@ -63,7 +61,6 @@ export class FakeBackend implements GenerationBackend {
     return {
       files: [filePath],
       metadata: { jobId },
-      durationMs: Math.round(performance.now() - start),
     };
   }
 
@@ -78,8 +75,6 @@ export class FakeBackend implements GenerationBackend {
     outputDir: string,
     _options?: WaitOptions,
   ): Promise<WaitForCompletionResult> {
-    const start = performance.now();
-
     if (this.delayMs > 0) {
       await sleep(this.delayMs);
     }
@@ -100,7 +95,6 @@ export class FakeBackend implements GenerationBackend {
       result: {
         files: [filePath],
         metadata: { jobId: backendJobId },
-        durationMs: Math.round(performance.now() - start),
       },
     };
   }

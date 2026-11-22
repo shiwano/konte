@@ -298,30 +298,6 @@ export function summarizeDirectionAcceptance(
   };
 }
 
-// The spend gate's question, answered without the per-part comparison when it can be: `whole.hash`
-// is stamped only while `parts` covers the live set exactly, and `directionHash` is the part hashes
-// themselves, so a matching whole-direction hash means no part has moved since. A mismatch proves nothing
-// on its own (any edit changes it, including one to a part already re-accepted), so it falls through
-// to the full comparison rather than reporting a verdict.
-//
-// The parts are the verdict; `whole` only summarizes them. No writer can leave a hash standing on an
-// empty `parts` — emptying the record clears `whole` outright — but a hand-edited state can, and
-// trusting it would open the gate on a verdict no human gave.
-export function isDirectionSpendGateSatisfied(
-  direction: Direction,
-  acceptance: DirectionAcceptance | null,
-): boolean {
-  if (!acceptance) return false;
-  if (
-    acceptance.whole?.hash != null &&
-    Object.keys(acceptance.parts).length > 0 &&
-    acceptance.whole.hash === directionHash(direction)
-  ) {
-    return true;
-  }
-  return directionAcceptanceView(direction, acceptance).gateSatisfied;
-}
-
 // The sections the page's one Accept decides: every one that can be signed and holds something to
 // sign — a live part, or the sign-off of one since deleted.
 export function directionAcceptSections(

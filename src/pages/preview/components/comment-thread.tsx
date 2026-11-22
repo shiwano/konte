@@ -34,7 +34,7 @@ import type { CommentThreadBinding } from "../review/use-review-session.js";
 import { NoteInput } from "./note-input.js";
 
 // The ranges the quotes on a target mark in its context cards, by kind and field.
-export type QuoteMarks = ReadonlyMap<QuoteKind | null, readonly (readonly MarkRange[])[]>;
+type QuoteMarks = ReadonlyMap<QuoteKind | null, readonly (readonly MarkRange[])[]>;
 
 function marksAt(
   marks: QuoteMarks | undefined,

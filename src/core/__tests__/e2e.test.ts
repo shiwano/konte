@@ -3,7 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parseAddress } from "../address.js";
-import { FakeBackend } from "../fake-backend.js";
+import { FakeBackend } from "./helpers/fake-backend.js";
 import { StateManager } from "../state/index.js";
 import type { AssetDefinition, VideoDefinition } from "../types/index.js";
 import videoDef from "./fixtures/valid-video.js";

@@ -1,7 +1,6 @@
 import * as fs from "node:fs/promises";
 import { parsePlaceholder } from "../core/dsl/shot-context.js";
 import { KonteError } from "../core/errors.js";
-import { stableHash } from "../core/content-hash.js";
 import type { ComfyUIWorkflow } from "./types.js";
 
 export async function loadWorkflow(workflowPath: string): Promise<ComfyUIWorkflow> {
@@ -150,12 +149,4 @@ function substituteInValue(
     return result;
   }
   return value;
-}
-
-export function computeWorkflowHash(workflow: ComfyUIWorkflow): string {
-  return stableHash(workflow);
-}
-
-export function computeInputHash(inputs: Record<string, unknown>): string {
-  return stableHash(inputs);
 }

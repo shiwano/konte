@@ -288,7 +288,7 @@ describe("waitForJob completion ordering", () => {
     const { jobManager, variantId } = await setupLocalRunningJob();
     vi.spyOn(LocalBackend.prototype, "waitForCompletion").mockResolvedValue({
       kind: "done",
-      result: { files: [], metadata: {}, durationMs: 1 },
+      result: { files: [], metadata: {} },
     });
 
     const result = await waitForJob(jobManager, variantId, roots, {
@@ -503,7 +503,7 @@ describe("waitForJob reattaching to the backend a reclaimed job was submitted on
       attach.options = options;
       return {
         kind: "done",
-        result: { files: [path.join(outputDir, "output.png")], metadata: {}, durationMs: 1 },
+        result: { files: [path.join(outputDir, "output.png")], metadata: {} },
       };
     };
   }

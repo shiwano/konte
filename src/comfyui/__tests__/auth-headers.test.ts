@@ -5,7 +5,7 @@ import { KonteConfigSchema } from "../../core/types/config.js";
 import { ComfyUIHttpClient } from "../http-client.js";
 import { ComfyUIManagerClient } from "../manager-client.js";
 import { resolveHeaderTokens } from "../token-resolver.js";
-import { ComfyUIWsClient } from "../ws-client.js";
+import { openComfyWebSocket } from "../ws-client.js";
 
 describe("comfyui.headers schema", () => {
   const parse = (headers: Record<string, string>) =>
@@ -169,7 +169,7 @@ describe("ComfyUIHttpClient with configured headers", () => {
  * suite's Node runtime a real socket would drop them. What belongs to konte — that the resolved
  * credential reaches the constructor — is what this stubs.
  */
-describe("ComfyUIWsClient handshake", () => {
+describe("openComfyWebSocket handshake", () => {
   type Init = { headers?: Record<string, string> } | undefined;
   const calls: Array<{ url: string; init: Init }> = [];
 
@@ -197,20 +197,14 @@ describe("ComfyUIWsClient handshake", () => {
     close() {}
   }
 
-  const timing = {
-    reconnectDelaysMs: [1],
-    pollIntervalMs: 1,
-    maxBackoffMs: 1,
-    safetyNetIntervalMs: 1000,
-    handshakeTimeoutMs: 50,
-  };
-
-  const connect = async (headers?: Record<string, string>): Promise<Init> => {
+  const connect = async (headers: Record<string, string> = {}): Promise<Init> => {
     calls.length = 0;
     vi.stubGlobal("WebSocket", FakeWebSocket);
-    const client = new ComfyUIWsClient("http://comfy.test:8188", "client-id", timing, headers);
-    await client.connect();
-    client.disconnect();
+    const ws = await openComfyWebSocket("http://comfy.test:8188", "client-id", {
+      headers,
+      handshakeTimeoutMs: 50,
+    });
+    ws.close();
     return calls[0]?.init;
   };
 
@@ -288,7 +282,9 @@ describe("ComfyUIManagerClient with configured headers", () => {
     await expect(manager().getInstalledNodeIds("default")).rejects.toMatchObject({
       code: "COMFYUI_UNAUTHORIZED",
     });
-    await expect(manager().queueInstallNode({ node: { id: "pack-a" } })).rejects.toMatchObject({
+    await expect(
+      manager().queueInstallNode({ node: { id: "pack-a" }, uiId: "konte-pack-a" }),
+    ).rejects.toMatchObject({
       code: "COMFYUI_MANAGER_UNAVAILABLE",
     });
   });
@@ -298,11 +294,15 @@ describe("ComfyUIManagerClient with configured headers", () => {
   // transient without a body read) and a 401 throws before the read.
   it.each([
     ["getInstalledNodeIds", 400, () => manager().getInstalledNodeIds("default")],
-    ["queueInstallNode", 400, () => manager().queueInstallNode({ node: { id: "pack-a" } })],
+    [
+      "queueInstallNode",
+      400,
+      () => manager().queueInstallNode({ node: { id: "pack-a" }, uiId: "konte-pack-a" }),
+    ],
     [
       "queueInstallNode (security_level)",
       403,
-      () => manager().queueInstallNode({ node: { id: "pack-a" } }),
+      () => manager().queueInstallNode({ node: { id: "pack-a" }, uiId: "konte-pack-a" }),
     ],
     [
       "queueInstall",
@@ -311,6 +311,7 @@ describe("ComfyUIManagerClient with configured headers", () => {
         manager().queueInstall({
           model: { filename: "a.safetensors", type: "lora", url: "u" },
           resolvedUrl: "u",
+          uiId: "konte-a.safetensors",
         }),
     ],
     ["startQueue", 400, () => manager().startQueue()],

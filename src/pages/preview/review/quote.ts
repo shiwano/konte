@@ -28,7 +28,7 @@ export interface Quote {
 export type QuoteFields = ReadonlyMap<QuoteKind | null, readonly string[]>;
 
 // A selection inside one field: the field's kind and index, and the selected [start, end).
-export interface FieldSelection {
+interface FieldSelection {
   kind: QuoteKind | null;
   field: number;
   start: number;

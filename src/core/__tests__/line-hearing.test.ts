@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { JapaneseReader } from "../japanese-reading.js";
 import { englishHearing as en } from "../hearing/en.js";
-import { hearingOf } from "../hearing/index.js";
+import { loadHearing } from "../hearing/index.js";
 import { japaneseHearing } from "../hearing/ja.js";
 import { alignHeard, lineMishearing, markedGaps } from "../line-hearing.js";
 
+// What each language is heard with, Japanese with nothing reading its pronunciation.
+const hearings = { en, ja: japaneseHearing(), zh: await loadHearing("zh") };
+
 // One line, heard as one token.
-const misheard = (line: string, heard: string, lang: string) =>
-  lineMishearing([{ text: line, number: 1 }], [{ text: heard, startSec: 0 }], hearingOf(lang));
+const misheard = (line: string, heard: string, lang: keyof typeof hearings) =>
+  lineMishearing([{ text: line, number: 1 }], [{ text: heard, startSec: 0 }], hearings[lang]);
 
 describe("lineMishearing at the ends", () => {
   it("names the opening words a take drops, with the punctuation closing them", () => {

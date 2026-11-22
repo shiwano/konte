@@ -100,12 +100,9 @@ type AddressReviewOutcome = {
 };
 
 // Apply an address-keyed review under the state and feedback locks: write the comments, land each
-// accept/un-accept, cascade into the direction, and read back the record's decision lines. The two
-// stages differ only in the hooks: which accepts are refused here, what an accept stamps, and which
-// direction parts an applied accept re-signs.
+// accept/un-accept, cascade into the direction, and read back the record's decision lines.
 export async function applyAddressReview(
   videoRoot: string,
-  stage: "animatic" | "reference",
   body: AddressReviewSubmitBody,
   reviewedAt: string,
   hooks: {
@@ -113,8 +110,6 @@ export async function applyAddressReview(
     animatic: AnimaticDefinition | null;
     // The findings standing when the decisions land — an accept a finding holds is dropped.
     findings: (mgr: StateManager) => Promise<FindingReport>;
-    // Definition hashes the comments' stale flags are read against.
-    staleDefinitionHashes?: ReadonlyMap<string, string>;
     // A reason to refuse an accept made on this page, or null to let it through.
     refuseAccept?: (address: string, variantId: string, mgr: StateManager) => string | null;
     // Writes the lyric lines the reviewer placed, before any accept lands.
@@ -161,7 +156,7 @@ export async function applyAddressReview(
   let decisions: ReviewDecisionEntry[] = [];
 
   await StateManager.withLock(videoRoot, async (mgr) => {
-    await FeedbackManager.withLock(videoRoot, stage, async (fbMgr) => {
+    await FeedbackManager.withLock(videoRoot, "reference", async (fbMgr) => {
       for (const { id } of applyFeedbackMutations(
         fbMgr,
         body.addedFeedback,
@@ -170,12 +165,9 @@ export async function applyAddressReview(
       ).added) {
         addedFeedbackIds.add(id);
       }
-      // Read before the decisions below land — see staleFlagsBeforeDecisions. With the same
-      // definition hashes the page evaluated its comments against, or the record would call a
-      // comment standing that the reviewer saw struck through.
+      // Read before the decisions below land — see staleFlagsBeforeDecisions.
       const staleBefore = staleFlagsBeforeDecisions(fbMgr, mgr.getState(), {
         view: mgr.stalenessView(),
-        ...(hooks.staleDefinitionHashes ? { definitionHashes: hooks.staleDefinitionHashes } : {}),
       });
 
       if (hooks.placeSongLines) {

@@ -6,11 +6,12 @@ import { DEFAULT_COMFYUI_TIMING } from "../config.js";
 import {
   ComfyUIWsClient,
   type GoneState,
+  openComfyWebSocket,
   handleComfyWsMessage,
   registerGonePoll,
 } from "../ws-client.js";
 
-describe("ComfyUIWsClient.connect", () => {
+describe("openComfyWebSocket", () => {
   it("gives up on a handshake the server neither completes nor refuses", async () => {
     const held: Duplex[] = [];
     const server = http.createServer((_req, res) => res.writeHead(404).end());
@@ -18,11 +19,11 @@ describe("ComfyUIWsClient.connect", () => {
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     const port = (server.address() as { port: number }).port;
     try {
-      const client = new ComfyUIWsClient(`http://127.0.0.1:${port}`, "c1", {
-        ...DEFAULT_COMFYUI_TIMING,
+      const opening = openComfyWebSocket(`http://127.0.0.1:${port}`, "c1", {
+        headers: {},
         handshakeTimeoutMs: 50,
       });
-      await expect(client.connect()).rejects.toMatchObject({
+      await expect(opening).rejects.toMatchObject({
         code: "COMFYUI_WS_UNAVAILABLE",
         message: expect.stringContaining("unanswered for 50ms"),
       });

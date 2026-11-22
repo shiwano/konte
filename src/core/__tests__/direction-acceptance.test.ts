@@ -9,7 +9,6 @@ import {
   directionAcceptanceView,
   directionCascadeReferenceIds,
   directionCascadeShotIds,
-  isDirectionSpendGateSatisfied,
   isSignedDirectionPart,
   shotWaiversAwaitingAccept,
   songGateBlocking,
@@ -19,6 +18,10 @@ import { directionHash, directionPartHashes } from "../direction-hash.js";
 import { type WaiverCoverage, directionShotWaivers } from "../direction.js";
 import type { RoleFunction } from "../direction-check.js";
 import type { Direction, NarrativeShot } from "../dsl/direction.js";
+import type { DirectionAcceptance } from "../types/index.js";
+
+const gateSatisfied = (direction: Direction, acceptance: DirectionAcceptance | null) =>
+  directionAcceptanceView(direction, acceptance).gateSatisfied;
 
 // The frames the shots are taken from. A fixture's shots name one by id; its `location`/`framing` are
 // read through it, so nothing here is restated on a shot.
@@ -253,13 +256,13 @@ describe("directionAcceptanceView", () => {
       shots: true, // the cut also re-shaped the arc (its characters list), so the sequence part needs re-reading too
     });
     expect(reaccepted.parts["direction:characters.alice"]).toBeUndefined();
-    expect(isDirectionSpendGateSatisfied(noCast, reaccepted)).toBe(true);
+    expect(gateSatisfied(noCast, reaccepted)).toBe(true);
   });
 });
 
-describe("isDirectionSpendGateSatisfied", () => {
+describe("gateSatisfied", () => {
   it("is false with no acceptance at all", () => {
-    expect(isDirectionSpendGateSatisfied(makeDirection(), null)).toBe(false);
+    expect(gateSatisfied(makeDirection(), null)).toBe(false);
   });
 
   // Before the piece has been signed off whole, the gate is the full comparison: nothing downstream
@@ -268,12 +271,12 @@ describe("isDirectionSpendGateSatisfied", () => {
     const direction = makeDirection();
     const partial = acceptAllButWaivers(direction);
     expect(partial.whole).toBeNull();
-    expect(isDirectionSpendGateSatisfied(direction, partial)).toBe(false);
+    expect(gateSatisfied(direction, partial)).toBe(false);
   });
 
   it("is true once every section is accepted", () => {
     const direction = makeDirection();
-    expect(isDirectionSpendGateSatisfied(direction, acceptAll(direction))).toBe(true);
+    expect(gateSatisfied(direction, acceptAll(direction))).toBe(true);
   });
 
   // The whole point of the change: after the piece has been accepted whole, a shot rewritten while
@@ -284,7 +287,7 @@ describe("isDirectionSpendGateSatisfied", () => {
 
     const edited = makeDirection();
     (edited.sequence.shots![1] as NarrativeShot).action = "she stays";
-    expect(isDirectionSpendGateSatisfied(edited, acceptance)).toBe(true);
+    expect(gateSatisfied(edited, acceptance)).toBe(true);
     // Still reported as changed — the gate stopped asking, the page did not.
     expect(directionAcceptanceView(edited, acceptance).complete).toBe(false);
   });
@@ -295,7 +298,7 @@ describe("isDirectionSpendGateSatisfied", () => {
 
     const edited = makeDirection();
     edited.waivers!["no-payoff"] = "an open ending";
-    expect(isDirectionSpendGateSatisfied(edited, acceptance)).toBe(false);
+    expect(gateSatisfied(edited, acceptance)).toBe(false);
     expect(directionAcceptanceView(edited, acceptance).gateBlocking).toEqual([
       { address: "direction:waivers.no-payoff", status: "unaccepted" },
     ]);
@@ -312,7 +315,7 @@ describe("isDirectionSpendGateSatisfied", () => {
 
     const edited = withLyrics();
     edited.policy.format!.fps = 30;
-    expect(isDirectionSpendGateSatisfied(edited, acceptance)).toBe(false);
+    expect(gateSatisfied(edited, acceptance)).toBe(false);
     expect(directionAcceptanceView(edited, acceptance).gateBlocking).toEqual([
       { address: "direction:policy.format", status: "stale" },
     ]);
@@ -323,7 +326,7 @@ describe("isDirectionSpendGateSatisfied", () => {
 
     const edited = withLyrics();
     edited.lyrics![0]!.lines = ["lights up"];
-    expect(isDirectionSpendGateSatisfied(edited, acceptance)).toBe(true);
+    expect(gateSatisfied(edited, acceptance)).toBe(true);
     const view = directionAcceptanceView(edited, acceptance);
     expect(view.gateBlocking).toEqual([]);
     expect(view.sections.get("lyrics")).toBe("stale");
@@ -340,7 +343,7 @@ describe("isDirectionSpendGateSatisfied", () => {
     ]) {
       const edited = makeDirection();
       edit(edited);
-      expect(isDirectionSpendGateSatisfied(edited, acceptance)).toBe(true);
+      expect(gateSatisfied(edited, acceptance)).toBe(true);
       expect(directionAcceptanceView(edited, acceptance).complete).toBe(false);
     }
   });
@@ -362,7 +365,7 @@ describe("isDirectionSpendGateSatisfied", () => {
     const direction = makeDirection();
     const accepted = acceptAll(direction);
     const acceptance = { ...accepted, whole: { hash: "stale-or-forged", acceptedAt: "t" } };
-    expect(isDirectionSpendGateSatisfied(direction, acceptance)).toBe(true);
+    expect(gateSatisfied(direction, acceptance)).toBe(true);
   });
 
   it("does not accept a direction on a whole-hash with no parts behind it", () => {
@@ -370,7 +373,7 @@ describe("isDirectionSpendGateSatisfied", () => {
     // No writer can produce this — emptying `parts` clears `whole` — but a hand-edited state can,
     // and there is no record of which parts a human read, so it cannot stand in for their verdict.
     const acceptance = { parts: {}, whole: { hash: directionHash(direction), acceptedAt: "t" } };
-    expect(isDirectionSpendGateSatisfied(direction, acceptance)).toBe(false);
+    expect(gateSatisfied(direction, acceptance)).toBe(false);
   });
 
   // `projectDirection` must subsume every part hash, or an edit it sees and the parts don't would
@@ -468,7 +471,7 @@ describe("the brief", () => {
         expect(view.blocking).toEqual(before.blocking);
         expect(view.orphans).toEqual([]);
         expect(view.complete).toBe(before.complete);
-        expect(isDirectionSpendGateSatisfied(edited, acceptance)).toBe(before.gateSatisfied);
+        expect(gateSatisfied(edited, acceptance)).toBe(before.gateSatisfied);
       }
     }
   });
@@ -483,7 +486,7 @@ describe("the brief", () => {
     expect(view.orphans).toEqual([]);
     expect(view.blocking).toEqual([]);
     expect(view.complete).toBe(true);
-    expect(isDirectionSpendGateSatisfied(direction, { ...legacy, whole: null })).toBe(true);
+    expect(gateSatisfied(direction, { ...legacy, whole: null })).toBe(true);
     expect(summarizeDirectionAcceptance(direction, legacy)).toMatchObject({
       status: "accepted",
       blocking: 0,
@@ -538,7 +541,7 @@ describe("songGateBlocking", () => {
       lyrics: true,
     });
     expect(songGateBlocking(direction, acceptance)).toEqual([]);
-    expect(isDirectionSpendGateSatisfied(direction, acceptance)).toBe(false);
+    expect(gateSatisfied(direction, acceptance)).toBe(false);
   });
 
   it("re-blocks on a lyric edit and on deleted lyrics, and not on the brief", () => {
@@ -626,7 +629,7 @@ describe("applyDirectionSectionDecisions", () => {
     const reaccepted = applyDirectionSectionDecisions(cut, acceptance, { characters: true });
     expect(reaccepted.parts["direction:narrator"]).toBeUndefined();
     expect(directionAcceptanceView(cut, reaccepted).complete).toBe(true);
-    expect(isDirectionSpendGateSatisfied(cut, reaccepted)).toBe(true);
+    expect(gateSatisfied(cut, reaccepted)).toBe(true);
   });
 
   // A deletion is something a human has yet to read. Clearing its block from a DIFFERENT box's
@@ -643,7 +646,7 @@ describe("applyDirectionSectionDecisions", () => {
     expect(reaccepted.parts["direction:narrator"]).toBeDefined();
     expect(directionAcceptanceView(cut, reaccepted).blocking).toEqual([]);
     expect(reaccepted.whole).toBeNull();
-    expect(isDirectionSpendGateSatisfied(cut, reaccepted)).toBe(false);
+    expect(gateSatisfied(cut, reaccepted)).toBe(false);
   });
 
   it("owes no review for a deleted waiver, and sweeps its sign-off on the next write", () => {
@@ -774,7 +777,7 @@ describe("applyDirectionPartDecisions", () => {
 
     const { acceptance } = applyDirectionPartDecisions(direction, null, decisions);
     expect(acceptance.whole?.hash).toBe(directionHash(direction));
-    expect(isDirectionSpendGateSatisfied(direction, acceptance)).toBe(true);
+    expect(gateSatisfied(direction, acceptance)).toBe(true);
   });
 });
 
@@ -1127,7 +1130,7 @@ describe("applyDirectionShotCascade", () => {
     const { acceptance } = applyDirectionShotCascade(cut, accepted, ["01"]);
     expect(acceptance!.parts["direction:props.lantern"]).toBeUndefined();
     expect(directionAcceptanceView(cut, acceptance!).complete).toBe(true);
-    expect(isDirectionSpendGateSatisfied(cut, acceptance!)).toBe(true);
+    expect(gateSatisfied(cut, acceptance!)).toBe(true);
   });
 
   it("keeps a policy part's orphan after the whole was accepted", () => {
@@ -1139,7 +1142,7 @@ describe("applyDirectionShotCascade", () => {
     const { acceptance } = applyDirectionShotCascade(cut, accepted, ["01"]);
     expect(acceptance!.parts["direction:policy.song"]).toBeDefined();
     expect(directionAcceptanceView(cut, acceptance!).orphans).toEqual(["direction:policy.song"]);
-    expect(isDirectionSpendGateSatisfied(cut, acceptance!)).toBe(false);
+    expect(gateSatisfied(cut, acceptance!)).toBe(false);
   });
 
   it("keeps an orphan outside the shot's arc before the whole was accepted", () => {

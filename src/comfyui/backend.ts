@@ -111,8 +111,6 @@ export class ComfyUIBackend implements GenerationBackend {
     outputDir: string,
     options?: WaitOptions,
   ): Promise<WaitForCompletionResult> {
-    const start = performance.now();
-
     let waitOutcome: { kind: "done" } | { kind: "timedOut" };
     try {
       waitOutcome = await this.wsClient.waitForPrompt(backendJobId, {
@@ -177,7 +175,6 @@ export class ComfyUIBackend implements GenerationBackend {
       result: {
         files: savedFiles,
         metadata: { promptId: backendJobId },
-        durationMs: Math.round(performance.now() - start),
       },
     };
   }

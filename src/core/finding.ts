@@ -323,7 +323,7 @@ export function formatFindingLine(finding: Finding): string {
 }
 
 // One file's findings as printed: each code's under one `<code> ×<n> — <remedy>` head.
-export type FindingBlock = { head: string; items: string[] };
+type FindingBlock = { head: string; items: string[] };
 
 export function formatFindingBlocks(findings: readonly Finding[]): FindingBlock[] {
   const byCode = new Map<FindingCode, Finding[]>();

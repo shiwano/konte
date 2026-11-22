@@ -73,7 +73,6 @@ export class FalBackend implements GenerationBackend {
     // Two clocks: `deadline` is compared against the wall clock, while an elapsed time
     // must not go backwards when that clock is corrected mid-wait.
     const start = Date.now();
-    const startMark = performance.now();
     const { endpointId, requestId } = decodeBackendJobId(backendJobId);
 
     // getStatus throws TransientHttpError on a transient comms failure; pollUntilTerminal
@@ -118,7 +117,6 @@ export class FalBackend implements GenerationBackend {
       result: {
         files,
         metadata: { requestId, endpointId },
-        durationMs: Math.round(performance.now() - startMark),
       },
     };
   }

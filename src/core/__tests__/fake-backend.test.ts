@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GenerationRequest } from "../backend.js";
 import { KonteError } from "../errors.js";
-import { FakeBackend } from "../fake-backend.js";
+import { FakeBackend } from "./helpers/fake-backend.js";
 
 let tmpDir: string;
 
@@ -39,7 +39,6 @@ describe("FakeBackend", () => {
 
       expect(result.files).toHaveLength(1);
       expect(result.files[0]).toMatch(/v001\.mp4$/);
-      expect(result.durationMs).toBeGreaterThanOrEqual(0);
       expect(result.metadata).toHaveProperty("jobId");
 
       const content = await fs.readFile(result.files[0]!, "utf-8");

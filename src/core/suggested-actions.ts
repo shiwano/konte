@@ -1,4 +1,3 @@
-import { acceptedVariantId } from "./accepted-variant.js";
 import {
   formatReferenceAddress,
   getStage,
@@ -6,11 +5,10 @@ import {
   isStageScope,
 } from "./address.js";
 import { type Finding, findingTraits, groupByFixIn } from "./finding.js";
-import { StalenessView } from "./staleness.js";
 import { ERROR_GLIMPSE_WIDTH, truncateSingleLine } from "./truncate.js";
 import { STAGE_ENTRY_FILE } from "./roots.js";
 import type { ExportReadiness, LastExport } from "./status-sections.js";
-import type { AssetState, KonteState, VariantState } from "./types/index.js";
+import type { KonteState } from "./types/index.js";
 
 // One step: a runnable command, or — when no command performs it — a `label` naming the edit it
 // takes, parenthesized on the page so it never reads as something to run.
@@ -138,18 +136,6 @@ function suggestPatchScriptEdits(
       detail: truncateSingleLine(e.message, ERROR_GLIMPSE_WIDTH),
     });
   }
-}
-
-function hasFreshPending(view: StalenessView, address: string, a: AssetState): boolean {
-  if (!a.variants) return false;
-  const variants = Object.values(a.variants);
-  // An accepted asset is settled: its remaining unpicked variants are alternatives,
-  // not pending review. Mirror the "Needs review" section (readyCount > 0 && !hasAccepted)
-  // so Next steps never nags to re-review a fully-accepted stage.
-  if (acceptedVariantId(view.state, address) !== null) return false;
-  return variants.some(
-    (v: VariantState) => v.status === "none" && v.file !== null && !view.isStale(address, v),
-  );
 }
 
 // The step a standing comment asks for is to READ it: konte knows a comment stands, not what it
@@ -490,17 +476,8 @@ export function formatSuggestedActions(actions: readonly SuggestedAction[]): str
 
 interface SuggestStatusInput {
   state: KonteState;
-  /**
-   * The caller's staleness view. Without it the state-only fallbacks below read the input axis
-   * alone, and a "needs review" nudge can name a take the review page no longer shows.
-   */
-  stalenessView?: StalenessView;
-  /**
-   * The report's "Needs review" addresses, computed by the caller that has the live definitions (so
-   * a composition's definition-staleness is accounted for). Falls back to the state-only
-   * `hasFreshPending` heuristic, which cannot see it.
-   */
-  pendingReviewAddresses?: readonly string[];
+  /** The report's "Needs review" addresses. */
+  pendingReviewAddresses: readonly string[];
   /** Every finding standing (see `collectFindings`). */
   findings?: readonly Finding[];
   /** Stages whose `generate` the spend gate would refuse right now. */
@@ -616,13 +593,7 @@ export function suggestForStatus(input: SuggestStatusInput): SuggestedAction[] {
   // Ahead of the review suggestions: what the human already asked for outranks showing them more.
   suggestFeedbackRead(actions, input.feedbackAddresses ?? []);
 
-  const fallbackView = input.stalenessView ?? new StalenessView(state, undefined);
-  const pendingAddresses =
-    input.pendingReviewAddresses ??
-    Object.entries(state.assets)
-      .filter(([addr, a]) => hasFreshPending(fallbackView, addr, a))
-      .map(([addr]) => addr);
-  for (const scope of distinctScopes(pendingAddresses)) {
+  for (const scope of distinctScopes(input.pendingReviewAddresses)) {
     // The edit step for what holds it stands in for a refused review.
     if (previewHeld.has(scope)) continue;
     actions.push({ command: `konte preview ${scope}` });

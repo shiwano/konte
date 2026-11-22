@@ -113,7 +113,7 @@ export async function applyPatches(
  * consuming it is rebuilt by the rule above, so the attempt it asks for reaches the patched take.
  */
 /** `jobs` is the returned step's; `steps` the jobs this run registered for the steps before it. */
-export type PatchApplication = AssetResult & { steps: string[] };
+type PatchApplication = AssetResult & { steps: string[] };
 
 export async function applyPatch(
   patch: LoadedPatch,

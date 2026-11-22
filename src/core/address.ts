@@ -99,7 +99,7 @@ export function isDirectionBriefListField(
 // them by these keys.
 const DIRECTION_POLICY_FIELDS = ["format", "lang", "fonts", "song"] as const;
 
-export type DirectionPolicyField = (typeof DIRECTION_POLICY_FIELDS)[number];
+type DirectionPolicyField = (typeof DIRECTION_POLICY_FIELDS)[number];
 
 // The groups the direction's signed parts fall in: what a sign-off is reported, held and recorded
 // by. Acceptance state is per PART (one entry per address), and the page's one Accept decides

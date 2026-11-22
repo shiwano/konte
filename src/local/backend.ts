@@ -67,7 +67,6 @@ export class LocalBackend implements GenerationBackend {
   // Local media ops run synchronously inside submit() (there is no external job to poll), so this
   // is a private helper, not part of GenerationBackend.
   private async generate(request: GenerationRequest): Promise<GenerationResult> {
-    const start = performance.now();
     const def = this.assertLocalDef(request.assetDefinition);
     const outputFile = await this.executeOperation(
       def,
@@ -76,7 +75,7 @@ export class LocalBackend implements GenerationBackend {
       request.address,
       request.onLog,
     );
-    return { files: [outputFile], metadata: {}, durationMs: Math.round(performance.now() - start) };
+    return { files: [outputFile], metadata: {} };
   }
 
   async waitForCompletion(
@@ -91,7 +90,7 @@ export class LocalBackend implements GenerationBackend {
     }
     return {
       kind: "done",
-      result: { files: [path.join(outputDir, outputFile)], metadata: {}, durationMs: 0 },
+      result: { files: [path.join(outputDir, outputFile)], metadata: {} },
     };
   }
 

@@ -252,7 +252,6 @@ describe("stem-unmouthed", () => {
         cueTakes: "played",
         videoRoot: "",
         direction,
-        directionAccepted: true,
         directionUnlocked: true,
         reference: null,
         animatic: animatic(),

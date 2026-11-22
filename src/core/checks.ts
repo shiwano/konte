@@ -76,7 +76,6 @@ export type CheckContext = {
   videoRoot: string;
   // null: no direction.ts at all; a broken one never reaches a context.
   direction: Direction | null;
-  directionAccepted: boolean;
   // The direction has been accepted whole once: what an `after-direction-accepted` finding waits
   // for, and an edit since does not take back.
   directionUnlocked: boolean;
@@ -97,10 +96,7 @@ export type CheckContext = {
   songVariant?: SongVariantState;
 };
 
-// A direction waiver whose finding is gone.
-export type StaleWaiverLine = StaleWaiver;
-
-export function formatStaleWaiverLine(w: StaleWaiverLine): string {
+export function formatStaleWaiverLine(w: StaleWaiver): string {
   return w.fixOnly
     ? `[${w.key}] waiver of a finding only a fix clears — remove it, and fix the finding (${w.reason})`
     : `[${w.key}] stale waiver — its finding is gone; remove it (${w.reason})`;
@@ -108,14 +104,14 @@ export function formatStaleWaiverLine(w: StaleWaiverLine): string {
 
 export type FindingReport = {
   findings: Finding[];
-  staleWaivers: StaleWaiverLine[];
+  staleWaivers: StaleWaiver[];
 };
 
 type Check = {
   codes: readonly FindingCode[];
   run: (ctx: CheckContext) => Finding[] | Promise<Finding[]>;
   // The direction check also reports the waivers that cancel nothing.
-  staleWaivers?: (ctx: CheckContext) => StaleWaiverLine[];
+  staleWaivers?: (ctx: CheckContext) => StaleWaiver[];
 };
 
 const ASSET_STAGES: readonly AssetStage[] = ["reference", "animatic", "video"];
@@ -608,7 +604,7 @@ export async function collectFindings(
   opts: { signedOff?: boolean } = {},
 ): Promise<FindingReport> {
   const findings: Finding[] = [];
-  const staleWaivers: StaleWaiverLine[] = [];
+  const staleWaivers: StaleWaiver[] = [];
   for (const check of CHECKS) {
     if (!reportsAny(check, want)) continue;
     for (const raw of await check.run(ctx)) {

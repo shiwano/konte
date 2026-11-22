@@ -249,11 +249,6 @@ export class ComfyUIWsClient {
     this.http = new ComfyUIHttpClient(baseUrl, { clientId, headers });
   }
 
-  async connect(): Promise<void> {
-    const wsUrl = this.buildWsUrl();
-    this.ws = await this.createWebSocket(wsUrl);
-  }
-
   disconnect(): void {
     if (this.ws) {
       this.ws.close();
@@ -467,12 +462,14 @@ export class ComfyUIWsClient {
   }
 
   private async connectWithRetry(): Promise<void> {
-    const wsUrl = this.buildWsUrl();
     const delays = this.timing.reconnectDelaysMs;
 
     for (let attempt = 0; attempt < delays.length; attempt++) {
       try {
-        this.ws = await this.createWebSocket(wsUrl);
+        this.ws = await openComfyWebSocket(this.baseUrl, this.clientId, {
+          headers: this.headerTemplates,
+          handshakeTimeoutMs: this.timing.handshakeTimeoutMs,
+        });
         return;
       } catch (err) {
         if (err instanceof WsOptionsRefused) throw err;
@@ -487,66 +484,66 @@ export class ComfyUIWsClient {
       `Failed to connect WebSocket after ${delays.length} attempts`,
     );
   }
+}
 
-  private buildWsUrl(): string {
-    const url = new URL(this.baseUrl);
-    const protocol = url.protocol === "https:" ? "wss:" : "ws:";
-    return `${protocol}//${url.host}/ws?clientId=${this.clientId}`;
+// Bun's WebSocket takes handshake headers and a proxy; the web-standard signature does not. A server
+// that rejects the handshake costs nothing beyond the event stream: `waitForPrompt` falls through to
+// authenticated HTTP polling.
+export async function openComfyWebSocket(
+  baseUrl: string,
+  clientId: string,
+  options: { headers: Readonly<Record<string, string>>; handshakeTimeoutMs: number },
+): Promise<WebSocket> {
+  const base = new URL(baseUrl);
+  const url = `${base.protocol === "https:" ? "wss:" : "ws:"}//${base.host}/ws?clientId=${clientId}`;
+  const headers = resolveHeaderTokens(options.headers);
+  const hasHeaders = Object.keys(headers).length > 0;
+  const proxy = wsProxyFor(url);
+  const init =
+    hasHeaders || proxy
+      ? { ...(hasHeaders ? { headers } : {}), ...(proxy ? { proxy } : {}) }
+      : undefined;
+  const WebSocketWithOptions = WebSocket as unknown as new (
+    url: string,
+    options?: { headers?: Record<string, string>; proxy?: string },
+  ) => WebSocket;
+
+  let ws: WebSocket;
+  try {
+    ws = new WebSocketWithOptions(url, init);
+  } catch {
+    throw new WsOptionsRefused(url, proxy !== undefined);
   }
 
-  private createWebSocket(url: string): Promise<WebSocket> {
-    // Bun's WebSocket takes handshake headers and a proxy; the web-standard signature does not. A
-    // server that rejects the handshake costs nothing beyond the event stream: `waitForPrompt`
-    // falls through to authenticated HTTP polling.
-    const headers = resolveHeaderTokens(this.headerTemplates);
-    const hasHeaders = Object.keys(headers).length > 0;
-    const proxy = wsProxyFor(url);
-    const init =
-      hasHeaders || proxy
-        ? { ...(hasHeaders ? { headers } : {}), ...(proxy ? { proxy } : {}) }
-        : undefined;
-    const WebSocketWithOptions = WebSocket as unknown as new (
-      url: string,
-      options?: { headers?: Record<string, string>; proxy?: string },
-    ) => WebSocket;
+  return new Promise((resolve, reject) => {
+    const settle = () => {
+      clearTimeout(timer);
+      ws.removeEventListener("open", onOpen);
+      ws.removeEventListener("error", onError);
+    };
 
-    let ws: WebSocket;
-    try {
-      ws = new WebSocketWithOptions(url, init);
-    } catch {
-      throw new WsOptionsRefused(url, proxy !== undefined);
-    }
+    const onOpen = () => {
+      settle();
+      resolve(ws);
+    };
 
-    return new Promise((resolve, reject) => {
-      const settle = () => {
-        clearTimeout(timer);
-        ws.removeEventListener("open", onOpen);
-        ws.removeEventListener("error", onError);
-      };
+    const onError = (_event: Event) => {
+      settle();
+      reject(new KonteError("COMFYUI_WS_UNAVAILABLE", `WebSocket connection failed to ${url}`));
+    };
 
-      const onOpen = () => {
-        settle();
-        resolve(ws);
-      };
+    const timer = setTimeout(() => {
+      settle();
+      ws.close();
+      reject(
+        new KonteError(
+          "COMFYUI_WS_UNAVAILABLE",
+          `WebSocket handshake to ${url} went unanswered for ${options.handshakeTimeoutMs}ms`,
+        ),
+      );
+    }, options.handshakeTimeoutMs);
 
-      const onError = (_event: Event) => {
-        settle();
-        reject(new KonteError("COMFYUI_WS_UNAVAILABLE", `WebSocket connection failed to ${url}`));
-      };
-
-      const timer = setTimeout(() => {
-        settle();
-        ws.close();
-        reject(
-          new KonteError(
-            "COMFYUI_WS_UNAVAILABLE",
-            `WebSocket handshake to ${url} went unanswered for ${this.timing.handshakeTimeoutMs}ms`,
-          ),
-        );
-      }, this.timing.handshakeTimeoutMs);
-
-      ws.addEventListener("open", onOpen);
-      ws.addEventListener("error", onError);
-    });
-  }
+    ws.addEventListener("open", onOpen);
+    ws.addEventListener("error", onError);
+  });
 }

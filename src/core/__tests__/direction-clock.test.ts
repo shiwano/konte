@@ -137,6 +137,7 @@ describe("Next steps before the song", () => {
   it("makes the song, then writes the shots in beats", () => {
     const actions = suggestForStatus({
       state,
+      pendingReviewAddresses: [],
       directionReviewNeeded: true,
       directionEmpty: true,
       songPending: { address: "reference:song", hasVariant: false, directionReviewNeeded: false },
@@ -148,6 +149,7 @@ describe("Next steps before the song", () => {
   it("reviews the brief, policy and lyrics before the song is made", () => {
     const actions = suggestForStatus({
       state,
+      pendingReviewAddresses: [],
       directionReviewNeeded: true,
       directionEmpty: true,
       songPending: { address: "reference:song", hasVariant: false, directionReviewNeeded: true },
@@ -158,6 +160,7 @@ describe("Next steps before the song", () => {
   it("sends a song already taken to its review", () => {
     const actions = suggestForStatus({
       state,
+      pendingReviewAddresses: [],
       directionReviewNeeded: true,
       directionEmpty: true,
       songPending: { address: "reference:song", hasVariant: true, directionReviewNeeded: false },
@@ -168,6 +171,7 @@ describe("Next steps before the song", () => {
   it("reads a take no job is reading before its review", () => {
     const actions = suggestForStatus({
       state,
+      pendingReviewAddresses: [],
       directionReviewNeeded: true,
       directionEmpty: true,
       songPending: { address: "reference:song", hasVariant: true, directionReviewNeeded: false },

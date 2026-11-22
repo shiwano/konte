@@ -55,7 +55,6 @@ const ctx: CheckContext = {
   cueTakes: "played",
   videoRoot: "",
   direction: null,
-  directionAccepted: false,
   directionUnlocked: false,
   reference: null,
   animatic,

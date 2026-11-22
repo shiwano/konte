@@ -31,7 +31,6 @@ export async function assertSubmitNotCancelled(request: GenerationRequest): Prom
 export type GenerationResult = {
   files: string[];
   metadata: Record<string, unknown>;
-  durationMs: number;
 };
 
 // The outcome of waitForCompletion. A waiter's own patience (timeoutMs) running out is NOT a

@@ -249,7 +249,6 @@ describe("view-unanchored", () => {
       cueTakes: "played",
       videoRoot: "",
       direction: direction as unknown as Direction,
-      directionAccepted: false,
       directionUnlocked: false,
       reference: drawn(),
       animatic: null,
@@ -325,13 +324,12 @@ describe("view-unnamed", () => {
   });
 
   it("holds the reference spend once the direction is accepted", async () => {
-    const run = (directionAccepted: boolean) =>
+    const run = (unlocked: boolean) =>
       collectFindings({
         cueTakes: "played",
         videoRoot: "",
         direction: boarded as unknown as Direction,
-        directionAccepted,
-        directionUnlocked: directionAccepted,
+        directionUnlocked: unlocked,
         reference: drawn("the studio, empty", "the floor lamp"),
         animatic: null,
         video: null,
@@ -355,7 +353,6 @@ describe("view-unnamed", () => {
         ...(boarded as unknown as Direction),
         waivers: { "view-unnamed_studio.front.desk": "the desk is painted in later" },
       },
-      directionAccepted: true,
       directionUnlocked: true,
       reference: drawn("the studio, empty", "the floor lamp"),
       animatic: null,
