@@ -1,5 +1,6 @@
 import type { SoundtrackEntry } from "../types/soundtrack.js";
-import { makeMediaAsset, type MediaKind } from "../types/media.js";
+import type { MediaKind } from "../types/media.js";
+import { makeMediaAsset } from "./media-asset.js";
 import {
   formatReferenceAddress,
   formatShotAddress,

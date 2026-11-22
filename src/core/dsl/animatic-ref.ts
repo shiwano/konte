@@ -11,7 +11,7 @@ import { KonteError } from "../errors.js";
 import { isRendering } from "../jsx-html.js";
 import type { AnimaticDefinition } from "../types/animatic.js";
 import type { HeardStem, ShotHandle } from "./builders.js";
-import { makeMediaAsset } from "../types/media.js";
+import { makeMediaAsset } from "./media-asset.js";
 import { withSongSpan } from "./song-window.js";
 import { markPanel } from "./panel-collect.js";
 import {

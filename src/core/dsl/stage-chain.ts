@@ -1,5 +1,6 @@
 import type { ShotFunction } from "../types/definition.js";
-import { makeMediaAsset, type MediaAsset, type MediaKind } from "../types/media.js";
+import type { MediaAsset, MediaKind } from "../types/media.js";
+import { makeMediaAsset } from "./media-asset.js";
 import type { ShotStage } from "../address.js";
 import { formatAddress, formatSongStemAddress } from "../address.js";
 import { KonteError } from "../errors.js";

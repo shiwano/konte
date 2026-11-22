@@ -12,7 +12,7 @@ import {
   videoFrame,
 } from "../dsl/adapters/index.js";
 import { defineVideo } from "../dsl/builders.js";
-import { makeMediaAsset } from "../types/media.js";
+import { makeMediaAsset } from "../dsl/media-asset.js";
 import { upscale } from "../dsl/delivery-upscale.js";
 import { shot, videoTimeline } from "./helpers/shot.js";
 import { testDirection, plainDirection } from "./helpers/direction.js";
