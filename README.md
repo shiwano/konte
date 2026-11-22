@@ -162,7 +162,6 @@ The agent creates an adapter with typed inputs, dependencies, and a prompting gu
 - **Checks before spending.** konte runs more than 150 [checks](docs/FINDINGS.md) on the shot plan, prompts, and takes. It holds generation or review until each finding is fixed or signed off.
 - **Independent critics.** Separate subagents review the shot plan, staging, prompts, storyboard, and video, each against its own [checklist](docs/CRITICS.md).
 - **Self-inspection.** The agent checks its own work as contact sheets, filmstrips, waveforms, and an audio timeline.
-- **Export verification.** konte confirms the MP4's resolution, duration, frame rate, and audio.
 - **Model craft guides.** Bundled model adapters come with a prompting guide the agent reads before writing a prompt.
 
 ### Audio
