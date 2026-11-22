@@ -155,6 +155,60 @@ Give your agent a workflow saved from ComfyUI:
 
 The agent creates an adapter with typed inputs, dependencies, and a prompting guide. No API-format export is needed.
 
+## Features
+
+### Agent tooling
+
+- **Checks before spending.** konte runs more than 150 [checks](docs/FINDINGS.md) on the shot plan, prompts, and takes. It holds generation or review until each finding is fixed or signed off.
+- **Independent critics.** Separate subagents review the shot plan, staging, prompts, storyboard, and video, each against its own [checklist](docs/CRITICS.md).
+- **Self-inspection.** The agent checks its own work as contact sheets, filmstrips, waveforms, and an audio timeline (`konte probe`).
+- **Export verification.** konte confirms the MP4's resolution, duration, frame rate, and audio.
+- **Model craft guides.** Bundled model adapters come with a prompting guide the agent reads before writing a prompt (`konte adapter show`).
+
+### Audio
+
+- **Auto-ducking.** konte lowers the music under each spoken line and brings it back after. It follows the voice, not the silence around it.
+- **Loudness leveling.** konte sets voices, narration, ambience, music, and sound effects each to their own level.
+- **Tight sound effects.** konte skips the silence at the start of a sound effect, so it plays exactly on its cue.
+- **Retiming.** konte fits a voice take to its shot without changing its pitch.
+- **Speed changes.** A clip played faster or slower keeps the pitch of its audio.
+
+### Music
+
+- **Beat detection.** konte finds the song's beats with [Beat This!](https://github.com/CPJKU/beat_this).
+- **Cutting to the beat.** The agent times shots in beats, and konte lines them up with the song.
+- **Lyric alignment.** konte separates the vocals with [Spleeter](https://github.com/deezer/spleeter) and finds where each lyric line is sung.
+- **Songs in parts.** konte joins a song generated in sections into one track.
+
+### Dialogue and subtitles
+
+- **Line checks.** konte transcribes each voice take with [SenseVoice](https://github.com/FunAudioLLM/SenseVoice) or [Parakeet](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) and flags words that are missing, changed, or cut off.
+- **Auto-timed subtitles.** The agent names a script line, and konte shows it where the line is spoken.
+- **Japanese readings.** konte compares Japanese lines by how they are read, so kanji and kana spellings match.
+- **Respelling.** A speech model gets the spelling it needs, and subtitles keep the script's wording.
+
+### Compositing
+
+- **Chroma key.** konte removes a green or other solid backdrop and places the subject over what is behind it.
+- **Screen inserts.** konte puts content on an angled surface such as a monitor, a phone, or a sign.
+- **Cut-ins.** A second camera angle plays in a corner of the shot.
+- **Motion graphics.** The agent animates text and layers with GSAP, down to each character, and styles them with Tailwind.
+- **Graphic shots.** The agent writes title cards and graphics in JSX, and konte renders them as images or video.
+- **Overlay and thumbnail.** An overlay spans the whole video. The thumbnail is a frame of the cut, with optional graphics on top.
+
+### Image and video operations
+
+- **New camera angles.** konte estimates a location's depth with [MoGe-2](https://github.com/microsoft/MoGe) and renders a rough view from another angle for an image model to paint over.
+- **Long takes.** The agent continues a take from its last frame to run past a model's maximum duration.
+- **Delivery upscaling.** Export upscales each video layer, or the finished frame, to the delivery resolution.
+- **Crop, resize, and trim.** These run locally with ffmpeg and need no generation backend.
+- **Patches.** The agent fixes a single take with a script instead of regenerating it (`konte patch`).
+
+### Adaptation and reference
+
+- **Adapting a source.** Give your agent a novel (.txt, .md, .epub), a comic (page images, .cbz, .pdf, .zip), or a film to adapt.
+- **Studying a reference.** Give your agent a video file or URL to match. konte reads its cuts, look, music tempo, and voice.
+
 ## What the agent writes
 
 The agent writes four TypeScript files per video. They stay in code so they can be diffed, reviewed, and checked before money is spent. konte checks types, the shot plan, and dependencies before generation.
