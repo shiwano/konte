@@ -6410,6 +6410,7 @@ export interface AssetAdapter<TInputs extends Record<string, unknown>, TOutput e
   createDefinition(inputs: TInputs): AssetDefinition;
   timeOffset?(inputs: TInputs): number | null;
 }
+export type AnyAssetAdapter = AssetAdapter<Record<string, unknown>, MediaKind>;
 export type DeclaredPin =
   | "start"
   | "end"
@@ -6419,19 +6420,18 @@ export type DeclaredPin =
         field: string;
       };
     };
-export type AdapterInputs<T> = T extends AssetAdapter<infer I, any> ? I : never;
-export type AdapterOutput<T> = T extends AssetAdapter<any, infer O> ? O : never;
-export type BrandedMediaAsset<
-  TName extends string,
-  TAdapter extends AssetAdapter<any, any>,
-> = MediaAsset<AdapterOutput<TAdapter>> & {
+export type AdapterInputs<T> = T extends AssetAdapter<infer I, MediaKind> ? I : never;
+export type AdapterOutput<T> = T extends AssetAdapter<Record<string, unknown>, infer O> ? O : never;
+export type BrandedMediaAsset<TName extends string, TAdapter extends AnyAssetAdapter> = MediaAsset<
+  AdapterOutput<TAdapter>
+> & {
   readonly __partName: TName;
 };
 /**
  * Declares an asset in the active context: a stage asset inside a `timeline()`/`shot()`, or a
  * shared asset inside `defineReference()` (addressed `reference:<name>`).
  */
-export declare function asset<TName extends string, TAdapter extends AssetAdapter<any, any>>(
+export declare function asset<TName extends string, TAdapter extends AnyAssetAdapter>(
   name: TName & Identifier<TName>,
   adapter: TAdapter,
   inputs: AdapterInputs<TAdapter>,
@@ -8870,7 +8870,7 @@ export declare function isGraphicShot(shot: Shot): shot is GraphicShot;
  *
  * An adapter whose `allowedIn` lacks `upscale` is refused.
  */
-export declare function upscale<A extends AssetAdapter<any, any>>(
+export declare function upscale<A extends AnyAssetAdapter>(
   adapter: A,
   given: AdapterInputs<A>,
 ): AssetDefinition;
@@ -9792,9 +9792,10 @@ export declare const adapters: {
   jsxVideo: AssetAdapter<JsxVideoInputs, "video">;
   imageOrbit: AssetAdapter<ImageOrbitInputs, "image">;
 };
-export declare function seed(): string & {
+export type KontePlaceholder = string & {
   readonly __brand: "KontePlaceholder";
 };
+export declare function seed(): KontePlaceholder;
 
 export { Audio$1 as Audio, Image$1 as Image, Screen$1 as Screen };
 

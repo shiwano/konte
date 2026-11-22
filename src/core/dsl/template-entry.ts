@@ -241,6 +241,7 @@ export const adapters = {
   jsxVideo,
   imageOrbit,
 };
-export function seed(): string & { readonly __brand: "KontePlaceholder" } {
-  return "" as any;
+type KontePlaceholder = string & { readonly __brand: "KontePlaceholder" };
+export function seed(): KontePlaceholder {
+  return "" as KontePlaceholder;
 }

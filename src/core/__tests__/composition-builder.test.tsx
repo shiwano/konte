@@ -1184,7 +1184,9 @@ describe("buildShotClips", () => {
 });
 
 describe("Video/Audio data attributes", () => {
-  function singleShot(render: (motion: ReturnType<typeof asset>) => React.ReactElement) {
+  function singleShot(
+    render: (motion: ReturnType<typeof asset<"motion", typeof animateComfy>>) => React.ReactElement,
+  ) {
     return defineVideo(
       testDirection({
         fps: 30,

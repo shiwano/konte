@@ -156,14 +156,20 @@ function docId(s: Session, data: Buffer): number {
   return id;
 }
 
+// What INDEX_HTML puts on the page's globalThis.
+type PdfPageGlobals = typeof globalThis & {
+  konteInfo(id: number): Promise<{ pages: number; direction: string | null }>;
+  konteRender(id: number, n: number, longSide: number, quality: number): Promise<string>;
+};
+
 /** How many pages pdf.js counts in `data`, and the direction its viewer preferences state. */
 export function pdfInfo(data: Buffer): Promise<{ pages: number; direction: "rtl" | "ltr" | null }> {
   return withPage(async (s) => {
     const id = docId(s, data);
-    const info = (await s.page.evaluate((i: number) => (globalThis as any).konteInfo(i), id)) as {
-      pages: number;
-      direction: string | null;
-    };
+    const info = await s.page.evaluate(
+      (i: number) => (globalThis as PdfPageGlobals).konteInfo(i),
+      id,
+    );
     const direction = info.direction === "R2L" ? "rtl" : info.direction === "L2R" ? "ltr" : null;
     return { pages: info.pages, direction };
   });
@@ -173,14 +179,14 @@ export function pdfInfo(data: Buffer): Promise<{ pages: number; direction: "rtl"
 export function renderPdfPage(data: Buffer, n: number): Promise<Buffer> {
   return withPage(async (s) => {
     const id = docId(s, data);
-    const base64 = (await s.page.evaluate(
+    const base64 = await s.page.evaluate(
       (i: number, page: number, longSide: number, quality: number) =>
-        (globalThis as any).konteRender(i, page, longSide, quality),
+        (globalThis as PdfPageGlobals).konteRender(i, page, longSide, quality),
       id,
       n,
       LONG_SIDE,
       JPEG_QUALITY,
-    )) as string;
+    );
     return Buffer.from(base64, "base64");
   });
 }

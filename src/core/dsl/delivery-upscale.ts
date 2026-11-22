@@ -1,5 +1,5 @@
 import type { AssetDefinition } from "../types/definition.js";
-import { type AdapterInputs, type AssetAdapter, outOfScope } from "./adapter.js";
+import { type AdapterInputs, type AnyAssetAdapter, outOfScope } from "./adapter.js";
 import { recordPinInputs } from "./pin-collect.js";
 import { recordPromptInputs, UNADDRESSED } from "./prompt-collect.js";
 import { assemblePromptInputs } from "./prompt-structure.js";
@@ -19,7 +19,7 @@ import { assemblePromptInputs } from "./prompt-structure.js";
  *
  * An adapter whose `allowedIn` lacks `upscale` is refused.
  */
-export function upscale<A extends AssetAdapter<any, any>>(
+export function upscale<A extends AnyAssetAdapter>(
   adapter: A,
   given: AdapterInputs<A>,
 ): AssetDefinition {

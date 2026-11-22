@@ -157,6 +157,8 @@ export interface AssetAdapter<TInputs extends Record<string, unknown>, TOutput e
   timeOffset?(inputs: TInputs): number | null;
 }
 
+export type AnyAssetAdapter = AssetAdapter<Record<string, unknown>, MediaKind>;
+
 // See `AdapterInputDef.pin`.
 export type DeclaredPin = "start" | "end" | { end: { nodeId: string; field: string } };
 
@@ -338,7 +340,7 @@ export function assertTurboInputs(inputs: Record<string, DeclaredInput>): string
 
 // On a video shot of a piece cut to its song, an adapter's `stem` input takes the board's
 // `#songStem` of that shot: konte fills it, and refuses anything else written there.
-function fillSongStem<T>(adapter: AssetAdapter<any, any>, given: T, name: string): T {
+function fillSongStem<T>(adapter: AnyAssetAdapter, given: T, name: string): T {
   const stem = declarationSite() === "shot" ? getShotContext()?.songStem : undefined;
   if (!stem) return given;
   const key = Object.keys(adapter.meta.inputs).find((k) => adapter.meta.inputs[k]!.stem);
@@ -359,8 +361,8 @@ export function isAssetAdapter(value: unknown): value is AssetAdapter<never, Med
   return typeof candidate.createDefinition === "function" && typeof candidate.meta === "object";
 }
 
-export type AdapterInputs<T> = T extends AssetAdapter<infer I, any> ? I : never;
-export type AdapterOutput<T> = T extends AssetAdapter<any, infer O> ? O : never;
+export type AdapterInputs<T> = T extends AssetAdapter<infer I, MediaKind> ? I : never;
+export type AdapterOutput<T> = T extends AssetAdapter<Record<string, unknown>, infer O> ? O : never;
 
 // A second asset() with an existing name would silently overwrite the first in the
 // context Map, so reject it at declaration time (where the loader's post-parse
@@ -375,7 +377,7 @@ function assertUniqueAsset(
   }
 }
 
-type BrandedMediaAsset<TName extends string, TAdapter extends AssetAdapter<any, any>> = MediaAsset<
+type BrandedMediaAsset<TName extends string, TAdapter extends AnyAssetAdapter> = MediaAsset<
   AdapterOutput<TAdapter>
 > & { readonly __partName: TName };
 
@@ -383,7 +385,7 @@ type BrandedMediaAsset<TName extends string, TAdapter extends AssetAdapter<any, 
  * Declares an asset in the active context: a stage asset inside a `timeline()`/`shot()`, or a
  * shared asset inside `defineReference()` (addressed `reference:<name>`).
  */
-export function asset<TName extends string, TAdapter extends AssetAdapter<any, any>>(
+export function asset<TName extends string, TAdapter extends AnyAssetAdapter>(
   name: TName & Identifier<TName>,
   adapter: TAdapter,
   inputs: AdapterInputs<TAdapter>,
@@ -469,7 +471,7 @@ function clipOf(def: AssetDefinition): PinOccurrence["clip"] {
   return { sec, frameSec, landsAt };
 }
 
-function registerAsset<TName extends string, TAdapter extends AssetAdapter<any, any>>(
+function registerAsset<TName extends string, TAdapter extends AnyAssetAdapter>(
   name: TName,
   adapter: TAdapter,
   given: AdapterInputs<TAdapter>,
@@ -592,10 +594,7 @@ function registerAsset<TName extends string, TAdapter extends AssetAdapter<any, 
 
 // A render pass resolves the name to its file and builds no definition: a render context carries no
 // canvas for an adapter to derive its inputs from.
-function renderedAsset(
-  name: string,
-  adapter: AssetAdapter<any, any>,
-): MediaAsset<MediaKind> | undefined {
+function renderedAsset(name: string, adapter: AnyAssetAdapter): MediaAsset<MediaKind> | undefined {
   const site = declarationSite();
   if (site === "timeline") {
     const ctx = getTimelineContext();
