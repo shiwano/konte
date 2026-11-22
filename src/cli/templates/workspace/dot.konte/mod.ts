@@ -8296,12 +8296,12 @@ export interface DirectionIndex {
   labelById: Map<string, string>;
   referenceShapeById: Map<string, ReferenceShape>;
 }
-declare const DIRECTION: unique symbol;
+declare const DIRECTION_KEY: unique symbol;
 export type DirectionHandle<D> = DirectionIndex & {
   readonly __direction?: D;
 };
 export type DirectionEntry<D> = D & {
-  readonly [DIRECTION]: DirectionHandle<D>;
+  readonly [DIRECTION_KEY]: DirectionHandle<D>;
 };
 export declare function defineDirection<const D extends DirectionInput>(
   direction: D & ConstrainIds<D> & NoInfer<ConstrainKnownFields<D, DirectionInput>>,

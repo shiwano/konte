@@ -42,3 +42,14 @@ declare module "pdfjs-dist/build/*.min.mjs" {
   const content: string;
   export default content;
 }
+
+// The PIN pages, imported as text (`with { type: "text" }`); Bun's own `*.html` type is the
+// full-stack HTMLBundle.
+declare module "*/pages/pin/gate.html" {
+  const content: string;
+  export default content;
+}
+declare module "*/pages/pin/locked.html" {
+  const content: string;
+  export default content;
+}

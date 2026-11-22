@@ -499,18 +499,15 @@ export async function openComfyWebSocket(
   const headers = resolveHeaderTokens(options.headers);
   const hasHeaders = Object.keys(headers).length > 0;
   const proxy = wsProxyFor(url);
-  const init =
+  const init: Bun.WebSocketOptions | undefined =
     hasHeaders || proxy
       ? { ...(hasHeaders ? { headers } : {}), ...(proxy ? { proxy } : {}) }
       : undefined;
-  const WebSocketWithOptions = WebSocket as unknown as new (
-    url: string,
-    options?: { headers?: Record<string, string>; proxy?: string },
-  ) => WebSocket;
-
+  // lib.dom's WebSocket shadows Bun's constructor, which also takes headers and a proxy.
+  const BunWebSocket = WebSocket as new (url: string, options?: Bun.WebSocketOptions) => WebSocket;
   let ws: WebSocket;
   try {
-    ws = new WebSocketWithOptions(url, init);
+    ws = new BunWebSocket(url, init);
   } catch {
     throw new WsOptionsRefused(url, proxy !== undefined);
   }

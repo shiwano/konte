@@ -376,10 +376,7 @@ export function renderToHtml(
   currentVisitor = visitor ?? null;
   try {
     const html = renderElement(element);
-    const isRootHtml =
-      typeof (element as unknown as JSXElement).type === "string" &&
-      (element as unknown as JSXElement).type === "html";
-    if (isRootHtml) {
+    if (element.type === "html") {
       return `<!doctype html>\n${html}`;
     }
     return html;

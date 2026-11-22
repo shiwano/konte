@@ -189,15 +189,14 @@ async function buildVideoFrameInjector(
     byCaptureFrame.set(Math.round(time * fps), payloads);
   }
 
-  const lookup = {
+  type FrameLookup = NonNullable<Parameters<typeof createVideoFrameInjector>[0]>;
+  const lookup: Pick<FrameLookup, "getActiveFramePayloads" | "frameDirs"> = {
     getActiveFramePayloads: (time: number) =>
       byCaptureFrame.get(Math.round(time * fps)) ?? new Map(),
     frameDirs: () => [],
   };
   return {
-    injector: createVideoFrameInjector(
-      lookup as unknown as NonNullable<Parameters<typeof createVideoFrameInjector>[0]>,
-    ),
+    injector: createVideoFrameInjector(lookup as FrameLookup),
     suppliedVideoIds: videos.map((v) => v.id).filter((id) => !unsupplied.has(id)),
   };
 }

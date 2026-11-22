@@ -211,7 +211,7 @@ export async function createPreviewServer(opts: PreviewServerOptions): Promise<{
         if (gated) return gated;
 
         if (pathname === "/ws") {
-          if (server.upgrade(req)) return undefined as unknown as Response;
+          if (server.upgrade(req)) return undefined;
           return errorResponse("WebSocket upgrade failed", "WS_UPGRADE_FAILED", 400);
         }
 

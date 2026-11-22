@@ -12,10 +12,9 @@ import { sha256Hex } from "./content-hash.js";
 import { computeDefinitionHash } from "./definition-hash.js";
 import {
   endsOnSeam,
-  getDirectionIndex,
+  loadedDirectionIndex,
   resolveDirectionFormat,
   resolveDirectionTimeline,
-  type DirectionEntry,
 } from "./dsl/direction.js";
 import { timedShot } from "./dsl/direction-timeline.js";
 import type { PatchBuild } from "./dsl/patch.js";
@@ -388,7 +387,7 @@ async function loadDirectionCanvas(
   // Every shot, aside included: a patch corrects a take at an address, and an aside has assets to
   // correct like any other video shot.
   const timeline = resolveDirectionTimeline(direction);
-  const index = getDirectionIndex(direction as unknown as DirectionEntry<unknown>);
+  const index = loadedDirectionIndex(direction)!;
   return (sourceAddress) => {
     const parsed = parseAddress(sourceAddress);
     const shotId = parsed.kind === "shot" ? parsed.shotId : null;

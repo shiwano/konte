@@ -2,9 +2,8 @@ import { randomBytes } from "node:crypto";
 import { createWriteStream } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import type { ReadableStream as NodeWebReadableStream } from "node:stream/web";
+import { readableFromWeb } from "./web-stream.js";
 
 // The temp lives in the same directory so the rename stays on one filesystem, and is named
 // uniquely per process so concurrent writers don't clobber each other's temp. A failed write
@@ -90,10 +89,7 @@ export function streamToFileAtomic(
   verify?: () => void | Promise<void>,
 ): Promise<void> {
   return withAtomicTemp(filePath, async (tmp) => {
-    await pipeline(
-      Readable.fromWeb(body as unknown as NodeWebReadableStream<Uint8Array>),
-      createWriteStream(tmp),
-    );
+    await pipeline(readableFromWeb(body), createWriteStream(tmp));
     await verify?.();
   });
 }

@@ -581,25 +581,28 @@ export interface DirectionIndex {
   referenceShapeById: Map<string, ReferenceShape>;
 }
 
-// The direction handle rides on the entry under two symbols with a division of labour. `DIRECTION` is a
-// type-only brand keying the handle in `DirectionEntry`'s type; its phantom `__direction` recovers
-// the direction's literal type `D` by inference at the `defineAnimatic`/`defineVideo` call site, so
-// the injected `shot` starter can pin ids to this exact direction (`StepId`). `DIRECTION_KEY` is the
-// runtime storage key — a GLOBAL-registry symbol
-// (`Symbol.for`) so it is the same key even when the loader evaluates a user's direction.ts and
-// animatic.tsx against separate konte module instances; a module-private `Symbol()` would differ
-// between them and `getDirectionIndex` would read `undefined`.
-declare const DIRECTION: unique symbol;
-const DIRECTION_KEY = Symbol.for("konte.direction");
+// The handle's phantom `__direction` recovers the direction's literal type `D` by inference at the
+// `defineAnimatic`/`defineVideo` call site, so the injected `shot` starter can pin ids to this exact
+// direction (`StepId`). The key is a GLOBAL-registry symbol (`Symbol.for`) so it is the same key
+// even when the loader evaluates a user's direction.ts and animatic.tsx against separate konte
+// module instances.
+const DIRECTION_KEY: unique symbol = Symbol.for("konte.direction");
 type DirectionHandle<D> = DirectionIndex & { readonly __direction?: D };
 
 // `defineDirection`'s return: the direction's own data (so `direction.policy.format`, `.characters`
 // etc. read through) plus the direction handle. No `shot`/`pendingShot` methods — a stage shot is minted
 // by the stage-bound `shot` that `defineAnimatic`/`defineVideo` inject into their timeline ctx.
-export type DirectionEntry<D> = D & { readonly [DIRECTION]: DirectionHandle<D> };
+export type DirectionEntry<D> = D & { readonly [DIRECTION_KEY]: DirectionHandle<D> };
 
 export function getDirectionIndex(direction: DirectionEntry<unknown>): DirectionIndex {
-  return (direction as Record<symbol, DirectionIndex>)[DIRECTION_KEY]!;
+  return direction[DIRECTION_KEY];
+}
+
+// The index a loaded direction carries, absent on one built without `defineDirection`.
+export function loadedDirectionIndex(direction: Direction): DirectionIndex | undefined {
+  return DIRECTION_KEY in direction
+    ? (direction as DirectionEntry<Direction>)[DIRECTION_KEY]
+    : undefined;
 }
 
 // Whether a take in the shot ends on the seam the next shot opens on. A take is declared before the
@@ -644,8 +647,7 @@ export function resolveDirectionFormat(direction: Direction): ResolvedDirectionF
 // The direction's timeline: the one its loaded index holds, else read off the direction alone, with
 // no song take.
 export function resolveDirectionTimeline(direction: Direction): DirectionTimeline {
-  const index = (direction as unknown as Record<symbol, DirectionIndex | undefined>)[DIRECTION_KEY];
-  return index?.timeline ?? readDirectionTimeline(direction, null);
+  return loadedDirectionIndex(direction)?.timeline ?? readDirectionTimeline(direction, null);
 }
 
 // Runs before the direction is reviewed, beside `assertCanvasFormat`.
@@ -736,7 +738,7 @@ export function defineDirection<const D extends DirectionInput>(
   const asideIds = new Set<string>();
   const labelById = new Map<string, string>();
   const referenceShapeById = new Map<string, ReferenceShape>();
-  const dir = direction as unknown as Direction;
+  const dir = direction as Direction;
   assertLanguageTag(dir.policy.lang);
   if (dir.policy.fonts) assertFontFamilies(dir.policy.fonts);
   assertCanvasFormat(dir.policy.format);
@@ -836,7 +838,5 @@ export function defineDirection<const D extends DirectionInput>(
     referenceShapeById,
   };
 
-  const entry = { ...direction } as Record<symbol, unknown>;
-  entry[DIRECTION_KEY] = index;
-  return entry as unknown as DirectionEntry<D>;
+  return { ...direction, [DIRECTION_KEY]: index };
 }

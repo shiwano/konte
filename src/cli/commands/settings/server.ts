@@ -54,7 +54,7 @@ export async function createSettingsServer(opts: SettingsServerOptions): Promise
         if (!admitted.ok) return admitted.response;
 
         if (pathname === "/ws") {
-          if (server.upgrade(req)) return undefined as unknown as Response;
+          if (server.upgrade(req)) return undefined;
           return errorResponse("WebSocket upgrade failed", "WS_UPGRADE_FAILED", 400);
         }
 

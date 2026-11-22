@@ -93,7 +93,7 @@ function direction(shots: readonly Shot[]): Direction {
       lang: "en",
     },
     sequence: { lens: "mini-drama", pleasure: "cute", shots: [...shots] },
-  } as unknown as Direction;
+  };
 }
 
 const shot = (id: string, setup: string, extra: Partial<NarrativeShot> = {}): Shot =>
@@ -106,10 +106,14 @@ const shot = (id: string, setup: string, extra: Partial<NarrativeShot> = {}): Sh
     lineup: ["a"],
     ...extra,
   }) as Shot;
-const aside = (id: string): Shot =>
-  ({ kind: "aside", id, label: "eyecatch", duration: 2 }) as unknown as Shot;
-const graphic = (id: string): Shot =>
-  ({ kind: "graphic", id, role: "ordinary", action: "a card", duration: 2 }) as unknown as Shot;
+const aside = (id: string): Shot => ({ kind: "aside", id, label: "eyecatch", duration: 2 });
+const graphic = (id: string): Shot => ({
+  kind: "graphic",
+  id,
+  role: "ordinary",
+  action: "a card",
+  duration: 2,
+});
 
 const noStage: StagingStageState = {
   panelSlots: [],

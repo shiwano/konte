@@ -1,12 +1,7 @@
 import { randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import { errorResponse, NativeResponse, type RequestVia } from "./http.js";
-import gateBundle from "../../pages/pin/gate.html" with { type: "text" };
-import lockedBundle from "../../pages/pin/locked.html" with { type: "text" };
-
-// @types/bun models a bare `*.html` import as its full-stack HTMLBundle. The `type: "text"`
-// attribute makes it the file contents, in both `bun run` and the compiled binary.
-const gateHtml = gateBundle as unknown as string;
-const lockedHtml = lockedBundle as unknown as string;
+import gateHtml from "../../pages/pin/gate.html" with { type: "text" };
+import lockedHtml from "../../pages/pin/locked.html" with { type: "text" };
 
 const SESSION_COOKIE = "konte_review_session";
 // On https the browser refuses a `__Host-` cookie set by any other host — a sibling quick tunnel

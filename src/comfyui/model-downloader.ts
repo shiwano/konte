@@ -2,9 +2,9 @@ import { formatBytes } from "../core/format-bytes.js";
 import { createWriteStream } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { Readable, Transform } from "node:stream";
+import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import type { ReadableStream as NodeWebReadableStream } from "node:stream/web";
+import { readableFromWeb } from "../core/web-stream.js";
 import { KonteError, errorMessage } from "../core/errors.js";
 import { withFileLock } from "../core/file-lock.js";
 import { redactExternalBody, redactUrlSecret } from "../core/redact.js";
@@ -221,10 +221,12 @@ async function runDownload(ctx: {
 
   try {
     await pipeline(
-      Readable.fromWeb(res.body as unknown as NodeWebReadableStream<Uint8Array>),
+      readableFromWeb(res.body),
       counter,
       createWriteStream(partPath, { flags: append ? "a" : "w" }),
-      { signal: controller.signal },
+      {
+        signal: controller.signal,
+      },
     );
   } catch (err) {
     if (isCancelled()) {

@@ -47,7 +47,7 @@ export function makeShotScript(lines: readonly ScriptLine[]): ShotScript {
   for (const line of lines) {
     (script[whoOf(line)] ??= []).push(textOf(line));
   }
-  return script as unknown as ShotScript;
+  return script;
 }
 
 export function scriptTexts(scriptById: ReadonlyMap<string, readonly ScriptLine[]>): string[] {
