@@ -11,7 +11,7 @@ import { applyCwdOption, enterScope } from "./startup.js";
 import { registerAdapterCommand } from "./commands/adapter/index.js";
 import { registerPatchCommand } from "./commands/patch/index.js";
 import { registerCleanCommand } from "./commands/clean.js";
-import { registerDoctorCommand } from "./commands/doctor.js";
+import { registerDoctorCommand } from "./commands/doctor/index.js";
 import { registerWorkspaceCommand } from "./commands/workspace/index.js";
 import { registerInspectCommand } from "./commands/inspect.js";
 import { registerLicensesCommand } from "./commands/licenses.js";
