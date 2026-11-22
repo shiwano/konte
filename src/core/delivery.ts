@@ -6,7 +6,7 @@ import {
   sourceAddressOfDelivery,
 } from "./address.js";
 import { computeDefinitionHash } from "./definition-hash.js";
-import { makeMediaAsset } from "./dsl/builders.js";
+import { makeMediaAsset } from "./types/media.js";
 import { endPinCollection } from "./dsl/pin-collect.js";
 import { beginPromptCollection, endPromptCollection } from "./dsl/prompt-collect.js";
 import { endRespellCollection } from "./dsl/respell.js";

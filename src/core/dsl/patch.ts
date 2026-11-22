@@ -2,7 +2,7 @@ import type { MediaAsset, MediaKind } from "../types/media.js";
 import { KonteError } from "../errors.js";
 import type { AssetStage } from "../address.js";
 import type { AssetDefinition } from "../types/index.js";
-import { makeMediaAsset } from "./builders.js";
+import { makeMediaAsset } from "../types/media.js";
 import { endPinCollection } from "./pin-collect.js";
 import { beginPromptCollection, endPromptCollection } from "./prompt-collect.js";
 import { endRespellCollection } from "./respell.js";

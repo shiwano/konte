@@ -27,18 +27,20 @@ export {
   defineVideo,
   soundtrack,
   type HeardStem,
-  type ShotOptions,
-  type ShotInput,
-  type PendingShotInput,
-  type AsideShotInput,
-  type AsideShotOptions,
-  type AnyShotInput,
   type OverlayContext,
   type ThumbnailContext,
   type ThumbnailSpec,
   type ShotHandle,
   type StageShots,
 } from "./builders.js";
+export type {
+  ShotOptions,
+  ShotInput,
+  PendingShotInput,
+  AsideShotInput,
+  AsideShotOptions,
+  AnyShotInput,
+} from "./shot-input.js";
 export { respell } from "./respell.js";
 export {
   asset,

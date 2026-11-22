@@ -1,6 +1,6 @@
 import type { MediaAsset, MediaKind } from "../types/media.js";
 import type { ReferenceDefinition } from "../types/reference.js";
-import { makeMediaAsset } from "./builders.js";
+import { makeMediaAsset } from "../types/media.js";
 import { endPinCollection } from "./pin-collect.js";
 import { beginPromptCollection, endPromptCollection } from "./prompt-collect.js";
 import { beginRespellCollection, endRespellCollection } from "./respell.js";

@@ -1,5 +1,5 @@
 import type { SoundtrackEntry } from "../types/soundtrack.js";
-import type { MediaKind } from "../types/media.js";
+import { makeMediaAsset, type MediaKind } from "../types/media.js";
 import {
   formatReferenceAddress,
   formatShotAddress,
@@ -23,12 +23,12 @@ import type {
   VideoFormat,
 } from "../types/index.js";
 import { KonteError } from "../errors.js";
-import type { AnyShotInput, ThumbnailSpec } from "./builders.js";
+import type { ThumbnailSpec } from "./builders.js";
 import type { OverlayDefinition } from "../types/index.js";
 import { endsOnSeam, getDirectionIndex } from "./direction.js";
 import { shotSongStem, spanSongContext, timedShot } from "./direction-timeline.js";
 import { makeStageShots, makeStageShotStarter, type StageStarters } from "./stage-chain.js";
-import { isAsideShotInput, isPendingShotInput, makeMediaAsset } from "./builders.js";
+import { isAsideShotInput, isPendingShotInput, type AnyShotInput } from "./shot-input.js";
 import { Composition } from "./composition/index.js";
 import type { DirectionEntry, DirectionIndex } from "./direction.js";
 import { endClipLengthCollection, type ClipLength } from "./clip-length-collect.js";

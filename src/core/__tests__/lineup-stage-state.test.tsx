@@ -1,6 +1,7 @@
 import type { MediaAsset } from "../types/media.js";
 import { describe, expect, it } from "vitest";
-import { makeMediaAsset, type StageShots } from "../dsl/builders.js";
+import type { StageShots } from "../dsl/builders.js";
+import { makeMediaAsset } from "../types/media.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import {
   Composition,

@@ -6636,6 +6636,53 @@ export type TextsBy<
 export type ShotScript<S extends readonly ScriptLine[] = readonly ScriptLine[]> = {
   readonly [W in SpeakerOf<S>]: TextsBy<S, W>;
 };
+export interface ShotOptions {
+  duration: number;
+}
+export interface VideoShotOptions extends ShotOptions {
+  action: string;
+}
+/**
+ * One developed shot of either stage: its id, the closure that builds its `<Composition>`, and the
+ * shot facts the direction injected.
+ */
+export interface ShotInput<TId extends string = string> {
+  __shotInput: true;
+  __graphicShot?: true;
+  id: TId;
+  fn: ShotFunction;
+  options: VideoShotOptions;
+}
+/**
+ * An "undeveloped shot" marker that carries no composition/asset/job and nothing of its own; the shot
+ * it stands for is the direction's `action`. It lets a stage file mirror the whole direction before
+ * every shot is built; preview renders it as a black tile, and export refuses while any remain.
+ */
+export interface PendingShotInput<TId extends string = string> {
+  __shotInput: true;
+  __pendingShot: true;
+  id: TId;
+  options: VideoShotOptions;
+}
+/**
+ * A shot that occupies the clock without being part of the arc (see `AsideShot`). The video
+ * authors it like any other shot (`fn` builds the picture, usually a `file`); the animatic never
+ * boards it and carries it with no `fn` at all, konte filling that span with a labelled slug.
+ */
+export interface AsideShotInput<TId extends string = string> {
+  __shotInput: true;
+  __asideShot: true;
+  id: TId;
+  fn?: ShotFunction;
+  options: AsideShotOptions;
+}
+export interface AsideShotOptions extends ShotOptions {
+  label: string;
+}
+export type AnyShotInput<TId extends string = string> =
+  | ShotInput<TId>
+  | PendingShotInput<TId>
+  | AsideShotInput<TId>;
 /**
  * One animatic shot as `video.tsx` reaches it: its takes by name and kind, plus the `stem` konte
  * mixes from the shot's cues, which an audio-driven motion model takes, the `narrationStem` and
@@ -8710,53 +8757,6 @@ export interface HeardStem {
   readonly src: string;
   readonly __kind?: "heardStem";
 }
-export interface ShotOptions {
-  duration: number;
-}
-export interface VideoShotOptions extends ShotOptions {
-  action: string;
-}
-/**
- * One developed shot of either stage: its id, the closure that builds its `<Composition>`, and the
- * shot facts the direction injected.
- */
-export interface ShotInput<TId extends string = string> {
-  __shotInput: true;
-  __graphicShot?: true;
-  id: TId;
-  fn: ShotFunction;
-  options: VideoShotOptions;
-}
-/**
- * An "undeveloped shot" marker that carries no composition/asset/job and nothing of its own; the shot
- * it stands for is the direction's `action`. It lets a stage file mirror the whole direction before
- * every shot is built; preview renders it as a black tile, and export refuses while any remain.
- */
-export interface PendingShotInput<TId extends string = string> {
-  __shotInput: true;
-  __pendingShot: true;
-  id: TId;
-  options: VideoShotOptions;
-}
-/**
- * A shot that occupies the clock without being part of the arc (see `AsideShot`). The video
- * authors it like any other shot (`fn` builds the picture, usually a `file`); the animatic never
- * boards it and carries it with no `fn` at all, konte filling that span with a labelled slug.
- */
-export interface AsideShotInput<TId extends string = string> {
-  __shotInput: true;
-  __asideShot: true;
-  id: TId;
-  fn?: ShotFunction;
-  options: AsideShotOptions;
-}
-export interface AsideShotOptions extends ShotOptions {
-  label: string;
-}
-export type AnyShotInput<TId extends string = string> =
-  | ShotInput<TId>
-  | PendingShotInput<TId>
-  | AsideShotInput<TId>;
 /**
  * A timeline-spanning audio bed / music track. Placed in the `soundtracks` array of the
  * `timeline()` return — not inside a shot composition. `from`/`until` anchor the span to shot

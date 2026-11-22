@@ -6,7 +6,7 @@ import type {
   PendingShotInput,
   ShotInput,
   ShotOptions,
-} from "../../dsl/builders.js";
+} from "../../dsl/shot-input.js";
 import { defineDirection } from "../../dsl/direction.js";
 import { getDirectionIndex } from "../../dsl/direction.js";
 import { makeStageShotStarter } from "../../dsl/stage-chain.js";

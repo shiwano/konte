@@ -18,12 +18,6 @@ export type { TrimInputs, AudioRetimeInputs, AudioConcatInputs } from "./adapter
 export type { AnimaticDefinition, AnimaticFormat, PanelDefinition } from "../types/animatic.js";
 export type {
   HeardStem,
-  ShotInput,
-  PendingShotInput,
-  AsideShotInput,
-  AsideShotOptions,
-  AnyShotInput,
-  ShotOptions,
   OverlayContext,
   ThumbnailContext,
   ThumbnailSpec,
@@ -31,6 +25,14 @@ export type {
   StageShots,
   DefineVideoOptions,
 } from "./builders.js";
+export type {
+  ShotInput,
+  PendingShotInput,
+  AsideShotInput,
+  AsideShotOptions,
+  AnyShotInput,
+  ShotOptions,
+} from "./shot-input.js";
 export { defineVideo, soundtrack } from "./builders.js";
 export { respell } from "./respell.js";
 export {

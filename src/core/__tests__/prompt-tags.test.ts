@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { promptReferenceTags } from "../dsl/validators/prompt-tags.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
-import { makeMediaAsset } from "../dsl/builders.js";
+import { makeMediaAsset } from "../types/media.js";
 import { KonteError } from "../errors.js";
 import type { ComfyAssetDefinition } from "../types/index.js";
 import { ASSET_SITES } from "../dsl/adapter.js";

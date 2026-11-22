@@ -10,8 +10,8 @@ import {
   defineLens,
   Panel,
 } from "../dsl/index.js";
-import type { PendingShotInput, ShotHandle } from "../dsl/builders.js";
-import { isPendingShotInput } from "../dsl/builders.js";
+import type { ShotHandle } from "../dsl/builders.js";
+import { isPendingShotInput, type PendingShotInput } from "../dsl/shot-input.js";
 import { getDirectionIndex } from "../dsl/direction.js";
 import { makeStageShotStarter } from "../dsl/stage-chain.js";
 import type { Framing } from "../dsl/direction.js";

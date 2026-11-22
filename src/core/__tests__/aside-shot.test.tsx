@@ -8,7 +8,7 @@ import {
   defineDirection,
   defineVideo,
 } from "../dsl/index.js";
-import { isAsideShotInput, isPendingShotInput } from "../dsl/builders.js";
+import { isAsideShotInput, isPendingShotInput } from "../dsl/shot-input.js";
 import { getDirectionIndex } from "../dsl/direction.js";
 import { makeStageShotStarter } from "../dsl/stage-chain.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";

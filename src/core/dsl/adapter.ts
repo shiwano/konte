@@ -5,7 +5,7 @@ import type {
   ComfyNodeDeclaration,
 } from "../types/index.js";
 import { KonteError } from "../errors.js";
-import { makeMediaAsset } from "./builders.js";
+import { makeMediaAsset } from "../types/media.js";
 import {
   getPatchContext,
   getReferenceContext,

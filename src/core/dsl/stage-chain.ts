@@ -1,5 +1,5 @@
 import type { ShotFunction } from "../types/definition.js";
-import type { MediaAsset, MediaKind } from "../types/media.js";
+import { makeMediaAsset, type MediaAsset, type MediaKind } from "../types/media.js";
 import type { ShotStage } from "../address.js";
 import { formatAddress, formatSongStemAddress } from "../address.js";
 import { KonteError } from "../errors.js";
@@ -22,13 +22,14 @@ import type {
   StepIds,
   StepRest,
 } from "./animatic-builders.js";
-import type { PendingShotInput, ShotHandle, ShotInput, StageShots } from "./builders.js";
+import type { ShotHandle, StageShots } from "./builders.js";
 import {
   isPendingShotInput,
-  makeMediaAsset,
   type AnyShotInput,
   type AsideShotInput,
-} from "./builders.js";
+  type PendingShotInput,
+  type ShotInput,
+} from "./shot-input.js";
 import type { DirectionIndex } from "./direction.js";
 import {
   beatTime,
