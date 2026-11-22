@@ -1,7 +1,7 @@
 import { holdsHumanVerdict, keepAcceptedInputs } from "../../../core/accept-cascade.js";
 import { keptViaMarker, parseKeptVia } from "../../../core/kept-via.js";
 import type { StateManager } from "../../../core/state/index.js";
-import type { KeepEntryBody, RegenerateEntryBody } from "../../../core/types/review-submit.js";
+import type { KeepEntryBody, RegenerateEntryBody } from "../../../core/review-submit.js";
 
 /**
  * Keeps each take a Keep named, bar the ones a Regenerate names — only while it is still the

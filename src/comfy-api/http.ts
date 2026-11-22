@@ -3,8 +3,8 @@ import { rejectedCredentialMessage } from "../core/credentials.js";
 import { KonteError, type KonteErrorCode } from "../core/errors.js";
 import { fetchWithRetry } from "../core/http-retry.js";
 import { redactExternalBody } from "../core/redact.js";
-import { COMFY_API_KEY_ENV } from "./routing.js";
 
+export const COMFY_API_KEY_ENV = "COMFY_API_KEY";
 export const COMFY_CLOUD_ORIGIN = "https://cloud.comfy.org";
 export const COMFY_PLATFORM_ORIGIN = "https://platformapi.comfy.org";
 

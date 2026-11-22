@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { FeedbackPatchBody } from "../../../core/types/review-submit.js";
+import type { FeedbackPatchBody } from "../../../core/review-submit.js";
 import { closePage } from "../../shared/http.js";
 import { ReviewSkippedError } from "../api.js";
 import type { LiveFeedbackFilter } from "./live-feedback.js";

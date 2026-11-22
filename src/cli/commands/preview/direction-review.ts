@@ -12,10 +12,7 @@ import {
 import type { Direction } from "../../../core/dsl/direction.js";
 import type { DirectionPreviewState } from "../../../core/types/review-state.js";
 import type { ReviewDecisionEntry, ReviewRecord } from "../../../core/review-record.js";
-import type {
-  DirectionSubmitBody,
-  DirectionSubmitResponse,
-} from "../../../core/types/review-submit.js";
+import type { DirectionSubmitBody, DirectionSubmitResponse } from "../../../core/review-submit.js";
 import { reviewModeOf } from "../../../core/review-mode.js";
 import { FeedbackManager } from "../../../core/feedback/index.js";
 import { StateManager } from "../../../core/state/index.js";
@@ -28,7 +25,7 @@ import {
 import { handoffNotesAt, handoffRecordFields, persistReview } from "./review-shared.js";
 import { directionPreviewState } from "./direction-view.js";
 import { emptyOutcome } from "./review-outcome.js";
-import type { ReviewContext } from "./submit.js";
+import type { ReviewContext } from "./review-context.js";
 import { reviewHeldError, reviewHeldFindings } from "../../finding-gates.js";
 import { loadCheckContext } from "../../../core/check-context.js";
 import { collectFindings, directionCheckOf, waiverCoverageOf } from "../../../core/checks.js";

@@ -4,7 +4,8 @@ import { expect } from "vitest";
 
 import { loadPreviewDefinitions } from "../load-definitions.js";
 import { handleGetReelState, remixTakenOverBoardStems } from "../reel-review.js";
-import { handleSubmit, type ReviewContext } from "../submit.js";
+import type { ReviewContext } from "../review-context.js";
+import { handleSubmit } from "../submit.js";
 import { buildAssetStatus } from "../../../../core/status-report.js";
 import { getAssetEntry, listAddresses } from "../../../../core/definition-addresses.js";
 import type {

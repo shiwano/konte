@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { handleSubmit, type ReviewContext } from "../submit.js";
+import type { ReviewContext } from "../review-context.js";
+import { handleSubmit } from "../submit.js";
 
 const ctx: ReviewContext = {
   videoRoot: "/nonexistent",

@@ -12,8 +12,8 @@ import {
   type KonteConfig,
 } from "../core/types/index.js";
 import { ComfyCloudCatalog } from "./cloud-catalog.js";
+import { COMFY_API_KEY_ENV } from "./http.js";
 
-export const COMFY_API_KEY_ENV = "COMFY_API_KEY";
 const DEFAULT_TARGETS: readonly ComfyTarget[] = ["comfyui", COMFY_CLOUD_TARGET];
 
 export function comfyApiKey(): string | null {

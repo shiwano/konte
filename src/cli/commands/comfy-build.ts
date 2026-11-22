@@ -7,7 +7,8 @@ import {
   routedDeploymentNames,
 } from "../../comfy-api/deployment.js";
 import type { PlatformDeployment } from "../../comfy-api/platform-client.js";
-import { COMFY_API_KEY_ENV, comfyApiKey, ComfyRouter } from "../../comfy-api/routing.js";
+import { COMFY_API_KEY_ENV } from "../../comfy-api/http.js";
+import { comfyApiKey, ComfyRouter } from "../../comfy-api/routing.js";
 import { loadKonteConfig } from "../../core/config.js";
 import { missingCredentialMessage } from "../../core/credentials.js";
 import { KonteError } from "../../core/errors.js";

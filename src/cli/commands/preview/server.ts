@@ -50,7 +50,8 @@ import {
   remixTakenOverBoardStems,
   warmReelPreroll,
 } from "./reel-review.js";
-import { handleSubmit, type ReviewContext } from "./submit.js";
+import type { ReviewContext } from "./review-context.js";
+import { handleSubmit } from "./submit.js";
 import { SUBMIT_PATH } from "../../../core/review-mode.js";
 import type { PreviewSocketMessage } from "../../../core/types/review-state.js";
 

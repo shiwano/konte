@@ -3,7 +3,7 @@ import type { DirectionPartStatus, DirectionSectionStatus } from "../direction-a
 import type { PanelRole } from "../direction-frames.js";
 import type { Framing } from "../dsl/direction.js";
 import type { ShotJoin } from "./definition.js";
-import type { SongLineBody } from "./review-submit.js";
+import type { SongLineBody } from "../review-submit.js";
 import type { HeardTake } from "../line-marks.js";
 import type { ScriptLineView } from "./script.js";
 import type { View } from "../view.js";

@@ -12,7 +12,7 @@ import {
   parseAddress,
   tryParseAddress,
 } from "./address.js";
-import { injectBaseTimeline } from "./composition-builder.js";
+import { injectBaseTimeline } from "./base-timeline.js";
 import { overlayLineTimings } from "./line-timing.js";
 import { injectOverlay, renderOverlayBody } from "./overlay-render.js";
 import type { LineTiming } from "./subtitle-timing.js";

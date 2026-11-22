@@ -1,5 +1,5 @@
 import { reviewModeOf } from "../../../core/review-mode.js";
-import { downstreamVideoOf, type ReviewContext } from "./submit.js";
+import { downstreamVideoOf, type ReviewContext } from "./review-context.js";
 import { recordBoardStemsForVideo, remakeSettledLeaves } from "../../../core/board-leaves.js";
 import { variantDefinitionSnapshot } from "../../../core/definition-snapshot.js";
 import { overlayLineTimer } from "../../../core/line-timing.js";

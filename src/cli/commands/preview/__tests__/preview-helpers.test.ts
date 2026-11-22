@@ -32,7 +32,7 @@ import {
   AddressReviewSubmitSchema,
   DirectionSubmitSchema,
   ReelSubmitSchema,
-} from "../../../../core/types/review-submit.js";
+} from "../../../../core/review-submit.js";
 import { variantDir } from "../../../../core/variant-dir.js";
 
 let tmpDir: string;

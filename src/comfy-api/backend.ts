@@ -18,9 +18,9 @@ import { sleep } from "../core/sleep.js";
 import type { ComfyAssetDefinition, ComfyTarget, JobRecord } from "../core/types/index.js";
 import { loadDeploymentState } from "./deploy-state.js";
 import { usableDeployment } from "./deployment.js";
-import { ComfyApiHttpError, COMFY_CLOUD_ORIGIN } from "./http.js";
+import { ComfyApiHttpError, COMFY_API_KEY_ENV, COMFY_CLOUD_ORIGIN } from "./http.js";
 import { ComfyPlatformClient } from "./platform-client.js";
-import { comfyApiKey, COMFY_API_KEY_ENV, deploymentNameOf } from "./routing.js";
+import { comfyApiKey, deploymentNameOf } from "./routing.js";
 import {
   type ComfyApiJob,
   type ComfyApiJobError,

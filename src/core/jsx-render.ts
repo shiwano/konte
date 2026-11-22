@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { injectBaseTimeline } from "./composition-builder.js";
+import { injectBaseTimeline } from "./base-timeline.js";
 import {
   JSX_VIDEO_SHOT_ID,
   type JsxDocumentInputs,

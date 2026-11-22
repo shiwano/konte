@@ -7,7 +7,7 @@ import type {
   ReelSubmitBody,
   ReelSubmitResponse,
   SkippedDecision,
-} from "../../core/types/review-submit.js";
+} from "../../core/review-submit.js";
 import { jsonBody, request, requestJson } from "../shared/http.js";
 import type { PreviewState } from "../../core/types/review-state.js";
 

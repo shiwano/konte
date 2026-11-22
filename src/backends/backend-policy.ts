@@ -14,12 +14,8 @@ import { isVendorBackendAsset } from "../core/vendor-backend.js";
 import { backendCredential } from "../core/types/credentials.js";
 import { VendorBackendKindSchema } from "../core/types/job.js";
 import { type DeploymentReadiness, deploymentReadiness } from "../comfy-api/deployment.js";
-import {
-  COMFY_API_KEY_ENV,
-  ComfyRouter,
-  comfyApiKey,
-  deploymentNameOf,
-} from "../comfy-api/routing.js";
+import { COMFY_API_KEY_ENV } from "../comfy-api/http.js";
+import { ComfyRouter, comfyApiKey, deploymentNameOf } from "../comfy-api/routing.js";
 
 export const spendGateHooks: {
   deploymentReadiness: (

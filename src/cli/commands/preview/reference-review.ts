@@ -67,10 +67,10 @@ import type {
   AddressReviewSubmitBody,
   AddressReviewSubmitResponse,
   SongLineBody,
-} from "../../../core/types/review-submit.js";
+} from "../../../core/review-submit.js";
 import { reviewModeOf } from "../../../core/review-mode.js";
 import { emptyOutcome } from "./review-outcome.js";
-import type { ReviewContext } from "./submit.js";
+import type { ReviewContext } from "./review-context.js";
 import { loadCheckContext } from "../../../core/check-context.js";
 import { collectFindings } from "../../../core/checks.js";
 import { createAssetInfoBuilder } from "./asset-info.js";

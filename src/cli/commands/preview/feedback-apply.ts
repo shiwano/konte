@@ -1,6 +1,6 @@
 import { formatShotAddress } from "../../../core/address.js";
 import type { FeedbackInfo } from "../../../core/types/review-state.js";
-import type { FeedbackPatchBody } from "../../../core/types/review-submit.js";
+import type { FeedbackPatchBody } from "../../../core/review-submit.js";
 import type { ReviewDecisionEntry } from "../../../core/review-record.js";
 import {
   feedbackStaleness,

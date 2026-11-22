@@ -2,13 +2,13 @@ import { commitAccept } from "../../../core/accept-commit.js";
 import { formatShotAddress } from "../../../core/address.js";
 import { errorMessage } from "../../../core/errors.js";
 import type { Handoff, AnimaticDefinition } from "../../../core/types/index.js";
-import type { AddressReviewSubmitBody } from "../../../core/types/review-submit.js";
+import type { AddressReviewSubmitBody } from "../../../core/review-submit.js";
 import {
   type ReviewDecisionEntry,
   type ReviewRecord,
   saveReviewRecord,
 } from "../../../core/review-record.js";
-import type { ReviewContext } from "./submit.js";
+import type { ReviewContext } from "./review-context.js";
 import { FeedbackManager } from "../../../core/feedback/index.js";
 import { StateManager } from "../../../core/state/index.js";
 import { JobManager } from "../../../core/job-manager.js";

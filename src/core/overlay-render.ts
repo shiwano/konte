@@ -1,6 +1,6 @@
 import type { ShotFunction } from "./types/definition.js";
 import type { ShotStage } from "./address.js";
-import { injectBaseTimeline } from "./composition-builder.js";
+import { injectBaseTimeline } from "./base-timeline.js";
 import { replaceTimedElements, setAttr } from "./html-attr.js";
 import { runInRenderMode } from "./dsl/shot-context.js";
 import { renderToHtml } from "./jsx-html.js";

@@ -4,7 +4,7 @@ import {
   ReviewRecordSchema,
   VideoReviewDecisionsSchema,
   type ReviewRecord,
-} from "../review-record.js";
+} from "./review-record.js";
 
 // What each submit handler takes from the preview client and then persists. Validated at the door,
 // before any mutation: feedback written unvalidated lands in the stream, whose next load parses it —
