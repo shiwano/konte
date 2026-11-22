@@ -127,7 +127,7 @@ export function buildDependencyGraph(
   // Each definition names its own stage, so a graph built over the animatic alone (its own
   // `generate`/`status` pass) addresses its nodes the same way a whole-project one does.
   const stages: Array<{ def: StageDefinition; stage: ShotStage }> = [
-    ...(animatic && animatic !== video ? [{ def: animatic as StageDefinition }] : []),
+    ...(animatic && animatic !== video ? [{ def: animatic }] : []),
     ...(video ? [{ def: video }] : []),
   ].map(({ def }) => ({ def, stage: def.stage }));
 
@@ -305,7 +305,7 @@ export function buildDependencyGraph(
   assertUpstreamsPlaced(
     dependencies,
     video?.stage === "video" ? video : null,
-    animatic ?? (video?.stage === "animatic" ? (video as AnimaticDefinition) : null),
+    animatic ?? (video?.stage === "animatic" ? video : null),
     reference,
   );
 

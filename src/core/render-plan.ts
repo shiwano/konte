@@ -23,18 +23,13 @@ import {
   isThumbnailAddress,
   tryParseAddress,
 } from "./address.js";
-import { shownShotAssetNames, thumbnailCoverAddress } from "./definition-addresses.js";
+import { shownShotAssetNames, thumbnailCoverAddress, thumbnailOf } from "./definition-addresses.js";
 import { resolveCompositionRef } from "./composition-refs.js";
 import { KonteError } from "./errors.js";
 import { variantMediaKind } from "./media-type.js";
 import { formatStaleReason, variantsNewestFirst } from "./staleness.js";
 import type { StateManager } from "./state/index.js";
-import {
-  type AssetState,
-  type StageDefinition,
-  type VideoDefinition,
-  isPendingShot,
-} from "./types/index.js";
+import { type AssetState, type StageDefinition, isPendingShot } from "./types/index.js";
 
 export interface ShotRenderPlan {
   // The stage this shot belongs to. Carried per shot, not only on the plan, because a video plan's
@@ -185,7 +180,7 @@ export function unacceptedOutsideRefs(video: StageDefinition, manager: StateMana
 // The thumbnail's cover and what its still draws that has no accept: its frame and own assets, which
 // its accept signs off, and what it reaches outside them, which is signed off where it is reviewed.
 export function unacceptedThumbnailRefs(video: StageDefinition, manager: StateManager): string[] {
-  const thumbnail = (video as Partial<VideoDefinition>).thumbnail;
+  const thumbnail = thumbnailOf(video);
   if (!thumbnail) return [];
   return [thumbnailCoverAddress(thumbnail), ...(thumbnail.compose?.compositionRefs ?? [])].filter(
     (ref) => !resolveCompositionRef(manager, ref)?.isAccepted,

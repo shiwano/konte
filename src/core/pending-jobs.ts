@@ -15,15 +15,14 @@ import { isStrandedSubmit, type JobManager, RUN_LEASE_TTL_MS } from "./job-manag
 import { loadPatchStepDefinition } from "./patch.js";
 import { resolveRefs } from "./ref-resolver.js";
 import type { StalenessView } from "./staleness.js";
-import { type LoadedDefinitions, selectDefinition } from "./select-definition.js";
+import {
+  type LoadedDefinitions,
+  requireShotStages,
+  selectDefinition,
+} from "./select-definition.js";
 import { StateManager } from "./state/index.js";
 import { submittingStopped, trackSubmission } from "./submission-drain.js";
-import type {
-  AssetDefinition,
-  BackendKind,
-  GenerationJob,
-  VideoDefinition,
-} from "./types/index.js";
+import type { AssetDefinition, BackendKind, GenerationJob } from "./types/index.js";
 import type { VideoRoots } from "./roots.js";
 
 type ResolveBackendFn = (kind: BackendKind, roots: VideoRoots) => Promise<GenerationBackend>;
@@ -363,7 +362,7 @@ function deliveryDefinition(
       `Variant ${job.variantId} of ${job.address} has no delivery target — re-run "konte export"`,
     );
   }
-  const video = selectDefinition("video", definitions).def as VideoDefinition;
+  const { video } = requireShotStages(definitions);
   return synthesizeDeliveryAssetDefinition(video, job.address, target);
 }
 

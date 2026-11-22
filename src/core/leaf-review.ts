@@ -215,7 +215,7 @@ export function leafSettledAcross(
   if (composition && pictureDrawnOnBoth(manager, video, videoShot)) {
     return compositionCovered(manager, own, counterpart, ownShot, address);
   }
-  if (!composition && own.stage === "video") {
+  if (!composition && own.stage === "video" && counterpart.stage === "animatic") {
     return videoStemPlaysBoardStems(manager, own, counterpart, address);
   }
   if (own.stage !== "animatic") return false;
@@ -227,7 +227,7 @@ export function leafSettledAcross(
 function videoStemPlaysBoardStems(
   manager: StateManager,
   video: StageDefinition,
-  board: StageDefinition,
+  board: AnimaticDefinition,
   address: string,
 ): boolean {
   const structure = shotStemStructure(video, address);
@@ -298,7 +298,7 @@ export function boardStemAwaitsVideo(
 
 function boardStemAgedUnderVideo(
   manager: StateManager,
-  board: StageDefinition,
+  board: AnimaticDefinition,
   video: StageDefinition,
   address: string,
 ): boolean {
@@ -315,7 +315,7 @@ function boardStemAgedUnderVideo(
     return false;
   }
   if (!leafInputsJudged(manager, board, boardShot, address, new Set())) return false;
-  return !findShotOverflows(board as AnimaticDefinition, manager, boardShot, "resolved").some(
+  return !findShotOverflows(board, manager, boardShot, "resolved").some(
     (o) => o.address === address,
   );
 }
@@ -356,7 +356,7 @@ export function boardCompositionAwaitsVideo(
 // what it is made from left unaccepted, stay the board's. So does a stem whose line the clamp cuts.
 function boardLeafPastBoard(
   manager: StateManager,
-  board: StageDefinition,
+  board: AnimaticDefinition,
   video: StageDefinition,
   boardShot: ShotDefinition,
   videoShot: ShotDefinition,
@@ -366,7 +366,7 @@ function boardLeafPastBoard(
   if (!videoShotHasVariant(manager, video, videoShot)) return false;
   if (!leafInputsJudged(manager, board, boardShot, address, new Set())) return false;
   if (isCompositionAddress(address)) return true;
-  return !findShotOverflows(board as AnimaticDefinition, manager, boardShot, "resolved").some(
+  return !findShotOverflows(board, manager, boardShot, "resolved").some(
     (o) => o.address === address,
   );
 }

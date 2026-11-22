@@ -19,7 +19,7 @@ import {
 } from "./line-marks.js";
 import { recognizesSpeechIn } from "./sherpa.js";
 import type { StateManager } from "./state/index.js";
-import type { AnimaticDefinition, StageDefinition, VideoDefinition } from "./types/index.js";
+import type { AnimaticDefinition, StageDefinition } from "./types/index.js";
 import { loadDirectionDefinition } from "./loader.js";
 import { attrOf } from "./html-attr.js";
 import { renderOverlayBody } from "./overlay-render.js";
@@ -238,7 +238,7 @@ export async function stageLineTimings(
   const videoRoot = manager.videoRoot;
   const direction = await loadDirectionDefinition(stageEntryPath(videoRoot, "direction"));
   const loaded = await loadStageDefinitions(videoRoot, { tolerant: true });
-  const animatic = video.stage === "animatic" ? (video as AnimaticDefinition) : loaded.animatic;
+  const animatic = video.stage === "animatic" ? video : loaded.animatic;
   const starts = shotStarts(video.shots, video.format.fps);
   return reelLineTimings({
     videoRoot,
@@ -246,7 +246,7 @@ export async function stageLineTimings(
     definitions: {
       reference: loaded.reference,
       animatic,
-      video: video.stage === "video" ? (video as VideoDefinition) : loaded.video,
+      video: video.stage === "video" ? video : loaded.video,
     },
     direction,
     animatic,

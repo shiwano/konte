@@ -29,6 +29,7 @@ import {
   listShotStems,
   listStemAddresses,
   shotStemAssetNames,
+  thumbnailOf,
 } from "../../../core/definition-addresses.js";
 import { resolveCompositionRef } from "../../../core/composition-refs.js";
 import { timelineStemRefs } from "../../../core/leaf-hash.js";
@@ -57,11 +58,7 @@ import { errorMessage } from "../../../core/errors.js";
 import { errorResponse, jsonResponse } from "../../page-host/http.js";
 import { type ReelSubmitBody, type ReelSubmitResponse } from "../../../core/types/review-submit.js";
 import { buildReelReviewPlan } from "../../../core/review-acceptability.js";
-import type {
-  AnimaticDefinition,
-  StageDefinition,
-  VideoDefinition,
-} from "../../../core/types/index.js";
+import type { AnimaticDefinition, StageDefinition } from "../../../core/types/index.js";
 import { type RenderPlan, shotSpans } from "../../../core/render-plan.js";
 import type { ReviewRecord } from "../../../core/review-record.js";
 import {
@@ -623,9 +620,9 @@ async function prepareReelSubmit(
   await applyResolutionDefinitions({
     videoRoot,
     definitions:
-      reelStage === "animatic"
-        ? { reference: ctx.reference, animatic: video as AnimaticDefinition, video: ctx.video }
-        : { reference: ctx.reference, animatic, video: video as VideoDefinition },
+      video.stage === "animatic"
+        ? { reference: ctx.reference, animatic: video, video: ctx.video }
+        : { reference: ctx.reference, animatic, video },
     state: manager.getState(),
   });
 
@@ -668,7 +665,7 @@ async function prepareReelSubmit(
     definitions: {
       reference: ctx.reference,
       animatic,
-      video: (stage === "video" ? video : downstreamVideo) as VideoDefinition | null,
+      video: video.stage === "video" ? video : downstreamVideo,
     },
     direction: ctx.direction,
     manager,
@@ -735,6 +732,7 @@ function displayedRefVariants(submit: ReelSubmit, refs: readonly string[]): Reco
 function buildReelRecord(submit: ReelSubmit, reviewedAt: string): ReviewRecord {
   const { body, video, stage, plan, manager } = submit;
   const timing = shotSpans(plan.shots, plan.fps);
+  const thumbnail = thumbnailOf(video);
   return {
     mode: reviewModeOf(stage),
     stage,
@@ -765,11 +763,11 @@ function buildReelRecord(submit: ReelSubmit, reviewedAt: string): ReviewRecord {
         formatTimelineAddress(stage, name),
       ),
       timelineSources: displayedRefVariants(submit, timelineStemRefs(video)),
-      ...((video as Partial<VideoDefinition>).thumbnail
+      ...(thumbnail
         ? {
             thumbnailSources: displayedRefVariants(submit, [
-              thumbnailCoverAddress((video as VideoDefinition).thumbnail!),
-              ...((video as VideoDefinition).thumbnail!.compose?.compositionRefs ?? []),
+              thumbnailCoverAddress(thumbnail),
+              ...(thumbnail.compose?.compositionRefs ?? []),
             ]),
           }
         : {}),
@@ -1328,7 +1326,7 @@ async function applyThumbnailDecision(
 ): Promise<"accepted" | "none" | undefined> {
   const { video, body, displayed, candidates } = submit;
   const decision = body.thumbnailDecision;
-  const thumbnail = (video as Partial<VideoDefinition>).thumbnail;
+  const thumbnail = thumbnailOf(video);
   if (!thumbnail || !decision) return undefined;
   const address = thumbnailCoverAddress(thumbnail);
   const skip = (reason: string) => {

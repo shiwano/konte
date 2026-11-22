@@ -17,7 +17,11 @@ import {
   formatThumbnailAddress,
   THUMBNAIL_TARGET,
 } from "../../../core/address.js";
-import { shownShotAssetNames, thumbnailCoverAddress } from "../../../core/definition-addresses.js";
+import {
+  shownShotAssetNames,
+  thumbnailCoverAddress,
+  thumbnailOf,
+} from "../../../core/definition-addresses.js";
 import {
   buildFullCompositionHtml,
   buildShotClips,
@@ -77,7 +81,6 @@ import type {
   AnimaticDefinition,
   ReferenceDefinition,
   StageDefinition,
-  VideoDefinition,
 } from "../../../core/types/index.js";
 import {
   type RenderPlan,
@@ -309,7 +312,7 @@ export async function handleGetReelState(
         definitions: {
           reference: ctx.reference,
           animatic,
-          video: (stage === "video" ? video : downstreamVideo) as VideoDefinition | null,
+          video: video.stage === "video" ? video : downstreamVideo,
         },
         direction: ctx.direction,
         manager,
@@ -414,7 +417,7 @@ async function withHeardTakes<S extends { shotId: string; startTime: number }>(
   const definitions = {
     reference: ctx.reference,
     animatic: ctx.animatic,
-    video: (video.stage === "video" ? video : downstreamVideoOf(ctx)) as VideoDefinition | null,
+    video: video.stage === "video" ? video : downstreamVideoOf(ctx),
   };
   return Promise.all(
     shots.map(async (shot) => {
@@ -788,7 +791,7 @@ function overlayState(scope: ReelStateScope) {
 // stale cover is one `generate` makes again.
 function thumbnailState(scope: ReelStateScope, buildAsset: ReturnType<typeof reelAssetBuilder>) {
   const { video, manager } = scope;
-  const thumbnail = (video as Partial<VideoDefinition>).thumbnail;
+  const thumbnail = thumbnailOf(video);
   if (!thumbnail) return null;
   const address = thumbnailCoverAddress(thumbnail);
   const shown = manager.resolveReference(address, { includeStale: false })?.variantId;
@@ -840,7 +843,7 @@ function reelKeepGraph(
     }
     return buildKeepGraph({
       manager,
-      graph: buildDependencyGraph(downstreamVideo ?? reel, reel as AnimaticDefinition, reference),
+      graph: buildDependencyGraph(downstreamVideo ?? reel, reel, reference),
       stages: [
         { stage: "animatic", definition: reel },
         { stage: "video", definition: downstreamVideo },

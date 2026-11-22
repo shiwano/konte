@@ -532,7 +532,7 @@ export function defineAnimatic<
       };
     },
   });
-  const definition = built.definition as AnimaticDefinition;
+  const definition: AnimaticDefinition = { ...built.definition, stage: "animatic" };
   if (plates.assets) {
     definition.plates = plates.assets;
     definition.exposedPlateIds = plates.exposed;
