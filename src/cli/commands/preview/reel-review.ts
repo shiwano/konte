@@ -387,7 +387,7 @@ export async function handleGetReelState(
     fps: plan.fps,
     shots,
     totalDuration,
-    size: plan.size,
+    size: plan.format.size,
     audioAssets,
     compositionRefVariants: compositionRefVariantsOf(manager, video, animatic),
     ...(timelineStem ? { timelineStem } : {}),

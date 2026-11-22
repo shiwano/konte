@@ -771,8 +771,8 @@ function standInVoiceSpans(
       );
       const cues = harvestAudioStructure(element, {
         shotId: standIn.shotId,
-        width: plan.size.width,
-        height: plan.size.height,
+        width: plan.format.size.width,
+        height: plan.format.size.height,
         duration: standIn.duration,
         nested: false,
         typography: plan.typography,
@@ -958,8 +958,8 @@ function renderShotHtml(
     jsx,
     {
       shotId: shotPlan.shotId,
-      width: plan.size.width,
-      height: plan.size.height,
+      width: plan.format.size.width,
+      height: plan.format.size.height,
       duration: shotPlan.duration,
       // The same levelling the mux applies, re-keyed to these HTTP srcs: what the reviewer hears
       // has to be what the export writes.
@@ -986,7 +986,7 @@ function renderAsideSlugHtml(
     shotId: shotPlan.shotId,
     label: shotPlan.action,
     duration: shotPlan.duration,
-    size: plan.size,
+    size: plan.format.size,
     typography: plan.typography,
     nested,
   });
@@ -1086,7 +1086,7 @@ export async function buildShotCompositionHtml(
       stage: plan.stage,
       overlay: video.overlay,
       fn: timelineRun?.overlay ?? video.overlay.fn,
-      size: plan.size,
+      size: plan.format.size,
       typography: plan.typography,
       resolvedFiles: {},
       ...(lineTimings ? { lineTimings } : {}),
@@ -1144,7 +1144,7 @@ export async function buildShotCompositionHtml(
       },
     ],
     totalDuration: shotPlan.duration,
-    size: plan.size,
+    size: plan.format.size,
   };
 }
 
@@ -1346,7 +1346,12 @@ function renderReelShots(
       const body = injectBaseTimeline(lifted.html, shotPlan.shotId, shotPlan.duration);
       out.templates.push(`<template id="shot-${shotPlan.shotId}-template">${body}</template>`);
       out.hosts.push(
-        nestedCompositionHost(`shot-${shotPlan.shotId}`, span.start, span.duration, plan.size),
+        nestedCompositionHost(
+          `shot-${shotPlan.shotId}`,
+          span.start,
+          span.duration,
+          plan.format.size,
+        ),
       );
     }
 
@@ -1472,7 +1477,7 @@ async function reelOverlayComposition(
     stage: plan.stage,
     overlay,
     fn,
-    size: plan.size,
+    size: plan.format.size,
     typography: plan.typography,
     resolvedFiles: {},
     ...(lineTimings ? { lineTimings } : {}),
@@ -1480,7 +1485,7 @@ async function reelOverlayComposition(
   await assertTailwindClasses([{ label: formatTimelineOverlayAddress(plan.stage), html: body }]);
   return {
     template: `<template id="${id}-template">${body}</template>`,
-    host: nestedCompositionHost(id, 0, overlay.duration, plan.size),
+    host: nestedCompositionHost(id, 0, overlay.duration, plan.format.size),
   };
 }
 
@@ -1553,7 +1558,7 @@ export async function buildFullCompositionHtml(
   );
   await assertTailwindClasses(shots.classSubjects);
 
-  const { width, height } = plan.size;
+  const { width, height } = plan.format.size;
   const totalDuration = timing.total;
 
   const ducks =
@@ -1642,7 +1647,7 @@ ${templates.join("\n")}
     fps: plan.fps,
     shots: shots.shotInfos,
     totalDuration,
-    size: plan.size,
+    size: plan.format.size,
   };
 }
 

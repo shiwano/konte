@@ -165,7 +165,7 @@ describe("buildRenderPlan", () => {
     });
 
     expect(plan.fps).toBe(30);
-    expect(plan.size).toEqual({ width: 1024, height: 576 });
+    expect(plan.format.size).toEqual({ width: 1024, height: 576 });
     expect(plan.shots).toHaveLength(2);
 
     const shot01 = plan.shots[0]!;

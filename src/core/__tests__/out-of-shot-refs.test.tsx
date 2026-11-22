@@ -615,13 +615,13 @@ describe("buildShotRenderInputs — timeline assets", () => {
     const plan = buildRenderPlan(video, manager, { outputDir: "" });
     const run = runTimelineInRenderMode(
       "video",
-      () => plan.timelineFn!({ format: { size: plan.size, fps: plan.fps } }),
+      () => plan.timelineFn!({ format: { size: plan.format.size, fps: plan.fps } }),
       plan.timelineResolvedFiles,
       plan.timelineResolvedFiles,
     );
     const shotPlan = plan.shots.find((s) => s.shotId === shotId)!;
     return buildShotRenderInputs(shotPlan as never, {
-      size: plan.size,
+      size: plan.format.size,
       typography: { lang: "en" as const },
       manager,
       renderShotInputs: run.shots,

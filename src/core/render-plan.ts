@@ -85,7 +85,6 @@ export interface RenderPlan {
   stage: ShotStage;
   fps: number;
   typography: Typography;
-  size: { width: number; height: number };
   // The working format the plan was built at (size/fps), the canvas the timeline fn is invoked with.
   format: VideoFormat;
   shots: ShotRenderPlan[];
@@ -451,7 +450,6 @@ export function buildRenderPlan(
     stage,
     fps: video.format.fps,
     typography: video.typography,
-    size: video.format.size,
     format: video.format,
     shots: shotPlans,
     outputDir,

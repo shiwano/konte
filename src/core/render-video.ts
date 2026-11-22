@@ -470,8 +470,8 @@ async function renderFramePicture(
   // over them, so the timeline is run here for its shot inputs at the working size.
   return {
     finalOutput,
-    size: plan.size,
-    timelineRun: runExportTimeline(plan, plan.size),
+    size: plan.format.size,
+    timelineRun: runExportTimeline(plan, plan.format.size),
     shotFileById,
     warnings: [],
     deliveryUpscale: "frame",
@@ -492,7 +492,7 @@ async function renderLayeredPicture(
   const { manager, plan } = ctx;
   const { video, videoRoot, outputDir } = ctx.opts;
   // The delivery frame is captured from the centre of the cover-scaled composition.
-  const size = deliverySize ? deliveryCoverSize(video) : plan.size;
+  const size = deliverySize ? deliveryCoverSize(video) : plan.format.size;
   const upscaled = deliverySize !== undefined && getDeliveryUpscaleFn(video, "video") !== undefined;
   const deliverySubstitutions = upscaled
     ? await resolveDeliverySubstitutions({ video, shots: plan.shots, manager, videoRoot })
@@ -610,7 +610,7 @@ async function finishExport(
       allWarnings: warnings,
       allowUnaccepted,
       exportSignature,
-      size: deliverySize ?? plan.size,
+      size: deliverySize ?? plan.format.size,
       deliveryUpscale: picture.deliveryUpscale,
       canvas: video.format.size,
       resolved: ctx.resolvedForManifest,
@@ -786,14 +786,14 @@ export async function renderShotCompositeToFile(opts: {
   await ensureHyperFrames();
   await ensureFfmpeg();
 
-  const timelineRun = runExportTimeline(plan, plan.size);
+  const timelineRun = runExportTimeline(plan, plan.format.size);
   const overlay = await renderOverlayOf(video, timelineRun, manager);
 
   await fs.mkdir(path.dirname(outputFile), { recursive: true });
   await renderShotPlan(shotPlan, {
     outputFile,
     fps: plan.fps,
-    size: plan.size, // working size — no delivery applied
+    size: plan.format.size, // working size — no delivery applied
     typography: plan.typography,
     videoRoot,
     renderShotInputs: timelineRun?.shots ?? null,
