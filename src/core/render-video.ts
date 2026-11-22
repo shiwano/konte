@@ -4,10 +4,6 @@ import { mixedSoundtracks } from "./song-bed.js";
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-
-// How many shot compositions render at once. Each render is a full browser capture, so the
-// pool stays small — but a serial pass over a long timeline pays every capture end to end.
-const SHOT_RENDER_CONCURRENCY = 2;
 import {
   deliveryAddressOf,
   formatAddress,
@@ -84,6 +80,10 @@ import pkg from "../../package.json" with { type: "json" };
 import { ensureVariantMedia, mediaByFile, mediaVisualSize } from "./variant-media.js";
 import { probeMediaDuration, probeVideo, probeVideoDimensions } from "./video-probe.js";
 import { applyResolutionDefinitions } from "./definition-hashes.js";
+
+// How many shot compositions render at once. Each render is a full browser capture, so the
+// pool stays small — but a serial pass over a long timeline pays every capture end to end.
+const SHOT_RENDER_CONCURRENCY = 2;
 
 type DeliveryLayer = {
   shotId: string;

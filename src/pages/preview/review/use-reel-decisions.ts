@@ -15,7 +15,7 @@ import {
   type KeepOrigin,
   type RegenerateMark,
 } from "./keep-or-regenerate.js";
-import { reelAcceptUnits, type ReelUnit } from "./shot-acceptable.js";
+import { reelAcceptUnits, type ReelUnit } from "./reel-accept-units.js";
 import { thumbnailShownAccepted } from "./thumbnail-view.js";
 import { auditioning, leafShownAccepted, type ReelTakes } from "./reel-takes.js";
 import type { useKeepChoices } from "./use-keep-choices.js";

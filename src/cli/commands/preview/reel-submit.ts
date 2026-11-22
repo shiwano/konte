@@ -175,10 +175,10 @@ function unresolvedRefFixes(unresolved: readonly UnresolvedLeafRef[]): string[] 
 
 /**
  * The mirror of the above for a release: everything a shot's "none" was meant to let go of that is
- * still accepted. `unacceptVideoShots` swallows per-address failures too, so a release is confirmed
+ * still accepted. `unacceptReelShots` swallows per-address failures too, so a release is confirmed
  * the same way an accept is — by reading state, not by having run the code.
  *
- * The address set is the release's, not the accept's: `unacceptVideoShots` also drops the shot's
+ * The address set is the release's, not the accept's: `unacceptReelShots` also drops the shot's
  * per-asset accepts (audio excluded — those ride the stem), so checking the leaves alone would let a
  * half-taken release be recorded as a whole one.
  */

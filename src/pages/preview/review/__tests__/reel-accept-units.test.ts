@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { shotAcceptable } from "../../../../core/shot-acceptable.js";
-import { reelAcceptUnits } from "../shot-acceptable.js";
+import { reelAcceptUnits } from "../reel-accept-units.js";
 
 describe("shotAcceptable", () => {
   it("takes a developed shot showing its own picture", () => {

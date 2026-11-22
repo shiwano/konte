@@ -1,6 +1,6 @@
 // The one vocabulary of machine findings. A check reads the definitions (and the takes) and reports
 // findings; what a finding is is a property of its code, fixed in DIRECTION_FINDINGS for a direction
-// code and in OTHER_TRAITS for the rest. The gates, `status` and FINDINGS.md all read the tables.
+// code, DIRECTION_ERROR_TRAITS for a direction error and OTHER_TRAITS for the rest. The gates, `status` and FINDINGS.md all read the tables.
 
 import type { BuildFindingCode } from "./types/stage-build.js";
 import { type AssetStage, type Stage, getStage, matchesAddressScope, STAGES } from "./address.js";

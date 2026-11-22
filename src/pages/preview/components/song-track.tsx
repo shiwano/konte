@@ -671,7 +671,7 @@ export function SongTrack({
       {tray.length > 0 && (
         <div className="song-track-tray">
           <span className="song-track-tray-label">
-            {editing ? "Not placed — drag onto the Lyrics track where it is sung" : "Not placed"}
+            {editing ? "Not placed. Drag onto the Lyrics track where it is sung" : "Not placed"}
           </span>
           {tray.map((line) => (
             <span

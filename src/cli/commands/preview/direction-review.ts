@@ -84,10 +84,10 @@ export async function handleGetDirectionState(
   );
 }
 
-// Direction review submit. Two orthogonal outcomes: per-part feedback
-// (routed to the `direction/static` stream) and a single direction Accept (stored in state, keyed
-// to the live `directionHash`). The review record — saved only when there is feedback — nests
-// under `review/direction/static/records/`; acceptance is durable in state regardless.
+// Direction review submit. Two orthogonal outcomes: per-part feedback (on the `direction` stream)
+// and the direction's accepts (stored in state, per part). The review record — saved only when
+// there is feedback — nests under `review/direction/records/`; acceptance is durable in state
+// regardless.
 
 export async function handleDirectionSubmit(
   review: ReviewContext,

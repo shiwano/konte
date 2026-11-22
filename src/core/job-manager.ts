@@ -964,15 +964,15 @@ export class JobManager {
       update.processingStartedAt != null && job.processingStartedAt == null
         ? update.processingStartedAt
         : job.processingStartedAt;
-    // `update` only carries fields common to every kind (Omit over the union drops
-    // kind-specific ones), so the spread preserves `job`'s discriminant and payload.
-    // TS widens `kind` across the union on spread, so re-assert the variant.
     const reportedAt =
       update.reportedAt !== undefined
         ? update.reportedAt
         : update.status !== undefined && !isJobTerminal(update.status)
           ? null
           : job.reportedAt;
+    // `update` only carries fields common to every kind (Omit over the union drops
+    // kind-specific ones), so the spread preserves `job`'s discriminant and payload.
+    // TS widens `kind` across the union on spread, so re-assert the variant.
     const updated = {
       ...job,
       ...update,

@@ -67,7 +67,7 @@ export function useReferenceDecisions({
       const song = asset.variants.find((v) => v.variantId === variantId)?.song;
       const unplaced = song ? unplacedLineCount(song, songLines) : 0;
       return unplaced > 0
-        ? `${unplaced} lyric line(s) are not placed — open the song and drag them onto the track`
+        ? `${unplaced} lyric line(s) are not placed. Open the song and drag them onto the track`
         : null;
     },
     [songLines],

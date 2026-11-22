@@ -117,8 +117,8 @@ export function buildVariantMedia(
   return { kind: "audio", durationSec, channels, sampleRate };
 }
 
-// Everything konte reads off a media file, in one ffprobe. Both projections below take this dump,
-// so a file is never walked twice.
+// Everything konte reads off a media file, in one ffprobe. Every projection takes this dump, so a
+// file is never walked twice.
 const PROBE_ENTRIES =
   "format=duration:stream=codec_type,codec_name,width,height,avg_frame_rate,r_frame_rate," +
   "nb_frames,pix_fmt,bits_per_raw_sample,channels,channel_layout,sample_rate,bit_rate,duration";

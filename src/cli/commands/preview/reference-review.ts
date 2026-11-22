@@ -75,10 +75,6 @@ import { loadCheckContext } from "../../../core/check-context.js";
 import { collectFindings } from "../../../core/checks.js";
 import { createAssetInfoBuilder } from "./asset-info.js";
 
-// The flat reference pool as review cards: each named asset with its variant gallery,
-// feedback, accept state, and staleness. Reference has no shots/compositions, so this is a flat
-// list — no shot timeline, no composition targets. Mirrors handleGetAnimaticState's per-asset
-// shape, reusing buildVariantCandidates/buildAddressFeedback.
 function voiceLevelKind(entries: DirectionRosterEntryInfo[] | undefined): LevelKind | undefined {
   if (entries?.some((e) => e.kind === "character-voice")) return "voice";
   if (entries?.some((e) => e.kind === "narrator-voice")) return "narration";
@@ -140,6 +136,10 @@ function referenceRosterEntries(
   return out;
 }
 
+// The flat reference pool as review cards: each named asset with its variant gallery,
+// feedback, accept state, and staleness. Reference has no shots/compositions, so this is a flat
+// list — no shot timeline, no composition targets. Mirrors handleGetReelState's per-asset
+// shape, reusing buildVariantCandidates/buildAddressFeedback.
 export async function handleGetReferenceState(
   ctx: ReviewContext,
   reference: ReferenceDefinition,
@@ -254,7 +254,7 @@ function referenceKeepGraph(
 }
 
 // Reference review submit: accept/un-accept per address and apply feedback, with no
-// shots/compositions. The review record nests under `review/reference/records/` (project root).
+// shots/compositions. The review record nests under `review/reference/records/`.
 export async function handleReferenceSubmit(
   ctx: ReviewContext,
   reference: ReferenceDefinition,

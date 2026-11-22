@@ -128,7 +128,7 @@ export function buildAudioAssets<
   clipsByShot: Map<string, CompositionClip[]>;
   totalDuration: number;
   shotOffsets: Array<{ shotId: string; startTime: number; duration: number }>;
-  // Audio shot assets already built by handleGetVideoState, reused so a per-shot cue's
+  // Audio shot assets already built by handleGetReelState, reused so a per-shot cue's
   // accept/variant info matches what the render plan resolved (no second resolution).
   preBuilt: Map<string, A>;
   buildAsset: (assetName: string, addr: string, resolvedVariantId: string | undefined) => A;

@@ -114,7 +114,7 @@ export function applyFeedbackMutations(
   feedbackPatches: readonly FeedbackPatchBody[],
   // The review's own timestamp, stamped on every comment it carries. Taken from the handler rather
   // than read here so it precedes the accepts of the same submit whatever order they are written
-  // in — see `acceptedOver`.
+  // in — see `signedOffOver`.
   createdAt: string = new Date().toISOString(),
 ): FeedbackMutationResult {
   const added: FeedbackMutationResult["added"] = [];

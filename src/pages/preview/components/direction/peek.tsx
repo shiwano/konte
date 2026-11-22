@@ -121,7 +121,7 @@ function PeekBody({ peeked, ctx }: { peeked: Peeked; ctx: PeekContext }): React.
         <>
           <dl className="dir-peek-props">
             <Property label="Aiming for">
-              {state.pleasure.name} — {state.pleasure.gloss}
+              {state.pleasure.name}: {state.pleasure.gloss}
             </Property>
             <Property label="Shots">{ctx.shots.length}</Property>
             {total !== null && <Property label="Runs">{formatTimecode(total)}</Property>}
@@ -197,7 +197,7 @@ function PeekBody({ peeked, ctx }: { peeked: Peeked; ctx: PeekContext }): React.
                 {location.views.map((v) => (
                   <div key={v.view}>
                     <dt>{v.view}</dt>
-                    <dd>{v.holds.join(" · ") || "—"}</dd>
+                    <dd>{v.holds.join(" · ") || "nothing declared"}</dd>
                   </div>
                 ))}
               </dl>
