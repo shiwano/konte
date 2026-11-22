@@ -30,7 +30,6 @@ import type {
   AssetDefinition,
   AssetStageDefinition,
   ThumbnailDefinition,
-  VideoDefinition,
 } from "./types/index.js";
 
 // The addresses the thumbnail is made of: its frame, its still and its own assets.
@@ -183,27 +182,31 @@ export function validateAddress(address: string, definition: AssetStageDefinitio
   void getAssetEntry(definition, address);
 }
 
-// Any loaded definition, `StageDefinition` included: only the animatic declares plates, only the
-// video a thumbnail.
-type DefinitionDeclarations = { readonly shots: readonly unknown[] } & Partial<
-  Pick<AnimaticDefinition, "plates" | "exposedPlateIds"> & Pick<VideoDefinition, "thumbnail">
->;
+function animaticOf(
+  definition: AssetStageDefinition | null | undefined,
+): AnimaticDefinition | undefined {
+  return definition && "stage" in definition && definition.stage === "animatic"
+    ? definition
+    : undefined;
+}
 
 export function platesOf(
-  definition: DefinitionDeclarations | null | undefined,
+  definition: AssetStageDefinition | null | undefined,
 ): Record<string, AssetDefinition> {
-  return definition?.plates ?? {};
+  return animaticOf(definition)?.plates ?? {};
 }
 
 // The plates filed under a setup. A definition that never went through `defineAnimatic` filed all.
-export function exposedPlateIdsOf(definition: DefinitionDeclarations | null | undefined): string[] {
-  return definition?.exposedPlateIds ?? Object.keys(platesOf(definition));
+export function exposedPlateIdsOf(definition: AssetStageDefinition | null | undefined): string[] {
+  return animaticOf(definition)?.exposedPlateIds ?? Object.keys(platesOf(definition));
 }
 
 export function thumbnailOf(
-  definition: DefinitionDeclarations | null | undefined,
+  definition: AssetStageDefinition | null | undefined,
 ): ThumbnailDefinition | undefined {
-  return definition?.thumbnail ?? undefined;
+  const video =
+    definition && "stage" in definition && definition.stage === "video" ? definition : undefined;
+  return video?.thumbnail ?? undefined;
 }
 
 export function listAddresses(definition: AssetStageDefinition, stage: AssetStage): string[] {

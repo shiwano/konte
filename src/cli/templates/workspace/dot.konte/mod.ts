@@ -59,6 +59,35 @@ declare namespace z {
   > {}
 }
 
+declare const LANGUAGES: readonly [
+  "ja",
+  "ko",
+  "zh",
+  "en",
+  "fr",
+  "de",
+  "es",
+  "pt",
+  "it",
+  "nl",
+  "pl",
+  "ru",
+  "uk",
+  "tr",
+  "ar",
+  "he",
+  "hi",
+  "th",
+  "vi",
+  "id",
+];
+export type Language = (typeof LANGUAGES)[number];
+/**
+ * What `policy.lang` accepts. Wider than `LANGUAGES` on one axis: subtags may ride along (`en-US`,
+ * `pt-BR`, `zh-Hans-CN`) — an unknown one renders exactly as none at all. They are kept, not
+ * stripped: for Chinese a region IS a script (`zh-CN` is Simplified), so dropping it loses the glyphs.
+ */
+export type LanguageTag = Language | `${Language}-${string}`;
 export type MediaKind = "image" | "video" | "audio";
 export interface MediaAsset<T extends MediaKind = MediaKind> {
   readonly src: string;
@@ -112,35 +141,6 @@ export interface SoundtrackEntry<TId extends string = string> {
   options: SoundtrackOptions<TId>;
   song?: true;
 }
-declare const LANGUAGES: readonly [
-  "ja",
-  "ko",
-  "zh",
-  "en",
-  "fr",
-  "de",
-  "es",
-  "pt",
-  "it",
-  "nl",
-  "pl",
-  "ru",
-  "uk",
-  "tr",
-  "ar",
-  "he",
-  "hi",
-  "th",
-  "vi",
-  "id",
-];
-export type Language = (typeof LANGUAGES)[number];
-/**
- * What `policy.lang` accepts. Wider than `LANGUAGES` on one axis: subtags may ride along (`en-US`,
- * `pt-BR`, `zh-Hans-CN`) — an unknown one renders exactly as none at all. They are kept, not
- * stripped: for Chinese a region IS a script (`zh-CN` is Simplified), so dropping it loses the glyphs.
- */
-export type LanguageTag = Language | `${Language}-${string}`;
 export type PromptOccurrence = {
   address: string;
   input: string;
@@ -190,3769 +190,6 @@ export type BuildFinding = {
   message: string;
   targets: readonly string[];
 };
-declare const ComfyModelTypeSchema: z.ZodEnum<
-  [
-    "checkpoint",
-    "lora",
-    "VAE",
-    "clip",
-    "diffusion_model",
-    "controlnet",
-    "upscale",
-    "embeddings",
-    "clip_vision",
-    "unet",
-  ]
->;
-export type ComfyModelType = z.infer<typeof ComfyModelTypeSchema>;
-declare const ComfyModelDeclarationSchema: z.ZodObject<
-  {
-    filename: z.ZodString;
-    type: z.ZodEnum<
-      [
-        "checkpoint",
-        "lora",
-        "VAE",
-        "clip",
-        "diffusion_model",
-        "controlnet",
-        "upscale",
-        "embeddings",
-        "clip_vision",
-        "unet",
-      ]
-    >;
-    nodeId: z.ZodOptional<z.ZodString>;
-    url: z.ZodString;
-    savePath: z.ZodOptional<z.ZodString>;
-    base: z.ZodOptional<z.ZodString>;
-    displayName: z.ZodOptional<z.ZodString>;
-  },
-  "strip",
-  z.ZodTypeAny,
-  {
-    type:
-      | "checkpoint"
-      | "lora"
-      | "VAE"
-      | "clip"
-      | "diffusion_model"
-      | "controlnet"
-      | "upscale"
-      | "embeddings"
-      | "clip_vision"
-      | "unet";
-    filename: string;
-    url: string;
-    base?: string | undefined;
-    nodeId?: string | undefined;
-    savePath?: string | undefined;
-    displayName?: string | undefined;
-  },
-  {
-    type:
-      | "checkpoint"
-      | "lora"
-      | "VAE"
-      | "clip"
-      | "diffusion_model"
-      | "controlnet"
-      | "upscale"
-      | "embeddings"
-      | "clip_vision"
-      | "unet";
-    filename: string;
-    url: string;
-    base?: string | undefined;
-    nodeId?: string | undefined;
-    savePath?: string | undefined;
-    displayName?: string | undefined;
-  }
->;
-export type ComfyModelDeclaration = z.infer<typeof ComfyModelDeclarationSchema>;
-declare const ComfyNodeDeclarationSchema: z.ZodObject<
-  {
-    id: z.ZodString;
-  },
-  "strip",
-  z.ZodTypeAny,
-  {
-    id: string;
-  },
-  {
-    id: string;
-  }
->;
-export type ComfyNodeDeclaration = z.infer<typeof ComfyNodeDeclarationSchema>;
-declare const ComfyAssetDefinitionSchema: z.ZodObject<
-  {
-    deterministic: z.ZodOptional<z.ZodBoolean>;
-    kind: z.ZodLiteral<"comfy">;
-    workflow: z.ZodString;
-    workflowHash: z.ZodOptional<z.ZodString>;
-    inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
-    prunedNodes: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-    prunedPassThroughs: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
-    outputNodeId: z.ZodOptional<z.ZodString>;
-    models: z.ZodOptional<
-      z.ZodArray<
-        z.ZodObject<
-          {
-            filename: z.ZodString;
-            type: z.ZodEnum<
-              [
-                "checkpoint",
-                "lora",
-                "VAE",
-                "clip",
-                "diffusion_model",
-                "controlnet",
-                "upscale",
-                "embeddings",
-                "clip_vision",
-                "unet",
-              ]
-            >;
-            nodeId: z.ZodOptional<z.ZodString>;
-            url: z.ZodString;
-            savePath: z.ZodOptional<z.ZodString>;
-            base: z.ZodOptional<z.ZodString>;
-            displayName: z.ZodOptional<z.ZodString>;
-          },
-          "strip",
-          z.ZodTypeAny,
-          {
-            type:
-              | "checkpoint"
-              | "lora"
-              | "VAE"
-              | "clip"
-              | "diffusion_model"
-              | "controlnet"
-              | "upscale"
-              | "embeddings"
-              | "clip_vision"
-              | "unet";
-            filename: string;
-            url: string;
-            base?: string | undefined;
-            nodeId?: string | undefined;
-            savePath?: string | undefined;
-            displayName?: string | undefined;
-          },
-          {
-            type:
-              | "checkpoint"
-              | "lora"
-              | "VAE"
-              | "clip"
-              | "diffusion_model"
-              | "controlnet"
-              | "upscale"
-              | "embeddings"
-              | "clip_vision"
-              | "unet";
-            filename: string;
-            url: string;
-            base?: string | undefined;
-            nodeId?: string | undefined;
-            savePath?: string | undefined;
-            displayName?: string | undefined;
-          }
-        >,
-        "many"
-      >
-    >;
-    nodes: z.ZodOptional<
-      z.ZodArray<
-        z.ZodObject<
-          {
-            id: z.ZodString;
-          },
-          "strip",
-          z.ZodTypeAny,
-          {
-            id: string;
-          },
-          {
-            id: string;
-          }
-        >,
-        "many"
-      >
-    >;
-    inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
-    adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-    turbo: z.ZodOptional<z.ZodBoolean>;
-  },
-  "strip",
-  z.ZodTypeAny,
-  {
-    kind: "comfy";
-    workflow: string;
-    inputs: Record<string, unknown>;
-    deterministic?: boolean | undefined;
-    inputLabels?: Record<string, string> | undefined;
-    adapterSuppliedInputs?: string[] | undefined;
-    turbo?: boolean | undefined;
-    workflowHash?: string | undefined;
-    prunedNodes?: string[] | undefined;
-    prunedPassThroughs?: Record<string, string> | undefined;
-    outputNodeId?: string | undefined;
-    models?:
-      | {
-          type:
-            | "checkpoint"
-            | "lora"
-            | "VAE"
-            | "clip"
-            | "diffusion_model"
-            | "controlnet"
-            | "upscale"
-            | "embeddings"
-            | "clip_vision"
-            | "unet";
-          filename: string;
-          url: string;
-          base?: string | undefined;
-          nodeId?: string | undefined;
-          savePath?: string | undefined;
-          displayName?: string | undefined;
-        }[]
-      | undefined;
-    nodes?:
-      | {
-          id: string;
-        }[]
-      | undefined;
-  },
-  {
-    kind: "comfy";
-    workflow: string;
-    inputs: Record<string, unknown>;
-    deterministic?: boolean | undefined;
-    inputLabels?: Record<string, string> | undefined;
-    adapterSuppliedInputs?: string[] | undefined;
-    turbo?: boolean | undefined;
-    workflowHash?: string | undefined;
-    prunedNodes?: string[] | undefined;
-    prunedPassThroughs?: Record<string, string> | undefined;
-    outputNodeId?: string | undefined;
-    models?:
-      | {
-          type:
-            | "checkpoint"
-            | "lora"
-            | "VAE"
-            | "clip"
-            | "diffusion_model"
-            | "controlnet"
-            | "upscale"
-            | "embeddings"
-            | "clip_vision"
-            | "unet";
-          filename: string;
-          url: string;
-          base?: string | undefined;
-          nodeId?: string | undefined;
-          savePath?: string | undefined;
-          displayName?: string | undefined;
-        }[]
-      | undefined;
-    nodes?:
-      | {
-          id: string;
-        }[]
-      | undefined;
-  }
->;
-export type ComfyAssetDefinition = z.infer<typeof ComfyAssetDefinitionSchema>;
-declare const FileAssetDefinitionSchema: z.ZodObject<
-  {
-    deterministic: z.ZodOptional<z.ZodBoolean>;
-    kind: z.ZodLiteral<"file">;
-    path: z.ZodString;
-    type: z.ZodOptional<z.ZodEnum<["image", "video", "audio"]>>;
-  },
-  "strip",
-  z.ZodTypeAny,
-  {
-    path: string;
-    kind: "file";
-    type?: "image" | "video" | "audio" | undefined;
-    deterministic?: boolean | undefined;
-  },
-  {
-    path: string;
-    kind: "file";
-    type?: "image" | "video" | "audio" | undefined;
-    deterministic?: boolean | undefined;
-  }
->;
-export type FileAssetDefinition = z.infer<typeof FileAssetDefinitionSchema>;
-declare const FalAssetDefinitionSchema: z.ZodObject<
-  {
-    deterministic: z.ZodOptional<z.ZodBoolean>;
-    kind: z.ZodLiteral<"fal">;
-    endpointId: z.ZodString;
-    mediaType: z.ZodEnum<["image", "video", "audio"]>;
-    inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
-    inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
-    adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-    turbo: z.ZodOptional<z.ZodBoolean>;
-  },
-  "strip",
-  z.ZodTypeAny,
-  {
-    kind: "fal";
-    inputs: Record<string, unknown>;
-    endpointId: string;
-    mediaType: "image" | "video" | "audio";
-    deterministic?: boolean | undefined;
-    inputLabels?: Record<string, string> | undefined;
-    adapterSuppliedInputs?: string[] | undefined;
-    turbo?: boolean | undefined;
-  },
-  {
-    kind: "fal";
-    inputs: Record<string, unknown>;
-    endpointId: string;
-    mediaType: "image" | "video" | "audio";
-    deterministic?: boolean | undefined;
-    inputLabels?: Record<string, string> | undefined;
-    adapterSuppliedInputs?: string[] | undefined;
-    turbo?: boolean | undefined;
-  }
->;
-export type FalAssetDefinition = z.infer<typeof FalAssetDefinitionSchema>;
-declare const LocalAssetDefinitionSchema: z.ZodObject<
-  {
-    deterministic: z.ZodOptional<z.ZodBoolean>;
-    kind: z.ZodLiteral<"local">;
-    operation: z.ZodEnum<
-      [
-        "resize",
-        "crop",
-        "blank",
-        "trim",
-        "retime",
-        "concat",
-        "frame",
-        "render",
-        "cutFrame",
-        "orbit",
-      ]
-    >;
-    mediaType: z.ZodEnum<["image", "video", "audio"]>;
-    inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
-  },
-  "strip",
-  z.ZodTypeAny,
-  {
-    kind: "local";
-    inputs: Record<string, unknown>;
-    mediaType: "image" | "video" | "audio";
-    operation:
-      | "concat"
-      | "trim"
-      | "resize"
-      | "crop"
-      | "blank"
-      | "retime"
-      | "frame"
-      | "render"
-      | "cutFrame"
-      | "orbit";
-    deterministic?: boolean | undefined;
-  },
-  {
-    kind: "local";
-    inputs: Record<string, unknown>;
-    mediaType: "image" | "video" | "audio";
-    operation:
-      | "concat"
-      | "trim"
-      | "resize"
-      | "crop"
-      | "blank"
-      | "retime"
-      | "frame"
-      | "render"
-      | "cutFrame"
-      | "orbit";
-    deterministic?: boolean | undefined;
-  }
->;
-export type LocalAssetDefinition = z.infer<typeof LocalAssetDefinitionSchema>;
-declare const AssetDefinitionSchema: z.ZodDiscriminatedUnion<
-  "kind",
-  [
-    z.ZodObject<
-      {
-        deterministic: z.ZodOptional<z.ZodBoolean>;
-        kind: z.ZodLiteral<"comfy">;
-        workflow: z.ZodString;
-        workflowHash: z.ZodOptional<z.ZodString>;
-        inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
-        prunedNodes: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-        prunedPassThroughs: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
-        outputNodeId: z.ZodOptional<z.ZodString>;
-        models: z.ZodOptional<
-          z.ZodArray<
-            z.ZodObject<
-              {
-                filename: z.ZodString;
-                type: z.ZodEnum<
-                  [
-                    "checkpoint",
-                    "lora",
-                    "VAE",
-                    "clip",
-                    "diffusion_model",
-                    "controlnet",
-                    "upscale",
-                    "embeddings",
-                    "clip_vision",
-                    "unet",
-                  ]
-                >;
-                nodeId: z.ZodOptional<z.ZodString>;
-                url: z.ZodString;
-                savePath: z.ZodOptional<z.ZodString>;
-                base: z.ZodOptional<z.ZodString>;
-                displayName: z.ZodOptional<z.ZodString>;
-              },
-              "strip",
-              z.ZodTypeAny,
-              {
-                type:
-                  | "checkpoint"
-                  | "lora"
-                  | "VAE"
-                  | "clip"
-                  | "diffusion_model"
-                  | "controlnet"
-                  | "upscale"
-                  | "embeddings"
-                  | "clip_vision"
-                  | "unet";
-                filename: string;
-                url: string;
-                base?: string | undefined;
-                nodeId?: string | undefined;
-                savePath?: string | undefined;
-                displayName?: string | undefined;
-              },
-              {
-                type:
-                  | "checkpoint"
-                  | "lora"
-                  | "VAE"
-                  | "clip"
-                  | "diffusion_model"
-                  | "controlnet"
-                  | "upscale"
-                  | "embeddings"
-                  | "clip_vision"
-                  | "unet";
-                filename: string;
-                url: string;
-                base?: string | undefined;
-                nodeId?: string | undefined;
-                savePath?: string | undefined;
-                displayName?: string | undefined;
-              }
-            >,
-            "many"
-          >
-        >;
-        nodes: z.ZodOptional<
-          z.ZodArray<
-            z.ZodObject<
-              {
-                id: z.ZodString;
-              },
-              "strip",
-              z.ZodTypeAny,
-              {
-                id: string;
-              },
-              {
-                id: string;
-              }
-            >,
-            "many"
-          >
-        >;
-        inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
-        adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-        turbo: z.ZodOptional<z.ZodBoolean>;
-      },
-      "strip",
-      z.ZodTypeAny,
-      {
-        kind: "comfy";
-        workflow: string;
-        inputs: Record<string, unknown>;
-        deterministic?: boolean | undefined;
-        inputLabels?: Record<string, string> | undefined;
-        adapterSuppliedInputs?: string[] | undefined;
-        turbo?: boolean | undefined;
-        workflowHash?: string | undefined;
-        prunedNodes?: string[] | undefined;
-        prunedPassThroughs?: Record<string, string> | undefined;
-        outputNodeId?: string | undefined;
-        models?:
-          | {
-              type:
-                | "checkpoint"
-                | "lora"
-                | "VAE"
-                | "clip"
-                | "diffusion_model"
-                | "controlnet"
-                | "upscale"
-                | "embeddings"
-                | "clip_vision"
-                | "unet";
-              filename: string;
-              url: string;
-              base?: string | undefined;
-              nodeId?: string | undefined;
-              savePath?: string | undefined;
-              displayName?: string | undefined;
-            }[]
-          | undefined;
-        nodes?:
-          | {
-              id: string;
-            }[]
-          | undefined;
-      },
-      {
-        kind: "comfy";
-        workflow: string;
-        inputs: Record<string, unknown>;
-        deterministic?: boolean | undefined;
-        inputLabels?: Record<string, string> | undefined;
-        adapterSuppliedInputs?: string[] | undefined;
-        turbo?: boolean | undefined;
-        workflowHash?: string | undefined;
-        prunedNodes?: string[] | undefined;
-        prunedPassThroughs?: Record<string, string> | undefined;
-        outputNodeId?: string | undefined;
-        models?:
-          | {
-              type:
-                | "checkpoint"
-                | "lora"
-                | "VAE"
-                | "clip"
-                | "diffusion_model"
-                | "controlnet"
-                | "upscale"
-                | "embeddings"
-                | "clip_vision"
-                | "unet";
-              filename: string;
-              url: string;
-              base?: string | undefined;
-              nodeId?: string | undefined;
-              savePath?: string | undefined;
-              displayName?: string | undefined;
-            }[]
-          | undefined;
-        nodes?:
-          | {
-              id: string;
-            }[]
-          | undefined;
-      }
-    >,
-    z.ZodObject<
-      {
-        deterministic: z.ZodOptional<z.ZodBoolean>;
-        kind: z.ZodLiteral<"file">;
-        path: z.ZodString;
-        type: z.ZodOptional<z.ZodEnum<["image", "video", "audio"]>>;
-      },
-      "strip",
-      z.ZodTypeAny,
-      {
-        path: string;
-        kind: "file";
-        type?: "image" | "video" | "audio" | undefined;
-        deterministic?: boolean | undefined;
-      },
-      {
-        path: string;
-        kind: "file";
-        type?: "image" | "video" | "audio" | undefined;
-        deterministic?: boolean | undefined;
-      }
-    >,
-    z.ZodObject<
-      {
-        deterministic: z.ZodOptional<z.ZodBoolean>;
-        kind: z.ZodLiteral<"fal">;
-        endpointId: z.ZodString;
-        mediaType: z.ZodEnum<["image", "video", "audio"]>;
-        inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
-        inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
-        adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-        turbo: z.ZodOptional<z.ZodBoolean>;
-      },
-      "strip",
-      z.ZodTypeAny,
-      {
-        kind: "fal";
-        inputs: Record<string, unknown>;
-        endpointId: string;
-        mediaType: "image" | "video" | "audio";
-        deterministic?: boolean | undefined;
-        inputLabels?: Record<string, string> | undefined;
-        adapterSuppliedInputs?: string[] | undefined;
-        turbo?: boolean | undefined;
-      },
-      {
-        kind: "fal";
-        inputs: Record<string, unknown>;
-        endpointId: string;
-        mediaType: "image" | "video" | "audio";
-        deterministic?: boolean | undefined;
-        inputLabels?: Record<string, string> | undefined;
-        adapterSuppliedInputs?: string[] | undefined;
-        turbo?: boolean | undefined;
-      }
-    >,
-    z.ZodObject<
-      {
-        deterministic: z.ZodOptional<z.ZodBoolean>;
-        kind: z.ZodLiteral<"local">;
-        operation: z.ZodEnum<
-          [
-            "resize",
-            "crop",
-            "blank",
-            "trim",
-            "retime",
-            "concat",
-            "frame",
-            "render",
-            "cutFrame",
-            "orbit",
-          ]
-        >;
-        mediaType: z.ZodEnum<["image", "video", "audio"]>;
-        inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
-      },
-      "strip",
-      z.ZodTypeAny,
-      {
-        kind: "local";
-        inputs: Record<string, unknown>;
-        mediaType: "image" | "video" | "audio";
-        operation:
-          | "concat"
-          | "trim"
-          | "resize"
-          | "crop"
-          | "blank"
-          | "retime"
-          | "frame"
-          | "render"
-          | "cutFrame"
-          | "orbit";
-        deterministic?: boolean | undefined;
-      },
-      {
-        kind: "local";
-        inputs: Record<string, unknown>;
-        mediaType: "image" | "video" | "audio";
-        operation:
-          | "concat"
-          | "trim"
-          | "resize"
-          | "crop"
-          | "blank"
-          | "retime"
-          | "frame"
-          | "render"
-          | "cutFrame"
-          | "orbit";
-        deterministic?: boolean | undefined;
-      }
-    >,
-  ]
->;
-export type AssetDefinition = z.infer<typeof AssetDefinitionSchema>;
-declare const PanelDefinitionSchema: z.ZodObject<
-  {
-    assetName: z.ZodString;
-    address: z.ZodString;
-    start: z.ZodNumber;
-    duration: z.ZodNumber;
-    blocking: z.ZodOptional<z.ZodString>;
-    camera: z.ZodOptional<z.ZodString>;
-  },
-  "strip",
-  z.ZodTypeAny,
-  {
-    start: number;
-    duration: number;
-    assetName: string;
-    address: string;
-    blocking?: string | undefined;
-    camera?: string | undefined;
-  },
-  {
-    start: number;
-    duration: number;
-    assetName: string;
-    address: string;
-    blocking?: string | undefined;
-    camera?: string | undefined;
-  }
->;
-export type PanelDefinition = z.infer<typeof PanelDefinitionSchema>;
-export type ShotJoin = "continuous" | "jump-back" | "jump-forward";
-declare const ShotDefinitionSchema: z.ZodObject<
-  {
-    id: z.ZodString;
-    duration: z.ZodNumber;
-    action: z.ZodString;
-    assets: z.ZodRecord<
-      z.ZodString,
-      z.ZodDiscriminatedUnion<
-        "kind",
-        [
-          z.ZodObject<
-            {
-              deterministic: z.ZodOptional<z.ZodBoolean>;
-              kind: z.ZodLiteral<"comfy">;
-              workflow: z.ZodString;
-              workflowHash: z.ZodOptional<z.ZodString>;
-              inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
-              prunedNodes: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-              prunedPassThroughs: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
-              outputNodeId: z.ZodOptional<z.ZodString>;
-              models: z.ZodOptional<
-                z.ZodArray<
-                  z.ZodObject<
-                    {
-                      filename: z.ZodString;
-                      type: z.ZodEnum<
-                        [
-                          "checkpoint",
-                          "lora",
-                          "VAE",
-                          "clip",
-                          "diffusion_model",
-                          "controlnet",
-                          "upscale",
-                          "embeddings",
-                          "clip_vision",
-                          "unet",
-                        ]
-                      >;
-                      nodeId: z.ZodOptional<z.ZodString>;
-                      url: z.ZodString;
-                      savePath: z.ZodOptional<z.ZodString>;
-                      base: z.ZodOptional<z.ZodString>;
-                      displayName: z.ZodOptional<z.ZodString>;
-                    },
-                    "strip",
-                    z.ZodTypeAny,
-                    {
-                      type:
-                        | "checkpoint"
-                        | "lora"
-                        | "VAE"
-                        | "clip"
-                        | "diffusion_model"
-                        | "controlnet"
-                        | "upscale"
-                        | "embeddings"
-                        | "clip_vision"
-                        | "unet";
-                      filename: string;
-                      url: string;
-                      base?: string | undefined;
-                      nodeId?: string | undefined;
-                      savePath?: string | undefined;
-                      displayName?: string | undefined;
-                    },
-                    {
-                      type:
-                        | "checkpoint"
-                        | "lora"
-                        | "VAE"
-                        | "clip"
-                        | "diffusion_model"
-                        | "controlnet"
-                        | "upscale"
-                        | "embeddings"
-                        | "clip_vision"
-                        | "unet";
-                      filename: string;
-                      url: string;
-                      base?: string | undefined;
-                      nodeId?: string | undefined;
-                      savePath?: string | undefined;
-                      displayName?: string | undefined;
-                    }
-                  >,
-                  "many"
-                >
-              >;
-              nodes: z.ZodOptional<
-                z.ZodArray<
-                  z.ZodObject<
-                    {
-                      id: z.ZodString;
-                    },
-                    "strip",
-                    z.ZodTypeAny,
-                    {
-                      id: string;
-                    },
-                    {
-                      id: string;
-                    }
-                  >,
-                  "many"
-                >
-              >;
-              inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
-              adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-              turbo: z.ZodOptional<z.ZodBoolean>;
-            },
-            "strip",
-            z.ZodTypeAny,
-            {
-              kind: "comfy";
-              workflow: string;
-              inputs: Record<string, unknown>;
-              deterministic?: boolean | undefined;
-              inputLabels?: Record<string, string> | undefined;
-              adapterSuppliedInputs?: string[] | undefined;
-              turbo?: boolean | undefined;
-              workflowHash?: string | undefined;
-              prunedNodes?: string[] | undefined;
-              prunedPassThroughs?: Record<string, string> | undefined;
-              outputNodeId?: string | undefined;
-              models?:
-                | {
-                    type:
-                      | "checkpoint"
-                      | "lora"
-                      | "VAE"
-                      | "clip"
-                      | "diffusion_model"
-                      | "controlnet"
-                      | "upscale"
-                      | "embeddings"
-                      | "clip_vision"
-                      | "unet";
-                    filename: string;
-                    url: string;
-                    base?: string | undefined;
-                    nodeId?: string | undefined;
-                    savePath?: string | undefined;
-                    displayName?: string | undefined;
-                  }[]
-                | undefined;
-              nodes?:
-                | {
-                    id: string;
-                  }[]
-                | undefined;
-            },
-            {
-              kind: "comfy";
-              workflow: string;
-              inputs: Record<string, unknown>;
-              deterministic?: boolean | undefined;
-              inputLabels?: Record<string, string> | undefined;
-              adapterSuppliedInputs?: string[] | undefined;
-              turbo?: boolean | undefined;
-              workflowHash?: string | undefined;
-              prunedNodes?: string[] | undefined;
-              prunedPassThroughs?: Record<string, string> | undefined;
-              outputNodeId?: string | undefined;
-              models?:
-                | {
-                    type:
-                      | "checkpoint"
-                      | "lora"
-                      | "VAE"
-                      | "clip"
-                      | "diffusion_model"
-                      | "controlnet"
-                      | "upscale"
-                      | "embeddings"
-                      | "clip_vision"
-                      | "unet";
-                    filename: string;
-                    url: string;
-                    base?: string | undefined;
-                    nodeId?: string | undefined;
-                    savePath?: string | undefined;
-                    displayName?: string | undefined;
-                  }[]
-                | undefined;
-              nodes?:
-                | {
-                    id: string;
-                  }[]
-                | undefined;
-            }
-          >,
-          z.ZodObject<
-            {
-              deterministic: z.ZodOptional<z.ZodBoolean>;
-              kind: z.ZodLiteral<"file">;
-              path: z.ZodString;
-              type: z.ZodOptional<z.ZodEnum<["image", "video", "audio"]>>;
-            },
-            "strip",
-            z.ZodTypeAny,
-            {
-              path: string;
-              kind: "file";
-              type?: "image" | "video" | "audio" | undefined;
-              deterministic?: boolean | undefined;
-            },
-            {
-              path: string;
-              kind: "file";
-              type?: "image" | "video" | "audio" | undefined;
-              deterministic?: boolean | undefined;
-            }
-          >,
-          z.ZodObject<
-            {
-              deterministic: z.ZodOptional<z.ZodBoolean>;
-              kind: z.ZodLiteral<"fal">;
-              endpointId: z.ZodString;
-              mediaType: z.ZodEnum<["image", "video", "audio"]>;
-              inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
-              inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
-              adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-              turbo: z.ZodOptional<z.ZodBoolean>;
-            },
-            "strip",
-            z.ZodTypeAny,
-            {
-              kind: "fal";
-              inputs: Record<string, unknown>;
-              endpointId: string;
-              mediaType: "image" | "video" | "audio";
-              deterministic?: boolean | undefined;
-              inputLabels?: Record<string, string> | undefined;
-              adapterSuppliedInputs?: string[] | undefined;
-              turbo?: boolean | undefined;
-            },
-            {
-              kind: "fal";
-              inputs: Record<string, unknown>;
-              endpointId: string;
-              mediaType: "image" | "video" | "audio";
-              deterministic?: boolean | undefined;
-              inputLabels?: Record<string, string> | undefined;
-              adapterSuppliedInputs?: string[] | undefined;
-              turbo?: boolean | undefined;
-            }
-          >,
-          z.ZodObject<
-            {
-              deterministic: z.ZodOptional<z.ZodBoolean>;
-              kind: z.ZodLiteral<"local">;
-              operation: z.ZodEnum<
-                [
-                  "resize",
-                  "crop",
-                  "blank",
-                  "trim",
-                  "retime",
-                  "concat",
-                  "frame",
-                  "render",
-                  "cutFrame",
-                  "orbit",
-                ]
-              >;
-              mediaType: z.ZodEnum<["image", "video", "audio"]>;
-              inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
-            },
-            "strip",
-            z.ZodTypeAny,
-            {
-              kind: "local";
-              inputs: Record<string, unknown>;
-              mediaType: "image" | "video" | "audio";
-              operation:
-                | "concat"
-                | "trim"
-                | "resize"
-                | "crop"
-                | "blank"
-                | "retime"
-                | "frame"
-                | "render"
-                | "cutFrame"
-                | "orbit";
-              deterministic?: boolean | undefined;
-            },
-            {
-              kind: "local";
-              inputs: Record<string, unknown>;
-              mediaType: "image" | "video" | "audio";
-              operation:
-                | "concat"
-                | "trim"
-                | "resize"
-                | "crop"
-                | "blank"
-                | "retime"
-                | "frame"
-                | "render"
-                | "cutFrame"
-                | "orbit";
-              deterministic?: boolean | undefined;
-            }
-          >,
-        ]
-      >
-    >;
-    shotFn: z.ZodOptional<z.ZodType<ShotFunction, z.ZodTypeDef, ShotFunction>>;
-    compositionRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-    pictureRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-    stemRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-    narrationStemRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-    offFrameStemRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-    cueKinds: z.ZodOptional<
-      z.ZodRecord<z.ZodString, z.ZodEnum<["voice", "narration", "mob", "sfx"]>>
-    >;
-    songCue: z.ZodOptional<
-      z.ZodObject<
-        {
-          src: z.ZodString;
-          mediaStart: z.ZodNumber;
-          duration: z.ZodNumber;
-        },
-        "strip",
-        z.ZodTypeAny,
-        {
-          duration: number;
-          src: string;
-          mediaStart: number;
-        },
-        {
-          duration: number;
-          src: string;
-          mediaStart: number;
-        }
-      >
-    >;
-    songStem: z.ZodOptional<
-      z.ZodDiscriminatedUnion<
-        "part",
-        [
-          z.ZodObject<
-            {
-              part: z.ZodLiteral<"vocals">;
-              windows: z.ZodArray<
-                z.ZodObject<
-                  {
-                    start: z.ZodNumber;
-                    duration: z.ZodNumber;
-                  },
-                  "strip",
-                  z.ZodTypeAny,
-                  {
-                    start: number;
-                    duration: number;
-                  },
-                  {
-                    start: number;
-                    duration: number;
-                  }
-                >,
-                "many"
-              >;
-            },
-            "strip",
-            z.ZodTypeAny,
-            {
-              part: "vocals";
-              windows: {
-                start: number;
-                duration: number;
-              }[];
-            },
-            {
-              part: "vocals";
-              windows: {
-                start: number;
-                duration: number;
-              }[];
-            }
-          >,
-          z.ZodObject<
-            {
-              part: z.ZodLiteral<"instrumental">;
-            },
-            "strip",
-            z.ZodTypeAny,
-            {
-              part: "instrumental";
-            },
-            {
-              part: "instrumental";
-            }
-          >,
-        ]
-      >
-    >;
-    panels: z.ZodOptional<
-      z.ZodArray<
-        z.ZodObject<
-          {
-            assetName: z.ZodString;
-            address: z.ZodString;
-            start: z.ZodNumber;
-            duration: z.ZodNumber;
-            blocking: z.ZodOptional<z.ZodString>;
-            camera: z.ZodOptional<z.ZodString>;
-          },
-          "strip",
-          z.ZodTypeAny,
-          {
-            start: number;
-            duration: number;
-            assetName: string;
-            address: string;
-            blocking?: string | undefined;
-            camera?: string | undefined;
-          },
-          {
-            start: number;
-            duration: number;
-            assetName: string;
-            address: string;
-            blocking?: string | undefined;
-            camera?: string | undefined;
-          }
-        >,
-        "many"
-      >
-    >;
-    continuedBy: z.ZodOptional<
-      z.ZodObject<
-        {
-          main: z.ZodOptional<z.ZodString>;
-          cutin: z.ZodOptional<z.ZodString>;
-        },
-        "strip",
-        z.ZodTypeAny,
-        {
-          main?: string | undefined;
-          cutin?: string | undefined;
-        },
-        {
-          main?: string | undefined;
-          cutin?: string | undefined;
-        }
-      >
-    >;
-    coverage: z.ZodOptional<z.ZodLiteral<true>>;
-    cutin: z.ZodOptional<
-      z.ZodObject<
-        {
-          refs: z.ZodArray<z.ZodString, "many">;
-          sharedRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-          panels: z.ZodOptional<
-            z.ZodArray<
-              z.ZodObject<
-                {
-                  assetName: z.ZodString;
-                  address: z.ZodString;
-                  start: z.ZodNumber;
-                  duration: z.ZodNumber;
-                  blocking: z.ZodOptional<z.ZodString>;
-                  camera: z.ZodOptional<z.ZodString>;
-                },
-                "strip",
-                z.ZodTypeAny,
-                {
-                  start: number;
-                  duration: number;
-                  assetName: string;
-                  address: string;
-                  blocking?: string | undefined;
-                  camera?: string | undefined;
-                },
-                {
-                  start: number;
-                  duration: number;
-                  assetName: string;
-                  address: string;
-                  blocking?: string | undefined;
-                  camera?: string | undefined;
-                }
-              >,
-              "many"
-            >
-          >;
-        },
-        "strip",
-        z.ZodTypeAny,
-        {
-          refs: string[];
-          panels?:
-            | {
-                start: number;
-                duration: number;
-                assetName: string;
-                address: string;
-                blocking?: string | undefined;
-                camera?: string | undefined;
-              }[]
-            | undefined;
-          sharedRefs?: string[] | undefined;
-        },
-        {
-          refs: string[];
-          panels?:
-            | {
-                start: number;
-                duration: number;
-                assetName: string;
-                address: string;
-                blocking?: string | undefined;
-                camera?: string | undefined;
-              }[]
-            | undefined;
-          sharedRefs?: string[] | undefined;
-        }
-      >
-    >;
-    graphic: z.ZodOptional<z.ZodLiteral<true>>;
-    pending: z.ZodOptional<z.ZodLiteral<true>>;
-    aside: z.ZodOptional<z.ZodLiteral<true>>;
-  },
-  "strip",
-  z.ZodTypeAny,
-  {
-    id: string;
-    duration: number;
-    action: string;
-    assets: Record<
-      string,
-      | {
-          kind: "comfy";
-          workflow: string;
-          inputs: Record<string, unknown>;
-          deterministic?: boolean | undefined;
-          inputLabels?: Record<string, string> | undefined;
-          adapterSuppliedInputs?: string[] | undefined;
-          turbo?: boolean | undefined;
-          workflowHash?: string | undefined;
-          prunedNodes?: string[] | undefined;
-          prunedPassThroughs?: Record<string, string> | undefined;
-          outputNodeId?: string | undefined;
-          models?:
-            | {
-                type:
-                  | "checkpoint"
-                  | "lora"
-                  | "VAE"
-                  | "clip"
-                  | "diffusion_model"
-                  | "controlnet"
-                  | "upscale"
-                  | "embeddings"
-                  | "clip_vision"
-                  | "unet";
-                filename: string;
-                url: string;
-                base?: string | undefined;
-                nodeId?: string | undefined;
-                savePath?: string | undefined;
-                displayName?: string | undefined;
-              }[]
-            | undefined;
-          nodes?:
-            | {
-                id: string;
-              }[]
-            | undefined;
-        }
-      | {
-          path: string;
-          kind: "file";
-          type?: "image" | "video" | "audio" | undefined;
-          deterministic?: boolean | undefined;
-        }
-      | {
-          kind: "fal";
-          inputs: Record<string, unknown>;
-          endpointId: string;
-          mediaType: "image" | "video" | "audio";
-          deterministic?: boolean | undefined;
-          inputLabels?: Record<string, string> | undefined;
-          adapterSuppliedInputs?: string[] | undefined;
-          turbo?: boolean | undefined;
-        }
-      | {
-          kind: "local";
-          inputs: Record<string, unknown>;
-          mediaType: "image" | "video" | "audio";
-          operation:
-            | "concat"
-            | "trim"
-            | "resize"
-            | "crop"
-            | "blank"
-            | "retime"
-            | "frame"
-            | "render"
-            | "cutFrame"
-            | "orbit";
-          deterministic?: boolean | undefined;
-        }
-    >;
-    cutin?:
-      | {
-          refs: string[];
-          panels?:
-            | {
-                start: number;
-                duration: number;
-                assetName: string;
-                address: string;
-                blocking?: string | undefined;
-                camera?: string | undefined;
-              }[]
-            | undefined;
-          sharedRefs?: string[] | undefined;
-        }
-      | undefined;
-    shotFn?: ShotFunction | undefined;
-    compositionRefs?: string[] | undefined;
-    pictureRefs?: string[] | undefined;
-    stemRefs?: string[] | undefined;
-    narrationStemRefs?: string[] | undefined;
-    offFrameStemRefs?: string[] | undefined;
-    cueKinds?: Record<string, "voice" | "narration" | "mob" | "sfx"> | undefined;
-    songCue?:
-      | {
-          duration: number;
-          src: string;
-          mediaStart: number;
-        }
-      | undefined;
-    songStem?:
-      | {
-          part: "vocals";
-          windows: {
-            start: number;
-            duration: number;
-          }[];
-        }
-      | {
-          part: "instrumental";
-        }
-      | undefined;
-    panels?:
-      | {
-          start: number;
-          duration: number;
-          assetName: string;
-          address: string;
-          blocking?: string | undefined;
-          camera?: string | undefined;
-        }[]
-      | undefined;
-    continuedBy?:
-      | {
-          main?: string | undefined;
-          cutin?: string | undefined;
-        }
-      | undefined;
-    coverage?: true | undefined;
-    graphic?: true | undefined;
-    pending?: true | undefined;
-    aside?: true | undefined;
-  },
-  {
-    id: string;
-    duration: number;
-    action: string;
-    assets: Record<
-      string,
-      | {
-          kind: "comfy";
-          workflow: string;
-          inputs: Record<string, unknown>;
-          deterministic?: boolean | undefined;
-          inputLabels?: Record<string, string> | undefined;
-          adapterSuppliedInputs?: string[] | undefined;
-          turbo?: boolean | undefined;
-          workflowHash?: string | undefined;
-          prunedNodes?: string[] | undefined;
-          prunedPassThroughs?: Record<string, string> | undefined;
-          outputNodeId?: string | undefined;
-          models?:
-            | {
-                type:
-                  | "checkpoint"
-                  | "lora"
-                  | "VAE"
-                  | "clip"
-                  | "diffusion_model"
-                  | "controlnet"
-                  | "upscale"
-                  | "embeddings"
-                  | "clip_vision"
-                  | "unet";
-                filename: string;
-                url: string;
-                base?: string | undefined;
-                nodeId?: string | undefined;
-                savePath?: string | undefined;
-                displayName?: string | undefined;
-              }[]
-            | undefined;
-          nodes?:
-            | {
-                id: string;
-              }[]
-            | undefined;
-        }
-      | {
-          path: string;
-          kind: "file";
-          type?: "image" | "video" | "audio" | undefined;
-          deterministic?: boolean | undefined;
-        }
-      | {
-          kind: "fal";
-          inputs: Record<string, unknown>;
-          endpointId: string;
-          mediaType: "image" | "video" | "audio";
-          deterministic?: boolean | undefined;
-          inputLabels?: Record<string, string> | undefined;
-          adapterSuppliedInputs?: string[] | undefined;
-          turbo?: boolean | undefined;
-        }
-      | {
-          kind: "local";
-          inputs: Record<string, unknown>;
-          mediaType: "image" | "video" | "audio";
-          operation:
-            | "concat"
-            | "trim"
-            | "resize"
-            | "crop"
-            | "blank"
-            | "retime"
-            | "frame"
-            | "render"
-            | "cutFrame"
-            | "orbit";
-          deterministic?: boolean | undefined;
-        }
-    >;
-    cutin?:
-      | {
-          refs: string[];
-          panels?:
-            | {
-                start: number;
-                duration: number;
-                assetName: string;
-                address: string;
-                blocking?: string | undefined;
-                camera?: string | undefined;
-              }[]
-            | undefined;
-          sharedRefs?: string[] | undefined;
-        }
-      | undefined;
-    shotFn?: ShotFunction | undefined;
-    compositionRefs?: string[] | undefined;
-    pictureRefs?: string[] | undefined;
-    stemRefs?: string[] | undefined;
-    narrationStemRefs?: string[] | undefined;
-    offFrameStemRefs?: string[] | undefined;
-    cueKinds?: Record<string, "voice" | "narration" | "mob" | "sfx"> | undefined;
-    songCue?:
-      | {
-          duration: number;
-          src: string;
-          mediaStart: number;
-        }
-      | undefined;
-    songStem?:
-      | {
-          part: "vocals";
-          windows: {
-            start: number;
-            duration: number;
-          }[];
-        }
-      | {
-          part: "instrumental";
-        }
-      | undefined;
-    panels?:
-      | {
-          start: number;
-          duration: number;
-          assetName: string;
-          address: string;
-          blocking?: string | undefined;
-          camera?: string | undefined;
-        }[]
-      | undefined;
-    continuedBy?:
-      | {
-          main?: string | undefined;
-          cutin?: string | undefined;
-        }
-      | undefined;
-    coverage?: true | undefined;
-    graphic?: true | undefined;
-    pending?: true | undefined;
-    aside?: true | undefined;
-  }
->;
-export type ShotDefinition = z.infer<typeof ShotDefinitionSchema>;
-/**
- * A composition stage's `timeline` callback. It both declares top-level (timeline) assets as a side
- * effect and returns the shot inputs; the shot starters it closes over are injected by the builder,
- * so callers pass only `{ format }` (the render size/fps assets may derive their inputs from).
- */
-export type TimelineFunction = (args: { format: VideoFormat }) => {
-  shots: Array<{
-    id: string;
-    fn: ShotFunction;
-  }>;
-  soundtracks: ReadonlyArray<SoundtrackEntry>;
-  overlay?: ShotFunction;
-};
-/**
- * A stage's overlay (see `OverlayContext`): the timeline's length, the build its `<Composition>`
- * comes from (its context already bound), and the refs that composition draws.
- */
-export type OverlayDefinition = {
-  duration: number;
-  fn: ShotFunction;
-  compositionRefs: readonly string[];
-};
-/**
- * The video's thumbnail (`defineVideo`'s `thumbnail`). Its frame (`video:thumbnail#frame`) is the
- * cut at `at` on the timeline, `shotTime` into `shotId`, a `cutFrame` op. Its compose is the build
- * its still `<Composition>` comes from — run on the canvas it is laid out on, its `shot` already
- * bound — the refs that composition draws, and the still (`video:thumbnail#still`), a `render` op
- * over the working canvas; `assets` are the ones it declared (`video:thumbnail.<name>`).
- */
-export type ThumbnailDefinition = {
-  frame: ThumbnailFrame | null;
-  assets: Record<string, AssetDefinition>;
-  compose: ThumbnailCompose | null;
-};
-export type ThumbnailFrame = {
-  at: number;
-  shotId: string;
-  shotTime: number;
-  asset: LocalAssetDefinition;
-};
-export type ThumbnailCompose = {
-  fn: (format: VideoFormat) => React.ReactElement;
-  compositionRefs: readonly string[];
-  still: LocalAssetDefinition;
-};
-/**
- * What konte hands a delivery upscale function at export time: the source `video` (a
- * placeholder so the dependency graph wires it up), the `scale` factor (delivery/working),
- * and the absolute target `width`/`height`. The user threads whichever its upscaler needs —
- * scale-based upscalers use `scale`, absolute/preset ones use `width`/`height`.
- *   - `video` mode: source = one video layer; width/height = the layer's real size × scale
- *     (ffprobed at export, AR-preserving).
- *   - `frame` mode: source = the composited shot (working res); width/height = delivery size.
- */
-export type DeliveryUpscaleInput = {
-  video: MediaAsset<"video">;
-  scale: number;
-  width: number;
-  height: number;
-};
-/**
- * A delivery upscale: a function that, given konte's injected inputs, returns the upscale
- * definition (an AssetDefinition, usually built via the `upscale(adapter, inputs)` helper).
- */
-export type DeliveryUpscaleFn = (input: DeliveryUpscaleInput) => AssetDefinition;
-declare const DeliverySchema: z.ZodObject<
-  {
-    size: z.ZodOptional<
-      z.ZodObject<
-        {
-          width: z.ZodNumber;
-          height: z.ZodNumber;
-        },
-        "strip",
-        z.ZodTypeAny,
-        {
-          width: number;
-          height: number;
-        },
-        {
-          width: number;
-          height: number;
-        }
-      >
-    >;
-    upscale: z.ZodOptional<
-      z.ZodObject<
-        {
-          video: z.ZodOptional<z.ZodType<DeliveryUpscaleFn, z.ZodTypeDef, DeliveryUpscaleFn>>;
-          frame: z.ZodOptional<z.ZodType<DeliveryUpscaleFn, z.ZodTypeDef, DeliveryUpscaleFn>>;
-        },
-        "strip",
-        z.ZodTypeAny,
-        {
-          video?: DeliveryUpscaleFn | undefined;
-          frame?: DeliveryUpscaleFn | undefined;
-        },
-        {
-          video?: DeliveryUpscaleFn | undefined;
-          frame?: DeliveryUpscaleFn | undefined;
-        }
-      >
-    >;
-  },
-  "strip",
-  z.ZodTypeAny,
-  {
-    upscale?:
-      | {
-          video?: DeliveryUpscaleFn | undefined;
-          frame?: DeliveryUpscaleFn | undefined;
-        }
-      | undefined;
-    size?:
-      | {
-          width: number;
-          height: number;
-        }
-      | undefined;
-  },
-  {
-    upscale?:
-      | {
-          video?: DeliveryUpscaleFn | undefined;
-          frame?: DeliveryUpscaleFn | undefined;
-        }
-      | undefined;
-    size?:
-      | {
-          width: number;
-          height: number;
-        }
-      | undefined;
-  }
->;
-export type Delivery = z.infer<typeof DeliverySchema>;
-declare const VideoFormatSchema: z.ZodObject<
-  {
-    size: z.ZodObject<
-      {
-        width: z.ZodNumber;
-        height: z.ZodNumber;
-      },
-      "strip",
-      z.ZodTypeAny,
-      {
-        width: number;
-        height: number;
-      },
-      {
-        width: number;
-        height: number;
-      }
-    >;
-    fps: z.ZodNumber;
-  },
-  "strip",
-  z.ZodTypeAny,
-  {
-    size: {
-      width: number;
-      height: number;
-    };
-    fps: number;
-  },
-  {
-    size: {
-      width: number;
-      height: number;
-    };
-    fps: number;
-  }
->;
-export type VideoFormat = z.infer<typeof VideoFormatSchema>;
-declare const ExportSchema: z.ZodObject<
-  {
-    delivery: z.ZodOptional<
-      z.ZodObject<
-        {
-          size: z.ZodOptional<
-            z.ZodObject<
-              {
-                width: z.ZodNumber;
-                height: z.ZodNumber;
-              },
-              "strip",
-              z.ZodTypeAny,
-              {
-                width: number;
-                height: number;
-              },
-              {
-                width: number;
-                height: number;
-              }
-            >
-          >;
-          upscale: z.ZodOptional<
-            z.ZodObject<
-              {
-                video: z.ZodOptional<z.ZodType<DeliveryUpscaleFn, z.ZodTypeDef, DeliveryUpscaleFn>>;
-                frame: z.ZodOptional<z.ZodType<DeliveryUpscaleFn, z.ZodTypeDef, DeliveryUpscaleFn>>;
-              },
-              "strip",
-              z.ZodTypeAny,
-              {
-                video?: DeliveryUpscaleFn | undefined;
-                frame?: DeliveryUpscaleFn | undefined;
-              },
-              {
-                video?: DeliveryUpscaleFn | undefined;
-                frame?: DeliveryUpscaleFn | undefined;
-              }
-            >
-          >;
-        },
-        "strip",
-        z.ZodTypeAny,
-        {
-          upscale?:
-            | {
-                video?: DeliveryUpscaleFn | undefined;
-                frame?: DeliveryUpscaleFn | undefined;
-              }
-            | undefined;
-          size?:
-            | {
-                width: number;
-                height: number;
-              }
-            | undefined;
-        },
-        {
-          upscale?:
-            | {
-                video?: DeliveryUpscaleFn | undefined;
-                frame?: DeliveryUpscaleFn | undefined;
-              }
-            | undefined;
-          size?:
-            | {
-                width: number;
-                height: number;
-              }
-            | undefined;
-        }
-      >
-    >;
-  },
-  "strip",
-  z.ZodTypeAny,
-  {
-    delivery?:
-      | {
-          upscale?:
-            | {
-                video?: DeliveryUpscaleFn | undefined;
-                frame?: DeliveryUpscaleFn | undefined;
-              }
-            | undefined;
-          size?:
-            | {
-                width: number;
-                height: number;
-              }
-            | undefined;
-        }
-      | undefined;
-  },
-  {
-    delivery?:
-      | {
-          upscale?:
-            | {
-                video?: DeliveryUpscaleFn | undefined;
-                frame?: DeliveryUpscaleFn | undefined;
-              }
-            | undefined;
-          size?:
-            | {
-                width: number;
-                height: number;
-              }
-            | undefined;
-        }
-      | undefined;
-  }
->;
-export type Export = z.infer<typeof ExportSchema>;
-declare const TypographySchema: z.ZodObject<
-  {
-    lang: z.ZodType<LanguageTag, z.ZodTypeDef, LanguageTag>;
-    fonts: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-  },
-  "strip",
-  z.ZodTypeAny,
-  {
-    lang: LanguageTag;
-    fonts?: string[] | undefined;
-  },
-  {
-    lang: LanguageTag;
-    fonts?: string[] | undefined;
-  }
->;
-export type Typography = z.infer<typeof TypographySchema>;
-declare const VideoDefinitionSchema: z.ZodObject<
-  {
-    format: z.ZodObject<
-      {
-        size: z.ZodObject<
-          {
-            width: z.ZodNumber;
-            height: z.ZodNumber;
-          },
-          "strip",
-          z.ZodTypeAny,
-          {
-            width: number;
-            height: number;
-          },
-          {
-            width: number;
-            height: number;
-          }
-        >;
-        fps: z.ZodNumber;
-      },
-      "strip",
-      z.ZodTypeAny,
-      {
-        size: {
-          width: number;
-          height: number;
-        };
-        fps: number;
-      },
-      {
-        size: {
-          width: number;
-          height: number;
-        };
-        fps: number;
-      }
-    >;
-    typography: z.ZodObject<
-      {
-        lang: z.ZodType<LanguageTag, z.ZodTypeDef, LanguageTag>;
-        fonts: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-      },
-      "strip",
-      z.ZodTypeAny,
-      {
-        lang: LanguageTag;
-        fonts?: string[] | undefined;
-      },
-      {
-        lang: LanguageTag;
-        fonts?: string[] | undefined;
-      }
-    >;
-    shots: z.ZodArray<
-      z.ZodObject<
-        {
-          id: z.ZodString;
-          duration: z.ZodNumber;
-          action: z.ZodString;
-          assets: z.ZodRecord<
-            z.ZodString,
-            z.ZodDiscriminatedUnion<
-              "kind",
-              [
-                z.ZodObject<
-                  {
-                    deterministic: z.ZodOptional<z.ZodBoolean>;
-                    kind: z.ZodLiteral<"comfy">;
-                    workflow: z.ZodString;
-                    workflowHash: z.ZodOptional<z.ZodString>;
-                    inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
-                    prunedNodes: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-                    prunedPassThroughs: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
-                    outputNodeId: z.ZodOptional<z.ZodString>;
-                    models: z.ZodOptional<
-                      z.ZodArray<
-                        z.ZodObject<
-                          {
-                            filename: z.ZodString;
-                            type: z.ZodEnum<
-                              [
-                                "checkpoint",
-                                "lora",
-                                "VAE",
-                                "clip",
-                                "diffusion_model",
-                                "controlnet",
-                                "upscale",
-                                "embeddings",
-                                "clip_vision",
-                                "unet",
-                              ]
-                            >;
-                            nodeId: z.ZodOptional<z.ZodString>;
-                            url: z.ZodString;
-                            savePath: z.ZodOptional<z.ZodString>;
-                            base: z.ZodOptional<z.ZodString>;
-                            displayName: z.ZodOptional<z.ZodString>;
-                          },
-                          "strip",
-                          z.ZodTypeAny,
-                          {
-                            type:
-                              | "checkpoint"
-                              | "lora"
-                              | "VAE"
-                              | "clip"
-                              | "diffusion_model"
-                              | "controlnet"
-                              | "upscale"
-                              | "embeddings"
-                              | "clip_vision"
-                              | "unet";
-                            filename: string;
-                            url: string;
-                            base?: string | undefined;
-                            nodeId?: string | undefined;
-                            savePath?: string | undefined;
-                            displayName?: string | undefined;
-                          },
-                          {
-                            type:
-                              | "checkpoint"
-                              | "lora"
-                              | "VAE"
-                              | "clip"
-                              | "diffusion_model"
-                              | "controlnet"
-                              | "upscale"
-                              | "embeddings"
-                              | "clip_vision"
-                              | "unet";
-                            filename: string;
-                            url: string;
-                            base?: string | undefined;
-                            nodeId?: string | undefined;
-                            savePath?: string | undefined;
-                            displayName?: string | undefined;
-                          }
-                        >,
-                        "many"
-                      >
-                    >;
-                    nodes: z.ZodOptional<
-                      z.ZodArray<
-                        z.ZodObject<
-                          {
-                            id: z.ZodString;
-                          },
-                          "strip",
-                          z.ZodTypeAny,
-                          {
-                            id: string;
-                          },
-                          {
-                            id: string;
-                          }
-                        >,
-                        "many"
-                      >
-                    >;
-                    inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
-                    adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-                    turbo: z.ZodOptional<z.ZodBoolean>;
-                  },
-                  "strip",
-                  z.ZodTypeAny,
-                  {
-                    kind: "comfy";
-                    workflow: string;
-                    inputs: Record<string, unknown>;
-                    deterministic?: boolean | undefined;
-                    inputLabels?: Record<string, string> | undefined;
-                    adapterSuppliedInputs?: string[] | undefined;
-                    turbo?: boolean | undefined;
-                    workflowHash?: string | undefined;
-                    prunedNodes?: string[] | undefined;
-                    prunedPassThroughs?: Record<string, string> | undefined;
-                    outputNodeId?: string | undefined;
-                    models?:
-                      | {
-                          type:
-                            | "checkpoint"
-                            | "lora"
-                            | "VAE"
-                            | "clip"
-                            | "diffusion_model"
-                            | "controlnet"
-                            | "upscale"
-                            | "embeddings"
-                            | "clip_vision"
-                            | "unet";
-                          filename: string;
-                          url: string;
-                          base?: string | undefined;
-                          nodeId?: string | undefined;
-                          savePath?: string | undefined;
-                          displayName?: string | undefined;
-                        }[]
-                      | undefined;
-                    nodes?:
-                      | {
-                          id: string;
-                        }[]
-                      | undefined;
-                  },
-                  {
-                    kind: "comfy";
-                    workflow: string;
-                    inputs: Record<string, unknown>;
-                    deterministic?: boolean | undefined;
-                    inputLabels?: Record<string, string> | undefined;
-                    adapterSuppliedInputs?: string[] | undefined;
-                    turbo?: boolean | undefined;
-                    workflowHash?: string | undefined;
-                    prunedNodes?: string[] | undefined;
-                    prunedPassThroughs?: Record<string, string> | undefined;
-                    outputNodeId?: string | undefined;
-                    models?:
-                      | {
-                          type:
-                            | "checkpoint"
-                            | "lora"
-                            | "VAE"
-                            | "clip"
-                            | "diffusion_model"
-                            | "controlnet"
-                            | "upscale"
-                            | "embeddings"
-                            | "clip_vision"
-                            | "unet";
-                          filename: string;
-                          url: string;
-                          base?: string | undefined;
-                          nodeId?: string | undefined;
-                          savePath?: string | undefined;
-                          displayName?: string | undefined;
-                        }[]
-                      | undefined;
-                    nodes?:
-                      | {
-                          id: string;
-                        }[]
-                      | undefined;
-                  }
-                >,
-                z.ZodObject<
-                  {
-                    deterministic: z.ZodOptional<z.ZodBoolean>;
-                    kind: z.ZodLiteral<"file">;
-                    path: z.ZodString;
-                    type: z.ZodOptional<z.ZodEnum<["image", "video", "audio"]>>;
-                  },
-                  "strip",
-                  z.ZodTypeAny,
-                  {
-                    path: string;
-                    kind: "file";
-                    type?: "image" | "video" | "audio" | undefined;
-                    deterministic?: boolean | undefined;
-                  },
-                  {
-                    path: string;
-                    kind: "file";
-                    type?: "image" | "video" | "audio" | undefined;
-                    deterministic?: boolean | undefined;
-                  }
-                >,
-                z.ZodObject<
-                  {
-                    deterministic: z.ZodOptional<z.ZodBoolean>;
-                    kind: z.ZodLiteral<"fal">;
-                    endpointId: z.ZodString;
-                    mediaType: z.ZodEnum<["image", "video", "audio"]>;
-                    inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
-                    inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
-                    adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-                    turbo: z.ZodOptional<z.ZodBoolean>;
-                  },
-                  "strip",
-                  z.ZodTypeAny,
-                  {
-                    kind: "fal";
-                    inputs: Record<string, unknown>;
-                    endpointId: string;
-                    mediaType: "image" | "video" | "audio";
-                    deterministic?: boolean | undefined;
-                    inputLabels?: Record<string, string> | undefined;
-                    adapterSuppliedInputs?: string[] | undefined;
-                    turbo?: boolean | undefined;
-                  },
-                  {
-                    kind: "fal";
-                    inputs: Record<string, unknown>;
-                    endpointId: string;
-                    mediaType: "image" | "video" | "audio";
-                    deterministic?: boolean | undefined;
-                    inputLabels?: Record<string, string> | undefined;
-                    adapterSuppliedInputs?: string[] | undefined;
-                    turbo?: boolean | undefined;
-                  }
-                >,
-                z.ZodObject<
-                  {
-                    deterministic: z.ZodOptional<z.ZodBoolean>;
-                    kind: z.ZodLiteral<"local">;
-                    operation: z.ZodEnum<
-                      [
-                        "resize",
-                        "crop",
-                        "blank",
-                        "trim",
-                        "retime",
-                        "concat",
-                        "frame",
-                        "render",
-                        "cutFrame",
-                        "orbit",
-                      ]
-                    >;
-                    mediaType: z.ZodEnum<["image", "video", "audio"]>;
-                    inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
-                  },
-                  "strip",
-                  z.ZodTypeAny,
-                  {
-                    kind: "local";
-                    inputs: Record<string, unknown>;
-                    mediaType: "image" | "video" | "audio";
-                    operation:
-                      | "concat"
-                      | "trim"
-                      | "resize"
-                      | "crop"
-                      | "blank"
-                      | "retime"
-                      | "frame"
-                      | "render"
-                      | "cutFrame"
-                      | "orbit";
-                    deterministic?: boolean | undefined;
-                  },
-                  {
-                    kind: "local";
-                    inputs: Record<string, unknown>;
-                    mediaType: "image" | "video" | "audio";
-                    operation:
-                      | "concat"
-                      | "trim"
-                      | "resize"
-                      | "crop"
-                      | "blank"
-                      | "retime"
-                      | "frame"
-                      | "render"
-                      | "cutFrame"
-                      | "orbit";
-                    deterministic?: boolean | undefined;
-                  }
-                >,
-              ]
-            >
-          >;
-          shotFn: z.ZodOptional<z.ZodType<ShotFunction, z.ZodTypeDef, ShotFunction>>;
-          compositionRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-          pictureRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-          stemRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-          narrationStemRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-          offFrameStemRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-          cueKinds: z.ZodOptional<
-            z.ZodRecord<z.ZodString, z.ZodEnum<["voice", "narration", "mob", "sfx"]>>
-          >;
-          songCue: z.ZodOptional<
-            z.ZodObject<
-              {
-                src: z.ZodString;
-                mediaStart: z.ZodNumber;
-                duration: z.ZodNumber;
-              },
-              "strip",
-              z.ZodTypeAny,
-              {
-                duration: number;
-                src: string;
-                mediaStart: number;
-              },
-              {
-                duration: number;
-                src: string;
-                mediaStart: number;
-              }
-            >
-          >;
-          songStem: z.ZodOptional<
-            z.ZodDiscriminatedUnion<
-              "part",
-              [
-                z.ZodObject<
-                  {
-                    part: z.ZodLiteral<"vocals">;
-                    windows: z.ZodArray<
-                      z.ZodObject<
-                        {
-                          start: z.ZodNumber;
-                          duration: z.ZodNumber;
-                        },
-                        "strip",
-                        z.ZodTypeAny,
-                        {
-                          start: number;
-                          duration: number;
-                        },
-                        {
-                          start: number;
-                          duration: number;
-                        }
-                      >,
-                      "many"
-                    >;
-                  },
-                  "strip",
-                  z.ZodTypeAny,
-                  {
-                    part: "vocals";
-                    windows: {
-                      start: number;
-                      duration: number;
-                    }[];
-                  },
-                  {
-                    part: "vocals";
-                    windows: {
-                      start: number;
-                      duration: number;
-                    }[];
-                  }
-                >,
-                z.ZodObject<
-                  {
-                    part: z.ZodLiteral<"instrumental">;
-                  },
-                  "strip",
-                  z.ZodTypeAny,
-                  {
-                    part: "instrumental";
-                  },
-                  {
-                    part: "instrumental";
-                  }
-                >,
-              ]
-            >
-          >;
-          panels: z.ZodOptional<
-            z.ZodArray<
-              z.ZodObject<
-                {
-                  assetName: z.ZodString;
-                  address: z.ZodString;
-                  start: z.ZodNumber;
-                  duration: z.ZodNumber;
-                  blocking: z.ZodOptional<z.ZodString>;
-                  camera: z.ZodOptional<z.ZodString>;
-                },
-                "strip",
-                z.ZodTypeAny,
-                {
-                  start: number;
-                  duration: number;
-                  assetName: string;
-                  address: string;
-                  blocking?: string | undefined;
-                  camera?: string | undefined;
-                },
-                {
-                  start: number;
-                  duration: number;
-                  assetName: string;
-                  address: string;
-                  blocking?: string | undefined;
-                  camera?: string | undefined;
-                }
-              >,
-              "many"
-            >
-          >;
-          continuedBy: z.ZodOptional<
-            z.ZodObject<
-              {
-                main: z.ZodOptional<z.ZodString>;
-                cutin: z.ZodOptional<z.ZodString>;
-              },
-              "strip",
-              z.ZodTypeAny,
-              {
-                main?: string | undefined;
-                cutin?: string | undefined;
-              },
-              {
-                main?: string | undefined;
-                cutin?: string | undefined;
-              }
-            >
-          >;
-          coverage: z.ZodOptional<z.ZodLiteral<true>>;
-          cutin: z.ZodOptional<
-            z.ZodObject<
-              {
-                refs: z.ZodArray<z.ZodString, "many">;
-                sharedRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-                panels: z.ZodOptional<
-                  z.ZodArray<
-                    z.ZodObject<
-                      {
-                        assetName: z.ZodString;
-                        address: z.ZodString;
-                        start: z.ZodNumber;
-                        duration: z.ZodNumber;
-                        blocking: z.ZodOptional<z.ZodString>;
-                        camera: z.ZodOptional<z.ZodString>;
-                      },
-                      "strip",
-                      z.ZodTypeAny,
-                      {
-                        start: number;
-                        duration: number;
-                        assetName: string;
-                        address: string;
-                        blocking?: string | undefined;
-                        camera?: string | undefined;
-                      },
-                      {
-                        start: number;
-                        duration: number;
-                        assetName: string;
-                        address: string;
-                        blocking?: string | undefined;
-                        camera?: string | undefined;
-                      }
-                    >,
-                    "many"
-                  >
-                >;
-              },
-              "strip",
-              z.ZodTypeAny,
-              {
-                refs: string[];
-                panels?:
-                  | {
-                      start: number;
-                      duration: number;
-                      assetName: string;
-                      address: string;
-                      blocking?: string | undefined;
-                      camera?: string | undefined;
-                    }[]
-                  | undefined;
-                sharedRefs?: string[] | undefined;
-              },
-              {
-                refs: string[];
-                panels?:
-                  | {
-                      start: number;
-                      duration: number;
-                      assetName: string;
-                      address: string;
-                      blocking?: string | undefined;
-                      camera?: string | undefined;
-                    }[]
-                  | undefined;
-                sharedRefs?: string[] | undefined;
-              }
-            >
-          >;
-          graphic: z.ZodOptional<z.ZodLiteral<true>>;
-          pending: z.ZodOptional<z.ZodLiteral<true>>;
-          aside: z.ZodOptional<z.ZodLiteral<true>>;
-        },
-        "strip",
-        z.ZodTypeAny,
-        {
-          id: string;
-          duration: number;
-          action: string;
-          assets: Record<
-            string,
-            | {
-                kind: "comfy";
-                workflow: string;
-                inputs: Record<string, unknown>;
-                deterministic?: boolean | undefined;
-                inputLabels?: Record<string, string> | undefined;
-                adapterSuppliedInputs?: string[] | undefined;
-                turbo?: boolean | undefined;
-                workflowHash?: string | undefined;
-                prunedNodes?: string[] | undefined;
-                prunedPassThroughs?: Record<string, string> | undefined;
-                outputNodeId?: string | undefined;
-                models?:
-                  | {
-                      type:
-                        | "checkpoint"
-                        | "lora"
-                        | "VAE"
-                        | "clip"
-                        | "diffusion_model"
-                        | "controlnet"
-                        | "upscale"
-                        | "embeddings"
-                        | "clip_vision"
-                        | "unet";
-                      filename: string;
-                      url: string;
-                      base?: string | undefined;
-                      nodeId?: string | undefined;
-                      savePath?: string | undefined;
-                      displayName?: string | undefined;
-                    }[]
-                  | undefined;
-                nodes?:
-                  | {
-                      id: string;
-                    }[]
-                  | undefined;
-              }
-            | {
-                path: string;
-                kind: "file";
-                type?: "image" | "video" | "audio" | undefined;
-                deterministic?: boolean | undefined;
-              }
-            | {
-                kind: "fal";
-                inputs: Record<string, unknown>;
-                endpointId: string;
-                mediaType: "image" | "video" | "audio";
-                deterministic?: boolean | undefined;
-                inputLabels?: Record<string, string> | undefined;
-                adapterSuppliedInputs?: string[] | undefined;
-                turbo?: boolean | undefined;
-              }
-            | {
-                kind: "local";
-                inputs: Record<string, unknown>;
-                mediaType: "image" | "video" | "audio";
-                operation:
-                  | "concat"
-                  | "trim"
-                  | "resize"
-                  | "crop"
-                  | "blank"
-                  | "retime"
-                  | "frame"
-                  | "render"
-                  | "cutFrame"
-                  | "orbit";
-                deterministic?: boolean | undefined;
-              }
-          >;
-          cutin?:
-            | {
-                refs: string[];
-                panels?:
-                  | {
-                      start: number;
-                      duration: number;
-                      assetName: string;
-                      address: string;
-                      blocking?: string | undefined;
-                      camera?: string | undefined;
-                    }[]
-                  | undefined;
-                sharedRefs?: string[] | undefined;
-              }
-            | undefined;
-          shotFn?: ShotFunction | undefined;
-          compositionRefs?: string[] | undefined;
-          pictureRefs?: string[] | undefined;
-          stemRefs?: string[] | undefined;
-          narrationStemRefs?: string[] | undefined;
-          offFrameStemRefs?: string[] | undefined;
-          cueKinds?: Record<string, "voice" | "narration" | "mob" | "sfx"> | undefined;
-          songCue?:
-            | {
-                duration: number;
-                src: string;
-                mediaStart: number;
-              }
-            | undefined;
-          songStem?:
-            | {
-                part: "vocals";
-                windows: {
-                  start: number;
-                  duration: number;
-                }[];
-              }
-            | {
-                part: "instrumental";
-              }
-            | undefined;
-          panels?:
-            | {
-                start: number;
-                duration: number;
-                assetName: string;
-                address: string;
-                blocking?: string | undefined;
-                camera?: string | undefined;
-              }[]
-            | undefined;
-          continuedBy?:
-            | {
-                main?: string | undefined;
-                cutin?: string | undefined;
-              }
-            | undefined;
-          coverage?: true | undefined;
-          graphic?: true | undefined;
-          pending?: true | undefined;
-          aside?: true | undefined;
-        },
-        {
-          id: string;
-          duration: number;
-          action: string;
-          assets: Record<
-            string,
-            | {
-                kind: "comfy";
-                workflow: string;
-                inputs: Record<string, unknown>;
-                deterministic?: boolean | undefined;
-                inputLabels?: Record<string, string> | undefined;
-                adapterSuppliedInputs?: string[] | undefined;
-                turbo?: boolean | undefined;
-                workflowHash?: string | undefined;
-                prunedNodes?: string[] | undefined;
-                prunedPassThroughs?: Record<string, string> | undefined;
-                outputNodeId?: string | undefined;
-                models?:
-                  | {
-                      type:
-                        | "checkpoint"
-                        | "lora"
-                        | "VAE"
-                        | "clip"
-                        | "diffusion_model"
-                        | "controlnet"
-                        | "upscale"
-                        | "embeddings"
-                        | "clip_vision"
-                        | "unet";
-                      filename: string;
-                      url: string;
-                      base?: string | undefined;
-                      nodeId?: string | undefined;
-                      savePath?: string | undefined;
-                      displayName?: string | undefined;
-                    }[]
-                  | undefined;
-                nodes?:
-                  | {
-                      id: string;
-                    }[]
-                  | undefined;
-              }
-            | {
-                path: string;
-                kind: "file";
-                type?: "image" | "video" | "audio" | undefined;
-                deterministic?: boolean | undefined;
-              }
-            | {
-                kind: "fal";
-                inputs: Record<string, unknown>;
-                endpointId: string;
-                mediaType: "image" | "video" | "audio";
-                deterministic?: boolean | undefined;
-                inputLabels?: Record<string, string> | undefined;
-                adapterSuppliedInputs?: string[] | undefined;
-                turbo?: boolean | undefined;
-              }
-            | {
-                kind: "local";
-                inputs: Record<string, unknown>;
-                mediaType: "image" | "video" | "audio";
-                operation:
-                  | "concat"
-                  | "trim"
-                  | "resize"
-                  | "crop"
-                  | "blank"
-                  | "retime"
-                  | "frame"
-                  | "render"
-                  | "cutFrame"
-                  | "orbit";
-                deterministic?: boolean | undefined;
-              }
-          >;
-          cutin?:
-            | {
-                refs: string[];
-                panels?:
-                  | {
-                      start: number;
-                      duration: number;
-                      assetName: string;
-                      address: string;
-                      blocking?: string | undefined;
-                      camera?: string | undefined;
-                    }[]
-                  | undefined;
-                sharedRefs?: string[] | undefined;
-              }
-            | undefined;
-          shotFn?: ShotFunction | undefined;
-          compositionRefs?: string[] | undefined;
-          pictureRefs?: string[] | undefined;
-          stemRefs?: string[] | undefined;
-          narrationStemRefs?: string[] | undefined;
-          offFrameStemRefs?: string[] | undefined;
-          cueKinds?: Record<string, "voice" | "narration" | "mob" | "sfx"> | undefined;
-          songCue?:
-            | {
-                duration: number;
-                src: string;
-                mediaStart: number;
-              }
-            | undefined;
-          songStem?:
-            | {
-                part: "vocals";
-                windows: {
-                  start: number;
-                  duration: number;
-                }[];
-              }
-            | {
-                part: "instrumental";
-              }
-            | undefined;
-          panels?:
-            | {
-                start: number;
-                duration: number;
-                assetName: string;
-                address: string;
-                blocking?: string | undefined;
-                camera?: string | undefined;
-              }[]
-            | undefined;
-          continuedBy?:
-            | {
-                main?: string | undefined;
-                cutin?: string | undefined;
-              }
-            | undefined;
-          coverage?: true | undefined;
-          graphic?: true | undefined;
-          pending?: true | undefined;
-          aside?: true | undefined;
-        }
-      >,
-      "many"
-    >;
-    topLevelAssets: z.ZodOptional<
-      z.ZodRecord<
-        z.ZodString,
-        z.ZodDiscriminatedUnion<
-          "kind",
-          [
-            z.ZodObject<
-              {
-                deterministic: z.ZodOptional<z.ZodBoolean>;
-                kind: z.ZodLiteral<"comfy">;
-                workflow: z.ZodString;
-                workflowHash: z.ZodOptional<z.ZodString>;
-                inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
-                prunedNodes: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-                prunedPassThroughs: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
-                outputNodeId: z.ZodOptional<z.ZodString>;
-                models: z.ZodOptional<
-                  z.ZodArray<
-                    z.ZodObject<
-                      {
-                        filename: z.ZodString;
-                        type: z.ZodEnum<
-                          [
-                            "checkpoint",
-                            "lora",
-                            "VAE",
-                            "clip",
-                            "diffusion_model",
-                            "controlnet",
-                            "upscale",
-                            "embeddings",
-                            "clip_vision",
-                            "unet",
-                          ]
-                        >;
-                        nodeId: z.ZodOptional<z.ZodString>;
-                        url: z.ZodString;
-                        savePath: z.ZodOptional<z.ZodString>;
-                        base: z.ZodOptional<z.ZodString>;
-                        displayName: z.ZodOptional<z.ZodString>;
-                      },
-                      "strip",
-                      z.ZodTypeAny,
-                      {
-                        type:
-                          | "checkpoint"
-                          | "lora"
-                          | "VAE"
-                          | "clip"
-                          | "diffusion_model"
-                          | "controlnet"
-                          | "upscale"
-                          | "embeddings"
-                          | "clip_vision"
-                          | "unet";
-                        filename: string;
-                        url: string;
-                        base?: string | undefined;
-                        nodeId?: string | undefined;
-                        savePath?: string | undefined;
-                        displayName?: string | undefined;
-                      },
-                      {
-                        type:
-                          | "checkpoint"
-                          | "lora"
-                          | "VAE"
-                          | "clip"
-                          | "diffusion_model"
-                          | "controlnet"
-                          | "upscale"
-                          | "embeddings"
-                          | "clip_vision"
-                          | "unet";
-                        filename: string;
-                        url: string;
-                        base?: string | undefined;
-                        nodeId?: string | undefined;
-                        savePath?: string | undefined;
-                        displayName?: string | undefined;
-                      }
-                    >,
-                    "many"
-                  >
-                >;
-                nodes: z.ZodOptional<
-                  z.ZodArray<
-                    z.ZodObject<
-                      {
-                        id: z.ZodString;
-                      },
-                      "strip",
-                      z.ZodTypeAny,
-                      {
-                        id: string;
-                      },
-                      {
-                        id: string;
-                      }
-                    >,
-                    "many"
-                  >
-                >;
-                inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
-                adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-                turbo: z.ZodOptional<z.ZodBoolean>;
-              },
-              "strip",
-              z.ZodTypeAny,
-              {
-                kind: "comfy";
-                workflow: string;
-                inputs: Record<string, unknown>;
-                deterministic?: boolean | undefined;
-                inputLabels?: Record<string, string> | undefined;
-                adapterSuppliedInputs?: string[] | undefined;
-                turbo?: boolean | undefined;
-                workflowHash?: string | undefined;
-                prunedNodes?: string[] | undefined;
-                prunedPassThroughs?: Record<string, string> | undefined;
-                outputNodeId?: string | undefined;
-                models?:
-                  | {
-                      type:
-                        | "checkpoint"
-                        | "lora"
-                        | "VAE"
-                        | "clip"
-                        | "diffusion_model"
-                        | "controlnet"
-                        | "upscale"
-                        | "embeddings"
-                        | "clip_vision"
-                        | "unet";
-                      filename: string;
-                      url: string;
-                      base?: string | undefined;
-                      nodeId?: string | undefined;
-                      savePath?: string | undefined;
-                      displayName?: string | undefined;
-                    }[]
-                  | undefined;
-                nodes?:
-                  | {
-                      id: string;
-                    }[]
-                  | undefined;
-              },
-              {
-                kind: "comfy";
-                workflow: string;
-                inputs: Record<string, unknown>;
-                deterministic?: boolean | undefined;
-                inputLabels?: Record<string, string> | undefined;
-                adapterSuppliedInputs?: string[] | undefined;
-                turbo?: boolean | undefined;
-                workflowHash?: string | undefined;
-                prunedNodes?: string[] | undefined;
-                prunedPassThroughs?: Record<string, string> | undefined;
-                outputNodeId?: string | undefined;
-                models?:
-                  | {
-                      type:
-                        | "checkpoint"
-                        | "lora"
-                        | "VAE"
-                        | "clip"
-                        | "diffusion_model"
-                        | "controlnet"
-                        | "upscale"
-                        | "embeddings"
-                        | "clip_vision"
-                        | "unet";
-                      filename: string;
-                      url: string;
-                      base?: string | undefined;
-                      nodeId?: string | undefined;
-                      savePath?: string | undefined;
-                      displayName?: string | undefined;
-                    }[]
-                  | undefined;
-                nodes?:
-                  | {
-                      id: string;
-                    }[]
-                  | undefined;
-              }
-            >,
-            z.ZodObject<
-              {
-                deterministic: z.ZodOptional<z.ZodBoolean>;
-                kind: z.ZodLiteral<"file">;
-                path: z.ZodString;
-                type: z.ZodOptional<z.ZodEnum<["image", "video", "audio"]>>;
-              },
-              "strip",
-              z.ZodTypeAny,
-              {
-                path: string;
-                kind: "file";
-                type?: "image" | "video" | "audio" | undefined;
-                deterministic?: boolean | undefined;
-              },
-              {
-                path: string;
-                kind: "file";
-                type?: "image" | "video" | "audio" | undefined;
-                deterministic?: boolean | undefined;
-              }
-            >,
-            z.ZodObject<
-              {
-                deterministic: z.ZodOptional<z.ZodBoolean>;
-                kind: z.ZodLiteral<"fal">;
-                endpointId: z.ZodString;
-                mediaType: z.ZodEnum<["image", "video", "audio"]>;
-                inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
-                inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
-                adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
-                turbo: z.ZodOptional<z.ZodBoolean>;
-              },
-              "strip",
-              z.ZodTypeAny,
-              {
-                kind: "fal";
-                inputs: Record<string, unknown>;
-                endpointId: string;
-                mediaType: "image" | "video" | "audio";
-                deterministic?: boolean | undefined;
-                inputLabels?: Record<string, string> | undefined;
-                adapterSuppliedInputs?: string[] | undefined;
-                turbo?: boolean | undefined;
-              },
-              {
-                kind: "fal";
-                inputs: Record<string, unknown>;
-                endpointId: string;
-                mediaType: "image" | "video" | "audio";
-                deterministic?: boolean | undefined;
-                inputLabels?: Record<string, string> | undefined;
-                adapterSuppliedInputs?: string[] | undefined;
-                turbo?: boolean | undefined;
-              }
-            >,
-            z.ZodObject<
-              {
-                deterministic: z.ZodOptional<z.ZodBoolean>;
-                kind: z.ZodLiteral<"local">;
-                operation: z.ZodEnum<
-                  [
-                    "resize",
-                    "crop",
-                    "blank",
-                    "trim",
-                    "retime",
-                    "concat",
-                    "frame",
-                    "render",
-                    "cutFrame",
-                    "orbit",
-                  ]
-                >;
-                mediaType: z.ZodEnum<["image", "video", "audio"]>;
-                inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
-              },
-              "strip",
-              z.ZodTypeAny,
-              {
-                kind: "local";
-                inputs: Record<string, unknown>;
-                mediaType: "image" | "video" | "audio";
-                operation:
-                  | "concat"
-                  | "trim"
-                  | "resize"
-                  | "crop"
-                  | "blank"
-                  | "retime"
-                  | "frame"
-                  | "render"
-                  | "cutFrame"
-                  | "orbit";
-                deterministic?: boolean | undefined;
-              },
-              {
-                kind: "local";
-                inputs: Record<string, unknown>;
-                mediaType: "image" | "video" | "audio";
-                operation:
-                  | "concat"
-                  | "trim"
-                  | "resize"
-                  | "crop"
-                  | "blank"
-                  | "retime"
-                  | "frame"
-                  | "render"
-                  | "cutFrame"
-                  | "orbit";
-                deterministic?: boolean | undefined;
-              }
-            >,
-          ]
-        >
-      >
-    >;
-    timelineSoundtracks: z.ZodOptional<
-      z.ZodType<
-        readonly SoundtrackEntry<string>[],
-        z.ZodTypeDef,
-        readonly SoundtrackEntry<string>[]
-      >
-    >;
-    song: z.ZodOptional<z.ZodString>;
-    overlay: z.ZodOptional<z.ZodType<OverlayDefinition, z.ZodTypeDef, OverlayDefinition>>;
-    timelineFn: z.ZodOptional<z.ZodType<TimelineFunction, z.ZodTypeDef, TimelineFunction>>;
-    prompts: z.ZodOptional<
-      z.ZodType<readonly PromptOccurrence[], z.ZodTypeDef, readonly PromptOccurrence[]>
-    >;
-    pins: z.ZodOptional<
-      z.ZodType<readonly PinOccurrence[], z.ZodTypeDef, readonly PinOccurrence[]>
-    >;
-    imageInputs: z.ZodOptional<
-      z.ZodType<readonly ImageInputOccurrence[], z.ZodTypeDef, readonly ImageInputOccurrence[]>
-    >;
-    prevPanelReaders: z.ZodOptional<z.ZodType<readonly string[], z.ZodTypeDef, readonly string[]>>;
-    stemInputs: z.ZodOptional<
-      z.ZodType<readonly StemInputOccurrence[], z.ZodTypeDef, readonly StemInputOccurrence[]>
-    >;
-    respellings: z.ZodOptional<
-      z.ZodArray<
-        z.ZodObject<
-          {
-            shot: z.ZodOptional<z.ZodString>;
-            line: z.ZodString;
-            as: z.ZodString;
-          },
-          "strip",
-          z.ZodTypeAny,
-          {
-            line: string;
-            as: string;
-            shot?: string | undefined;
-          },
-          {
-            line: string;
-            as: string;
-            shot?: string | undefined;
-          }
-        >,
-        "many"
-      >
-    >;
-    buildFindings: z.ZodOptional<
-      z.ZodType<readonly BuildFinding[], z.ZodTypeDef, readonly BuildFinding[]>
-    >;
-  } & {
-    stage: z.ZodLiteral<"video">;
-    export: z.ZodOptional<
-      z.ZodObject<
-        {
-          delivery: z.ZodOptional<
-            z.ZodObject<
-              {
-                size: z.ZodOptional<
-                  z.ZodObject<
-                    {
-                      width: z.ZodNumber;
-                      height: z.ZodNumber;
-                    },
-                    "strip",
-                    z.ZodTypeAny,
-                    {
-                      width: number;
-                      height: number;
-                    },
-                    {
-                      width: number;
-                      height: number;
-                    }
-                  >
-                >;
-                upscale: z.ZodOptional<
-                  z.ZodObject<
-                    {
-                      video: z.ZodOptional<
-                        z.ZodType<DeliveryUpscaleFn, z.ZodTypeDef, DeliveryUpscaleFn>
-                      >;
-                      frame: z.ZodOptional<
-                        z.ZodType<DeliveryUpscaleFn, z.ZodTypeDef, DeliveryUpscaleFn>
-                      >;
-                    },
-                    "strip",
-                    z.ZodTypeAny,
-                    {
-                      video?: DeliveryUpscaleFn | undefined;
-                      frame?: DeliveryUpscaleFn | undefined;
-                    },
-                    {
-                      video?: DeliveryUpscaleFn | undefined;
-                      frame?: DeliveryUpscaleFn | undefined;
-                    }
-                  >
-                >;
-              },
-              "strip",
-              z.ZodTypeAny,
-              {
-                upscale?:
-                  | {
-                      video?: DeliveryUpscaleFn | undefined;
-                      frame?: DeliveryUpscaleFn | undefined;
-                    }
-                  | undefined;
-                size?:
-                  | {
-                      width: number;
-                      height: number;
-                    }
-                  | undefined;
-              },
-              {
-                upscale?:
-                  | {
-                      video?: DeliveryUpscaleFn | undefined;
-                      frame?: DeliveryUpscaleFn | undefined;
-                    }
-                  | undefined;
-                size?:
-                  | {
-                      width: number;
-                      height: number;
-                    }
-                  | undefined;
-              }
-            >
-          >;
-        },
-        "strip",
-        z.ZodTypeAny,
-        {
-          delivery?:
-            | {
-                upscale?:
-                  | {
-                      video?: DeliveryUpscaleFn | undefined;
-                      frame?: DeliveryUpscaleFn | undefined;
-                    }
-                  | undefined;
-                size?:
-                  | {
-                      width: number;
-                      height: number;
-                    }
-                  | undefined;
-              }
-            | undefined;
-        },
-        {
-          delivery?:
-            | {
-                upscale?:
-                  | {
-                      video?: DeliveryUpscaleFn | undefined;
-                      frame?: DeliveryUpscaleFn | undefined;
-                    }
-                  | undefined;
-                size?:
-                  | {
-                      width: number;
-                      height: number;
-                    }
-                  | undefined;
-              }
-            | undefined;
-        }
-      >
-    >;
-    thumbnail: z.ZodOptional<
-      z.ZodType<ThumbnailDefinition | null, z.ZodTypeDef, ThumbnailDefinition | null>
-    >;
-  },
-  "strip",
-  z.ZodTypeAny,
-  {
-    stage: "video";
-    format: {
-      size: {
-        width: number;
-        height: number;
-      };
-      fps: number;
-    };
-    typography: {
-      lang: LanguageTag;
-      fonts?: string[] | undefined;
-    };
-    shots: {
-      id: string;
-      duration: number;
-      action: string;
-      assets: Record<
-        string,
-        | {
-            kind: "comfy";
-            workflow: string;
-            inputs: Record<string, unknown>;
-            deterministic?: boolean | undefined;
-            inputLabels?: Record<string, string> | undefined;
-            adapterSuppliedInputs?: string[] | undefined;
-            turbo?: boolean | undefined;
-            workflowHash?: string | undefined;
-            prunedNodes?: string[] | undefined;
-            prunedPassThroughs?: Record<string, string> | undefined;
-            outputNodeId?: string | undefined;
-            models?:
-              | {
-                  type:
-                    | "checkpoint"
-                    | "lora"
-                    | "VAE"
-                    | "clip"
-                    | "diffusion_model"
-                    | "controlnet"
-                    | "upscale"
-                    | "embeddings"
-                    | "clip_vision"
-                    | "unet";
-                  filename: string;
-                  url: string;
-                  base?: string | undefined;
-                  nodeId?: string | undefined;
-                  savePath?: string | undefined;
-                  displayName?: string | undefined;
-                }[]
-              | undefined;
-            nodes?:
-              | {
-                  id: string;
-                }[]
-              | undefined;
-          }
-        | {
-            path: string;
-            kind: "file";
-            type?: "image" | "video" | "audio" | undefined;
-            deterministic?: boolean | undefined;
-          }
-        | {
-            kind: "fal";
-            inputs: Record<string, unknown>;
-            endpointId: string;
-            mediaType: "image" | "video" | "audio";
-            deterministic?: boolean | undefined;
-            inputLabels?: Record<string, string> | undefined;
-            adapterSuppliedInputs?: string[] | undefined;
-            turbo?: boolean | undefined;
-          }
-        | {
-            kind: "local";
-            inputs: Record<string, unknown>;
-            mediaType: "image" | "video" | "audio";
-            operation:
-              | "concat"
-              | "trim"
-              | "resize"
-              | "crop"
-              | "blank"
-              | "retime"
-              | "frame"
-              | "render"
-              | "cutFrame"
-              | "orbit";
-            deterministic?: boolean | undefined;
-          }
-      >;
-      cutin?:
-        | {
-            refs: string[];
-            panels?:
-              | {
-                  start: number;
-                  duration: number;
-                  assetName: string;
-                  address: string;
-                  blocking?: string | undefined;
-                  camera?: string | undefined;
-                }[]
-              | undefined;
-            sharedRefs?: string[] | undefined;
-          }
-        | undefined;
-      shotFn?: ShotFunction | undefined;
-      compositionRefs?: string[] | undefined;
-      pictureRefs?: string[] | undefined;
-      stemRefs?: string[] | undefined;
-      narrationStemRefs?: string[] | undefined;
-      offFrameStemRefs?: string[] | undefined;
-      cueKinds?: Record<string, "voice" | "narration" | "mob" | "sfx"> | undefined;
-      songCue?:
-        | {
-            duration: number;
-            src: string;
-            mediaStart: number;
-          }
-        | undefined;
-      songStem?:
-        | {
-            part: "vocals";
-            windows: {
-              start: number;
-              duration: number;
-            }[];
-          }
-        | {
-            part: "instrumental";
-          }
-        | undefined;
-      panels?:
-        | {
-            start: number;
-            duration: number;
-            assetName: string;
-            address: string;
-            blocking?: string | undefined;
-            camera?: string | undefined;
-          }[]
-        | undefined;
-      continuedBy?:
-        | {
-            main?: string | undefined;
-            cutin?: string | undefined;
-          }
-        | undefined;
-      coverage?: true | undefined;
-      graphic?: true | undefined;
-      pending?: true | undefined;
-      aside?: true | undefined;
-    }[];
-    topLevelAssets?:
-      | Record<
-          string,
-          | {
-              kind: "comfy";
-              workflow: string;
-              inputs: Record<string, unknown>;
-              deterministic?: boolean | undefined;
-              inputLabels?: Record<string, string> | undefined;
-              adapterSuppliedInputs?: string[] | undefined;
-              turbo?: boolean | undefined;
-              workflowHash?: string | undefined;
-              prunedNodes?: string[] | undefined;
-              prunedPassThroughs?: Record<string, string> | undefined;
-              outputNodeId?: string | undefined;
-              models?:
-                | {
-                    type:
-                      | "checkpoint"
-                      | "lora"
-                      | "VAE"
-                      | "clip"
-                      | "diffusion_model"
-                      | "controlnet"
-                      | "upscale"
-                      | "embeddings"
-                      | "clip_vision"
-                      | "unet";
-                    filename: string;
-                    url: string;
-                    base?: string | undefined;
-                    nodeId?: string | undefined;
-                    savePath?: string | undefined;
-                    displayName?: string | undefined;
-                  }[]
-                | undefined;
-              nodes?:
-                | {
-                    id: string;
-                  }[]
-                | undefined;
-            }
-          | {
-              path: string;
-              kind: "file";
-              type?: "image" | "video" | "audio" | undefined;
-              deterministic?: boolean | undefined;
-            }
-          | {
-              kind: "fal";
-              inputs: Record<string, unknown>;
-              endpointId: string;
-              mediaType: "image" | "video" | "audio";
-              deterministic?: boolean | undefined;
-              inputLabels?: Record<string, string> | undefined;
-              adapterSuppliedInputs?: string[] | undefined;
-              turbo?: boolean | undefined;
-            }
-          | {
-              kind: "local";
-              inputs: Record<string, unknown>;
-              mediaType: "image" | "video" | "audio";
-              operation:
-                | "concat"
-                | "trim"
-                | "resize"
-                | "crop"
-                | "blank"
-                | "retime"
-                | "frame"
-                | "render"
-                | "cutFrame"
-                | "orbit";
-              deterministic?: boolean | undefined;
-            }
-        >
-      | undefined;
-    timelineSoundtracks?: readonly SoundtrackEntry<string>[] | undefined;
-    song?: string | undefined;
-    overlay?: OverlayDefinition | undefined;
-    timelineFn?: TimelineFunction | undefined;
-    prompts?: readonly PromptOccurrence[] | undefined;
-    pins?: readonly PinOccurrence[] | undefined;
-    imageInputs?: readonly ImageInputOccurrence[] | undefined;
-    prevPanelReaders?: readonly string[] | undefined;
-    stemInputs?: readonly StemInputOccurrence[] | undefined;
-    respellings?:
-      | {
-          line: string;
-          as: string;
-          shot?: string | undefined;
-        }[]
-      | undefined;
-    buildFindings?: readonly BuildFinding[] | undefined;
-    export?:
-      | {
-          delivery?:
-            | {
-                upscale?:
-                  | {
-                      video?: DeliveryUpscaleFn | undefined;
-                      frame?: DeliveryUpscaleFn | undefined;
-                    }
-                  | undefined;
-                size?:
-                  | {
-                      width: number;
-                      height: number;
-                    }
-                  | undefined;
-              }
-            | undefined;
-        }
-      | undefined;
-    thumbnail?: ThumbnailDefinition | null | undefined;
-  },
-  {
-    stage: "video";
-    format: {
-      size: {
-        width: number;
-        height: number;
-      };
-      fps: number;
-    };
-    typography: {
-      lang: LanguageTag;
-      fonts?: string[] | undefined;
-    };
-    shots: {
-      id: string;
-      duration: number;
-      action: string;
-      assets: Record<
-        string,
-        | {
-            kind: "comfy";
-            workflow: string;
-            inputs: Record<string, unknown>;
-            deterministic?: boolean | undefined;
-            inputLabels?: Record<string, string> | undefined;
-            adapterSuppliedInputs?: string[] | undefined;
-            turbo?: boolean | undefined;
-            workflowHash?: string | undefined;
-            prunedNodes?: string[] | undefined;
-            prunedPassThroughs?: Record<string, string> | undefined;
-            outputNodeId?: string | undefined;
-            models?:
-              | {
-                  type:
-                    | "checkpoint"
-                    | "lora"
-                    | "VAE"
-                    | "clip"
-                    | "diffusion_model"
-                    | "controlnet"
-                    | "upscale"
-                    | "embeddings"
-                    | "clip_vision"
-                    | "unet";
-                  filename: string;
-                  url: string;
-                  base?: string | undefined;
-                  nodeId?: string | undefined;
-                  savePath?: string | undefined;
-                  displayName?: string | undefined;
-                }[]
-              | undefined;
-            nodes?:
-              | {
-                  id: string;
-                }[]
-              | undefined;
-          }
-        | {
-            path: string;
-            kind: "file";
-            type?: "image" | "video" | "audio" | undefined;
-            deterministic?: boolean | undefined;
-          }
-        | {
-            kind: "fal";
-            inputs: Record<string, unknown>;
-            endpointId: string;
-            mediaType: "image" | "video" | "audio";
-            deterministic?: boolean | undefined;
-            inputLabels?: Record<string, string> | undefined;
-            adapterSuppliedInputs?: string[] | undefined;
-            turbo?: boolean | undefined;
-          }
-        | {
-            kind: "local";
-            inputs: Record<string, unknown>;
-            mediaType: "image" | "video" | "audio";
-            operation:
-              | "concat"
-              | "trim"
-              | "resize"
-              | "crop"
-              | "blank"
-              | "retime"
-              | "frame"
-              | "render"
-              | "cutFrame"
-              | "orbit";
-            deterministic?: boolean | undefined;
-          }
-      >;
-      cutin?:
-        | {
-            refs: string[];
-            panels?:
-              | {
-                  start: number;
-                  duration: number;
-                  assetName: string;
-                  address: string;
-                  blocking?: string | undefined;
-                  camera?: string | undefined;
-                }[]
-              | undefined;
-            sharedRefs?: string[] | undefined;
-          }
-        | undefined;
-      shotFn?: ShotFunction | undefined;
-      compositionRefs?: string[] | undefined;
-      pictureRefs?: string[] | undefined;
-      stemRefs?: string[] | undefined;
-      narrationStemRefs?: string[] | undefined;
-      offFrameStemRefs?: string[] | undefined;
-      cueKinds?: Record<string, "voice" | "narration" | "mob" | "sfx"> | undefined;
-      songCue?:
-        | {
-            duration: number;
-            src: string;
-            mediaStart: number;
-          }
-        | undefined;
-      songStem?:
-        | {
-            part: "vocals";
-            windows: {
-              start: number;
-              duration: number;
-            }[];
-          }
-        | {
-            part: "instrumental";
-          }
-        | undefined;
-      panels?:
-        | {
-            start: number;
-            duration: number;
-            assetName: string;
-            address: string;
-            blocking?: string | undefined;
-            camera?: string | undefined;
-          }[]
-        | undefined;
-      continuedBy?:
-        | {
-            main?: string | undefined;
-            cutin?: string | undefined;
-          }
-        | undefined;
-      coverage?: true | undefined;
-      graphic?: true | undefined;
-      pending?: true | undefined;
-      aside?: true | undefined;
-    }[];
-    topLevelAssets?:
-      | Record<
-          string,
-          | {
-              kind: "comfy";
-              workflow: string;
-              inputs: Record<string, unknown>;
-              deterministic?: boolean | undefined;
-              inputLabels?: Record<string, string> | undefined;
-              adapterSuppliedInputs?: string[] | undefined;
-              turbo?: boolean | undefined;
-              workflowHash?: string | undefined;
-              prunedNodes?: string[] | undefined;
-              prunedPassThroughs?: Record<string, string> | undefined;
-              outputNodeId?: string | undefined;
-              models?:
-                | {
-                    type:
-                      | "checkpoint"
-                      | "lora"
-                      | "VAE"
-                      | "clip"
-                      | "diffusion_model"
-                      | "controlnet"
-                      | "upscale"
-                      | "embeddings"
-                      | "clip_vision"
-                      | "unet";
-                    filename: string;
-                    url: string;
-                    base?: string | undefined;
-                    nodeId?: string | undefined;
-                    savePath?: string | undefined;
-                    displayName?: string | undefined;
-                  }[]
-                | undefined;
-              nodes?:
-                | {
-                    id: string;
-                  }[]
-                | undefined;
-            }
-          | {
-              path: string;
-              kind: "file";
-              type?: "image" | "video" | "audio" | undefined;
-              deterministic?: boolean | undefined;
-            }
-          | {
-              kind: "fal";
-              inputs: Record<string, unknown>;
-              endpointId: string;
-              mediaType: "image" | "video" | "audio";
-              deterministic?: boolean | undefined;
-              inputLabels?: Record<string, string> | undefined;
-              adapterSuppliedInputs?: string[] | undefined;
-              turbo?: boolean | undefined;
-            }
-          | {
-              kind: "local";
-              inputs: Record<string, unknown>;
-              mediaType: "image" | "video" | "audio";
-              operation:
-                | "concat"
-                | "trim"
-                | "resize"
-                | "crop"
-                | "blank"
-                | "retime"
-                | "frame"
-                | "render"
-                | "cutFrame"
-                | "orbit";
-              deterministic?: boolean | undefined;
-            }
-        >
-      | undefined;
-    timelineSoundtracks?: readonly SoundtrackEntry<string>[] | undefined;
-    song?: string | undefined;
-    overlay?: OverlayDefinition | undefined;
-    timelineFn?: TimelineFunction | undefined;
-    prompts?: readonly PromptOccurrence[] | undefined;
-    pins?: readonly PinOccurrence[] | undefined;
-    imageInputs?: readonly ImageInputOccurrence[] | undefined;
-    prevPanelReaders?: readonly string[] | undefined;
-    stemInputs?: readonly StemInputOccurrence[] | undefined;
-    respellings?:
-      | {
-          line: string;
-          as: string;
-          shot?: string | undefined;
-        }[]
-      | undefined;
-    buildFindings?: readonly BuildFinding[] | undefined;
-    export?:
-      | {
-          delivery?:
-            | {
-                upscale?:
-                  | {
-                      video?: DeliveryUpscaleFn | undefined;
-                      frame?: DeliveryUpscaleFn | undefined;
-                    }
-                  | undefined;
-                size?:
-                  | {
-                      width: number;
-                      height: number;
-                    }
-                  | undefined;
-              }
-            | undefined;
-        }
-      | undefined;
-    thumbnail?: ThumbnailDefinition | null | undefined;
-  }
->;
-export type VideoDefinition = z.infer<typeof VideoDefinitionSchema>;
-export type ShotFunction = () => React.ReactElement;
-/**
- * A reference is the shared upstream stage: a flat pool of named assets (characters, backgrounds,
- * bgm) shared across the animatic and video stages. Assets are stored in `topLevelAssets` (the
- * shared non-shot pool) with no shots.
- *
- * `exposedAssetNames` are the asset names the callback returned — the ones published as
- * `reference.<name>` to the other stages. They are the usage roots for the reference pool:
- * an exposed asset (and anything it transitively consumes) is "used" even before a panel
- * references it, while a declared asset that is neither exposed nor consumed is unused.
- */
-export interface ReferenceDefinition {
-  shots: never[];
-  topLevelAssets?: Record<string, AssetDefinition>;
-  exposedAssetNames?: string[];
-  prompts?: readonly PromptOccurrence[];
-  pins?: readonly PinOccurrence[];
-}
 declare const AnimaticFormatSchema: z.ZodObject<
   {
     size: z.ZodObject<
@@ -4106,11 +343,11 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                               | "embeddings"
                               | "clip_vision"
                               | "unet";
-                            filename: string;
                             url: string;
-                            base?: string | undefined;
+                            filename: string;
                             nodeId?: string | undefined;
                             savePath?: string | undefined;
+                            base?: string | undefined;
                             displayName?: string | undefined;
                           },
                           {
@@ -4125,11 +362,11 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                               | "embeddings"
                               | "clip_vision"
                               | "unet";
-                            filename: string;
                             url: string;
-                            base?: string | undefined;
+                            filename: string;
                             nodeId?: string | undefined;
                             savePath?: string | undefined;
+                            base?: string | undefined;
                             displayName?: string | undefined;
                           }
                         >,
@@ -4164,10 +401,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                     kind: "comfy";
                     workflow: string;
                     inputs: Record<string, unknown>;
-                    deterministic?: boolean | undefined;
-                    inputLabels?: Record<string, string> | undefined;
-                    adapterSuppliedInputs?: string[] | undefined;
-                    turbo?: boolean | undefined;
                     workflowHash?: string | undefined;
                     prunedNodes?: string[] | undefined;
                     prunedPassThroughs?: Record<string, string> | undefined;
@@ -4185,11 +418,11 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                             | "embeddings"
                             | "clip_vision"
                             | "unet";
-                          filename: string;
                           url: string;
-                          base?: string | undefined;
+                          filename: string;
                           nodeId?: string | undefined;
                           savePath?: string | undefined;
+                          base?: string | undefined;
                           displayName?: string | undefined;
                         }[]
                       | undefined;
@@ -4198,15 +431,15 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                           id: string;
                         }[]
                       | undefined;
+                    inputLabels?: Record<string, string> | undefined;
+                    adapterSuppliedInputs?: string[] | undefined;
+                    turbo?: boolean | undefined;
+                    deterministic?: boolean | undefined;
                   },
                   {
                     kind: "comfy";
                     workflow: string;
                     inputs: Record<string, unknown>;
-                    deterministic?: boolean | undefined;
-                    inputLabels?: Record<string, string> | undefined;
-                    adapterSuppliedInputs?: string[] | undefined;
-                    turbo?: boolean | undefined;
                     workflowHash?: string | undefined;
                     prunedNodes?: string[] | undefined;
                     prunedPassThroughs?: Record<string, string> | undefined;
@@ -4224,11 +457,11 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                             | "embeddings"
                             | "clip_vision"
                             | "unet";
-                          filename: string;
                           url: string;
-                          base?: string | undefined;
+                          filename: string;
                           nodeId?: string | undefined;
                           savePath?: string | undefined;
+                          base?: string | undefined;
                           displayName?: string | undefined;
                         }[]
                       | undefined;
@@ -4237,6 +470,10 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                           id: string;
                         }[]
                       | undefined;
+                    inputLabels?: Record<string, string> | undefined;
+                    adapterSuppliedInputs?: string[] | undefined;
+                    turbo?: boolean | undefined;
+                    deterministic?: boolean | undefined;
                   }
                 >,
                 z.ZodObject<
@@ -4279,20 +516,20 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                     inputs: Record<string, unknown>;
                     endpointId: string;
                     mediaType: "image" | "video" | "audio";
-                    deterministic?: boolean | undefined;
                     inputLabels?: Record<string, string> | undefined;
                     adapterSuppliedInputs?: string[] | undefined;
                     turbo?: boolean | undefined;
+                    deterministic?: boolean | undefined;
                   },
                   {
                     kind: "fal";
                     inputs: Record<string, unknown>;
                     endpointId: string;
                     mediaType: "image" | "video" | "audio";
-                    deterministic?: boolean | undefined;
                     inputLabels?: Record<string, string> | undefined;
                     adapterSuppliedInputs?: string[] | undefined;
                     turbo?: boolean | undefined;
+                    deterministic?: boolean | undefined;
                   }
                 >,
                 z.ZodObject<
@@ -4402,12 +639,12 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                         "strip",
                         z.ZodTypeAny,
                         {
-                          start: number;
                           duration: number;
+                          start: number;
                         },
                         {
-                          start: number;
                           duration: number;
+                          start: number;
                         }
                       >,
                       "many"
@@ -4418,15 +655,15 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                   {
                     part: "vocals";
                     windows: {
-                      start: number;
                       duration: number;
+                      start: number;
                     }[];
                   },
                   {
                     part: "vocals";
                     windows: {
-                      start: number;
                       duration: number;
+                      start: number;
                     }[];
                   }
                 >,
@@ -4460,16 +697,16 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 "strip",
                 z.ZodTypeAny,
                 {
-                  start: number;
                   duration: number;
+                  start: number;
                   assetName: string;
                   address: string;
                   blocking?: string | undefined;
                   camera?: string | undefined;
                 },
                 {
-                  start: number;
                   duration: number;
+                  start: number;
                   assetName: string;
                   address: string;
                   blocking?: string | undefined;
@@ -4517,16 +754,16 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                       "strip",
                       z.ZodTypeAny,
                       {
-                        start: number;
                         duration: number;
+                        start: number;
                         assetName: string;
                         address: string;
                         blocking?: string | undefined;
                         camera?: string | undefined;
                       },
                       {
-                        start: number;
                         duration: number;
+                        start: number;
                         assetName: string;
                         address: string;
                         blocking?: string | undefined;
@@ -4543,8 +780,8 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 refs: string[];
                 panels?:
                   | {
-                      start: number;
                       duration: number;
+                      start: number;
                       assetName: string;
                       address: string;
                       blocking?: string | undefined;
@@ -4557,8 +794,8 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 refs: string[];
                 panels?:
                   | {
-                      start: number;
                       duration: number;
+                      start: number;
                       assetName: string;
                       address: string;
                       blocking?: string | undefined;
@@ -4585,10 +822,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 kind: "comfy";
                 workflow: string;
                 inputs: Record<string, unknown>;
-                deterministic?: boolean | undefined;
-                inputLabels?: Record<string, string> | undefined;
-                adapterSuppliedInputs?: string[] | undefined;
-                turbo?: boolean | undefined;
                 workflowHash?: string | undefined;
                 prunedNodes?: string[] | undefined;
                 prunedPassThroughs?: Record<string, string> | undefined;
@@ -4606,11 +839,11 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                         | "embeddings"
                         | "clip_vision"
                         | "unet";
-                      filename: string;
                       url: string;
-                      base?: string | undefined;
+                      filename: string;
                       nodeId?: string | undefined;
                       savePath?: string | undefined;
+                      base?: string | undefined;
                       displayName?: string | undefined;
                     }[]
                   | undefined;
@@ -4619,6 +852,10 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                       id: string;
                     }[]
                   | undefined;
+                inputLabels?: Record<string, string> | undefined;
+                adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
+                deterministic?: boolean | undefined;
               }
             | {
                 path: string;
@@ -4631,10 +868,10 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 inputs: Record<string, unknown>;
                 endpointId: string;
                 mediaType: "image" | "video" | "audio";
-                deterministic?: boolean | undefined;
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
                 turbo?: boolean | undefined;
+                deterministic?: boolean | undefined;
               }
             | {
                 kind: "local";
@@ -4654,22 +891,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 deterministic?: boolean | undefined;
               }
           >;
-          cutin?:
-            | {
-                refs: string[];
-                panels?:
-                  | {
-                      start: number;
-                      duration: number;
-                      assetName: string;
-                      address: string;
-                      blocking?: string | undefined;
-                      camera?: string | undefined;
-                    }[]
-                  | undefined;
-                sharedRefs?: string[] | undefined;
-              }
-            | undefined;
           shotFn?: ShotFunction | undefined;
           compositionRefs?: string[] | undefined;
           pictureRefs?: string[] | undefined;
@@ -4688,8 +909,8 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             | {
                 part: "vocals";
                 windows: {
-                  start: number;
                   duration: number;
+                  start: number;
                 }[];
               }
             | {
@@ -4698,13 +919,29 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             | undefined;
           panels?:
             | {
-                start: number;
                 duration: number;
+                start: number;
                 assetName: string;
                 address: string;
                 blocking?: string | undefined;
                 camera?: string | undefined;
               }[]
+            | undefined;
+          cutin?:
+            | {
+                refs: string[];
+                panels?:
+                  | {
+                      duration: number;
+                      start: number;
+                      assetName: string;
+                      address: string;
+                      blocking?: string | undefined;
+                      camera?: string | undefined;
+                    }[]
+                  | undefined;
+                sharedRefs?: string[] | undefined;
+              }
             | undefined;
           continuedBy?:
             | {
@@ -4727,10 +964,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 kind: "comfy";
                 workflow: string;
                 inputs: Record<string, unknown>;
-                deterministic?: boolean | undefined;
-                inputLabels?: Record<string, string> | undefined;
-                adapterSuppliedInputs?: string[] | undefined;
-                turbo?: boolean | undefined;
                 workflowHash?: string | undefined;
                 prunedNodes?: string[] | undefined;
                 prunedPassThroughs?: Record<string, string> | undefined;
@@ -4748,11 +981,11 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                         | "embeddings"
                         | "clip_vision"
                         | "unet";
-                      filename: string;
                       url: string;
-                      base?: string | undefined;
+                      filename: string;
                       nodeId?: string | undefined;
                       savePath?: string | undefined;
+                      base?: string | undefined;
                       displayName?: string | undefined;
                     }[]
                   | undefined;
@@ -4761,6 +994,10 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                       id: string;
                     }[]
                   | undefined;
+                inputLabels?: Record<string, string> | undefined;
+                adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
+                deterministic?: boolean | undefined;
               }
             | {
                 path: string;
@@ -4773,10 +1010,10 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 inputs: Record<string, unknown>;
                 endpointId: string;
                 mediaType: "image" | "video" | "audio";
-                deterministic?: boolean | undefined;
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
                 turbo?: boolean | undefined;
+                deterministic?: boolean | undefined;
               }
             | {
                 kind: "local";
@@ -4796,22 +1033,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 deterministic?: boolean | undefined;
               }
           >;
-          cutin?:
-            | {
-                refs: string[];
-                panels?:
-                  | {
-                      start: number;
-                      duration: number;
-                      assetName: string;
-                      address: string;
-                      blocking?: string | undefined;
-                      camera?: string | undefined;
-                    }[]
-                  | undefined;
-                sharedRefs?: string[] | undefined;
-              }
-            | undefined;
           shotFn?: ShotFunction | undefined;
           compositionRefs?: string[] | undefined;
           pictureRefs?: string[] | undefined;
@@ -4830,8 +1051,8 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             | {
                 part: "vocals";
                 windows: {
-                  start: number;
                   duration: number;
+                  start: number;
                 }[];
               }
             | {
@@ -4840,13 +1061,29 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             | undefined;
           panels?:
             | {
-                start: number;
                 duration: number;
+                start: number;
                 assetName: string;
                 address: string;
                 blocking?: string | undefined;
                 camera?: string | undefined;
               }[]
+            | undefined;
+          cutin?:
+            | {
+                refs: string[];
+                panels?:
+                  | {
+                      duration: number;
+                      start: number;
+                      assetName: string;
+                      address: string;
+                      blocking?: string | undefined;
+                      camera?: string | undefined;
+                    }[]
+                  | undefined;
+                sharedRefs?: string[] | undefined;
+              }
             | undefined;
           continuedBy?:
             | {
@@ -4917,11 +1154,11 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                           | "embeddings"
                           | "clip_vision"
                           | "unet";
-                        filename: string;
                         url: string;
-                        base?: string | undefined;
+                        filename: string;
                         nodeId?: string | undefined;
                         savePath?: string | undefined;
+                        base?: string | undefined;
                         displayName?: string | undefined;
                       },
                       {
@@ -4936,11 +1173,11 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                           | "embeddings"
                           | "clip_vision"
                           | "unet";
-                        filename: string;
                         url: string;
-                        base?: string | undefined;
+                        filename: string;
                         nodeId?: string | undefined;
                         savePath?: string | undefined;
+                        base?: string | undefined;
                         displayName?: string | undefined;
                       }
                     >,
@@ -4975,10 +1212,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 kind: "comfy";
                 workflow: string;
                 inputs: Record<string, unknown>;
-                deterministic?: boolean | undefined;
-                inputLabels?: Record<string, string> | undefined;
-                adapterSuppliedInputs?: string[] | undefined;
-                turbo?: boolean | undefined;
                 workflowHash?: string | undefined;
                 prunedNodes?: string[] | undefined;
                 prunedPassThroughs?: Record<string, string> | undefined;
@@ -4996,11 +1229,11 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                         | "embeddings"
                         | "clip_vision"
                         | "unet";
-                      filename: string;
                       url: string;
-                      base?: string | undefined;
+                      filename: string;
                       nodeId?: string | undefined;
                       savePath?: string | undefined;
+                      base?: string | undefined;
                       displayName?: string | undefined;
                     }[]
                   | undefined;
@@ -5009,15 +1242,15 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                       id: string;
                     }[]
                   | undefined;
+                inputLabels?: Record<string, string> | undefined;
+                adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
+                deterministic?: boolean | undefined;
               },
               {
                 kind: "comfy";
                 workflow: string;
                 inputs: Record<string, unknown>;
-                deterministic?: boolean | undefined;
-                inputLabels?: Record<string, string> | undefined;
-                adapterSuppliedInputs?: string[] | undefined;
-                turbo?: boolean | undefined;
                 workflowHash?: string | undefined;
                 prunedNodes?: string[] | undefined;
                 prunedPassThroughs?: Record<string, string> | undefined;
@@ -5035,11 +1268,11 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                         | "embeddings"
                         | "clip_vision"
                         | "unet";
-                      filename: string;
                       url: string;
-                      base?: string | undefined;
+                      filename: string;
                       nodeId?: string | undefined;
                       savePath?: string | undefined;
+                      base?: string | undefined;
                       displayName?: string | undefined;
                     }[]
                   | undefined;
@@ -5048,6 +1281,10 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                       id: string;
                     }[]
                   | undefined;
+                inputLabels?: Record<string, string> | undefined;
+                adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
+                deterministic?: boolean | undefined;
               }
             >,
             z.ZodObject<
@@ -5090,20 +1327,20 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 inputs: Record<string, unknown>;
                 endpointId: string;
                 mediaType: "image" | "video" | "audio";
-                deterministic?: boolean | undefined;
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
                 turbo?: boolean | undefined;
+                deterministic?: boolean | undefined;
               },
               {
                 kind: "fal";
                 inputs: Record<string, unknown>;
                 endpointId: string;
                 mediaType: "image" | "video" | "audio";
-                deterministic?: boolean | undefined;
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
                 turbo?: boolean | undefined;
+                deterministic?: boolean | undefined;
               }
             >,
             z.ZodObject<
@@ -5275,11 +1512,11 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                           | "embeddings"
                           | "clip_vision"
                           | "unet";
-                        filename: string;
                         url: string;
-                        base?: string | undefined;
+                        filename: string;
                         nodeId?: string | undefined;
                         savePath?: string | undefined;
+                        base?: string | undefined;
                         displayName?: string | undefined;
                       },
                       {
@@ -5294,11 +1531,11 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                           | "embeddings"
                           | "clip_vision"
                           | "unet";
-                        filename: string;
                         url: string;
-                        base?: string | undefined;
+                        filename: string;
                         nodeId?: string | undefined;
                         savePath?: string | undefined;
+                        base?: string | undefined;
                         displayName?: string | undefined;
                       }
                     >,
@@ -5333,10 +1570,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 kind: "comfy";
                 workflow: string;
                 inputs: Record<string, unknown>;
-                deterministic?: boolean | undefined;
-                inputLabels?: Record<string, string> | undefined;
-                adapterSuppliedInputs?: string[] | undefined;
-                turbo?: boolean | undefined;
                 workflowHash?: string | undefined;
                 prunedNodes?: string[] | undefined;
                 prunedPassThroughs?: Record<string, string> | undefined;
@@ -5354,11 +1587,11 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                         | "embeddings"
                         | "clip_vision"
                         | "unet";
-                      filename: string;
                       url: string;
-                      base?: string | undefined;
+                      filename: string;
                       nodeId?: string | undefined;
                       savePath?: string | undefined;
+                      base?: string | undefined;
                       displayName?: string | undefined;
                     }[]
                   | undefined;
@@ -5367,15 +1600,15 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                       id: string;
                     }[]
                   | undefined;
+                inputLabels?: Record<string, string> | undefined;
+                adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
+                deterministic?: boolean | undefined;
               },
               {
                 kind: "comfy";
                 workflow: string;
                 inputs: Record<string, unknown>;
-                deterministic?: boolean | undefined;
-                inputLabels?: Record<string, string> | undefined;
-                adapterSuppliedInputs?: string[] | undefined;
-                turbo?: boolean | undefined;
                 workflowHash?: string | undefined;
                 prunedNodes?: string[] | undefined;
                 prunedPassThroughs?: Record<string, string> | undefined;
@@ -5393,11 +1626,11 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                         | "embeddings"
                         | "clip_vision"
                         | "unet";
-                      filename: string;
                       url: string;
-                      base?: string | undefined;
+                      filename: string;
                       nodeId?: string | undefined;
                       savePath?: string | undefined;
+                      base?: string | undefined;
                       displayName?: string | undefined;
                     }[]
                   | undefined;
@@ -5406,6 +1639,10 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                       id: string;
                     }[]
                   | undefined;
+                inputLabels?: Record<string, string> | undefined;
+                adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
+                deterministic?: boolean | undefined;
               }
             >,
             z.ZodObject<
@@ -5448,20 +1685,20 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                 inputs: Record<string, unknown>;
                 endpointId: string;
                 mediaType: "image" | "video" | "audio";
-                deterministic?: boolean | undefined;
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
                 turbo?: boolean | undefined;
+                deterministic?: boolean | undefined;
               },
               {
                 kind: "fal";
                 inputs: Record<string, unknown>;
                 endpointId: string;
                 mediaType: "image" | "video" | "audio";
-                deterministic?: boolean | undefined;
                 inputLabels?: Record<string, string> | undefined;
                 adapterSuppliedInputs?: string[] | undefined;
                 turbo?: boolean | undefined;
+                deterministic?: boolean | undefined;
               }
             >,
             z.ZodObject<
@@ -5553,10 +1790,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             kind: "comfy";
             workflow: string;
             inputs: Record<string, unknown>;
-            deterministic?: boolean | undefined;
-            inputLabels?: Record<string, string> | undefined;
-            adapterSuppliedInputs?: string[] | undefined;
-            turbo?: boolean | undefined;
             workflowHash?: string | undefined;
             prunedNodes?: string[] | undefined;
             prunedPassThroughs?: Record<string, string> | undefined;
@@ -5574,11 +1807,11 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                     | "embeddings"
                     | "clip_vision"
                     | "unet";
-                  filename: string;
                   url: string;
-                  base?: string | undefined;
+                  filename: string;
                   nodeId?: string | undefined;
                   savePath?: string | undefined;
+                  base?: string | undefined;
                   displayName?: string | undefined;
                 }[]
               | undefined;
@@ -5587,6 +1820,10 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                   id: string;
                 }[]
               | undefined;
+            inputLabels?: Record<string, string> | undefined;
+            adapterSuppliedInputs?: string[] | undefined;
+            turbo?: boolean | undefined;
+            deterministic?: boolean | undefined;
           }
         | {
             path: string;
@@ -5599,10 +1836,10 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             inputs: Record<string, unknown>;
             endpointId: string;
             mediaType: "image" | "video" | "audio";
-            deterministic?: boolean | undefined;
             inputLabels?: Record<string, string> | undefined;
             adapterSuppliedInputs?: string[] | undefined;
             turbo?: boolean | undefined;
+            deterministic?: boolean | undefined;
           }
         | {
             kind: "local";
@@ -5622,22 +1859,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             deterministic?: boolean | undefined;
           }
       >;
-      cutin?:
-        | {
-            refs: string[];
-            panels?:
-              | {
-                  start: number;
-                  duration: number;
-                  assetName: string;
-                  address: string;
-                  blocking?: string | undefined;
-                  camera?: string | undefined;
-                }[]
-              | undefined;
-            sharedRefs?: string[] | undefined;
-          }
-        | undefined;
       shotFn?: ShotFunction | undefined;
       compositionRefs?: string[] | undefined;
       pictureRefs?: string[] | undefined;
@@ -5656,8 +1877,8 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
         | {
             part: "vocals";
             windows: {
-              start: number;
               duration: number;
+              start: number;
             }[];
           }
         | {
@@ -5666,13 +1887,29 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
         | undefined;
       panels?:
         | {
-            start: number;
             duration: number;
+            start: number;
             assetName: string;
             address: string;
             blocking?: string | undefined;
             camera?: string | undefined;
           }[]
+        | undefined;
+      cutin?:
+        | {
+            refs: string[];
+            panels?:
+              | {
+                  duration: number;
+                  start: number;
+                  assetName: string;
+                  address: string;
+                  blocking?: string | undefined;
+                  camera?: string | undefined;
+                }[]
+              | undefined;
+            sharedRefs?: string[] | undefined;
+          }
         | undefined;
       continuedBy?:
         | {
@@ -5692,10 +1929,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               kind: "comfy";
               workflow: string;
               inputs: Record<string, unknown>;
-              deterministic?: boolean | undefined;
-              inputLabels?: Record<string, string> | undefined;
-              adapterSuppliedInputs?: string[] | undefined;
-              turbo?: boolean | undefined;
               workflowHash?: string | undefined;
               prunedNodes?: string[] | undefined;
               prunedPassThroughs?: Record<string, string> | undefined;
@@ -5713,11 +1946,11 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                       | "embeddings"
                       | "clip_vision"
                       | "unet";
-                    filename: string;
                     url: string;
-                    base?: string | undefined;
+                    filename: string;
                     nodeId?: string | undefined;
                     savePath?: string | undefined;
+                    base?: string | undefined;
                     displayName?: string | undefined;
                   }[]
                 | undefined;
@@ -5726,6 +1959,10 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                     id: string;
                   }[]
                 | undefined;
+              inputLabels?: Record<string, string> | undefined;
+              adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
+              deterministic?: boolean | undefined;
             }
           | {
               path: string;
@@ -5738,10 +1975,10 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               inputs: Record<string, unknown>;
               endpointId: string;
               mediaType: "image" | "video" | "audio";
-              deterministic?: boolean | undefined;
               inputLabels?: Record<string, string> | undefined;
               adapterSuppliedInputs?: string[] | undefined;
               turbo?: boolean | undefined;
+              deterministic?: boolean | undefined;
             }
           | {
               kind: "local";
@@ -5786,10 +2023,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               kind: "comfy";
               workflow: string;
               inputs: Record<string, unknown>;
-              deterministic?: boolean | undefined;
-              inputLabels?: Record<string, string> | undefined;
-              adapterSuppliedInputs?: string[] | undefined;
-              turbo?: boolean | undefined;
               workflowHash?: string | undefined;
               prunedNodes?: string[] | undefined;
               prunedPassThroughs?: Record<string, string> | undefined;
@@ -5807,11 +2040,11 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                       | "embeddings"
                       | "clip_vision"
                       | "unet";
-                    filename: string;
                     url: string;
-                    base?: string | undefined;
+                    filename: string;
                     nodeId?: string | undefined;
                     savePath?: string | undefined;
+                    base?: string | undefined;
                     displayName?: string | undefined;
                   }[]
                 | undefined;
@@ -5820,6 +2053,10 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                     id: string;
                   }[]
                 | undefined;
+              inputLabels?: Record<string, string> | undefined;
+              adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
+              deterministic?: boolean | undefined;
             }
           | {
               path: string;
@@ -5832,10 +2069,10 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               inputs: Record<string, unknown>;
               endpointId: string;
               mediaType: "image" | "video" | "audio";
-              deterministic?: boolean | undefined;
               inputLabels?: Record<string, string> | undefined;
               adapterSuppliedInputs?: string[] | undefined;
               turbo?: boolean | undefined;
+              deterministic?: boolean | undefined;
             }
           | {
               kind: "local";
@@ -5881,10 +2118,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             kind: "comfy";
             workflow: string;
             inputs: Record<string, unknown>;
-            deterministic?: boolean | undefined;
-            inputLabels?: Record<string, string> | undefined;
-            adapterSuppliedInputs?: string[] | undefined;
-            turbo?: boolean | undefined;
             workflowHash?: string | undefined;
             prunedNodes?: string[] | undefined;
             prunedPassThroughs?: Record<string, string> | undefined;
@@ -5902,11 +2135,11 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                     | "embeddings"
                     | "clip_vision"
                     | "unet";
-                  filename: string;
                   url: string;
-                  base?: string | undefined;
+                  filename: string;
                   nodeId?: string | undefined;
                   savePath?: string | undefined;
+                  base?: string | undefined;
                   displayName?: string | undefined;
                 }[]
               | undefined;
@@ -5915,6 +2148,10 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                   id: string;
                 }[]
               | undefined;
+            inputLabels?: Record<string, string> | undefined;
+            adapterSuppliedInputs?: string[] | undefined;
+            turbo?: boolean | undefined;
+            deterministic?: boolean | undefined;
           }
         | {
             path: string;
@@ -5927,10 +2164,10 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             inputs: Record<string, unknown>;
             endpointId: string;
             mediaType: "image" | "video" | "audio";
-            deterministic?: boolean | undefined;
             inputLabels?: Record<string, string> | undefined;
             adapterSuppliedInputs?: string[] | undefined;
             turbo?: boolean | undefined;
+            deterministic?: boolean | undefined;
           }
         | {
             kind: "local";
@@ -5950,22 +2187,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
             deterministic?: boolean | undefined;
           }
       >;
-      cutin?:
-        | {
-            refs: string[];
-            panels?:
-              | {
-                  start: number;
-                  duration: number;
-                  assetName: string;
-                  address: string;
-                  blocking?: string | undefined;
-                  camera?: string | undefined;
-                }[]
-              | undefined;
-            sharedRefs?: string[] | undefined;
-          }
-        | undefined;
       shotFn?: ShotFunction | undefined;
       compositionRefs?: string[] | undefined;
       pictureRefs?: string[] | undefined;
@@ -5984,8 +2205,8 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
         | {
             part: "vocals";
             windows: {
-              start: number;
               duration: number;
+              start: number;
             }[];
           }
         | {
@@ -5994,13 +2215,29 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
         | undefined;
       panels?:
         | {
-            start: number;
             duration: number;
+            start: number;
             assetName: string;
             address: string;
             blocking?: string | undefined;
             camera?: string | undefined;
           }[]
+        | undefined;
+      cutin?:
+        | {
+            refs: string[];
+            panels?:
+              | {
+                  duration: number;
+                  start: number;
+                  assetName: string;
+                  address: string;
+                  blocking?: string | undefined;
+                  camera?: string | undefined;
+                }[]
+              | undefined;
+            sharedRefs?: string[] | undefined;
+          }
         | undefined;
       continuedBy?:
         | {
@@ -6020,10 +2257,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               kind: "comfy";
               workflow: string;
               inputs: Record<string, unknown>;
-              deterministic?: boolean | undefined;
-              inputLabels?: Record<string, string> | undefined;
-              adapterSuppliedInputs?: string[] | undefined;
-              turbo?: boolean | undefined;
               workflowHash?: string | undefined;
               prunedNodes?: string[] | undefined;
               prunedPassThroughs?: Record<string, string> | undefined;
@@ -6041,11 +2274,11 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                       | "embeddings"
                       | "clip_vision"
                       | "unet";
-                    filename: string;
                     url: string;
-                    base?: string | undefined;
+                    filename: string;
                     nodeId?: string | undefined;
                     savePath?: string | undefined;
+                    base?: string | undefined;
                     displayName?: string | undefined;
                   }[]
                 | undefined;
@@ -6054,6 +2287,10 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                     id: string;
                   }[]
                 | undefined;
+              inputLabels?: Record<string, string> | undefined;
+              adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
+              deterministic?: boolean | undefined;
             }
           | {
               path: string;
@@ -6066,10 +2303,10 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               inputs: Record<string, unknown>;
               endpointId: string;
               mediaType: "image" | "video" | "audio";
-              deterministic?: boolean | undefined;
               inputLabels?: Record<string, string> | undefined;
               adapterSuppliedInputs?: string[] | undefined;
               turbo?: boolean | undefined;
+              deterministic?: boolean | undefined;
             }
           | {
               kind: "local";
@@ -6114,10 +2351,6 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               kind: "comfy";
               workflow: string;
               inputs: Record<string, unknown>;
-              deterministic?: boolean | undefined;
-              inputLabels?: Record<string, string> | undefined;
-              adapterSuppliedInputs?: string[] | undefined;
-              turbo?: boolean | undefined;
               workflowHash?: string | undefined;
               prunedNodes?: string[] | undefined;
               prunedPassThroughs?: Record<string, string> | undefined;
@@ -6135,11 +2368,11 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                       | "embeddings"
                       | "clip_vision"
                       | "unet";
-                    filename: string;
                     url: string;
-                    base?: string | undefined;
+                    filename: string;
                     nodeId?: string | undefined;
                     savePath?: string | undefined;
+                    base?: string | undefined;
                     displayName?: string | undefined;
                   }[]
                 | undefined;
@@ -6148,6 +2381,10 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
                     id: string;
                   }[]
                 | undefined;
+              inputLabels?: Record<string, string> | undefined;
+              adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
+              deterministic?: boolean | undefined;
             }
           | {
               path: string;
@@ -6160,10 +2397,10 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
               inputs: Record<string, unknown>;
               endpointId: string;
               mediaType: "image" | "video" | "audio";
-              deterministic?: boolean | undefined;
               inputLabels?: Record<string, string> | undefined;
               adapterSuppliedInputs?: string[] | undefined;
               turbo?: boolean | undefined;
+              deterministic?: boolean | undefined;
             }
           | {
               kind: "local";
@@ -6188,6 +2425,3769 @@ declare const AnimaticDefinitionSchema: z.ZodObject<
   }
 >;
 export type AnimaticDefinition = z.infer<typeof AnimaticDefinitionSchema>;
+declare const ComfyModelTypeSchema: z.ZodEnum<
+  [
+    "checkpoint",
+    "lora",
+    "VAE",
+    "clip",
+    "diffusion_model",
+    "controlnet",
+    "upscale",
+    "embeddings",
+    "clip_vision",
+    "unet",
+  ]
+>;
+export type ComfyModelType = z.infer<typeof ComfyModelTypeSchema>;
+declare const ComfyModelDeclarationSchema: z.ZodObject<
+  {
+    filename: z.ZodString;
+    type: z.ZodEnum<
+      [
+        "checkpoint",
+        "lora",
+        "VAE",
+        "clip",
+        "diffusion_model",
+        "controlnet",
+        "upscale",
+        "embeddings",
+        "clip_vision",
+        "unet",
+      ]
+    >;
+    nodeId: z.ZodOptional<z.ZodString>;
+    url: z.ZodString;
+    savePath: z.ZodOptional<z.ZodString>;
+    base: z.ZodOptional<z.ZodString>;
+    displayName: z.ZodOptional<z.ZodString>;
+  },
+  "strip",
+  z.ZodTypeAny,
+  {
+    type:
+      | "checkpoint"
+      | "lora"
+      | "VAE"
+      | "clip"
+      | "diffusion_model"
+      | "controlnet"
+      | "upscale"
+      | "embeddings"
+      | "clip_vision"
+      | "unet";
+    url: string;
+    filename: string;
+    nodeId?: string | undefined;
+    savePath?: string | undefined;
+    base?: string | undefined;
+    displayName?: string | undefined;
+  },
+  {
+    type:
+      | "checkpoint"
+      | "lora"
+      | "VAE"
+      | "clip"
+      | "diffusion_model"
+      | "controlnet"
+      | "upscale"
+      | "embeddings"
+      | "clip_vision"
+      | "unet";
+    url: string;
+    filename: string;
+    nodeId?: string | undefined;
+    savePath?: string | undefined;
+    base?: string | undefined;
+    displayName?: string | undefined;
+  }
+>;
+export type ComfyModelDeclaration = z.infer<typeof ComfyModelDeclarationSchema>;
+declare const ComfyNodeDeclarationSchema: z.ZodObject<
+  {
+    id: z.ZodString;
+  },
+  "strip",
+  z.ZodTypeAny,
+  {
+    id: string;
+  },
+  {
+    id: string;
+  }
+>;
+export type ComfyNodeDeclaration = z.infer<typeof ComfyNodeDeclarationSchema>;
+declare const ComfyAssetDefinitionSchema: z.ZodObject<
+  {
+    deterministic: z.ZodOptional<z.ZodBoolean>;
+    kind: z.ZodLiteral<"comfy">;
+    workflow: z.ZodString;
+    workflowHash: z.ZodOptional<z.ZodString>;
+    inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+    prunedNodes: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+    prunedPassThroughs: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+    outputNodeId: z.ZodOptional<z.ZodString>;
+    models: z.ZodOptional<
+      z.ZodArray<
+        z.ZodObject<
+          {
+            filename: z.ZodString;
+            type: z.ZodEnum<
+              [
+                "checkpoint",
+                "lora",
+                "VAE",
+                "clip",
+                "diffusion_model",
+                "controlnet",
+                "upscale",
+                "embeddings",
+                "clip_vision",
+                "unet",
+              ]
+            >;
+            nodeId: z.ZodOptional<z.ZodString>;
+            url: z.ZodString;
+            savePath: z.ZodOptional<z.ZodString>;
+            base: z.ZodOptional<z.ZodString>;
+            displayName: z.ZodOptional<z.ZodString>;
+          },
+          "strip",
+          z.ZodTypeAny,
+          {
+            type:
+              | "checkpoint"
+              | "lora"
+              | "VAE"
+              | "clip"
+              | "diffusion_model"
+              | "controlnet"
+              | "upscale"
+              | "embeddings"
+              | "clip_vision"
+              | "unet";
+            url: string;
+            filename: string;
+            nodeId?: string | undefined;
+            savePath?: string | undefined;
+            base?: string | undefined;
+            displayName?: string | undefined;
+          },
+          {
+            type:
+              | "checkpoint"
+              | "lora"
+              | "VAE"
+              | "clip"
+              | "diffusion_model"
+              | "controlnet"
+              | "upscale"
+              | "embeddings"
+              | "clip_vision"
+              | "unet";
+            url: string;
+            filename: string;
+            nodeId?: string | undefined;
+            savePath?: string | undefined;
+            base?: string | undefined;
+            displayName?: string | undefined;
+          }
+        >,
+        "many"
+      >
+    >;
+    nodes: z.ZodOptional<
+      z.ZodArray<
+        z.ZodObject<
+          {
+            id: z.ZodString;
+          },
+          "strip",
+          z.ZodTypeAny,
+          {
+            id: string;
+          },
+          {
+            id: string;
+          }
+        >,
+        "many"
+      >
+    >;
+    inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+    adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+    turbo: z.ZodOptional<z.ZodBoolean>;
+  },
+  "strip",
+  z.ZodTypeAny,
+  {
+    kind: "comfy";
+    workflow: string;
+    inputs: Record<string, unknown>;
+    workflowHash?: string | undefined;
+    prunedNodes?: string[] | undefined;
+    prunedPassThroughs?: Record<string, string> | undefined;
+    outputNodeId?: string | undefined;
+    models?:
+      | {
+          type:
+            | "checkpoint"
+            | "lora"
+            | "VAE"
+            | "clip"
+            | "diffusion_model"
+            | "controlnet"
+            | "upscale"
+            | "embeddings"
+            | "clip_vision"
+            | "unet";
+          url: string;
+          filename: string;
+          nodeId?: string | undefined;
+          savePath?: string | undefined;
+          base?: string | undefined;
+          displayName?: string | undefined;
+        }[]
+      | undefined;
+    nodes?:
+      | {
+          id: string;
+        }[]
+      | undefined;
+    inputLabels?: Record<string, string> | undefined;
+    adapterSuppliedInputs?: string[] | undefined;
+    turbo?: boolean | undefined;
+    deterministic?: boolean | undefined;
+  },
+  {
+    kind: "comfy";
+    workflow: string;
+    inputs: Record<string, unknown>;
+    workflowHash?: string | undefined;
+    prunedNodes?: string[] | undefined;
+    prunedPassThroughs?: Record<string, string> | undefined;
+    outputNodeId?: string | undefined;
+    models?:
+      | {
+          type:
+            | "checkpoint"
+            | "lora"
+            | "VAE"
+            | "clip"
+            | "diffusion_model"
+            | "controlnet"
+            | "upscale"
+            | "embeddings"
+            | "clip_vision"
+            | "unet";
+          url: string;
+          filename: string;
+          nodeId?: string | undefined;
+          savePath?: string | undefined;
+          base?: string | undefined;
+          displayName?: string | undefined;
+        }[]
+      | undefined;
+    nodes?:
+      | {
+          id: string;
+        }[]
+      | undefined;
+    inputLabels?: Record<string, string> | undefined;
+    adapterSuppliedInputs?: string[] | undefined;
+    turbo?: boolean | undefined;
+    deterministic?: boolean | undefined;
+  }
+>;
+export type ComfyAssetDefinition = z.infer<typeof ComfyAssetDefinitionSchema>;
+declare const FileAssetDefinitionSchema: z.ZodObject<
+  {
+    deterministic: z.ZodOptional<z.ZodBoolean>;
+    kind: z.ZodLiteral<"file">;
+    path: z.ZodString;
+    type: z.ZodOptional<z.ZodEnum<["image", "video", "audio"]>>;
+  },
+  "strip",
+  z.ZodTypeAny,
+  {
+    path: string;
+    kind: "file";
+    type?: "image" | "video" | "audio" | undefined;
+    deterministic?: boolean | undefined;
+  },
+  {
+    path: string;
+    kind: "file";
+    type?: "image" | "video" | "audio" | undefined;
+    deterministic?: boolean | undefined;
+  }
+>;
+export type FileAssetDefinition = z.infer<typeof FileAssetDefinitionSchema>;
+declare const FalAssetDefinitionSchema: z.ZodObject<
+  {
+    deterministic: z.ZodOptional<z.ZodBoolean>;
+    kind: z.ZodLiteral<"fal">;
+    endpointId: z.ZodString;
+    mediaType: z.ZodEnum<["image", "video", "audio"]>;
+    inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+    inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+    adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+    turbo: z.ZodOptional<z.ZodBoolean>;
+  },
+  "strip",
+  z.ZodTypeAny,
+  {
+    kind: "fal";
+    inputs: Record<string, unknown>;
+    endpointId: string;
+    mediaType: "image" | "video" | "audio";
+    inputLabels?: Record<string, string> | undefined;
+    adapterSuppliedInputs?: string[] | undefined;
+    turbo?: boolean | undefined;
+    deterministic?: boolean | undefined;
+  },
+  {
+    kind: "fal";
+    inputs: Record<string, unknown>;
+    endpointId: string;
+    mediaType: "image" | "video" | "audio";
+    inputLabels?: Record<string, string> | undefined;
+    adapterSuppliedInputs?: string[] | undefined;
+    turbo?: boolean | undefined;
+    deterministic?: boolean | undefined;
+  }
+>;
+export type FalAssetDefinition = z.infer<typeof FalAssetDefinitionSchema>;
+declare const LocalAssetDefinitionSchema: z.ZodObject<
+  {
+    deterministic: z.ZodOptional<z.ZodBoolean>;
+    kind: z.ZodLiteral<"local">;
+    operation: z.ZodEnum<
+      [
+        "resize",
+        "crop",
+        "blank",
+        "trim",
+        "retime",
+        "concat",
+        "frame",
+        "render",
+        "cutFrame",
+        "orbit",
+      ]
+    >;
+    mediaType: z.ZodEnum<["image", "video", "audio"]>;
+    inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+  },
+  "strip",
+  z.ZodTypeAny,
+  {
+    kind: "local";
+    inputs: Record<string, unknown>;
+    mediaType: "image" | "video" | "audio";
+    operation:
+      | "concat"
+      | "trim"
+      | "resize"
+      | "crop"
+      | "blank"
+      | "retime"
+      | "frame"
+      | "render"
+      | "cutFrame"
+      | "orbit";
+    deterministic?: boolean | undefined;
+  },
+  {
+    kind: "local";
+    inputs: Record<string, unknown>;
+    mediaType: "image" | "video" | "audio";
+    operation:
+      | "concat"
+      | "trim"
+      | "resize"
+      | "crop"
+      | "blank"
+      | "retime"
+      | "frame"
+      | "render"
+      | "cutFrame"
+      | "orbit";
+    deterministic?: boolean | undefined;
+  }
+>;
+export type LocalAssetDefinition = z.infer<typeof LocalAssetDefinitionSchema>;
+declare const AssetDefinitionSchema: z.ZodDiscriminatedUnion<
+  "kind",
+  [
+    z.ZodObject<
+      {
+        deterministic: z.ZodOptional<z.ZodBoolean>;
+        kind: z.ZodLiteral<"comfy">;
+        workflow: z.ZodString;
+        workflowHash: z.ZodOptional<z.ZodString>;
+        inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+        prunedNodes: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        prunedPassThroughs: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+        outputNodeId: z.ZodOptional<z.ZodString>;
+        models: z.ZodOptional<
+          z.ZodArray<
+            z.ZodObject<
+              {
+                filename: z.ZodString;
+                type: z.ZodEnum<
+                  [
+                    "checkpoint",
+                    "lora",
+                    "VAE",
+                    "clip",
+                    "diffusion_model",
+                    "controlnet",
+                    "upscale",
+                    "embeddings",
+                    "clip_vision",
+                    "unet",
+                  ]
+                >;
+                nodeId: z.ZodOptional<z.ZodString>;
+                url: z.ZodString;
+                savePath: z.ZodOptional<z.ZodString>;
+                base: z.ZodOptional<z.ZodString>;
+                displayName: z.ZodOptional<z.ZodString>;
+              },
+              "strip",
+              z.ZodTypeAny,
+              {
+                type:
+                  | "checkpoint"
+                  | "lora"
+                  | "VAE"
+                  | "clip"
+                  | "diffusion_model"
+                  | "controlnet"
+                  | "upscale"
+                  | "embeddings"
+                  | "clip_vision"
+                  | "unet";
+                url: string;
+                filename: string;
+                nodeId?: string | undefined;
+                savePath?: string | undefined;
+                base?: string | undefined;
+                displayName?: string | undefined;
+              },
+              {
+                type:
+                  | "checkpoint"
+                  | "lora"
+                  | "VAE"
+                  | "clip"
+                  | "diffusion_model"
+                  | "controlnet"
+                  | "upscale"
+                  | "embeddings"
+                  | "clip_vision"
+                  | "unet";
+                url: string;
+                filename: string;
+                nodeId?: string | undefined;
+                savePath?: string | undefined;
+                base?: string | undefined;
+                displayName?: string | undefined;
+              }
+            >,
+            "many"
+          >
+        >;
+        nodes: z.ZodOptional<
+          z.ZodArray<
+            z.ZodObject<
+              {
+                id: z.ZodString;
+              },
+              "strip",
+              z.ZodTypeAny,
+              {
+                id: string;
+              },
+              {
+                id: string;
+              }
+            >,
+            "many"
+          >
+        >;
+        inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+        adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        turbo: z.ZodOptional<z.ZodBoolean>;
+      },
+      "strip",
+      z.ZodTypeAny,
+      {
+        kind: "comfy";
+        workflow: string;
+        inputs: Record<string, unknown>;
+        workflowHash?: string | undefined;
+        prunedNodes?: string[] | undefined;
+        prunedPassThroughs?: Record<string, string> | undefined;
+        outputNodeId?: string | undefined;
+        models?:
+          | {
+              type:
+                | "checkpoint"
+                | "lora"
+                | "VAE"
+                | "clip"
+                | "diffusion_model"
+                | "controlnet"
+                | "upscale"
+                | "embeddings"
+                | "clip_vision"
+                | "unet";
+              url: string;
+              filename: string;
+              nodeId?: string | undefined;
+              savePath?: string | undefined;
+              base?: string | undefined;
+              displayName?: string | undefined;
+            }[]
+          | undefined;
+        nodes?:
+          | {
+              id: string;
+            }[]
+          | undefined;
+        inputLabels?: Record<string, string> | undefined;
+        adapterSuppliedInputs?: string[] | undefined;
+        turbo?: boolean | undefined;
+        deterministic?: boolean | undefined;
+      },
+      {
+        kind: "comfy";
+        workflow: string;
+        inputs: Record<string, unknown>;
+        workflowHash?: string | undefined;
+        prunedNodes?: string[] | undefined;
+        prunedPassThroughs?: Record<string, string> | undefined;
+        outputNodeId?: string | undefined;
+        models?:
+          | {
+              type:
+                | "checkpoint"
+                | "lora"
+                | "VAE"
+                | "clip"
+                | "diffusion_model"
+                | "controlnet"
+                | "upscale"
+                | "embeddings"
+                | "clip_vision"
+                | "unet";
+              url: string;
+              filename: string;
+              nodeId?: string | undefined;
+              savePath?: string | undefined;
+              base?: string | undefined;
+              displayName?: string | undefined;
+            }[]
+          | undefined;
+        nodes?:
+          | {
+              id: string;
+            }[]
+          | undefined;
+        inputLabels?: Record<string, string> | undefined;
+        adapterSuppliedInputs?: string[] | undefined;
+        turbo?: boolean | undefined;
+        deterministic?: boolean | undefined;
+      }
+    >,
+    z.ZodObject<
+      {
+        deterministic: z.ZodOptional<z.ZodBoolean>;
+        kind: z.ZodLiteral<"file">;
+        path: z.ZodString;
+        type: z.ZodOptional<z.ZodEnum<["image", "video", "audio"]>>;
+      },
+      "strip",
+      z.ZodTypeAny,
+      {
+        path: string;
+        kind: "file";
+        type?: "image" | "video" | "audio" | undefined;
+        deterministic?: boolean | undefined;
+      },
+      {
+        path: string;
+        kind: "file";
+        type?: "image" | "video" | "audio" | undefined;
+        deterministic?: boolean | undefined;
+      }
+    >,
+    z.ZodObject<
+      {
+        deterministic: z.ZodOptional<z.ZodBoolean>;
+        kind: z.ZodLiteral<"fal">;
+        endpointId: z.ZodString;
+        mediaType: z.ZodEnum<["image", "video", "audio"]>;
+        inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+        inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+        adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        turbo: z.ZodOptional<z.ZodBoolean>;
+      },
+      "strip",
+      z.ZodTypeAny,
+      {
+        kind: "fal";
+        inputs: Record<string, unknown>;
+        endpointId: string;
+        mediaType: "image" | "video" | "audio";
+        inputLabels?: Record<string, string> | undefined;
+        adapterSuppliedInputs?: string[] | undefined;
+        turbo?: boolean | undefined;
+        deterministic?: boolean | undefined;
+      },
+      {
+        kind: "fal";
+        inputs: Record<string, unknown>;
+        endpointId: string;
+        mediaType: "image" | "video" | "audio";
+        inputLabels?: Record<string, string> | undefined;
+        adapterSuppliedInputs?: string[] | undefined;
+        turbo?: boolean | undefined;
+        deterministic?: boolean | undefined;
+      }
+    >,
+    z.ZodObject<
+      {
+        deterministic: z.ZodOptional<z.ZodBoolean>;
+        kind: z.ZodLiteral<"local">;
+        operation: z.ZodEnum<
+          [
+            "resize",
+            "crop",
+            "blank",
+            "trim",
+            "retime",
+            "concat",
+            "frame",
+            "render",
+            "cutFrame",
+            "orbit",
+          ]
+        >;
+        mediaType: z.ZodEnum<["image", "video", "audio"]>;
+        inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+      },
+      "strip",
+      z.ZodTypeAny,
+      {
+        kind: "local";
+        inputs: Record<string, unknown>;
+        mediaType: "image" | "video" | "audio";
+        operation:
+          | "concat"
+          | "trim"
+          | "resize"
+          | "crop"
+          | "blank"
+          | "retime"
+          | "frame"
+          | "render"
+          | "cutFrame"
+          | "orbit";
+        deterministic?: boolean | undefined;
+      },
+      {
+        kind: "local";
+        inputs: Record<string, unknown>;
+        mediaType: "image" | "video" | "audio";
+        operation:
+          | "concat"
+          | "trim"
+          | "resize"
+          | "crop"
+          | "blank"
+          | "retime"
+          | "frame"
+          | "render"
+          | "cutFrame"
+          | "orbit";
+        deterministic?: boolean | undefined;
+      }
+    >,
+  ]
+>;
+export type AssetDefinition = z.infer<typeof AssetDefinitionSchema>;
+declare const PanelDefinitionSchema: z.ZodObject<
+  {
+    assetName: z.ZodString;
+    address: z.ZodString;
+    start: z.ZodNumber;
+    duration: z.ZodNumber;
+    blocking: z.ZodOptional<z.ZodString>;
+    camera: z.ZodOptional<z.ZodString>;
+  },
+  "strip",
+  z.ZodTypeAny,
+  {
+    duration: number;
+    start: number;
+    assetName: string;
+    address: string;
+    blocking?: string | undefined;
+    camera?: string | undefined;
+  },
+  {
+    duration: number;
+    start: number;
+    assetName: string;
+    address: string;
+    blocking?: string | undefined;
+    camera?: string | undefined;
+  }
+>;
+export type PanelDefinition = z.infer<typeof PanelDefinitionSchema>;
+export type ShotJoin = "continuous" | "jump-back" | "jump-forward";
+declare const ShotDefinitionSchema: z.ZodObject<
+  {
+    id: z.ZodString;
+    duration: z.ZodNumber;
+    action: z.ZodString;
+    assets: z.ZodRecord<
+      z.ZodString,
+      z.ZodDiscriminatedUnion<
+        "kind",
+        [
+          z.ZodObject<
+            {
+              deterministic: z.ZodOptional<z.ZodBoolean>;
+              kind: z.ZodLiteral<"comfy">;
+              workflow: z.ZodString;
+              workflowHash: z.ZodOptional<z.ZodString>;
+              inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+              prunedNodes: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+              prunedPassThroughs: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+              outputNodeId: z.ZodOptional<z.ZodString>;
+              models: z.ZodOptional<
+                z.ZodArray<
+                  z.ZodObject<
+                    {
+                      filename: z.ZodString;
+                      type: z.ZodEnum<
+                        [
+                          "checkpoint",
+                          "lora",
+                          "VAE",
+                          "clip",
+                          "diffusion_model",
+                          "controlnet",
+                          "upscale",
+                          "embeddings",
+                          "clip_vision",
+                          "unet",
+                        ]
+                      >;
+                      nodeId: z.ZodOptional<z.ZodString>;
+                      url: z.ZodString;
+                      savePath: z.ZodOptional<z.ZodString>;
+                      base: z.ZodOptional<z.ZodString>;
+                      displayName: z.ZodOptional<z.ZodString>;
+                    },
+                    "strip",
+                    z.ZodTypeAny,
+                    {
+                      type:
+                        | "checkpoint"
+                        | "lora"
+                        | "VAE"
+                        | "clip"
+                        | "diffusion_model"
+                        | "controlnet"
+                        | "upscale"
+                        | "embeddings"
+                        | "clip_vision"
+                        | "unet";
+                      url: string;
+                      filename: string;
+                      nodeId?: string | undefined;
+                      savePath?: string | undefined;
+                      base?: string | undefined;
+                      displayName?: string | undefined;
+                    },
+                    {
+                      type:
+                        | "checkpoint"
+                        | "lora"
+                        | "VAE"
+                        | "clip"
+                        | "diffusion_model"
+                        | "controlnet"
+                        | "upscale"
+                        | "embeddings"
+                        | "clip_vision"
+                        | "unet";
+                      url: string;
+                      filename: string;
+                      nodeId?: string | undefined;
+                      savePath?: string | undefined;
+                      base?: string | undefined;
+                      displayName?: string | undefined;
+                    }
+                  >,
+                  "many"
+                >
+              >;
+              nodes: z.ZodOptional<
+                z.ZodArray<
+                  z.ZodObject<
+                    {
+                      id: z.ZodString;
+                    },
+                    "strip",
+                    z.ZodTypeAny,
+                    {
+                      id: string;
+                    },
+                    {
+                      id: string;
+                    }
+                  >,
+                  "many"
+                >
+              >;
+              inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+              adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+              turbo: z.ZodOptional<z.ZodBoolean>;
+            },
+            "strip",
+            z.ZodTypeAny,
+            {
+              kind: "comfy";
+              workflow: string;
+              inputs: Record<string, unknown>;
+              workflowHash?: string | undefined;
+              prunedNodes?: string[] | undefined;
+              prunedPassThroughs?: Record<string, string> | undefined;
+              outputNodeId?: string | undefined;
+              models?:
+                | {
+                    type:
+                      | "checkpoint"
+                      | "lora"
+                      | "VAE"
+                      | "clip"
+                      | "diffusion_model"
+                      | "controlnet"
+                      | "upscale"
+                      | "embeddings"
+                      | "clip_vision"
+                      | "unet";
+                    url: string;
+                    filename: string;
+                    nodeId?: string | undefined;
+                    savePath?: string | undefined;
+                    base?: string | undefined;
+                    displayName?: string | undefined;
+                  }[]
+                | undefined;
+              nodes?:
+                | {
+                    id: string;
+                  }[]
+                | undefined;
+              inputLabels?: Record<string, string> | undefined;
+              adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
+              deterministic?: boolean | undefined;
+            },
+            {
+              kind: "comfy";
+              workflow: string;
+              inputs: Record<string, unknown>;
+              workflowHash?: string | undefined;
+              prunedNodes?: string[] | undefined;
+              prunedPassThroughs?: Record<string, string> | undefined;
+              outputNodeId?: string | undefined;
+              models?:
+                | {
+                    type:
+                      | "checkpoint"
+                      | "lora"
+                      | "VAE"
+                      | "clip"
+                      | "diffusion_model"
+                      | "controlnet"
+                      | "upscale"
+                      | "embeddings"
+                      | "clip_vision"
+                      | "unet";
+                    url: string;
+                    filename: string;
+                    nodeId?: string | undefined;
+                    savePath?: string | undefined;
+                    base?: string | undefined;
+                    displayName?: string | undefined;
+                  }[]
+                | undefined;
+              nodes?:
+                | {
+                    id: string;
+                  }[]
+                | undefined;
+              inputLabels?: Record<string, string> | undefined;
+              adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
+              deterministic?: boolean | undefined;
+            }
+          >,
+          z.ZodObject<
+            {
+              deterministic: z.ZodOptional<z.ZodBoolean>;
+              kind: z.ZodLiteral<"file">;
+              path: z.ZodString;
+              type: z.ZodOptional<z.ZodEnum<["image", "video", "audio"]>>;
+            },
+            "strip",
+            z.ZodTypeAny,
+            {
+              path: string;
+              kind: "file";
+              type?: "image" | "video" | "audio" | undefined;
+              deterministic?: boolean | undefined;
+            },
+            {
+              path: string;
+              kind: "file";
+              type?: "image" | "video" | "audio" | undefined;
+              deterministic?: boolean | undefined;
+            }
+          >,
+          z.ZodObject<
+            {
+              deterministic: z.ZodOptional<z.ZodBoolean>;
+              kind: z.ZodLiteral<"fal">;
+              endpointId: z.ZodString;
+              mediaType: z.ZodEnum<["image", "video", "audio"]>;
+              inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+              inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+              adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+              turbo: z.ZodOptional<z.ZodBoolean>;
+            },
+            "strip",
+            z.ZodTypeAny,
+            {
+              kind: "fal";
+              inputs: Record<string, unknown>;
+              endpointId: string;
+              mediaType: "image" | "video" | "audio";
+              inputLabels?: Record<string, string> | undefined;
+              adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
+              deterministic?: boolean | undefined;
+            },
+            {
+              kind: "fal";
+              inputs: Record<string, unknown>;
+              endpointId: string;
+              mediaType: "image" | "video" | "audio";
+              inputLabels?: Record<string, string> | undefined;
+              adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
+              deterministic?: boolean | undefined;
+            }
+          >,
+          z.ZodObject<
+            {
+              deterministic: z.ZodOptional<z.ZodBoolean>;
+              kind: z.ZodLiteral<"local">;
+              operation: z.ZodEnum<
+                [
+                  "resize",
+                  "crop",
+                  "blank",
+                  "trim",
+                  "retime",
+                  "concat",
+                  "frame",
+                  "render",
+                  "cutFrame",
+                  "orbit",
+                ]
+              >;
+              mediaType: z.ZodEnum<["image", "video", "audio"]>;
+              inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+            },
+            "strip",
+            z.ZodTypeAny,
+            {
+              kind: "local";
+              inputs: Record<string, unknown>;
+              mediaType: "image" | "video" | "audio";
+              operation:
+                | "concat"
+                | "trim"
+                | "resize"
+                | "crop"
+                | "blank"
+                | "retime"
+                | "frame"
+                | "render"
+                | "cutFrame"
+                | "orbit";
+              deterministic?: boolean | undefined;
+            },
+            {
+              kind: "local";
+              inputs: Record<string, unknown>;
+              mediaType: "image" | "video" | "audio";
+              operation:
+                | "concat"
+                | "trim"
+                | "resize"
+                | "crop"
+                | "blank"
+                | "retime"
+                | "frame"
+                | "render"
+                | "cutFrame"
+                | "orbit";
+              deterministic?: boolean | undefined;
+            }
+          >,
+        ]
+      >
+    >;
+    shotFn: z.ZodOptional<z.ZodType<ShotFunction, z.ZodTypeDef, ShotFunction>>;
+    compositionRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+    pictureRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+    stemRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+    narrationStemRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+    offFrameStemRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+    cueKinds: z.ZodOptional<
+      z.ZodRecord<z.ZodString, z.ZodEnum<["voice", "narration", "mob", "sfx"]>>
+    >;
+    songCue: z.ZodOptional<
+      z.ZodObject<
+        {
+          src: z.ZodString;
+          mediaStart: z.ZodNumber;
+          duration: z.ZodNumber;
+        },
+        "strip",
+        z.ZodTypeAny,
+        {
+          duration: number;
+          src: string;
+          mediaStart: number;
+        },
+        {
+          duration: number;
+          src: string;
+          mediaStart: number;
+        }
+      >
+    >;
+    songStem: z.ZodOptional<
+      z.ZodDiscriminatedUnion<
+        "part",
+        [
+          z.ZodObject<
+            {
+              part: z.ZodLiteral<"vocals">;
+              windows: z.ZodArray<
+                z.ZodObject<
+                  {
+                    start: z.ZodNumber;
+                    duration: z.ZodNumber;
+                  },
+                  "strip",
+                  z.ZodTypeAny,
+                  {
+                    duration: number;
+                    start: number;
+                  },
+                  {
+                    duration: number;
+                    start: number;
+                  }
+                >,
+                "many"
+              >;
+            },
+            "strip",
+            z.ZodTypeAny,
+            {
+              part: "vocals";
+              windows: {
+                duration: number;
+                start: number;
+              }[];
+            },
+            {
+              part: "vocals";
+              windows: {
+                duration: number;
+                start: number;
+              }[];
+            }
+          >,
+          z.ZodObject<
+            {
+              part: z.ZodLiteral<"instrumental">;
+            },
+            "strip",
+            z.ZodTypeAny,
+            {
+              part: "instrumental";
+            },
+            {
+              part: "instrumental";
+            }
+          >,
+        ]
+      >
+    >;
+    panels: z.ZodOptional<
+      z.ZodArray<
+        z.ZodObject<
+          {
+            assetName: z.ZodString;
+            address: z.ZodString;
+            start: z.ZodNumber;
+            duration: z.ZodNumber;
+            blocking: z.ZodOptional<z.ZodString>;
+            camera: z.ZodOptional<z.ZodString>;
+          },
+          "strip",
+          z.ZodTypeAny,
+          {
+            duration: number;
+            start: number;
+            assetName: string;
+            address: string;
+            blocking?: string | undefined;
+            camera?: string | undefined;
+          },
+          {
+            duration: number;
+            start: number;
+            assetName: string;
+            address: string;
+            blocking?: string | undefined;
+            camera?: string | undefined;
+          }
+        >,
+        "many"
+      >
+    >;
+    continuedBy: z.ZodOptional<
+      z.ZodObject<
+        {
+          main: z.ZodOptional<z.ZodString>;
+          cutin: z.ZodOptional<z.ZodString>;
+        },
+        "strip",
+        z.ZodTypeAny,
+        {
+          main?: string | undefined;
+          cutin?: string | undefined;
+        },
+        {
+          main?: string | undefined;
+          cutin?: string | undefined;
+        }
+      >
+    >;
+    coverage: z.ZodOptional<z.ZodLiteral<true>>;
+    cutin: z.ZodOptional<
+      z.ZodObject<
+        {
+          refs: z.ZodArray<z.ZodString, "many">;
+          sharedRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+          panels: z.ZodOptional<
+            z.ZodArray<
+              z.ZodObject<
+                {
+                  assetName: z.ZodString;
+                  address: z.ZodString;
+                  start: z.ZodNumber;
+                  duration: z.ZodNumber;
+                  blocking: z.ZodOptional<z.ZodString>;
+                  camera: z.ZodOptional<z.ZodString>;
+                },
+                "strip",
+                z.ZodTypeAny,
+                {
+                  duration: number;
+                  start: number;
+                  assetName: string;
+                  address: string;
+                  blocking?: string | undefined;
+                  camera?: string | undefined;
+                },
+                {
+                  duration: number;
+                  start: number;
+                  assetName: string;
+                  address: string;
+                  blocking?: string | undefined;
+                  camera?: string | undefined;
+                }
+              >,
+              "many"
+            >
+          >;
+        },
+        "strip",
+        z.ZodTypeAny,
+        {
+          refs: string[];
+          panels?:
+            | {
+                duration: number;
+                start: number;
+                assetName: string;
+                address: string;
+                blocking?: string | undefined;
+                camera?: string | undefined;
+              }[]
+            | undefined;
+          sharedRefs?: string[] | undefined;
+        },
+        {
+          refs: string[];
+          panels?:
+            | {
+                duration: number;
+                start: number;
+                assetName: string;
+                address: string;
+                blocking?: string | undefined;
+                camera?: string | undefined;
+              }[]
+            | undefined;
+          sharedRefs?: string[] | undefined;
+        }
+      >
+    >;
+    graphic: z.ZodOptional<z.ZodLiteral<true>>;
+    pending: z.ZodOptional<z.ZodLiteral<true>>;
+    aside: z.ZodOptional<z.ZodLiteral<true>>;
+  },
+  "strip",
+  z.ZodTypeAny,
+  {
+    id: string;
+    duration: number;
+    action: string;
+    assets: Record<
+      string,
+      | {
+          kind: "comfy";
+          workflow: string;
+          inputs: Record<string, unknown>;
+          workflowHash?: string | undefined;
+          prunedNodes?: string[] | undefined;
+          prunedPassThroughs?: Record<string, string> | undefined;
+          outputNodeId?: string | undefined;
+          models?:
+            | {
+                type:
+                  | "checkpoint"
+                  | "lora"
+                  | "VAE"
+                  | "clip"
+                  | "diffusion_model"
+                  | "controlnet"
+                  | "upscale"
+                  | "embeddings"
+                  | "clip_vision"
+                  | "unet";
+                url: string;
+                filename: string;
+                nodeId?: string | undefined;
+                savePath?: string | undefined;
+                base?: string | undefined;
+                displayName?: string | undefined;
+              }[]
+            | undefined;
+          nodes?:
+            | {
+                id: string;
+              }[]
+            | undefined;
+          inputLabels?: Record<string, string> | undefined;
+          adapterSuppliedInputs?: string[] | undefined;
+          turbo?: boolean | undefined;
+          deterministic?: boolean | undefined;
+        }
+      | {
+          path: string;
+          kind: "file";
+          type?: "image" | "video" | "audio" | undefined;
+          deterministic?: boolean | undefined;
+        }
+      | {
+          kind: "fal";
+          inputs: Record<string, unknown>;
+          endpointId: string;
+          mediaType: "image" | "video" | "audio";
+          inputLabels?: Record<string, string> | undefined;
+          adapterSuppliedInputs?: string[] | undefined;
+          turbo?: boolean | undefined;
+          deterministic?: boolean | undefined;
+        }
+      | {
+          kind: "local";
+          inputs: Record<string, unknown>;
+          mediaType: "image" | "video" | "audio";
+          operation:
+            | "concat"
+            | "trim"
+            | "resize"
+            | "crop"
+            | "blank"
+            | "retime"
+            | "frame"
+            | "render"
+            | "cutFrame"
+            | "orbit";
+          deterministic?: boolean | undefined;
+        }
+    >;
+    shotFn?: ShotFunction | undefined;
+    compositionRefs?: string[] | undefined;
+    pictureRefs?: string[] | undefined;
+    stemRefs?: string[] | undefined;
+    narrationStemRefs?: string[] | undefined;
+    offFrameStemRefs?: string[] | undefined;
+    cueKinds?: Record<string, "voice" | "narration" | "mob" | "sfx"> | undefined;
+    songCue?:
+      | {
+          duration: number;
+          src: string;
+          mediaStart: number;
+        }
+      | undefined;
+    songStem?:
+      | {
+          part: "vocals";
+          windows: {
+            duration: number;
+            start: number;
+          }[];
+        }
+      | {
+          part: "instrumental";
+        }
+      | undefined;
+    panels?:
+      | {
+          duration: number;
+          start: number;
+          assetName: string;
+          address: string;
+          blocking?: string | undefined;
+          camera?: string | undefined;
+        }[]
+      | undefined;
+    cutin?:
+      | {
+          refs: string[];
+          panels?:
+            | {
+                duration: number;
+                start: number;
+                assetName: string;
+                address: string;
+                blocking?: string | undefined;
+                camera?: string | undefined;
+              }[]
+            | undefined;
+          sharedRefs?: string[] | undefined;
+        }
+      | undefined;
+    continuedBy?:
+      | {
+          main?: string | undefined;
+          cutin?: string | undefined;
+        }
+      | undefined;
+    coverage?: true | undefined;
+    graphic?: true | undefined;
+    pending?: true | undefined;
+    aside?: true | undefined;
+  },
+  {
+    id: string;
+    duration: number;
+    action: string;
+    assets: Record<
+      string,
+      | {
+          kind: "comfy";
+          workflow: string;
+          inputs: Record<string, unknown>;
+          workflowHash?: string | undefined;
+          prunedNodes?: string[] | undefined;
+          prunedPassThroughs?: Record<string, string> | undefined;
+          outputNodeId?: string | undefined;
+          models?:
+            | {
+                type:
+                  | "checkpoint"
+                  | "lora"
+                  | "VAE"
+                  | "clip"
+                  | "diffusion_model"
+                  | "controlnet"
+                  | "upscale"
+                  | "embeddings"
+                  | "clip_vision"
+                  | "unet";
+                url: string;
+                filename: string;
+                nodeId?: string | undefined;
+                savePath?: string | undefined;
+                base?: string | undefined;
+                displayName?: string | undefined;
+              }[]
+            | undefined;
+          nodes?:
+            | {
+                id: string;
+              }[]
+            | undefined;
+          inputLabels?: Record<string, string> | undefined;
+          adapterSuppliedInputs?: string[] | undefined;
+          turbo?: boolean | undefined;
+          deterministic?: boolean | undefined;
+        }
+      | {
+          path: string;
+          kind: "file";
+          type?: "image" | "video" | "audio" | undefined;
+          deterministic?: boolean | undefined;
+        }
+      | {
+          kind: "fal";
+          inputs: Record<string, unknown>;
+          endpointId: string;
+          mediaType: "image" | "video" | "audio";
+          inputLabels?: Record<string, string> | undefined;
+          adapterSuppliedInputs?: string[] | undefined;
+          turbo?: boolean | undefined;
+          deterministic?: boolean | undefined;
+        }
+      | {
+          kind: "local";
+          inputs: Record<string, unknown>;
+          mediaType: "image" | "video" | "audio";
+          operation:
+            | "concat"
+            | "trim"
+            | "resize"
+            | "crop"
+            | "blank"
+            | "retime"
+            | "frame"
+            | "render"
+            | "cutFrame"
+            | "orbit";
+          deterministic?: boolean | undefined;
+        }
+    >;
+    shotFn?: ShotFunction | undefined;
+    compositionRefs?: string[] | undefined;
+    pictureRefs?: string[] | undefined;
+    stemRefs?: string[] | undefined;
+    narrationStemRefs?: string[] | undefined;
+    offFrameStemRefs?: string[] | undefined;
+    cueKinds?: Record<string, "voice" | "narration" | "mob" | "sfx"> | undefined;
+    songCue?:
+      | {
+          duration: number;
+          src: string;
+          mediaStart: number;
+        }
+      | undefined;
+    songStem?:
+      | {
+          part: "vocals";
+          windows: {
+            duration: number;
+            start: number;
+          }[];
+        }
+      | {
+          part: "instrumental";
+        }
+      | undefined;
+    panels?:
+      | {
+          duration: number;
+          start: number;
+          assetName: string;
+          address: string;
+          blocking?: string | undefined;
+          camera?: string | undefined;
+        }[]
+      | undefined;
+    cutin?:
+      | {
+          refs: string[];
+          panels?:
+            | {
+                duration: number;
+                start: number;
+                assetName: string;
+                address: string;
+                blocking?: string | undefined;
+                camera?: string | undefined;
+              }[]
+            | undefined;
+          sharedRefs?: string[] | undefined;
+        }
+      | undefined;
+    continuedBy?:
+      | {
+          main?: string | undefined;
+          cutin?: string | undefined;
+        }
+      | undefined;
+    coverage?: true | undefined;
+    graphic?: true | undefined;
+    pending?: true | undefined;
+    aside?: true | undefined;
+  }
+>;
+export type ShotDefinition = z.infer<typeof ShotDefinitionSchema>;
+/**
+ * A composition stage's `timeline` callback. It both declares top-level (timeline) assets as a side
+ * effect and returns the shot inputs; the shot starters it closes over are injected by the builder,
+ * so callers pass only `{ format }` (the render size/fps assets may derive their inputs from).
+ */
+export type TimelineFunction = (args: { format: VideoFormat }) => {
+  shots: Array<{
+    id: string;
+    fn: ShotFunction;
+  }>;
+  soundtracks: ReadonlyArray<SoundtrackEntry>;
+  overlay?: ShotFunction;
+};
+/**
+ * A stage's overlay (see `OverlayContext`): the timeline's length, the build its `<Composition>`
+ * comes from (its context already bound), and the refs that composition draws.
+ */
+export type OverlayDefinition = {
+  duration: number;
+  fn: ShotFunction;
+  compositionRefs: readonly string[];
+};
+/**
+ * The video's thumbnail (`defineVideo`'s `thumbnail`). Its frame (`video:thumbnail#frame`) is the
+ * cut at `at` on the timeline, `shotTime` into `shotId`, a `cutFrame` op. Its compose is the build
+ * its still `<Composition>` comes from — run on the canvas it is laid out on, its `shot` already
+ * bound — the refs that composition draws, and the still (`video:thumbnail#still`), a `render` op
+ * over the working canvas; `assets` are the ones it declared (`video:thumbnail.<name>`).
+ */
+export type ThumbnailDefinition = {
+  frame: ThumbnailFrame | null;
+  assets: Record<string, AssetDefinition>;
+  compose: ThumbnailCompose | null;
+};
+export type ThumbnailFrame = {
+  at: number;
+  shotId: string;
+  shotTime: number;
+  asset: LocalAssetDefinition;
+};
+export type ThumbnailCompose = {
+  fn: (format: VideoFormat) => React.ReactElement;
+  compositionRefs: readonly string[];
+  still: LocalAssetDefinition;
+};
+/**
+ * What konte hands a delivery upscale function at export time: the source `video` (a
+ * placeholder so the dependency graph wires it up), the `scale` factor (delivery/working),
+ * and the absolute target `width`/`height`. The user threads whichever its upscaler needs —
+ * scale-based upscalers use `scale`, absolute/preset ones use `width`/`height`.
+ *   - `video` mode: source = one video layer; width/height = the layer's real size × scale
+ *     (ffprobed at export, AR-preserving).
+ *   - `frame` mode: source = the composited shot (working res); width/height = delivery size.
+ */
+export type DeliveryUpscaleInput = {
+  video: MediaAsset<"video">;
+  scale: number;
+  width: number;
+  height: number;
+};
+/**
+ * A delivery upscale: a function that, given konte's injected inputs, returns the upscale
+ * definition (an AssetDefinition, usually built via the `upscale(adapter, inputs)` helper).
+ */
+export type DeliveryUpscaleFn = (input: DeliveryUpscaleInput) => AssetDefinition;
+declare const DeliverySchema: z.ZodObject<
+  {
+    size: z.ZodOptional<
+      z.ZodObject<
+        {
+          width: z.ZodNumber;
+          height: z.ZodNumber;
+        },
+        "strip",
+        z.ZodTypeAny,
+        {
+          width: number;
+          height: number;
+        },
+        {
+          width: number;
+          height: number;
+        }
+      >
+    >;
+    upscale: z.ZodOptional<
+      z.ZodObject<
+        {
+          video: z.ZodOptional<z.ZodType<DeliveryUpscaleFn, z.ZodTypeDef, DeliveryUpscaleFn>>;
+          frame: z.ZodOptional<z.ZodType<DeliveryUpscaleFn, z.ZodTypeDef, DeliveryUpscaleFn>>;
+        },
+        "strip",
+        z.ZodTypeAny,
+        {
+          video?: DeliveryUpscaleFn | undefined;
+          frame?: DeliveryUpscaleFn | undefined;
+        },
+        {
+          video?: DeliveryUpscaleFn | undefined;
+          frame?: DeliveryUpscaleFn | undefined;
+        }
+      >
+    >;
+  },
+  "strip",
+  z.ZodTypeAny,
+  {
+    size?:
+      | {
+          width: number;
+          height: number;
+        }
+      | undefined;
+    upscale?:
+      | {
+          video?: DeliveryUpscaleFn | undefined;
+          frame?: DeliveryUpscaleFn | undefined;
+        }
+      | undefined;
+  },
+  {
+    size?:
+      | {
+          width: number;
+          height: number;
+        }
+      | undefined;
+    upscale?:
+      | {
+          video?: DeliveryUpscaleFn | undefined;
+          frame?: DeliveryUpscaleFn | undefined;
+        }
+      | undefined;
+  }
+>;
+export type Delivery = z.infer<typeof DeliverySchema>;
+declare const VideoFormatSchema: z.ZodObject<
+  {
+    size: z.ZodObject<
+      {
+        width: z.ZodNumber;
+        height: z.ZodNumber;
+      },
+      "strip",
+      z.ZodTypeAny,
+      {
+        width: number;
+        height: number;
+      },
+      {
+        width: number;
+        height: number;
+      }
+    >;
+    fps: z.ZodNumber;
+  },
+  "strip",
+  z.ZodTypeAny,
+  {
+    size: {
+      width: number;
+      height: number;
+    };
+    fps: number;
+  },
+  {
+    size: {
+      width: number;
+      height: number;
+    };
+    fps: number;
+  }
+>;
+export type VideoFormat = z.infer<typeof VideoFormatSchema>;
+declare const ExportSchema: z.ZodObject<
+  {
+    delivery: z.ZodOptional<
+      z.ZodObject<
+        {
+          size: z.ZodOptional<
+            z.ZodObject<
+              {
+                width: z.ZodNumber;
+                height: z.ZodNumber;
+              },
+              "strip",
+              z.ZodTypeAny,
+              {
+                width: number;
+                height: number;
+              },
+              {
+                width: number;
+                height: number;
+              }
+            >
+          >;
+          upscale: z.ZodOptional<
+            z.ZodObject<
+              {
+                video: z.ZodOptional<z.ZodType<DeliveryUpscaleFn, z.ZodTypeDef, DeliveryUpscaleFn>>;
+                frame: z.ZodOptional<z.ZodType<DeliveryUpscaleFn, z.ZodTypeDef, DeliveryUpscaleFn>>;
+              },
+              "strip",
+              z.ZodTypeAny,
+              {
+                video?: DeliveryUpscaleFn | undefined;
+                frame?: DeliveryUpscaleFn | undefined;
+              },
+              {
+                video?: DeliveryUpscaleFn | undefined;
+                frame?: DeliveryUpscaleFn | undefined;
+              }
+            >
+          >;
+        },
+        "strip",
+        z.ZodTypeAny,
+        {
+          size?:
+            | {
+                width: number;
+                height: number;
+              }
+            | undefined;
+          upscale?:
+            | {
+                video?: DeliveryUpscaleFn | undefined;
+                frame?: DeliveryUpscaleFn | undefined;
+              }
+            | undefined;
+        },
+        {
+          size?:
+            | {
+                width: number;
+                height: number;
+              }
+            | undefined;
+          upscale?:
+            | {
+                video?: DeliveryUpscaleFn | undefined;
+                frame?: DeliveryUpscaleFn | undefined;
+              }
+            | undefined;
+        }
+      >
+    >;
+  },
+  "strip",
+  z.ZodTypeAny,
+  {
+    delivery?:
+      | {
+          size?:
+            | {
+                width: number;
+                height: number;
+              }
+            | undefined;
+          upscale?:
+            | {
+                video?: DeliveryUpscaleFn | undefined;
+                frame?: DeliveryUpscaleFn | undefined;
+              }
+            | undefined;
+        }
+      | undefined;
+  },
+  {
+    delivery?:
+      | {
+          size?:
+            | {
+                width: number;
+                height: number;
+              }
+            | undefined;
+          upscale?:
+            | {
+                video?: DeliveryUpscaleFn | undefined;
+                frame?: DeliveryUpscaleFn | undefined;
+              }
+            | undefined;
+        }
+      | undefined;
+  }
+>;
+export type Export = z.infer<typeof ExportSchema>;
+declare const TypographySchema: z.ZodObject<
+  {
+    lang: z.ZodType<LanguageTag, z.ZodTypeDef, LanguageTag>;
+    fonts: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+  },
+  "strip",
+  z.ZodTypeAny,
+  {
+    lang: LanguageTag;
+    fonts?: string[] | undefined;
+  },
+  {
+    lang: LanguageTag;
+    fonts?: string[] | undefined;
+  }
+>;
+export type Typography = z.infer<typeof TypographySchema>;
+declare const VideoDefinitionSchema: z.ZodObject<
+  {
+    format: z.ZodObject<
+      {
+        size: z.ZodObject<
+          {
+            width: z.ZodNumber;
+            height: z.ZodNumber;
+          },
+          "strip",
+          z.ZodTypeAny,
+          {
+            width: number;
+            height: number;
+          },
+          {
+            width: number;
+            height: number;
+          }
+        >;
+        fps: z.ZodNumber;
+      },
+      "strip",
+      z.ZodTypeAny,
+      {
+        size: {
+          width: number;
+          height: number;
+        };
+        fps: number;
+      },
+      {
+        size: {
+          width: number;
+          height: number;
+        };
+        fps: number;
+      }
+    >;
+    typography: z.ZodObject<
+      {
+        lang: z.ZodType<LanguageTag, z.ZodTypeDef, LanguageTag>;
+        fonts: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+      },
+      "strip",
+      z.ZodTypeAny,
+      {
+        lang: LanguageTag;
+        fonts?: string[] | undefined;
+      },
+      {
+        lang: LanguageTag;
+        fonts?: string[] | undefined;
+      }
+    >;
+    shots: z.ZodArray<
+      z.ZodObject<
+        {
+          id: z.ZodString;
+          duration: z.ZodNumber;
+          action: z.ZodString;
+          assets: z.ZodRecord<
+            z.ZodString,
+            z.ZodDiscriminatedUnion<
+              "kind",
+              [
+                z.ZodObject<
+                  {
+                    deterministic: z.ZodOptional<z.ZodBoolean>;
+                    kind: z.ZodLiteral<"comfy">;
+                    workflow: z.ZodString;
+                    workflowHash: z.ZodOptional<z.ZodString>;
+                    inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+                    prunedNodes: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+                    prunedPassThroughs: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+                    outputNodeId: z.ZodOptional<z.ZodString>;
+                    models: z.ZodOptional<
+                      z.ZodArray<
+                        z.ZodObject<
+                          {
+                            filename: z.ZodString;
+                            type: z.ZodEnum<
+                              [
+                                "checkpoint",
+                                "lora",
+                                "VAE",
+                                "clip",
+                                "diffusion_model",
+                                "controlnet",
+                                "upscale",
+                                "embeddings",
+                                "clip_vision",
+                                "unet",
+                              ]
+                            >;
+                            nodeId: z.ZodOptional<z.ZodString>;
+                            url: z.ZodString;
+                            savePath: z.ZodOptional<z.ZodString>;
+                            base: z.ZodOptional<z.ZodString>;
+                            displayName: z.ZodOptional<z.ZodString>;
+                          },
+                          "strip",
+                          z.ZodTypeAny,
+                          {
+                            type:
+                              | "checkpoint"
+                              | "lora"
+                              | "VAE"
+                              | "clip"
+                              | "diffusion_model"
+                              | "controlnet"
+                              | "upscale"
+                              | "embeddings"
+                              | "clip_vision"
+                              | "unet";
+                            url: string;
+                            filename: string;
+                            nodeId?: string | undefined;
+                            savePath?: string | undefined;
+                            base?: string | undefined;
+                            displayName?: string | undefined;
+                          },
+                          {
+                            type:
+                              | "checkpoint"
+                              | "lora"
+                              | "VAE"
+                              | "clip"
+                              | "diffusion_model"
+                              | "controlnet"
+                              | "upscale"
+                              | "embeddings"
+                              | "clip_vision"
+                              | "unet";
+                            url: string;
+                            filename: string;
+                            nodeId?: string | undefined;
+                            savePath?: string | undefined;
+                            base?: string | undefined;
+                            displayName?: string | undefined;
+                          }
+                        >,
+                        "many"
+                      >
+                    >;
+                    nodes: z.ZodOptional<
+                      z.ZodArray<
+                        z.ZodObject<
+                          {
+                            id: z.ZodString;
+                          },
+                          "strip",
+                          z.ZodTypeAny,
+                          {
+                            id: string;
+                          },
+                          {
+                            id: string;
+                          }
+                        >,
+                        "many"
+                      >
+                    >;
+                    inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+                    adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+                    turbo: z.ZodOptional<z.ZodBoolean>;
+                  },
+                  "strip",
+                  z.ZodTypeAny,
+                  {
+                    kind: "comfy";
+                    workflow: string;
+                    inputs: Record<string, unknown>;
+                    workflowHash?: string | undefined;
+                    prunedNodes?: string[] | undefined;
+                    prunedPassThroughs?: Record<string, string> | undefined;
+                    outputNodeId?: string | undefined;
+                    models?:
+                      | {
+                          type:
+                            | "checkpoint"
+                            | "lora"
+                            | "VAE"
+                            | "clip"
+                            | "diffusion_model"
+                            | "controlnet"
+                            | "upscale"
+                            | "embeddings"
+                            | "clip_vision"
+                            | "unet";
+                          url: string;
+                          filename: string;
+                          nodeId?: string | undefined;
+                          savePath?: string | undefined;
+                          base?: string | undefined;
+                          displayName?: string | undefined;
+                        }[]
+                      | undefined;
+                    nodes?:
+                      | {
+                          id: string;
+                        }[]
+                      | undefined;
+                    inputLabels?: Record<string, string> | undefined;
+                    adapterSuppliedInputs?: string[] | undefined;
+                    turbo?: boolean | undefined;
+                    deterministic?: boolean | undefined;
+                  },
+                  {
+                    kind: "comfy";
+                    workflow: string;
+                    inputs: Record<string, unknown>;
+                    workflowHash?: string | undefined;
+                    prunedNodes?: string[] | undefined;
+                    prunedPassThroughs?: Record<string, string> | undefined;
+                    outputNodeId?: string | undefined;
+                    models?:
+                      | {
+                          type:
+                            | "checkpoint"
+                            | "lora"
+                            | "VAE"
+                            | "clip"
+                            | "diffusion_model"
+                            | "controlnet"
+                            | "upscale"
+                            | "embeddings"
+                            | "clip_vision"
+                            | "unet";
+                          url: string;
+                          filename: string;
+                          nodeId?: string | undefined;
+                          savePath?: string | undefined;
+                          base?: string | undefined;
+                          displayName?: string | undefined;
+                        }[]
+                      | undefined;
+                    nodes?:
+                      | {
+                          id: string;
+                        }[]
+                      | undefined;
+                    inputLabels?: Record<string, string> | undefined;
+                    adapterSuppliedInputs?: string[] | undefined;
+                    turbo?: boolean | undefined;
+                    deterministic?: boolean | undefined;
+                  }
+                >,
+                z.ZodObject<
+                  {
+                    deterministic: z.ZodOptional<z.ZodBoolean>;
+                    kind: z.ZodLiteral<"file">;
+                    path: z.ZodString;
+                    type: z.ZodOptional<z.ZodEnum<["image", "video", "audio"]>>;
+                  },
+                  "strip",
+                  z.ZodTypeAny,
+                  {
+                    path: string;
+                    kind: "file";
+                    type?: "image" | "video" | "audio" | undefined;
+                    deterministic?: boolean | undefined;
+                  },
+                  {
+                    path: string;
+                    kind: "file";
+                    type?: "image" | "video" | "audio" | undefined;
+                    deterministic?: boolean | undefined;
+                  }
+                >,
+                z.ZodObject<
+                  {
+                    deterministic: z.ZodOptional<z.ZodBoolean>;
+                    kind: z.ZodLiteral<"fal">;
+                    endpointId: z.ZodString;
+                    mediaType: z.ZodEnum<["image", "video", "audio"]>;
+                    inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+                    inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+                    adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+                    turbo: z.ZodOptional<z.ZodBoolean>;
+                  },
+                  "strip",
+                  z.ZodTypeAny,
+                  {
+                    kind: "fal";
+                    inputs: Record<string, unknown>;
+                    endpointId: string;
+                    mediaType: "image" | "video" | "audio";
+                    inputLabels?: Record<string, string> | undefined;
+                    adapterSuppliedInputs?: string[] | undefined;
+                    turbo?: boolean | undefined;
+                    deterministic?: boolean | undefined;
+                  },
+                  {
+                    kind: "fal";
+                    inputs: Record<string, unknown>;
+                    endpointId: string;
+                    mediaType: "image" | "video" | "audio";
+                    inputLabels?: Record<string, string> | undefined;
+                    adapterSuppliedInputs?: string[] | undefined;
+                    turbo?: boolean | undefined;
+                    deterministic?: boolean | undefined;
+                  }
+                >,
+                z.ZodObject<
+                  {
+                    deterministic: z.ZodOptional<z.ZodBoolean>;
+                    kind: z.ZodLiteral<"local">;
+                    operation: z.ZodEnum<
+                      [
+                        "resize",
+                        "crop",
+                        "blank",
+                        "trim",
+                        "retime",
+                        "concat",
+                        "frame",
+                        "render",
+                        "cutFrame",
+                        "orbit",
+                      ]
+                    >;
+                    mediaType: z.ZodEnum<["image", "video", "audio"]>;
+                    inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+                  },
+                  "strip",
+                  z.ZodTypeAny,
+                  {
+                    kind: "local";
+                    inputs: Record<string, unknown>;
+                    mediaType: "image" | "video" | "audio";
+                    operation:
+                      | "concat"
+                      | "trim"
+                      | "resize"
+                      | "crop"
+                      | "blank"
+                      | "retime"
+                      | "frame"
+                      | "render"
+                      | "cutFrame"
+                      | "orbit";
+                    deterministic?: boolean | undefined;
+                  },
+                  {
+                    kind: "local";
+                    inputs: Record<string, unknown>;
+                    mediaType: "image" | "video" | "audio";
+                    operation:
+                      | "concat"
+                      | "trim"
+                      | "resize"
+                      | "crop"
+                      | "blank"
+                      | "retime"
+                      | "frame"
+                      | "render"
+                      | "cutFrame"
+                      | "orbit";
+                    deterministic?: boolean | undefined;
+                  }
+                >,
+              ]
+            >
+          >;
+          shotFn: z.ZodOptional<z.ZodType<ShotFunction, z.ZodTypeDef, ShotFunction>>;
+          compositionRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+          pictureRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+          stemRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+          narrationStemRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+          offFrameStemRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+          cueKinds: z.ZodOptional<
+            z.ZodRecord<z.ZodString, z.ZodEnum<["voice", "narration", "mob", "sfx"]>>
+          >;
+          songCue: z.ZodOptional<
+            z.ZodObject<
+              {
+                src: z.ZodString;
+                mediaStart: z.ZodNumber;
+                duration: z.ZodNumber;
+              },
+              "strip",
+              z.ZodTypeAny,
+              {
+                duration: number;
+                src: string;
+                mediaStart: number;
+              },
+              {
+                duration: number;
+                src: string;
+                mediaStart: number;
+              }
+            >
+          >;
+          songStem: z.ZodOptional<
+            z.ZodDiscriminatedUnion<
+              "part",
+              [
+                z.ZodObject<
+                  {
+                    part: z.ZodLiteral<"vocals">;
+                    windows: z.ZodArray<
+                      z.ZodObject<
+                        {
+                          start: z.ZodNumber;
+                          duration: z.ZodNumber;
+                        },
+                        "strip",
+                        z.ZodTypeAny,
+                        {
+                          duration: number;
+                          start: number;
+                        },
+                        {
+                          duration: number;
+                          start: number;
+                        }
+                      >,
+                      "many"
+                    >;
+                  },
+                  "strip",
+                  z.ZodTypeAny,
+                  {
+                    part: "vocals";
+                    windows: {
+                      duration: number;
+                      start: number;
+                    }[];
+                  },
+                  {
+                    part: "vocals";
+                    windows: {
+                      duration: number;
+                      start: number;
+                    }[];
+                  }
+                >,
+                z.ZodObject<
+                  {
+                    part: z.ZodLiteral<"instrumental">;
+                  },
+                  "strip",
+                  z.ZodTypeAny,
+                  {
+                    part: "instrumental";
+                  },
+                  {
+                    part: "instrumental";
+                  }
+                >,
+              ]
+            >
+          >;
+          panels: z.ZodOptional<
+            z.ZodArray<
+              z.ZodObject<
+                {
+                  assetName: z.ZodString;
+                  address: z.ZodString;
+                  start: z.ZodNumber;
+                  duration: z.ZodNumber;
+                  blocking: z.ZodOptional<z.ZodString>;
+                  camera: z.ZodOptional<z.ZodString>;
+                },
+                "strip",
+                z.ZodTypeAny,
+                {
+                  duration: number;
+                  start: number;
+                  assetName: string;
+                  address: string;
+                  blocking?: string | undefined;
+                  camera?: string | undefined;
+                },
+                {
+                  duration: number;
+                  start: number;
+                  assetName: string;
+                  address: string;
+                  blocking?: string | undefined;
+                  camera?: string | undefined;
+                }
+              >,
+              "many"
+            >
+          >;
+          continuedBy: z.ZodOptional<
+            z.ZodObject<
+              {
+                main: z.ZodOptional<z.ZodString>;
+                cutin: z.ZodOptional<z.ZodString>;
+              },
+              "strip",
+              z.ZodTypeAny,
+              {
+                main?: string | undefined;
+                cutin?: string | undefined;
+              },
+              {
+                main?: string | undefined;
+                cutin?: string | undefined;
+              }
+            >
+          >;
+          coverage: z.ZodOptional<z.ZodLiteral<true>>;
+          cutin: z.ZodOptional<
+            z.ZodObject<
+              {
+                refs: z.ZodArray<z.ZodString, "many">;
+                sharedRefs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+                panels: z.ZodOptional<
+                  z.ZodArray<
+                    z.ZodObject<
+                      {
+                        assetName: z.ZodString;
+                        address: z.ZodString;
+                        start: z.ZodNumber;
+                        duration: z.ZodNumber;
+                        blocking: z.ZodOptional<z.ZodString>;
+                        camera: z.ZodOptional<z.ZodString>;
+                      },
+                      "strip",
+                      z.ZodTypeAny,
+                      {
+                        duration: number;
+                        start: number;
+                        assetName: string;
+                        address: string;
+                        blocking?: string | undefined;
+                        camera?: string | undefined;
+                      },
+                      {
+                        duration: number;
+                        start: number;
+                        assetName: string;
+                        address: string;
+                        blocking?: string | undefined;
+                        camera?: string | undefined;
+                      }
+                    >,
+                    "many"
+                  >
+                >;
+              },
+              "strip",
+              z.ZodTypeAny,
+              {
+                refs: string[];
+                panels?:
+                  | {
+                      duration: number;
+                      start: number;
+                      assetName: string;
+                      address: string;
+                      blocking?: string | undefined;
+                      camera?: string | undefined;
+                    }[]
+                  | undefined;
+                sharedRefs?: string[] | undefined;
+              },
+              {
+                refs: string[];
+                panels?:
+                  | {
+                      duration: number;
+                      start: number;
+                      assetName: string;
+                      address: string;
+                      blocking?: string | undefined;
+                      camera?: string | undefined;
+                    }[]
+                  | undefined;
+                sharedRefs?: string[] | undefined;
+              }
+            >
+          >;
+          graphic: z.ZodOptional<z.ZodLiteral<true>>;
+          pending: z.ZodOptional<z.ZodLiteral<true>>;
+          aside: z.ZodOptional<z.ZodLiteral<true>>;
+        },
+        "strip",
+        z.ZodTypeAny,
+        {
+          id: string;
+          duration: number;
+          action: string;
+          assets: Record<
+            string,
+            | {
+                kind: "comfy";
+                workflow: string;
+                inputs: Record<string, unknown>;
+                workflowHash?: string | undefined;
+                prunedNodes?: string[] | undefined;
+                prunedPassThroughs?: Record<string, string> | undefined;
+                outputNodeId?: string | undefined;
+                models?:
+                  | {
+                      type:
+                        | "checkpoint"
+                        | "lora"
+                        | "VAE"
+                        | "clip"
+                        | "diffusion_model"
+                        | "controlnet"
+                        | "upscale"
+                        | "embeddings"
+                        | "clip_vision"
+                        | "unet";
+                      url: string;
+                      filename: string;
+                      nodeId?: string | undefined;
+                      savePath?: string | undefined;
+                      base?: string | undefined;
+                      displayName?: string | undefined;
+                    }[]
+                  | undefined;
+                nodes?:
+                  | {
+                      id: string;
+                    }[]
+                  | undefined;
+                inputLabels?: Record<string, string> | undefined;
+                adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
+                deterministic?: boolean | undefined;
+              }
+            | {
+                path: string;
+                kind: "file";
+                type?: "image" | "video" | "audio" | undefined;
+                deterministic?: boolean | undefined;
+              }
+            | {
+                kind: "fal";
+                inputs: Record<string, unknown>;
+                endpointId: string;
+                mediaType: "image" | "video" | "audio";
+                inputLabels?: Record<string, string> | undefined;
+                adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
+                deterministic?: boolean | undefined;
+              }
+            | {
+                kind: "local";
+                inputs: Record<string, unknown>;
+                mediaType: "image" | "video" | "audio";
+                operation:
+                  | "concat"
+                  | "trim"
+                  | "resize"
+                  | "crop"
+                  | "blank"
+                  | "retime"
+                  | "frame"
+                  | "render"
+                  | "cutFrame"
+                  | "orbit";
+                deterministic?: boolean | undefined;
+              }
+          >;
+          shotFn?: ShotFunction | undefined;
+          compositionRefs?: string[] | undefined;
+          pictureRefs?: string[] | undefined;
+          stemRefs?: string[] | undefined;
+          narrationStemRefs?: string[] | undefined;
+          offFrameStemRefs?: string[] | undefined;
+          cueKinds?: Record<string, "voice" | "narration" | "mob" | "sfx"> | undefined;
+          songCue?:
+            | {
+                duration: number;
+                src: string;
+                mediaStart: number;
+              }
+            | undefined;
+          songStem?:
+            | {
+                part: "vocals";
+                windows: {
+                  duration: number;
+                  start: number;
+                }[];
+              }
+            | {
+                part: "instrumental";
+              }
+            | undefined;
+          panels?:
+            | {
+                duration: number;
+                start: number;
+                assetName: string;
+                address: string;
+                blocking?: string | undefined;
+                camera?: string | undefined;
+              }[]
+            | undefined;
+          cutin?:
+            | {
+                refs: string[];
+                panels?:
+                  | {
+                      duration: number;
+                      start: number;
+                      assetName: string;
+                      address: string;
+                      blocking?: string | undefined;
+                      camera?: string | undefined;
+                    }[]
+                  | undefined;
+                sharedRefs?: string[] | undefined;
+              }
+            | undefined;
+          continuedBy?:
+            | {
+                main?: string | undefined;
+                cutin?: string | undefined;
+              }
+            | undefined;
+          coverage?: true | undefined;
+          graphic?: true | undefined;
+          pending?: true | undefined;
+          aside?: true | undefined;
+        },
+        {
+          id: string;
+          duration: number;
+          action: string;
+          assets: Record<
+            string,
+            | {
+                kind: "comfy";
+                workflow: string;
+                inputs: Record<string, unknown>;
+                workflowHash?: string | undefined;
+                prunedNodes?: string[] | undefined;
+                prunedPassThroughs?: Record<string, string> | undefined;
+                outputNodeId?: string | undefined;
+                models?:
+                  | {
+                      type:
+                        | "checkpoint"
+                        | "lora"
+                        | "VAE"
+                        | "clip"
+                        | "diffusion_model"
+                        | "controlnet"
+                        | "upscale"
+                        | "embeddings"
+                        | "clip_vision"
+                        | "unet";
+                      url: string;
+                      filename: string;
+                      nodeId?: string | undefined;
+                      savePath?: string | undefined;
+                      base?: string | undefined;
+                      displayName?: string | undefined;
+                    }[]
+                  | undefined;
+                nodes?:
+                  | {
+                      id: string;
+                    }[]
+                  | undefined;
+                inputLabels?: Record<string, string> | undefined;
+                adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
+                deterministic?: boolean | undefined;
+              }
+            | {
+                path: string;
+                kind: "file";
+                type?: "image" | "video" | "audio" | undefined;
+                deterministic?: boolean | undefined;
+              }
+            | {
+                kind: "fal";
+                inputs: Record<string, unknown>;
+                endpointId: string;
+                mediaType: "image" | "video" | "audio";
+                inputLabels?: Record<string, string> | undefined;
+                adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
+                deterministic?: boolean | undefined;
+              }
+            | {
+                kind: "local";
+                inputs: Record<string, unknown>;
+                mediaType: "image" | "video" | "audio";
+                operation:
+                  | "concat"
+                  | "trim"
+                  | "resize"
+                  | "crop"
+                  | "blank"
+                  | "retime"
+                  | "frame"
+                  | "render"
+                  | "cutFrame"
+                  | "orbit";
+                deterministic?: boolean | undefined;
+              }
+          >;
+          shotFn?: ShotFunction | undefined;
+          compositionRefs?: string[] | undefined;
+          pictureRefs?: string[] | undefined;
+          stemRefs?: string[] | undefined;
+          narrationStemRefs?: string[] | undefined;
+          offFrameStemRefs?: string[] | undefined;
+          cueKinds?: Record<string, "voice" | "narration" | "mob" | "sfx"> | undefined;
+          songCue?:
+            | {
+                duration: number;
+                src: string;
+                mediaStart: number;
+              }
+            | undefined;
+          songStem?:
+            | {
+                part: "vocals";
+                windows: {
+                  duration: number;
+                  start: number;
+                }[];
+              }
+            | {
+                part: "instrumental";
+              }
+            | undefined;
+          panels?:
+            | {
+                duration: number;
+                start: number;
+                assetName: string;
+                address: string;
+                blocking?: string | undefined;
+                camera?: string | undefined;
+              }[]
+            | undefined;
+          cutin?:
+            | {
+                refs: string[];
+                panels?:
+                  | {
+                      duration: number;
+                      start: number;
+                      assetName: string;
+                      address: string;
+                      blocking?: string | undefined;
+                      camera?: string | undefined;
+                    }[]
+                  | undefined;
+                sharedRefs?: string[] | undefined;
+              }
+            | undefined;
+          continuedBy?:
+            | {
+                main?: string | undefined;
+                cutin?: string | undefined;
+              }
+            | undefined;
+          coverage?: true | undefined;
+          graphic?: true | undefined;
+          pending?: true | undefined;
+          aside?: true | undefined;
+        }
+      >,
+      "many"
+    >;
+    topLevelAssets: z.ZodOptional<
+      z.ZodRecord<
+        z.ZodString,
+        z.ZodDiscriminatedUnion<
+          "kind",
+          [
+            z.ZodObject<
+              {
+                deterministic: z.ZodOptional<z.ZodBoolean>;
+                kind: z.ZodLiteral<"comfy">;
+                workflow: z.ZodString;
+                workflowHash: z.ZodOptional<z.ZodString>;
+                inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+                prunedNodes: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+                prunedPassThroughs: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+                outputNodeId: z.ZodOptional<z.ZodString>;
+                models: z.ZodOptional<
+                  z.ZodArray<
+                    z.ZodObject<
+                      {
+                        filename: z.ZodString;
+                        type: z.ZodEnum<
+                          [
+                            "checkpoint",
+                            "lora",
+                            "VAE",
+                            "clip",
+                            "diffusion_model",
+                            "controlnet",
+                            "upscale",
+                            "embeddings",
+                            "clip_vision",
+                            "unet",
+                          ]
+                        >;
+                        nodeId: z.ZodOptional<z.ZodString>;
+                        url: z.ZodString;
+                        savePath: z.ZodOptional<z.ZodString>;
+                        base: z.ZodOptional<z.ZodString>;
+                        displayName: z.ZodOptional<z.ZodString>;
+                      },
+                      "strip",
+                      z.ZodTypeAny,
+                      {
+                        type:
+                          | "checkpoint"
+                          | "lora"
+                          | "VAE"
+                          | "clip"
+                          | "diffusion_model"
+                          | "controlnet"
+                          | "upscale"
+                          | "embeddings"
+                          | "clip_vision"
+                          | "unet";
+                        url: string;
+                        filename: string;
+                        nodeId?: string | undefined;
+                        savePath?: string | undefined;
+                        base?: string | undefined;
+                        displayName?: string | undefined;
+                      },
+                      {
+                        type:
+                          | "checkpoint"
+                          | "lora"
+                          | "VAE"
+                          | "clip"
+                          | "diffusion_model"
+                          | "controlnet"
+                          | "upscale"
+                          | "embeddings"
+                          | "clip_vision"
+                          | "unet";
+                        url: string;
+                        filename: string;
+                        nodeId?: string | undefined;
+                        savePath?: string | undefined;
+                        base?: string | undefined;
+                        displayName?: string | undefined;
+                      }
+                    >,
+                    "many"
+                  >
+                >;
+                nodes: z.ZodOptional<
+                  z.ZodArray<
+                    z.ZodObject<
+                      {
+                        id: z.ZodString;
+                      },
+                      "strip",
+                      z.ZodTypeAny,
+                      {
+                        id: string;
+                      },
+                      {
+                        id: string;
+                      }
+                    >,
+                    "many"
+                  >
+                >;
+                inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+                adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+                turbo: z.ZodOptional<z.ZodBoolean>;
+              },
+              "strip",
+              z.ZodTypeAny,
+              {
+                kind: "comfy";
+                workflow: string;
+                inputs: Record<string, unknown>;
+                workflowHash?: string | undefined;
+                prunedNodes?: string[] | undefined;
+                prunedPassThroughs?: Record<string, string> | undefined;
+                outputNodeId?: string | undefined;
+                models?:
+                  | {
+                      type:
+                        | "checkpoint"
+                        | "lora"
+                        | "VAE"
+                        | "clip"
+                        | "diffusion_model"
+                        | "controlnet"
+                        | "upscale"
+                        | "embeddings"
+                        | "clip_vision"
+                        | "unet";
+                      url: string;
+                      filename: string;
+                      nodeId?: string | undefined;
+                      savePath?: string | undefined;
+                      base?: string | undefined;
+                      displayName?: string | undefined;
+                    }[]
+                  | undefined;
+                nodes?:
+                  | {
+                      id: string;
+                    }[]
+                  | undefined;
+                inputLabels?: Record<string, string> | undefined;
+                adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
+                deterministic?: boolean | undefined;
+              },
+              {
+                kind: "comfy";
+                workflow: string;
+                inputs: Record<string, unknown>;
+                workflowHash?: string | undefined;
+                prunedNodes?: string[] | undefined;
+                prunedPassThroughs?: Record<string, string> | undefined;
+                outputNodeId?: string | undefined;
+                models?:
+                  | {
+                      type:
+                        | "checkpoint"
+                        | "lora"
+                        | "VAE"
+                        | "clip"
+                        | "diffusion_model"
+                        | "controlnet"
+                        | "upscale"
+                        | "embeddings"
+                        | "clip_vision"
+                        | "unet";
+                      url: string;
+                      filename: string;
+                      nodeId?: string | undefined;
+                      savePath?: string | undefined;
+                      base?: string | undefined;
+                      displayName?: string | undefined;
+                    }[]
+                  | undefined;
+                nodes?:
+                  | {
+                      id: string;
+                    }[]
+                  | undefined;
+                inputLabels?: Record<string, string> | undefined;
+                adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
+                deterministic?: boolean | undefined;
+              }
+            >,
+            z.ZodObject<
+              {
+                deterministic: z.ZodOptional<z.ZodBoolean>;
+                kind: z.ZodLiteral<"file">;
+                path: z.ZodString;
+                type: z.ZodOptional<z.ZodEnum<["image", "video", "audio"]>>;
+              },
+              "strip",
+              z.ZodTypeAny,
+              {
+                path: string;
+                kind: "file";
+                type?: "image" | "video" | "audio" | undefined;
+                deterministic?: boolean | undefined;
+              },
+              {
+                path: string;
+                kind: "file";
+                type?: "image" | "video" | "audio" | undefined;
+                deterministic?: boolean | undefined;
+              }
+            >,
+            z.ZodObject<
+              {
+                deterministic: z.ZodOptional<z.ZodBoolean>;
+                kind: z.ZodLiteral<"fal">;
+                endpointId: z.ZodString;
+                mediaType: z.ZodEnum<["image", "video", "audio"]>;
+                inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+                inputLabels: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+                adapterSuppliedInputs: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+                turbo: z.ZodOptional<z.ZodBoolean>;
+              },
+              "strip",
+              z.ZodTypeAny,
+              {
+                kind: "fal";
+                inputs: Record<string, unknown>;
+                endpointId: string;
+                mediaType: "image" | "video" | "audio";
+                inputLabels?: Record<string, string> | undefined;
+                adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
+                deterministic?: boolean | undefined;
+              },
+              {
+                kind: "fal";
+                inputs: Record<string, unknown>;
+                endpointId: string;
+                mediaType: "image" | "video" | "audio";
+                inputLabels?: Record<string, string> | undefined;
+                adapterSuppliedInputs?: string[] | undefined;
+                turbo?: boolean | undefined;
+                deterministic?: boolean | undefined;
+              }
+            >,
+            z.ZodObject<
+              {
+                deterministic: z.ZodOptional<z.ZodBoolean>;
+                kind: z.ZodLiteral<"local">;
+                operation: z.ZodEnum<
+                  [
+                    "resize",
+                    "crop",
+                    "blank",
+                    "trim",
+                    "retime",
+                    "concat",
+                    "frame",
+                    "render",
+                    "cutFrame",
+                    "orbit",
+                  ]
+                >;
+                mediaType: z.ZodEnum<["image", "video", "audio"]>;
+                inputs: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+              },
+              "strip",
+              z.ZodTypeAny,
+              {
+                kind: "local";
+                inputs: Record<string, unknown>;
+                mediaType: "image" | "video" | "audio";
+                operation:
+                  | "concat"
+                  | "trim"
+                  | "resize"
+                  | "crop"
+                  | "blank"
+                  | "retime"
+                  | "frame"
+                  | "render"
+                  | "cutFrame"
+                  | "orbit";
+                deterministic?: boolean | undefined;
+              },
+              {
+                kind: "local";
+                inputs: Record<string, unknown>;
+                mediaType: "image" | "video" | "audio";
+                operation:
+                  | "concat"
+                  | "trim"
+                  | "resize"
+                  | "crop"
+                  | "blank"
+                  | "retime"
+                  | "frame"
+                  | "render"
+                  | "cutFrame"
+                  | "orbit";
+                deterministic?: boolean | undefined;
+              }
+            >,
+          ]
+        >
+      >
+    >;
+    timelineSoundtracks: z.ZodOptional<
+      z.ZodType<
+        readonly SoundtrackEntry<string>[],
+        z.ZodTypeDef,
+        readonly SoundtrackEntry<string>[]
+      >
+    >;
+    song: z.ZodOptional<z.ZodString>;
+    overlay: z.ZodOptional<z.ZodType<OverlayDefinition, z.ZodTypeDef, OverlayDefinition>>;
+    timelineFn: z.ZodOptional<z.ZodType<TimelineFunction, z.ZodTypeDef, TimelineFunction>>;
+    prompts: z.ZodOptional<
+      z.ZodType<readonly PromptOccurrence[], z.ZodTypeDef, readonly PromptOccurrence[]>
+    >;
+    pins: z.ZodOptional<
+      z.ZodType<readonly PinOccurrence[], z.ZodTypeDef, readonly PinOccurrence[]>
+    >;
+    imageInputs: z.ZodOptional<
+      z.ZodType<readonly ImageInputOccurrence[], z.ZodTypeDef, readonly ImageInputOccurrence[]>
+    >;
+    prevPanelReaders: z.ZodOptional<z.ZodType<readonly string[], z.ZodTypeDef, readonly string[]>>;
+    stemInputs: z.ZodOptional<
+      z.ZodType<readonly StemInputOccurrence[], z.ZodTypeDef, readonly StemInputOccurrence[]>
+    >;
+    respellings: z.ZodOptional<
+      z.ZodArray<
+        z.ZodObject<
+          {
+            shot: z.ZodOptional<z.ZodString>;
+            line: z.ZodString;
+            as: z.ZodString;
+          },
+          "strip",
+          z.ZodTypeAny,
+          {
+            line: string;
+            as: string;
+            shot?: string | undefined;
+          },
+          {
+            line: string;
+            as: string;
+            shot?: string | undefined;
+          }
+        >,
+        "many"
+      >
+    >;
+    buildFindings: z.ZodOptional<
+      z.ZodType<readonly BuildFinding[], z.ZodTypeDef, readonly BuildFinding[]>
+    >;
+  } & {
+    stage: z.ZodLiteral<"video">;
+    export: z.ZodOptional<
+      z.ZodObject<
+        {
+          delivery: z.ZodOptional<
+            z.ZodObject<
+              {
+                size: z.ZodOptional<
+                  z.ZodObject<
+                    {
+                      width: z.ZodNumber;
+                      height: z.ZodNumber;
+                    },
+                    "strip",
+                    z.ZodTypeAny,
+                    {
+                      width: number;
+                      height: number;
+                    },
+                    {
+                      width: number;
+                      height: number;
+                    }
+                  >
+                >;
+                upscale: z.ZodOptional<
+                  z.ZodObject<
+                    {
+                      video: z.ZodOptional<
+                        z.ZodType<DeliveryUpscaleFn, z.ZodTypeDef, DeliveryUpscaleFn>
+                      >;
+                      frame: z.ZodOptional<
+                        z.ZodType<DeliveryUpscaleFn, z.ZodTypeDef, DeliveryUpscaleFn>
+                      >;
+                    },
+                    "strip",
+                    z.ZodTypeAny,
+                    {
+                      video?: DeliveryUpscaleFn | undefined;
+                      frame?: DeliveryUpscaleFn | undefined;
+                    },
+                    {
+                      video?: DeliveryUpscaleFn | undefined;
+                      frame?: DeliveryUpscaleFn | undefined;
+                    }
+                  >
+                >;
+              },
+              "strip",
+              z.ZodTypeAny,
+              {
+                size?:
+                  | {
+                      width: number;
+                      height: number;
+                    }
+                  | undefined;
+                upscale?:
+                  | {
+                      video?: DeliveryUpscaleFn | undefined;
+                      frame?: DeliveryUpscaleFn | undefined;
+                    }
+                  | undefined;
+              },
+              {
+                size?:
+                  | {
+                      width: number;
+                      height: number;
+                    }
+                  | undefined;
+                upscale?:
+                  | {
+                      video?: DeliveryUpscaleFn | undefined;
+                      frame?: DeliveryUpscaleFn | undefined;
+                    }
+                  | undefined;
+              }
+            >
+          >;
+        },
+        "strip",
+        z.ZodTypeAny,
+        {
+          delivery?:
+            | {
+                size?:
+                  | {
+                      width: number;
+                      height: number;
+                    }
+                  | undefined;
+                upscale?:
+                  | {
+                      video?: DeliveryUpscaleFn | undefined;
+                      frame?: DeliveryUpscaleFn | undefined;
+                    }
+                  | undefined;
+              }
+            | undefined;
+        },
+        {
+          delivery?:
+            | {
+                size?:
+                  | {
+                      width: number;
+                      height: number;
+                    }
+                  | undefined;
+                upscale?:
+                  | {
+                      video?: DeliveryUpscaleFn | undefined;
+                      frame?: DeliveryUpscaleFn | undefined;
+                    }
+                  | undefined;
+              }
+            | undefined;
+        }
+      >
+    >;
+    thumbnail: z.ZodOptional<
+      z.ZodType<ThumbnailDefinition | null, z.ZodTypeDef, ThumbnailDefinition | null>
+    >;
+  },
+  "strip",
+  z.ZodTypeAny,
+  {
+    stage: "video";
+    format: {
+      size: {
+        width: number;
+        height: number;
+      };
+      fps: number;
+    };
+    typography: {
+      lang: LanguageTag;
+      fonts?: string[] | undefined;
+    };
+    shots: {
+      id: string;
+      duration: number;
+      action: string;
+      assets: Record<
+        string,
+        | {
+            kind: "comfy";
+            workflow: string;
+            inputs: Record<string, unknown>;
+            workflowHash?: string | undefined;
+            prunedNodes?: string[] | undefined;
+            prunedPassThroughs?: Record<string, string> | undefined;
+            outputNodeId?: string | undefined;
+            models?:
+              | {
+                  type:
+                    | "checkpoint"
+                    | "lora"
+                    | "VAE"
+                    | "clip"
+                    | "diffusion_model"
+                    | "controlnet"
+                    | "upscale"
+                    | "embeddings"
+                    | "clip_vision"
+                    | "unet";
+                  url: string;
+                  filename: string;
+                  nodeId?: string | undefined;
+                  savePath?: string | undefined;
+                  base?: string | undefined;
+                  displayName?: string | undefined;
+                }[]
+              | undefined;
+            nodes?:
+              | {
+                  id: string;
+                }[]
+              | undefined;
+            inputLabels?: Record<string, string> | undefined;
+            adapterSuppliedInputs?: string[] | undefined;
+            turbo?: boolean | undefined;
+            deterministic?: boolean | undefined;
+          }
+        | {
+            path: string;
+            kind: "file";
+            type?: "image" | "video" | "audio" | undefined;
+            deterministic?: boolean | undefined;
+          }
+        | {
+            kind: "fal";
+            inputs: Record<string, unknown>;
+            endpointId: string;
+            mediaType: "image" | "video" | "audio";
+            inputLabels?: Record<string, string> | undefined;
+            adapterSuppliedInputs?: string[] | undefined;
+            turbo?: boolean | undefined;
+            deterministic?: boolean | undefined;
+          }
+        | {
+            kind: "local";
+            inputs: Record<string, unknown>;
+            mediaType: "image" | "video" | "audio";
+            operation:
+              | "concat"
+              | "trim"
+              | "resize"
+              | "crop"
+              | "blank"
+              | "retime"
+              | "frame"
+              | "render"
+              | "cutFrame"
+              | "orbit";
+            deterministic?: boolean | undefined;
+          }
+      >;
+      shotFn?: ShotFunction | undefined;
+      compositionRefs?: string[] | undefined;
+      pictureRefs?: string[] | undefined;
+      stemRefs?: string[] | undefined;
+      narrationStemRefs?: string[] | undefined;
+      offFrameStemRefs?: string[] | undefined;
+      cueKinds?: Record<string, "voice" | "narration" | "mob" | "sfx"> | undefined;
+      songCue?:
+        | {
+            duration: number;
+            src: string;
+            mediaStart: number;
+          }
+        | undefined;
+      songStem?:
+        | {
+            part: "vocals";
+            windows: {
+              duration: number;
+              start: number;
+            }[];
+          }
+        | {
+            part: "instrumental";
+          }
+        | undefined;
+      panels?:
+        | {
+            duration: number;
+            start: number;
+            assetName: string;
+            address: string;
+            blocking?: string | undefined;
+            camera?: string | undefined;
+          }[]
+        | undefined;
+      cutin?:
+        | {
+            refs: string[];
+            panels?:
+              | {
+                  duration: number;
+                  start: number;
+                  assetName: string;
+                  address: string;
+                  blocking?: string | undefined;
+                  camera?: string | undefined;
+                }[]
+              | undefined;
+            sharedRefs?: string[] | undefined;
+          }
+        | undefined;
+      continuedBy?:
+        | {
+            main?: string | undefined;
+            cutin?: string | undefined;
+          }
+        | undefined;
+      coverage?: true | undefined;
+      graphic?: true | undefined;
+      pending?: true | undefined;
+      aside?: true | undefined;
+    }[];
+    topLevelAssets?:
+      | Record<
+          string,
+          | {
+              kind: "comfy";
+              workflow: string;
+              inputs: Record<string, unknown>;
+              workflowHash?: string | undefined;
+              prunedNodes?: string[] | undefined;
+              prunedPassThroughs?: Record<string, string> | undefined;
+              outputNodeId?: string | undefined;
+              models?:
+                | {
+                    type:
+                      | "checkpoint"
+                      | "lora"
+                      | "VAE"
+                      | "clip"
+                      | "diffusion_model"
+                      | "controlnet"
+                      | "upscale"
+                      | "embeddings"
+                      | "clip_vision"
+                      | "unet";
+                    url: string;
+                    filename: string;
+                    nodeId?: string | undefined;
+                    savePath?: string | undefined;
+                    base?: string | undefined;
+                    displayName?: string | undefined;
+                  }[]
+                | undefined;
+              nodes?:
+                | {
+                    id: string;
+                  }[]
+                | undefined;
+              inputLabels?: Record<string, string> | undefined;
+              adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
+              deterministic?: boolean | undefined;
+            }
+          | {
+              path: string;
+              kind: "file";
+              type?: "image" | "video" | "audio" | undefined;
+              deterministic?: boolean | undefined;
+            }
+          | {
+              kind: "fal";
+              inputs: Record<string, unknown>;
+              endpointId: string;
+              mediaType: "image" | "video" | "audio";
+              inputLabels?: Record<string, string> | undefined;
+              adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
+              deterministic?: boolean | undefined;
+            }
+          | {
+              kind: "local";
+              inputs: Record<string, unknown>;
+              mediaType: "image" | "video" | "audio";
+              operation:
+                | "concat"
+                | "trim"
+                | "resize"
+                | "crop"
+                | "blank"
+                | "retime"
+                | "frame"
+                | "render"
+                | "cutFrame"
+                | "orbit";
+              deterministic?: boolean | undefined;
+            }
+        >
+      | undefined;
+    timelineSoundtracks?: readonly SoundtrackEntry<string>[] | undefined;
+    song?: string | undefined;
+    overlay?: OverlayDefinition | undefined;
+    timelineFn?: TimelineFunction | undefined;
+    prompts?: readonly PromptOccurrence[] | undefined;
+    pins?: readonly PinOccurrence[] | undefined;
+    imageInputs?: readonly ImageInputOccurrence[] | undefined;
+    prevPanelReaders?: readonly string[] | undefined;
+    stemInputs?: readonly StemInputOccurrence[] | undefined;
+    respellings?:
+      | {
+          line: string;
+          as: string;
+          shot?: string | undefined;
+        }[]
+      | undefined;
+    buildFindings?: readonly BuildFinding[] | undefined;
+    export?:
+      | {
+          delivery?:
+            | {
+                size?:
+                  | {
+                      width: number;
+                      height: number;
+                    }
+                  | undefined;
+                upscale?:
+                  | {
+                      video?: DeliveryUpscaleFn | undefined;
+                      frame?: DeliveryUpscaleFn | undefined;
+                    }
+                  | undefined;
+              }
+            | undefined;
+        }
+      | undefined;
+    thumbnail?: ThumbnailDefinition | null | undefined;
+  },
+  {
+    stage: "video";
+    format: {
+      size: {
+        width: number;
+        height: number;
+      };
+      fps: number;
+    };
+    typography: {
+      lang: LanguageTag;
+      fonts?: string[] | undefined;
+    };
+    shots: {
+      id: string;
+      duration: number;
+      action: string;
+      assets: Record<
+        string,
+        | {
+            kind: "comfy";
+            workflow: string;
+            inputs: Record<string, unknown>;
+            workflowHash?: string | undefined;
+            prunedNodes?: string[] | undefined;
+            prunedPassThroughs?: Record<string, string> | undefined;
+            outputNodeId?: string | undefined;
+            models?:
+              | {
+                  type:
+                    | "checkpoint"
+                    | "lora"
+                    | "VAE"
+                    | "clip"
+                    | "diffusion_model"
+                    | "controlnet"
+                    | "upscale"
+                    | "embeddings"
+                    | "clip_vision"
+                    | "unet";
+                  url: string;
+                  filename: string;
+                  nodeId?: string | undefined;
+                  savePath?: string | undefined;
+                  base?: string | undefined;
+                  displayName?: string | undefined;
+                }[]
+              | undefined;
+            nodes?:
+              | {
+                  id: string;
+                }[]
+              | undefined;
+            inputLabels?: Record<string, string> | undefined;
+            adapterSuppliedInputs?: string[] | undefined;
+            turbo?: boolean | undefined;
+            deterministic?: boolean | undefined;
+          }
+        | {
+            path: string;
+            kind: "file";
+            type?: "image" | "video" | "audio" | undefined;
+            deterministic?: boolean | undefined;
+          }
+        | {
+            kind: "fal";
+            inputs: Record<string, unknown>;
+            endpointId: string;
+            mediaType: "image" | "video" | "audio";
+            inputLabels?: Record<string, string> | undefined;
+            adapterSuppliedInputs?: string[] | undefined;
+            turbo?: boolean | undefined;
+            deterministic?: boolean | undefined;
+          }
+        | {
+            kind: "local";
+            inputs: Record<string, unknown>;
+            mediaType: "image" | "video" | "audio";
+            operation:
+              | "concat"
+              | "trim"
+              | "resize"
+              | "crop"
+              | "blank"
+              | "retime"
+              | "frame"
+              | "render"
+              | "cutFrame"
+              | "orbit";
+            deterministic?: boolean | undefined;
+          }
+      >;
+      shotFn?: ShotFunction | undefined;
+      compositionRefs?: string[] | undefined;
+      pictureRefs?: string[] | undefined;
+      stemRefs?: string[] | undefined;
+      narrationStemRefs?: string[] | undefined;
+      offFrameStemRefs?: string[] | undefined;
+      cueKinds?: Record<string, "voice" | "narration" | "mob" | "sfx"> | undefined;
+      songCue?:
+        | {
+            duration: number;
+            src: string;
+            mediaStart: number;
+          }
+        | undefined;
+      songStem?:
+        | {
+            part: "vocals";
+            windows: {
+              duration: number;
+              start: number;
+            }[];
+          }
+        | {
+            part: "instrumental";
+          }
+        | undefined;
+      panels?:
+        | {
+            duration: number;
+            start: number;
+            assetName: string;
+            address: string;
+            blocking?: string | undefined;
+            camera?: string | undefined;
+          }[]
+        | undefined;
+      cutin?:
+        | {
+            refs: string[];
+            panels?:
+              | {
+                  duration: number;
+                  start: number;
+                  assetName: string;
+                  address: string;
+                  blocking?: string | undefined;
+                  camera?: string | undefined;
+                }[]
+              | undefined;
+            sharedRefs?: string[] | undefined;
+          }
+        | undefined;
+      continuedBy?:
+        | {
+            main?: string | undefined;
+            cutin?: string | undefined;
+          }
+        | undefined;
+      coverage?: true | undefined;
+      graphic?: true | undefined;
+      pending?: true | undefined;
+      aside?: true | undefined;
+    }[];
+    topLevelAssets?:
+      | Record<
+          string,
+          | {
+              kind: "comfy";
+              workflow: string;
+              inputs: Record<string, unknown>;
+              workflowHash?: string | undefined;
+              prunedNodes?: string[] | undefined;
+              prunedPassThroughs?: Record<string, string> | undefined;
+              outputNodeId?: string | undefined;
+              models?:
+                | {
+                    type:
+                      | "checkpoint"
+                      | "lora"
+                      | "VAE"
+                      | "clip"
+                      | "diffusion_model"
+                      | "controlnet"
+                      | "upscale"
+                      | "embeddings"
+                      | "clip_vision"
+                      | "unet";
+                    url: string;
+                    filename: string;
+                    nodeId?: string | undefined;
+                    savePath?: string | undefined;
+                    base?: string | undefined;
+                    displayName?: string | undefined;
+                  }[]
+                | undefined;
+              nodes?:
+                | {
+                    id: string;
+                  }[]
+                | undefined;
+              inputLabels?: Record<string, string> | undefined;
+              adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
+              deterministic?: boolean | undefined;
+            }
+          | {
+              path: string;
+              kind: "file";
+              type?: "image" | "video" | "audio" | undefined;
+              deterministic?: boolean | undefined;
+            }
+          | {
+              kind: "fal";
+              inputs: Record<string, unknown>;
+              endpointId: string;
+              mediaType: "image" | "video" | "audio";
+              inputLabels?: Record<string, string> | undefined;
+              adapterSuppliedInputs?: string[] | undefined;
+              turbo?: boolean | undefined;
+              deterministic?: boolean | undefined;
+            }
+          | {
+              kind: "local";
+              inputs: Record<string, unknown>;
+              mediaType: "image" | "video" | "audio";
+              operation:
+                | "concat"
+                | "trim"
+                | "resize"
+                | "crop"
+                | "blank"
+                | "retime"
+                | "frame"
+                | "render"
+                | "cutFrame"
+                | "orbit";
+              deterministic?: boolean | undefined;
+            }
+        >
+      | undefined;
+    timelineSoundtracks?: readonly SoundtrackEntry<string>[] | undefined;
+    song?: string | undefined;
+    overlay?: OverlayDefinition | undefined;
+    timelineFn?: TimelineFunction | undefined;
+    prompts?: readonly PromptOccurrence[] | undefined;
+    pins?: readonly PinOccurrence[] | undefined;
+    imageInputs?: readonly ImageInputOccurrence[] | undefined;
+    prevPanelReaders?: readonly string[] | undefined;
+    stemInputs?: readonly StemInputOccurrence[] | undefined;
+    respellings?:
+      | {
+          line: string;
+          as: string;
+          shot?: string | undefined;
+        }[]
+      | undefined;
+    buildFindings?: readonly BuildFinding[] | undefined;
+    export?:
+      | {
+          delivery?:
+            | {
+                size?:
+                  | {
+                      width: number;
+                      height: number;
+                    }
+                  | undefined;
+                upscale?:
+                  | {
+                      video?: DeliveryUpscaleFn | undefined;
+                      frame?: DeliveryUpscaleFn | undefined;
+                    }
+                  | undefined;
+              }
+            | undefined;
+        }
+      | undefined;
+    thumbnail?: ThumbnailDefinition | null | undefined;
+  }
+>;
+export type VideoDefinition = z.infer<typeof VideoDefinitionSchema>;
+export type ShotFunction = () => React.ReactElement;
+/**
+ * A reference is the shared upstream stage: a flat pool of named assets (characters, backgrounds,
+ * bgm) shared across the animatic and video stages. Assets are stored in `topLevelAssets` (the
+ * shared non-shot pool) with no shots.
+ *
+ * `exposedAssetNames` are the asset names the callback returned — the ones published as
+ * `reference.<name>` to the other stages. They are the usage roots for the reference pool:
+ * an exposed asset (and anything it transitively consumes) is "used" even before a panel
+ * references it, while a declared asset that is neither exposed nor consumed is unused.
+ */
+export interface ReferenceDefinition {
+  shots: never[];
+  topLevelAssets?: Record<string, AssetDefinition>;
+  exposedAssetNames?: string[];
+  prompts?: readonly PromptOccurrence[];
+  pins?: readonly PinOccurrence[];
+}
 declare const VIEWS: readonly ["front", "back", "side", "top"];
 export type View = (typeof VIEWS)[number];
 export type ImagedView = Exclude<View, "front">;

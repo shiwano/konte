@@ -153,6 +153,7 @@ describe("listPanelReferenceReach", () => {
     // Hand-built: the terse `shot()` helper bypasses `timeline`, so a build cannot be handed the
     // plate handle.
     const plated = {
+      stage: "animatic",
       shots: [
         {
           id: "01",
@@ -448,6 +449,7 @@ describe("listPlateTexts", () => {
   it("stops at another returned plate", () => {
     const occurrence = (address: string, value: string) => ({ address, input: "prompt", value });
     const nested = {
+      stage: "animatic",
       shots: [],
       plates: {
         wide: { kind: "comfy", inputs: { image: "__konte:reference:ferryDeck__" } },

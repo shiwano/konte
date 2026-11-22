@@ -5,7 +5,7 @@ import {
   formatShotAddress,
   tryParseAddress,
 } from "../../core/address.js";
-import { getAssetEntry } from "../../core/definition-addresses.js";
+import { exposedPlateIdsOf, getAssetEntry } from "../../core/definition-addresses.js";
 import {
   listPanelConditioning,
   type PanelConditioning,
@@ -27,11 +27,11 @@ import {
 } from "../../core/prompt-shots.js";
 import { loadVideoAndAnimatic } from "../../core/stage-definitions.js";
 import type { AnimaticDefinition } from "../../core/types/animatic.js";
-import type { AssetStageDefinition } from "../../core/types/index.js";
+import { type AssetStageDefinition, isShotStageDefinition } from "../../core/types/index.js";
 import type { PanelDefinition, PanelLane, Respelling } from "../../core/types/definition.js";
 import { openVideoSession } from "../../core/video-session.js";
 import { spendHeldAssets } from "../finding-gates.js";
-import { type DefinitionWithDuration, loadDefinitionWithDuration } from "./inspect-definition.js";
+import { loadAssetStageDefinition } from "./inspect-definition.js";
 import type { PromptOccurrence } from "../../core/types/stage-build.js";
 
 export type PromptScope =
@@ -57,12 +57,13 @@ export async function inspectPrompts(
   const loaded = shotStages
     ? shotStages.video
     : stage
-      ? await loadDefinitionWithDuration(videoRoot, stage)
+      ? await loadAssetStageDefinition(videoRoot, stage)
       : null;
-  const definition: DefinitionWithDuration | null = loaded;
+  const definition: AssetStageDefinition | null = loaded;
   const boardMoves = panelMovesByShot(shotStages?.animatic);
   const prompts = definition?.prompts ?? [];
-  const respellings = definition?.respellings;
+  const respellings =
+    definition && isShotStageDefinition(definition) ? definition.respellings : undefined;
   const promptShots = await loadPromptShots(videoRoot);
 
   const prefix =
@@ -79,9 +80,8 @@ export async function inspectPrompts(
         : true,
   );
   const plates = platesUnderScope(definition, scope, promptShots);
-  const cutinAddresses =
-    definition && stage ? cutinLaneAddresses(stage, definition) : new Set<string>();
-  const keyframes = keyframesUnderScope(definition, stage, matches);
+  const cutinAddresses = definition ? cutinLaneAddresses(definition) : new Set<string>();
+  const keyframes = keyframesUnderScope(definition, matches);
 
   let pending: Set<string> | undefined;
   if (pendingGeneration && stage) {
@@ -281,11 +281,12 @@ function panelPlate(k: PanelConditioning, promptShots: PromptShots | null): stri
 // Every address behind the panel stays in `conditioning`, this scope's or not — a narrower scope
 // cuts the listing, never the frame.
 function keyframesUnderScope(
-  definition: DefinitionWithDuration | null,
-  stage: AssetStage | null,
+  definition: AssetStageDefinition | null,
   matches: readonly PromptOccurrence[],
 ): PanelConditioning[] {
-  if (!definition || stage !== "animatic") return [];
+  if (!definition || !isShotStageDefinition(definition) || definition.stage !== "animatic") {
+    return [];
+  }
   const listed = new Set(matches.map((p) => p.address));
   return listPanelConditioning(definition).filter((k) =>
     k.conditioning.some((address) => listed.has(address)),
@@ -294,26 +295,25 @@ function keyframesUnderScope(
 
 // The addresses only a shot's `<Cutin>` reaches. One the main frame reaches too keeps the shot's
 // lines.
-function cutinLaneAddresses(stage: AssetStage, definition: DefinitionWithDuration): Set<string> {
+function cutinLaneAddresses(definition: AssetStageDefinition): Set<string> {
   const out = new Set<string>();
-  if (stage !== "animatic" && stage !== "video") return out;
+  if (!isShotStageDefinition(definition)) return out;
   for (const shot of definition.shots) {
     if (!shot.cutin) continue;
-    const { main, cutin } = shotLaneChains(stage, shot);
+    const { main, cutin } = shotLaneChains(definition.stage, shot);
     for (const address of cutin) if (!main.has(address)) out.add(address);
   }
   return out;
 }
 
 function platesUnderScope(
-  definition: DefinitionWithDuration | null,
+  definition: AssetStageDefinition | null,
   scope: PromptScope,
   promptShots: PromptShots | null,
 ): { address: string; frame: PlateFrame | null }[] {
-  if (!definition?.exposedPlateIds) return [];
   if (scope.level === "shot" || scope.level === "direction") return [];
   const out: { address: string; frame: PlateFrame | null }[] = [];
-  for (const id of definition.exposedPlateIds) {
+  for (const id of exposedPlateIdsOf(definition)) {
     const address = formatPlateAddress(id);
     if (scope.level === "asset" && scope.address !== address) continue;
     out.push({ address, frame: promptShots?.plateFrame.get(id) ?? null });

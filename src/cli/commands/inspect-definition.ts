@@ -1,44 +1,26 @@
-import type { AssetStage } from "../../core/address.js";
+import type { AssetStage, ShotStage } from "../../core/address.js";
 import { assertNever } from "../../core/assert.js";
 import { loadAnimatic, loadReference } from "../../core/loader.js";
 import { loadVideoAndAnimatic } from "../../core/stage-definitions.js";
-import type { Respelling } from "../../core/types/definition.js";
 import type {
-  AssetDefinition,
+  AnimaticDefinition,
   AssetStageDefinition,
-  ShotDefinition,
+  StageDefinition,
 } from "../../core/types/index.js";
-import type { PromptOccurrence } from "../../core/types/stage-build.js";
 
-export interface ShotLike {
-  id: string;
-  duration: number;
-  assets: Record<string, AssetDefinition>;
-  pending?: boolean;
-  // What makes the shot carry a composition / an audio stem. Both are declared here so a listing
-  // can offer those no-job leaves without casting to VideoDefinition per call.
-  shotFn?: unknown;
-  stemRefs?: readonly string[];
-  narrationStemRefs?: readonly string[];
-  offFrameStemRefs?: readonly string[];
-  compositionRefs?: string[];
-  panels?: ShotDefinition["panels"];
-  cutin?: ShotDefinition["cutin"];
-}
-
-export interface DefinitionWithDuration {
-  shots: ShotLike[];
-  // Absent on the reference.
-  format?: { fps: number };
-  topLevelAssets?: Record<string, AssetDefinition>;
-  timelineSoundtracks?: readonly unknown[];
-  prompts?: readonly PromptOccurrence[];
-  respellings?: readonly Respelling[];
-  // Animatic only: the returned plates, in return order.
-  exposedPlateIds?: string[];
-}
-
-export async function loadDefinitionWithDuration(
+export function loadAssetStageDefinition(
+  videoRoot: string,
+  stage: "animatic",
+): Promise<AnimaticDefinition>;
+export function loadAssetStageDefinition(
+  videoRoot: string,
+  stage: ShotStage,
+): Promise<StageDefinition>;
+export function loadAssetStageDefinition(
+  videoRoot: string,
+  stage: AssetStage,
+): Promise<AssetStageDefinition>;
+export async function loadAssetStageDefinition(
   videoRoot: string,
   stage: AssetStage,
 ): Promise<AssetStageDefinition> {
@@ -52,6 +34,6 @@ export async function loadDefinitionWithDuration(
     case "animatic":
       return await loadAnimatic(videoRoot);
     default:
-      return assertNever(stage, "loadDefinitionWithDuration");
+      return assertNever(stage, "loadAssetStageDefinition");
   }
 }

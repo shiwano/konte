@@ -108,6 +108,7 @@ describe("listPanelConditioning", () => {
 
   it("names the plate a panel stands on, a crop with no prompt of its own included", () => {
     const plated = {
+      stage: "animatic",
       shots: [
         {
           id: "01",

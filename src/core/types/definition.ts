@@ -1,3 +1,4 @@
+import type { AnimaticDefinition } from "./animatic.js";
 import type { SoundtrackEntry } from "./soundtrack.js";
 import type { MediaAsset } from "./media.js";
 import { z } from "zod";
@@ -473,7 +474,7 @@ export const StageDefinitionSchema = z.object({
   buildFindings: z.custom<readonly BuildFinding[]>().optional(),
 });
 
-export type StageDefinition = z.infer<typeof StageDefinitionSchema>;
+export type StageDefinition = AnimaticDefinition | VideoDefinition;
 
 export const VideoDefinitionSchema = StageDefinitionSchema.extend({
   stage: z.literal("video"),

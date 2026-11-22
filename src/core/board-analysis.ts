@@ -18,7 +18,6 @@ import {
   isPendingShot,
   type ReferenceDefinition,
   type AnimaticDefinition,
-  type PanelDefinition,
   type PanelLane,
   type ShotDefinition,
   type VideoDefinition,
@@ -519,16 +518,11 @@ export type PanelConditioning = {
   conditioning: string[];
 };
 
-// Structural so a listing can pass the definition it already loaded.
-type PanelConditioningSource = AnimaticPictureSource & {
-  prompts?: readonly { address: string; negative?: boolean; spoken?: boolean }[];
-};
-
 // A panel name is the author's and a wrapper carries no text of its own, so which prompt writes a
 // shot's opening frame is not readable off the addresses. The chain crosses shots, the timeline and
 // the plates; an address outside this stage declares no prompt here, so it drops out. A plate stays
 // whatever it is built with: a crop carries no prompt, yet it is the frame the panel stands on.
-export function listPanelConditioning(animatic: PanelConditioningSource): PanelConditioning[] {
+export function listPanelConditioning(animatic: AnimaticDefinition): PanelConditioning[] {
   const entryOf = animaticEntryResolver(animatic);
   const written = new Set(
     (animatic.prompts ?? []).filter((p) => !p.negative && !p.spoken).map((p) => p.address),
@@ -1017,22 +1011,9 @@ function walkReferenceReach(
   return { refs, generative };
 }
 
-// What a walk over the animatic's pictures reads: where each address's declaration lives, and the
-// keyframes each shot declares.
-type AnimaticPictureSource = {
-  shots: readonly {
-    id: string;
-    assets: Record<string, AssetDefinition>;
-    pending?: boolean;
-    panels?: readonly PanelDefinition[];
-    cutin?: { panels?: readonly PanelDefinition[] } | null;
-  }[];
-  topLevelAssets?: Record<string, AssetDefinition>;
-};
-
 // One address → its declaration, over the animatic's plates, timeline and shots.
 function animaticEntryResolver(
-  animatic: AnimaticPictureSource,
+  animatic: AnimaticDefinition,
 ): (address: string) => AssetDefinition | undefined {
   const plates = platesOf(animatic);
   return (address) => {

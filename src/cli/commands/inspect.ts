@@ -20,7 +20,12 @@ import {
   tryParseAddress,
   assetNameOf,
 } from "../../core/address.js";
-import { listShotStems, getAssetEntry, validateAddress } from "../../core/definition-addresses.js";
+import {
+  exposedPlateIdsOf,
+  getAssetEntry,
+  listShotStems,
+  validateAddress,
+} from "../../core/definition-addresses.js";
 import { acceptedVariant, acceptedVariantId } from "../../core/accepted-variant.js";
 import { definitionHashForAddress } from "../../core/leaf-hash.js";
 import { shotById } from "../../core/shot-index.js";
@@ -50,7 +55,13 @@ import { StateManager } from "../../core/state/index.js";
 import { readVariantThumbnails } from "../../core/variant-thumbnails.js";
 import { generatedOrigin, isReviewLeaf } from "../../core/variant-lineage.js";
 import { variantOwningFile } from "../../core/variant-dir.js";
-import type { AssetDefinition, VariantState } from "../../core/types/index.js";
+import {
+  type AssetDefinition,
+  type AssetStageDefinition,
+  isShotStageDefinition,
+  type ShotDefinition,
+  type VariantState,
+} from "../../core/types/index.js";
 import { type ScriptLine, scriptLinesToView } from "../../core/types/script.js";
 import {
   loadDefinitionForAddress,
@@ -78,11 +89,7 @@ import {
   shotStageDefinitionForAddress,
   type StageDefinitions,
 } from "../../core/definition-hashes.js";
-import {
-  type DefinitionWithDuration,
-  type ShotLike,
-  loadDefinitionWithDuration,
-} from "./inspect-definition.js";
+import { loadAssetStageDefinition } from "./inspect-definition.js";
 import { inspectPrompts, type PromptScope } from "./inspect-prompts.js";
 import { type PlateFrame, plateFrameOf } from "../../core/prompt-shots.js";
 import { shotStarts } from "../../core/render-plan.js";
@@ -137,7 +144,7 @@ function leafEntry(address: string, kind: LeafEntry["kind"]): LeafEntry {
 
 // The no-job leaves a shot offers for review: its composition (it has a shotFn) and its audio stems
 // (it has audio cues). Video-stage only — an animatic shot renders no composition.
-function shotLeafEntries(stage: AssetStage, shot: ShotLike): LeafEntry[] {
+function shotLeafEntries(stage: AssetStage, shot: ShotDefinition): LeafEntry[] {
   if (stage === "reference") return [];
   const entries: LeafEntry[] = [];
   if (shot.shotFn) entries.push(leafEntry(formatCompositionAddress(stage, shot.id), "composition"));
@@ -148,9 +155,11 @@ function shotLeafEntries(stage: AssetStage, shot: ShotLike): LeafEntry[] {
 }
 
 // The timeline's own leaf: the soundtrack-bed stem, when the video declares beds.
-function timelineLeafEntries(definition: DefinitionWithDuration, stage: AssetStage): LeafEntry[] {
-  if (stage === "reference" || (definition.timelineSoundtracks?.length ?? 0) === 0) return [];
-  return [leafEntry(formatTimelineStemAddress(stage), "stem")];
+function timelineLeafEntries(definition: AssetStageDefinition): LeafEntry[] {
+  if (!isShotStageDefinition(definition) || (definition.timelineSoundtracks?.length ?? 0) === 0) {
+    return [];
+  }
+  return [leafEntry(formatTimelineStemAddress(definition.stage), "stem")];
 }
 
 async function loadManager(videoRoot: string): Promise<StateManager | null> {
@@ -641,12 +650,14 @@ function printShot(view: ShotView, characterNameById: ReadonlyMap<string, string
   }
 }
 
-function shotStartsOf(definition: DefinitionWithDuration): Map<string, number> {
-  return definition.format ? shotStarts(definition.shots, definition.format.fps) : new Map();
+function shotStartsOf(definition: AssetStageDefinition): Map<string, number> {
+  return isShotStageDefinition(definition)
+    ? shotStarts(definition.shots, definition.format.fps)
+    : new Map();
 }
 
 async function inspectShot(videoRoot: string, stage: ShotStage, shotId: string): Promise<void> {
-  const definition = await loadDefinitionWithDuration(videoRoot, stage);
+  const definition = await loadAssetStageDefinition(videoRoot, stage);
 
   const shot = shotById(definition.shots, shotId);
   if (!shot) {
@@ -705,7 +716,7 @@ function formatLeafSummary(
 }
 
 function printShotBlock(
-  shot: ShotLike,
+  shot: ShotDefinition,
   stage: ShotStage,
   startTime: number,
   manager: StateManager | null,
@@ -737,7 +748,7 @@ function poolAssetAddress(stage: AssetStage, assetName: string): string {
 }
 
 function printTimelineBlock(
-  definition: DefinitionWithDuration,
+  definition: AssetStageDefinition,
   stage: AssetStage,
   manager: StateManager | null,
   readFeedback: FeedbackReader,
@@ -753,13 +764,13 @@ function printTimelineBlock(
       `${indent}  ${formatAssetSummary(address, assetDef.kind, view, readFeedback(address))}`,
     );
   }
-  for (const leaf of timelineLeafEntries(definition, stage)) {
+  for (const leaf of timelineLeafEntries(definition)) {
     console.log(`${indent}  ${formatLeafSummary(leaf, view, readFeedback)}`);
   }
 }
 
 async function inspectStage(videoRoot: string, stage: AssetStage): Promise<void> {
-  const definition = await loadDefinitionWithDuration(videoRoot, stage);
+  const definition = await loadAssetStageDefinition(videoRoot, stage);
 
   const manager = await loadManager(videoRoot);
   const readFeedback = await assetFeedbackReader(
@@ -782,7 +793,7 @@ async function inspectStage(videoRoot: string, stage: AssetStage): Promise<void>
   // declares beds and no timeline asset of its own.
   if (
     Object.keys(definition.topLevelAssets ?? {}).length > 0 ||
-    timelineLeafEntries(definition, stage).length > 0
+    timelineLeafEntries(definition).length > 0
   ) {
     printTimelineBlock(definition, stage, manager, readFeedback, "");
   }
@@ -791,22 +802,19 @@ async function inspectStage(videoRoot: string, stage: AssetStage): Promise<void>
 // Null for any address that is not a returned plate.
 async function plateFrameOfAddress(
   videoRoot: string,
-  animatic: DefinitionWithDuration | null | undefined,
+  animatic: AssetStageDefinition | null | undefined,
   address: string,
 ): Promise<PlateFrame | null> {
   const parsed = tryParseAddress(address);
   if (!parsed || parsed.kind !== "plate") return null;
-  if (!animatic?.exposedPlateIds?.includes(parsed.assetName)) return null;
+  if (!exposedPlateIdsOf(animatic).includes(parsed.assetName)) return null;
   const direction = await loadDirectionIfPresent(videoRoot).catch(() => null);
   return direction ? plateFrameOf(direction, parsed.assetName) : null;
 }
 
 async function inspectPlates(videoRoot: string): Promise<void> {
-  const definition: DefinitionWithDuration = await loadDefinitionWithDuration(
-    videoRoot,
-    "animatic",
-  );
-  const ids = definition.exposedPlateIds ?? [];
+  const definition = await loadAssetStageDefinition(videoRoot, "animatic");
+  const ids = exposedPlateIdsOf(definition);
   if (ids.length === 0) {
     console.log("No plates returned.");
     return;

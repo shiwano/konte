@@ -37,7 +37,7 @@ import {
   listReviewableAddresses,
   validateAddress,
 } from "../definition-addresses.js";
-import type { AssetStageDefinition, VideoDefinition } from "../types/index.js";
+import type { AnimaticDefinition, VideoDefinition } from "../types/index.js";
 import { defineComfyAsset } from "../dsl/comfy-asset.js";
 import { defineVideo, asset, defineReference } from "../dsl/index.js";
 import { Composition } from "../dsl/composition/composition.js";
@@ -671,11 +671,12 @@ describe("setup addresses", () => {
   });
 
   it("looks a plate up in plates, not the timeline pool", () => {
-    const definition: AssetStageDefinition = {
+    const definition = {
+      stage: "animatic",
       shots: [],
       topLevelAssets: { deskWide: { kind: "file", path: "timeline.png" } },
       plates: { deskWide: { kind: "file", path: "plate.png" } },
-    };
+    } as unknown as AnimaticDefinition;
     expect(getAssetEntry(definition, "animatic:plate.deskWide")).toEqual({
       kind: "file",
       path: "plate.png",
@@ -687,11 +688,12 @@ describe("setup addresses", () => {
 describe("plate review", () => {
   // A plate is judged inside the panels drawn on it; no review lists it on its own.
   it("is listed as an asset but never as review work", () => {
-    const definition: AssetStageDefinition = {
+    const definition = {
+      stage: "animatic",
       shots: [],
       plates: { front: { kind: "file", path: "front.png" } },
       exposedPlateIds: ["front"],
-    };
+    } as unknown as AnimaticDefinition;
     expect(listAddresses(definition, "animatic")).toContain("animatic:plate.front");
     expect(listReviewableAddresses(definition, "animatic")).not.toContain("animatic:plate.front");
   });
