@@ -3,7 +3,12 @@
 // (`collectFindings`) what holds the operation, beside — for a spend — what the human has not
 // accepted yet, and names every reason in one refusal.
 
-import { type CheckContext, type FindingReport, collectFindings } from "../core/checks.js";
+import {
+  type CheckContext,
+  type FindingReport,
+  collectFindings,
+  withVariantStage,
+} from "../core/checks.js";
 import { KonteError } from "../core/errors.js";
 import {
   type Finding,
@@ -118,8 +123,8 @@ export async function reviewGate(
   const previewStages = new Set(ops.flatMap((op) => (op.op === "preview" ? [op.stage] : [])));
   const [variantStage] = previewStages;
   const report = await collectFindings(
-    !accept && previewStages.size === 1 && variantStage !== "direction"
-      ? { ...ctx, variantStage }
+    !accept && previewStages.size === 1 && variantStage && variantStage !== "direction"
+      ? withVariantStage(ctx, variantStage)
       : ctx,
     want,
   );

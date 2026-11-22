@@ -5,7 +5,7 @@ import { historyFailure, historyOutcome, isAuthFailure } from "./error-utils.js"
 import { ComfyUIHttpClient } from "./http-client.js";
 import { resolveHeaderTokens } from "./token-resolver.js";
 import { wsProxyFor } from "./ws-proxy.js";
-import type { ComfyUIWsMessage, ProgressCallback } from "./types.js";
+import { ComfyUIWsMessageSchema, type ProgressCallback } from "./types.js";
 import { sleep } from "../core/sleep.js";
 
 // The outcome of a prompt wait. `timedOut` (the waiter's deadline elapsed) is a returned value,
@@ -179,12 +179,10 @@ export function handleComfyWsMessage(
   } catch {
     return;
   }
-  // A valid-JSON but wrong-shape frame (null, a bare string, {data:null}) is ignored like any
-  // other non-matching frame — the `in` checks below would otherwise throw on a non-object.
-  if (typeof parsed !== "object" || parsed === null) return;
-  const msg = parsed as ComfyUIWsMessage;
-  if (!("data" in msg) || typeof msg.data !== "object" || msg.data === null) return;
-  if (!("prompt_id" in msg.data) || msg.data.prompt_id !== promptId) return;
+  const result = ComfyUIWsMessageSchema.safeParse(parsed);
+  if (!result.success) return;
+  const msg = result.data;
+  if (msg.data.prompt_id !== promptId) return;
 
   switch (msg.type) {
     case "execution_start":
@@ -208,7 +206,9 @@ export function handleComfyWsMessage(
       handlers.onError(
         new KonteError(
           "COMFYUI_ERROR",
-          `Execution error on node ${msg.data.node_id} (${msg.data.exception_type}): ${msg.data.exception_message}`,
+          `Execution error on node ${msg.data.node_id ?? "unknown"}` +
+            (msg.data.exception_type ? ` (${msg.data.exception_type})` : "") +
+            `: ${msg.data.exception_message ?? "ComfyUI sent no message"}`,
         ),
       );
       break;

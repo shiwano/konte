@@ -2,7 +2,14 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { type CheckContext, collectFindings } from "../../core/checks.js";
+import {
+  type CheckContext,
+  collectFindings,
+  directionCheckOf,
+  withVariantStage,
+} from "../../core/checks.js";
+import { plainDirection } from "../../core/__tests__/helpers/direction.js";
+import type { Direction } from "../../core/dsl/direction.js";
 import { type Finding, reviewHold } from "../../core/finding.js";
 import { buildDependencyGraph } from "../../core/graph.js";
 import type {
@@ -390,5 +397,17 @@ describe("judgeSpend on a patch application", () => {
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("withVariantStage", () => {
+  it("shares the direction check of the context it narrows", () => {
+    const withDirection: CheckContext = {
+      ...ctx,
+      direction: plainDirection as unknown as Direction,
+    };
+    const check = directionCheckOf(withDirection);
+    expect(check).not.toBeNull();
+    expect(directionCheckOf(withVariantStage(withDirection, "video"))).toBe(check);
   });
 });

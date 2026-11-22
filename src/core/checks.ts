@@ -142,12 +142,25 @@ function stageClassSubjects(
 
 const directionResult = new WeakMap<CheckContext, ReturnType<typeof checkDirection>>();
 const acceptedByCtx = new WeakMap<CheckContext, Accepted>();
+// A context narrowed to one stage's takes, to the context it narrows: the memos above are the
+// latter's.
+const narrowedFrom = new WeakMap<CheckContext, CheckContext>();
+
+const memoKeyOf = (ctx: CheckContext): CheckContext => narrowedFrom.get(ctx) ?? ctx;
+
+// `ctx`, hearing only `stage`'s takes.
+export function withVariantStage(ctx: CheckContext, stage: AssetStage): CheckContext {
+  const narrowed = { ...ctx, variantStage: stage };
+  narrowedFrom.set(narrowed, memoKeyOf(ctx));
+  return narrowed;
+}
 
 function acceptedOf(ctx: CheckContext): Accepted {
-  let accepted = acceptedByCtx.get(ctx);
+  const key = memoKeyOf(ctx);
+  let accepted = acceptedByCtx.get(key);
   if (!accepted) {
     accepted = acceptedIn(ctx.manager, ctx);
-    acceptedByCtx.set(ctx, accepted);
+    acceptedByCtx.set(key, accepted);
   }
   return accepted;
 }
@@ -170,7 +183,8 @@ export function signOffFinding(f: Finding, accepted: Accepted): Finding {
 
 export function directionCheckOf(ctx: CheckContext): ReturnType<typeof checkDirection> | null {
   if (!ctx.direction) return null;
-  let result = directionResult.get(ctx);
+  const key = memoKeyOf(ctx);
+  let result = directionResult.get(key);
   if (!result) {
     result = checkDirection(ctx.direction, {
       referenceAssetNames: rosterReferenceNames(ctx.videoRoot, ctx.reference),
@@ -179,7 +193,7 @@ export function directionCheckOf(ctx: CheckContext): ReturnType<typeof checkDire
       songVariant: ctx.songVariant,
       accepted: acceptedOf(ctx),
     });
-    directionResult.set(ctx, result);
+    directionResult.set(key, result);
   }
   return result;
 }

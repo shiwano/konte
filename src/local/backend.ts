@@ -25,8 +25,8 @@ import { trimVideo } from "../core/ffmpeg.js";
 import { probeMediaDuration, probeVideo } from "../core/video-probe.js";
 import type { LocalAssetDefinition } from "../core/types/index.js";
 import { formatSeconds } from "../core/format-duration.js";
-import type { OrbitPose } from "../core/image-orbit.js";
 import { videoCacheDir } from "../core/video-cache.js";
+import { type LocalInputs, localInputs } from "./inputs.js";
 
 // A middle take carries a fade at each end, the first and last one at one.
 async function assertCrossfadeFits(
@@ -108,7 +108,8 @@ export class LocalBackend implements GenerationBackend {
     resolvedDependencies: Record<string, string>,
   ): string {
     if (def.operation === "trim" || def.operation === "retime") {
-      const sourceFile = this.dependencyFilePath(def.inputs.source as string, resolvedDependencies);
+      const { source } = localInputs(def, def.operation);
+      const sourceFile = this.dependencyFilePath(source, resolvedDependencies);
       return path.extname(sourceFile) || (def.mediaType === "audio" ? ".wav" : ".mp4");
     }
     switch (def.mediaType) {
@@ -134,39 +135,45 @@ export class LocalBackend implements GenerationBackend {
 
     switch (def.operation) {
       case "resize":
-        await this.resizeImage(def.inputs, outputFile, resolvedDependencies);
+        await this.resizeImage(localInputs(def, "resize"), outputFile, resolvedDependencies);
         break;
       case "crop":
-        await this.cropImage(def.inputs, outputFile, resolvedDependencies);
+        await this.cropImage(localInputs(def, "crop"), outputFile, resolvedDependencies);
         break;
       case "blank":
-        await this.createBlankImage(def.inputs, outputFile);
+        await this.createBlankImage(localInputs(def, "blank"), outputFile);
         break;
       case "trim":
-        await this.trimMedia(def.inputs, outputFile, resolvedDependencies);
+        await this.trimMedia(localInputs(def, "trim"), outputFile, resolvedDependencies);
         break;
       case "retime":
-        await this.retimeMedia(def.inputs, outputFile, resolvedDependencies, address);
+        await this.retimeMedia(
+          localInputs(def, "retime"),
+          outputFile,
+          resolvedDependencies,
+          address,
+        );
         break;
       case "concat":
-        await this.concatAudio(def.inputs, outputFile, resolvedDependencies);
+        await this.concatAudio(localInputs(def, "concat"), outputFile, resolvedDependencies);
         break;
       case "frame":
-        await this.extractFrame(def.inputs, outputFile, resolvedDependencies);
+        await this.extractFrame(localInputs(def, "frame"), outputFile, resolvedDependencies);
         break;
       case "cutFrame": {
+        const { shot, at } = localInputs(def, "cutFrame");
         const { cutShotFrame } = await import("../core/cut-frame.js");
         await cutShotFrame({
           videoRoot: this.videoRoot,
-          shotId: def.inputs.shot as string,
-          at: def.inputs.at as number,
+          shotId: shot,
+          at,
           outputFile,
           resolvedDependencies,
         });
         break;
       }
       case "orbit":
-        await this.renderOrbit(def.inputs, outputFile, resolvedDependencies);
+        await this.renderOrbit(localInputs(def, "orbit"), outputFile, resolvedDependencies);
         break;
       case "render":
         if (def.mediaType === "video") {
@@ -204,32 +211,27 @@ export class LocalBackend implements GenerationBackend {
   }
 
   private async renderOrbit(
-    inputs: Record<string, unknown>,
+    inputs: LocalInputs<"orbit">,
     outputFile: string,
     resolvedDependencies: Record<string, string>,
   ): Promise<void> {
     const { renderOrbit } = await import("../core/image-orbit.js");
     await renderOrbit({
-      masterFile: await this.resolveDependencyFile(inputs.master as string, resolvedDependencies),
-      pose: inputs.pose as OrbitPose,
-      size: { width: inputs.width as number, height: inputs.height as number },
+      masterFile: await this.resolveDependencyFile(inputs.master, resolvedDependencies),
+      pose: inputs.pose,
+      size: { width: inputs.width, height: inputs.height },
       outputFile,
       cacheDir: videoCacheDir(this.videoRoot, "moge"),
     });
   }
 
   private async resizeImage(
-    inputs: Record<string, unknown>,
+    inputs: LocalInputs<"resize">,
     outputFile: string,
     resolvedDependencies: Record<string, string>,
   ): Promise<void> {
-    const width = inputs.width as number;
-    const height = inputs.height as number;
-
-    const inputFile = await this.resolveDependencyFile(
-      inputs.image as string,
-      resolvedDependencies,
-    );
+    const { width, height } = inputs;
+    const inputFile = await this.resolveDependencyFile(inputs.image, resolvedDependencies);
 
     const args = ["-y", "-i", inputFile, "-vf", `scale=${width}:${height}`, outputFile];
 
@@ -237,21 +239,12 @@ export class LocalBackend implements GenerationBackend {
   }
 
   private async cropImage(
-    inputs: Record<string, unknown>,
+    inputs: LocalInputs<"crop">,
     outputFile: string,
     resolvedDependencies: Record<string, string>,
   ): Promise<void> {
-    const x = inputs.x as number;
-    const y = inputs.y as number;
-    const width = inputs.width as number;
-    const height = inputs.height as number;
-    const outWidth = inputs.outWidth as number;
-    const outHeight = inputs.outHeight as number;
-
-    const inputFile = await this.resolveDependencyFile(
-      inputs.image as string,
-      resolvedDependencies,
-    );
+    const { x, y, width, height, outWidth, outHeight } = inputs;
+    const inputFile = await this.resolveDependencyFile(inputs.image, resolvedDependencies);
 
     // One filtergraph, so the window is cut at the master's own resolution and the scale down to
     // the canvas is the only resampling the pixels see.
@@ -269,13 +262,8 @@ export class LocalBackend implements GenerationBackend {
 
   // konte's own primitive, reachable only through the `internalTestImage` fixture — there is no
   // author-facing adapter for it (`jsxImage` with a `background` and no `build` is that).
-  private async createBlankImage(
-    inputs: Record<string, unknown>,
-    outputFile: string,
-  ): Promise<void> {
-    const width = inputs.width as number;
-    const height = inputs.height as number;
-    const color = (inputs.color as string) ?? "#000000";
+  private async createBlankImage(inputs: LocalInputs<"blank">, outputFile: string): Promise<void> {
+    const { width, height, color = "#000000" } = inputs;
 
     let ffmpegColor = color;
     if (color.startsWith("#")) {
@@ -304,17 +292,14 @@ export class LocalBackend implements GenerationBackend {
   }
 
   private async trimMedia(
-    inputs: Record<string, unknown>,
+    inputs: LocalInputs<"trim">,
     outputFile: string,
     resolvedDependencies: Record<string, string>,
   ): Promise<void> {
-    const duration = inputs.duration as number;
-    const inputFile = await this.resolveDependencyFile(
-      inputs.source as string,
-      resolvedDependencies,
-    );
+    const { duration } = inputs;
+    const inputFile = await this.resolveDependencyFile(inputs.source, resolvedDependencies);
     // `"tail"` is the source's last `duration` seconds, measured on the file.
-    let start = inputs.start as number | "tail";
+    let start = inputs.start;
     if (start === "tail") {
       const sourceDuration = await probeMediaDuration(inputFile);
       if (sourceDuration === null) {
@@ -329,17 +314,13 @@ export class LocalBackend implements GenerationBackend {
   }
 
   private async retimeMedia(
-    inputs: Record<string, unknown>,
+    inputs: LocalInputs<"retime">,
     outputFile: string,
     resolvedDependencies: Record<string, string>,
     address: string,
   ): Promise<void> {
-    const duration = inputs.duration as number;
-    const waiver = inputs.waiver as string | undefined;
-    const inputFile = await this.resolveDependencyFile(
-      inputs.source as string,
-      resolvedDependencies,
-    );
+    const { duration, waiver } = inputs;
+    const inputFile = await this.resolveDependencyFile(inputs.source, resolvedDependencies);
 
     const sourceDuration = await probeMediaDuration(inputFile);
     if (sourceDuration === null) {
@@ -368,17 +349,15 @@ export class LocalBackend implements GenerationBackend {
   }
 
   private async concatAudio(
-    inputs: Record<string, unknown>,
+    inputs: LocalInputs<"concat">,
     outputFile: string,
     resolvedDependencies: Record<string, string>,
   ): Promise<void> {
     const inputFiles = await Promise.all(
-      (inputs.sources as string[]).map((source) =>
-        this.resolveDependencyFile(source, resolvedDependencies),
-      ),
+      inputs.sources.map((source) => this.resolveDependencyFile(source, resolvedDependencies)),
     );
 
-    const crossfade = inputs.crossfade as number;
+    const { crossfade } = inputs;
     if (crossfade > 0) {
       await assertCrossfadeFits(inputFiles, crossfade);
     }
@@ -416,15 +395,12 @@ export class LocalBackend implements GenerationBackend {
   }
 
   private async extractFrame(
-    inputs: Record<string, unknown>,
+    inputs: LocalInputs<"frame">,
     outputFile: string,
     resolvedDependencies: Record<string, string>,
   ): Promise<void> {
-    const inputFile = await this.resolveDependencyFile(
-      inputs.source as string,
-      resolvedDependencies,
-    );
-    const at = inputs.at as number | "last";
+    const inputFile = await this.resolveDependencyFile(inputs.source, resolvedDependencies);
+    const { at } = inputs;
     let timestamp: number;
     if (at === "last") {
       // videoDuration, not the container's: a longer audio track pushes `duration` past the last

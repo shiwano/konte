@@ -25,6 +25,11 @@ afterEach(async () => {
 });
 
 describe("loadKonteConfig", () => {
+  it("fails when the path is not a readable file", async () => {
+    await fs.mkdir(path.join(tmpDir, "konte.config.json"));
+    await expect(loadKonteConfig(tmpDir)).rejects.toMatchObject({ code: "CONFIG_UNREADABLE" });
+  });
+
   it("returns default when config file does not exist", async () => {
     const config = await loadKonteConfig(tmpDir);
     expect(config).toEqual({

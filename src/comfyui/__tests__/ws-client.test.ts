@@ -214,6 +214,19 @@ describe("handleComfyWsMessage", () => {
     expect(err.message).toContain("bad input");
   });
 
+  it("fails an execution_error that carries no details without printing undefined", () => {
+    const h = handlers();
+    send(h, { type: "execution_error", data: { prompt_id: PROMPT } });
+    const err = h.onError.mock.calls[0]![0] as KonteError;
+    expect(err.message).toBe("Execution error on node unknown: ComfyUI sent no message");
+  });
+
+  it("ignores a progress frame whose counts are not numbers", () => {
+    const h = handlers();
+    send(h, { type: "progress", data: { prompt_id: PROMPT, value: "3", max: 10 } });
+    expect(h.onProgress).not.toHaveBeenCalled();
+  });
+
   it("ignores a frame for a different prompt", () => {
     const h = handlers();
     handleComfyWsMessage(

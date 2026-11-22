@@ -112,22 +112,28 @@ export const ComfyUISystemStatsSchema = z.object({
 });
 export type ComfyUISystemStats = z.infer<typeof ComfyUISystemStatsSchema>;
 
-export type ComfyUIWsMessage =
-  | { type: "status"; data: { sid?: string; status: { exec_info: { queue_remaining: number } } } }
-  | { type: "execution_start"; data: { prompt_id: string } }
-  | { type: "execution_cached"; data: { prompt_id: string; nodes: string[] } }
-  | { type: "executing"; data: { prompt_id: string; node: string | null } }
-  | { type: "progress"; data: { prompt_id: string; value: number; max: number } }
-  | { type: "executed"; data: { prompt_id: string; node: string; output: ComfyUIHistoryOutput } }
-  | {
-      type: "execution_error";
-      data: {
-        prompt_id: string;
-        node_id: string;
-        exception_message: string;
-        exception_type: string;
-      };
-    };
+const WsPromptData = z.object({ prompt_id: z.string() });
+
+// The event-stream frames konte acts on; any other frame fails the parse and is ignored.
+export const ComfyUIWsMessageSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("execution_start"), data: WsPromptData }),
+  z.object({
+    type: z.literal("progress"),
+    data: WsPromptData.extend({ value: z.number(), max: z.number() }),
+  }),
+  z.object({
+    type: z.literal("executing"),
+    data: WsPromptData.extend({ node: z.string().nullable() }),
+  }),
+  z.object({
+    type: z.literal("execution_error"),
+    data: WsPromptData.extend({
+      node_id: z.union([z.string(), z.number()]).optional(),
+      exception_type: z.string().optional(),
+      exception_message: z.string().optional(),
+    }),
+  }),
+]);
 
 // An input spec is `[type, config?]`. `type` is a type-name string for a scalar
 // input (e.g. "INT", "STRING") or the array of choices for a combo (enum) input.

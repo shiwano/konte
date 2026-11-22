@@ -279,6 +279,7 @@ export type KonteErrorCode =
   | "SOURCE_UNREADABLE"
   // A comic whose binding neither ComicInfo.xml nor the PDF states, studied without `--binding`.
   | "COMIC_BINDING_UNKNOWN"
+  | "CONFIG_UNREADABLE"
   | "CREDENTIALS_UNREADABLE"
   | "CONFIRMATION_REQUIRED"
   | "INVALID_TEMPLATE"

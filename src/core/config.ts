@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { writeFileAtomic } from "./atomic-write.js";
-import { KonteError } from "./errors.js";
+import { KonteError, errorMessage } from "./errors.js";
 import { WORKSPACE_MARKER } from "./roots.js";
 import type { KonteConfig } from "./types/config.js";
 import { KonteConfigSchema } from "./types/config.js";
@@ -32,7 +32,7 @@ export async function loadKonteConfig(workspaceRoot: string): Promise<KonteConfi
   } catch (err) {
     // Only a missing file falls back to defaults; any other read error is real.
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return DEFAULT_CONFIG;
-    throw err;
+    throw new KonteError("CONFIG_UNREADABLE", `Cannot read "${configPath}": ${errorMessage(err)}`);
   }
 
   // The file exists, so a typo must not silently revert config to defaults —
