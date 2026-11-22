@@ -29,6 +29,7 @@
         "@types/yauzl": "^3.4.0",
         "dts-bundle-generator": "^9.5.1",
         "knip": "^6.44.1",
+        "oxc-parser": "^0.155.0",
         "oxfmt": "^0.47.0",
         "oxlint": "^1.62.0",
         "react": "^19",

@@ -1,11 +1,17 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": [
+    "typescript",
     "jsx-a11y",
-    "react"
+    "react",
+    "import"
   ],
   "rules": {
-    "jsx-a11y/media-has-caption": "off"
+    "jsx-a11y/media-has-caption": "off",
+    "import/no-cycle": "error",
+    "import/default": "off",
+    "typescript/no-explicit-any": "error",
+    "typescript/triple-slash-reference": "off"
   },
   "overrides": [
     {
@@ -92,6 +98,114 @@
                   "**/pages/**"
                 ],
                 "message": "src/core is the bottom layer: move what it needs into src/core."
+              },
+              {
+                "group": [
+                  "**/ffmpeg-binary.js"
+                ],
+                "importNames": [
+                  "ffmpegBin",
+                  "ffprobeBin"
+                ],
+                "message": "Run ffmpeg through src/core/ffmpeg-exec.ts (runFfmpeg, runFfprobeJson); provision with ensureFfmpeg / ensureFfprobe from src/core/ffmpeg.ts."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "src/core/types/**"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "node:crypto",
+                "importNames": [
+                  "createHash"
+                ],
+                "message": "Hash through src/core/content-hash.ts (sha256Hex, stableHash, shortHash, hashFile)."
+              },
+              {
+                "name": "crypto",
+                "importNames": [
+                  "createHash"
+                ],
+                "message": "Hash through src/core/content-hash.ts (sha256Hex, stableHash, shortHash, hashFile)."
+              }
+            ],
+            "patterns": [
+              {
+                "group": [
+                  "../**",
+                  "!../typography.js"
+                ],
+                "allowTypeImports": true,
+                "message": "src/core/types holds the schemas and types every layer reads: import the rest of core with `import type`, or move the value into src/core/types."
+              },
+              {
+                "group": [
+                  "**/cli/**",
+                  "**/worker/**",
+                  "**/backends/**",
+                  "**/comfyui/**",
+                  "**/comfy-api/**",
+                  "**/fal/**",
+                  "**/local/**",
+                  "**/pages/**"
+                ],
+                "message": "src/core is the bottom layer: move what it needs into src/core."
+              },
+              {
+                "group": [
+                  "**/ffmpeg-binary.js"
+                ],
+                "importNames": [
+                  "ffmpegBin",
+                  "ffprobeBin"
+                ],
+                "message": "Run ffmpeg through src/core/ffmpeg-exec.ts (runFfmpeg, runFfprobeJson); provision with ensureFfmpeg / ensureFfprobe from src/core/ffmpeg.ts."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "src/worker/**"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "node:crypto",
+                "importNames": [
+                  "createHash"
+                ],
+                "message": "Hash through src/core/content-hash.ts (sha256Hex, stableHash, shortHash, hashFile)."
+              },
+              {
+                "name": "crypto",
+                "importNames": [
+                  "createHash"
+                ],
+                "message": "Hash through src/core/content-hash.ts (sha256Hex, stableHash, shortHash, hashFile)."
+              }
+            ],
+            "patterns": [
+              {
+                "group": [
+                  "**/cli/**",
+                  "**/pages/**"
+                ],
+                "message": "The worker does not import the CLI or a page: move what it needs into src/core."
               },
               {
                 "group": [
@@ -396,7 +510,8 @@
       ],
       "rules": {
         "no-restricted-imports": "off",
-        "no-restricted-globals": "off"
+        "no-restricted-globals": "off",
+        "typescript/no-explicit-any": "off"
       }
     }
   ]
