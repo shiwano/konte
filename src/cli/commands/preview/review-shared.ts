@@ -60,16 +60,9 @@ export async function persistReview(
   return filePath;
 }
 
-// Handoff notes (AI -> reviewer guidance) attach to a shot address and are shown
-// inline next to the shot in the review UI, independent of change detection —
-// they must surface on the first review (no prior record) too, not only when a
-// variant changed since the last review.
-export function handoffNotesForShot(
-  handoff: Handoff | null,
-  stage: "video" | "animatic",
-  shotId: string,
-): string[] {
-  const address = formatShotAddress(stage, shotId);
+// Handoff notes (AI -> reviewer guidance) at one address — a shot, a reference, a direction part —
+// shown beside it whether or not anything changed since the last review.
+export function handoffNotesAt(handoff: Handoff | null, address: string): string[] {
   return (handoff?.notes ?? []).filter((n) => n.address === address).map((n) => n.text);
 }
 

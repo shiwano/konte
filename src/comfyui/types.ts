@@ -5,10 +5,20 @@ type ComfyUINodeInput = Record<string, unknown>;
 export type ComfyUINode = {
   class_type: string;
   inputs: ComfyUINodeInput;
-  _meta?: Record<string, unknown>;
+  _meta?: { title?: string; [key: string]: unknown };
 };
 
 export type ComfyUIWorkflow = Record<string, ComfyUINode>;
+
+// An input wired to another node's output: `[nodeId, outputIndex]`.
+export function isLink(value: unknown): value is [string, number] {
+  return (
+    Array.isArray(value) &&
+    value.length === 2 &&
+    typeof value[0] === "string" &&
+    typeof value[1] === "number"
+  );
+}
 
 const ComfyUIErrorDetailSchema = z.object({
   type: z.string(),

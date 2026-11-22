@@ -9,14 +9,13 @@ import {
   HEARD_FILE,
   MAX_SHOWN_SHOTS,
   clipFrameAt,
-  formatClock,
   studyClip,
 } from "../../core/study-clip.js";
 import { parseTimecode } from "../../core/timecode.js";
 import type { ClipStudy } from "../../core/types/index.js";
 import { requireWorkspaceRoot } from "../context.js";
 import { declareScope } from "../scope.js";
-import { formatSeconds, formatSecondsRange } from "../../core/format-duration.js";
+import { formatClock, formatSeconds, formatSecondsRange } from "../../core/format-duration.js";
 import { printNextSteps } from "../next-steps.js";
 
 function fmtFps(fps: number): string {

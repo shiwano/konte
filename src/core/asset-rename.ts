@@ -1,3 +1,4 @@
+import { variantAddresses } from "./variant-address.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { deliveryAddressOf, parseAddress } from "./address.js";
@@ -126,11 +127,7 @@ export async function carryPatchHashes(
   const back = invert(moves);
   const unrename = (def: AssetDefinition) => renameAddressText(def, back) as AssetDefinition;
   const moved = new Set(moves.values());
-  const sourceAddress = new Map<string, string>();
-  for (const [address, asset] of Object.entries(state.assets)) {
-    for (const variantId of Object.keys(asset.variants ?? {}))
-      sourceAddress.set(variantId, address);
-  }
+  const sourceAddress = variantAddresses(state);
   const carried: string[] = [];
   for (const sourceVariantId of await listPatchVariantIds(videoRoot)) {
     const address = sourceAddress.get(sourceVariantId);

@@ -1,8 +1,23 @@
 import type { StateManager } from "./state/index.js";
 import * as path from "node:path";
 
-const VIDEO_EXTENSIONS = new Set([".mp4", ".webm", ".mov", ".avi", ".mkv"]);
-const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tiff"]);
+export const VIDEO_EXTENSIONS: ReadonlySet<string> = new Set([
+  ".mp4",
+  ".webm",
+  ".mov",
+  ".avi",
+  ".mkv",
+  ".m4v",
+]);
+const IMAGE_EXTENSIONS: ReadonlySet<string> = new Set([
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".bmp",
+  ".tiff",
+]);
 const AUDIO_EXTENSIONS = new Set([".wav", ".mp3", ".ogg", ".flac", ".aac", ".m4a"]);
 
 export function inferMediaType(filePath: string): "video" | "image" | "audio" | null {

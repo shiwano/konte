@@ -1,12 +1,9 @@
-import { format } from "oxfmt";
+import { formatGeneratedDoc } from "./format-doc.js";
 import { CRITICS } from "./critic-checks.js";
 import { findingLink } from "./findings-doc.js";
 
 export async function renderCriticsDoc(): Promise<string> {
-  const { code, errors } = await format("docs/CRITICS.md", renderCriticsMarkdown());
-  if (errors.length > 0)
-    throw new Error(`oxfmt failed on the critics list: ${JSON.stringify(errors)}`);
-  return code;
+  return formatGeneratedDoc("docs/CRITICS.md", renderCriticsMarkdown());
 }
 
 function renderCriticsMarkdown(): string {

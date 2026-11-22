@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   evenPicks,
-  formatClock,
   formatHeardLine,
   heardLineSpans,
   musicTempo,
   shotsBetween,
 } from "../study-clip.js";
+import { formatClock } from "../format-duration.js";
 
 describe("shotsBetween", () => {
   it("splits the clip at each cut", () => {
@@ -69,9 +69,10 @@ describe("heardLineSpans", () => {
 });
 
 describe("formatClock", () => {
-  it("reads as m:ss", () => {
+  it("reads as m:ss, and h:mm:ss from an hour", () => {
     expect(formatClock(0)).toBe("0:00");
     expect(formatClock(92.7)).toBe("1:32");
     expect(formatClock(1800)).toBe("30:00");
+    expect(formatClock(4500)).toBe("1:15:00");
   });
 });

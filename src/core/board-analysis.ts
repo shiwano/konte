@@ -10,7 +10,13 @@ import {
   formatViewAddress,
 } from "./address.js";
 import { isImagedView, parseViewName, type View } from "./view.js";
-import type { PinWindow, VideoShotPins } from "./direction-check.js";
+import type {
+  PanelReach,
+  PanelSlots,
+  PinWindow,
+  PlateRecrop,
+  VideoShotPins,
+} from "./direction-check.js";
 import { parsePlaceholder } from "./dsl/shot-context.js";
 import {
   type AssetDefinition,
@@ -380,16 +386,6 @@ function recropsPlate(
     );
   });
 }
-
-/**
- * A keyframe on a plated setup that crops the plate on its way in.
- */
-export type PlateRecrop = {
-  setupId: string;
-  shotId: string;
-  lane: PanelLane;
-  panel: string;
-};
 
 // The plate is the setup's frame, so a window of it is a frame the direction never declared, and
 // the setup's `holds` no longer say what is in it. No generative step is required: a panel that is
@@ -908,14 +904,6 @@ function keyframeLineage(
   return [...seen];
 }
 
-/** One keyframe's `reference:<id>` slots, in the order that panel's own inputs declare them. */
-type PanelReferenceSlots = {
-  shotId: string;
-  lane: PanelLane;
-  panel: string;
-  slots: string[];
-};
-
 // The reference images each developed animatic shot hands its panels — the slot order
 // `slot-order-mismatch` compares against the shot's declared lineup. Read off each panel asset
 // separately, and off the panel itself rather than the chain behind it: what decides which subject a
@@ -923,9 +911,9 @@ type PanelReferenceSlots = {
 // orders and merging them would both hide a reversed second panel and invent an order out of two
 // single-subject frames. Panels come out in panel order — the first answers for the shot's `lineup`,
 // the last for its `lineupTo`.
-export function listPanelReferenceSlots(animatic: AnimaticDefinition): PanelReferenceSlots[] {
+export function listPanelReferenceSlots(animatic: AnimaticDefinition): PanelSlots[] {
   const entryOf = animaticEntryResolver(animatic);
-  const out: PanelReferenceSlots[] = [];
+  const out: PanelSlots[] = [];
   for (const shot of animatic.shots) {
     if (isPendingAnimaticShot(shot)) continue;
     for (const lane of LANES) {
@@ -948,27 +936,12 @@ export function listPanelReferenceSlots(animatic: AnimaticDefinition): PanelRefe
   return out;
 }
 
-/**
- * One keyframe's reference REACH — every `reference:<id>` the chain behind that panel stands on.
- * Panels come out in panel order.
- */
-type PanelReferenceReach = {
-  shotId: string;
-  lane: PanelLane;
-  panel: string;
-  // A SET in list form, in no meaningful order — the order that decides where a subject lands is
-  // `listPanelReferenceSlots`'.
-  refs: string[];
-  // False when nothing in the chain generates — a `file` keyframe, a trim of one.
-  generative: boolean;
-};
-
 // The references each developed animatic shot's keyframes stand on — what `character-unconsumed`
 // reads. Unlike `listPanelReferenceSlots`, this walks the CHAIN behind each panel rather than its own
 // inputs: a keyframe drawn from an earlier keyframe carries that frame's subjects in the picture.
-export function listPanelReferenceReach(animatic: AnimaticDefinition): PanelReferenceReach[] {
+export function listPanelReferenceReach(animatic: AnimaticDefinition): PanelReach[] {
   const entryOf = animaticEntryResolver(animatic);
-  const out: PanelReferenceReach[] = [];
+  const out: PanelReach[] = [];
   for (const shot of animatic.shots) {
     if (isPendingAnimaticShot(shot)) continue;
     for (const lane of LANES) {

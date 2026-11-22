@@ -1,3 +1,4 @@
+import { carriesPlaceholder } from "../core/redact.js";
 import { resolveHeaderTokens } from "../comfyui/token-resolver.js";
 import { type AssetStage } from "../core/address.js";
 import { getAssetEntry, listAddresses } from "../core/definition-addresses.js";
@@ -230,7 +231,7 @@ export async function assertSpendAllowed(
 
 // A deployment's Build keeps every model URL it is given, so one carrying a credential is refused.
 function assertNoAuthenticatedModel(label: string, def: AssetDefinition & { kind: "comfy" }): void {
-  const secret = (def.models ?? []).filter((m) => m.url.includes("${"));
+  const secret = (def.models ?? []).filter((m) => carriesPlaceholder(m.url));
   if (secret.length === 0) return;
   throw new KonteError(
     "COMFY_API_AUTHENTICATED_MODEL",

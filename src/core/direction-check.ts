@@ -951,6 +951,7 @@ export type PanelReach = {
   shotId: string;
   lane: PanelLane;
   panel: string;
+  // A set in list form, in no meaningful order.
   refs: readonly string[];
   generative: boolean;
 };

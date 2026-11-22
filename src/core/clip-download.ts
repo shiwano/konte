@@ -1,3 +1,4 @@
+import { formatClock } from "./format-duration.js";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -12,14 +13,7 @@ import { KonteError, errorMessage } from "./errors.js";
 import { execFileAsync } from "./exec-file.js";
 import { ffmpegBin } from "./ffmpeg-binary.js";
 import { fetchWithRetry, MEDIA_TRANSFER_TIMEOUT_MS } from "./http-retry.js";
-import {
-  MAX_CLIP_SEC,
-  clipSha256,
-  clipStudyDir,
-  formatClock,
-  probeClip,
-  studiesDir,
-} from "./study-clip.js";
+import { MAX_CLIP_SEC, clipSha256, clipStudyDir, probeClip, studiesDir } from "./study-clip.js";
 import { ClipSourceSchema } from "./types/index.js";
 
 export function isClipUrl(arg: string): boolean {

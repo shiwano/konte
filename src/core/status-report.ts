@@ -20,6 +20,7 @@ import {
   formatAddress,
   formatShotAddress,
   parseAddress,
+  ASSET_STAGES,
 } from "./address.js";
 import {
   getAssetEntry,
@@ -794,7 +795,7 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
     spendHeldError(req, judgeSpend(checkContext, spendReport, req)) !== null;
   const { jobs } = report;
   const liveJobs = await liveGenerationVariantIds(videoRoot, jobs, state);
-  const spendHeldStages = (["reference", "animatic", "video"] as const).filter((stage) => {
+  const spendHeldStages = ASSET_STAGES.filter((stage) => {
     const def = stage === "video" ? video : stage === "animatic" ? animatic : reference;
     const spending = listSpendingAssets(
       def,
@@ -805,7 +806,7 @@ export async function buildProjectStatus(videoRoot: string): Promise<ProjectStat
     );
     return spendHeld({ command: "generate", stage, addresses: spending, targeted: false });
   });
-  const previewHeldStages = (["reference", "animatic", "video"] as const).filter((stage) =>
+  const previewHeldStages = ASSET_STAGES.filter((stage) =>
     findingReport.findings.some((f) => reviewHold(f, { op: "preview", stage })),
   );
 

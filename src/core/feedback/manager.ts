@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { parseAddressStream, type Stage } from "../address.js";
 import { KonteError } from "../errors.js";
 import { LockedJsonFile } from "../locked-json-file.js";
+import { REVIEW_DIR } from "../review-record.js";
 import {
   FEEDBACK_SCHEMA_VERSION,
   type FeedbackEntry,
@@ -10,7 +11,6 @@ import {
   FeedbackStreamSchema,
 } from "../types/index.js";
 
-const REVIEW_DIR = "review";
 const FEEDBACK_FILE = "feedback.json";
 
 // The lock sits at the video root so taking it creates no stream directory.

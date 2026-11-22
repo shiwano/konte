@@ -5,21 +5,17 @@ export function parseTimecode(input: string): number {
     return Number.parseFloat(input.slice(0, -1));
   }
 
-  const hhmmss = /^(\d+):(\d{2}):(\d{2})(?:\.(\d+))?$/.exec(input);
+  const hhmmss = /^(\d+):(\d{1,2}):(\d{2}(?:\.\d+)?)$/.exec(input);
   if (hhmmss) {
     const hours = Number.parseInt(hhmmss[1]!, 10);
     const minutes = Number.parseInt(hhmmss[2]!, 10);
-    const seconds = Number.parseInt(hhmmss[3]!, 10);
-    const frac = hhmmss[4] ? Number.parseFloat(`0.${hhmmss[4]}`) : 0;
-    return hours * 3600 + minutes * 60 + seconds + frac;
+    return hours * 3600 + minutes * 60 + Number.parseFloat(hhmmss[3]!);
   }
 
-  const mmss = /^(\d+):(\d{2})(?:\.(\d+))?$/.exec(input);
+  const mmss = /^(\d+):(\d{2}(?:\.\d+)?)$/.exec(input);
   if (mmss) {
     const minutes = Number.parseInt(mmss[1]!, 10);
-    const seconds = Number.parseInt(mmss[2]!, 10);
-    const frac = mmss[3] ? Number.parseFloat(`0.${mmss[3]}`) : 0;
-    return minutes * 60 + seconds + frac;
+    return minutes * 60 + Number.parseFloat(mmss[2]!);
   }
 
   if (/^\d+(\.\d+)?$/.test(input)) {

@@ -1,10 +1,14 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { type AssetStage, DELIVERY_SUFFIX, formatAddressSuffix, parseAddress } from "./address.js";
+import {
+  ASSET_STAGES,
+  type AssetStage,
+  DELIVERY_SUFFIX,
+  formatAddressSuffix,
+  parseAddress,
+} from "./address.js";
 
 const PATCH_DIR = "patch";
-
-export const ASSET_STAGES: readonly AssetStage[] = ["reference", "animatic", "video"];
 
 export function assetDir(videoRoot: string, address: string): string {
   const parsed = parseAddress(address);

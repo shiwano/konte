@@ -1,3 +1,4 @@
+import { findVariantAddress } from "./variant-address.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import {
@@ -201,13 +202,6 @@ export function assertPatchableTarget(state: KonteState, address: string, varian
       `Variant "${variantId}" is the output of patches/${derivedFrom}.ts — stack the next fix by appending a step to that chain`,
     );
   }
-}
-
-function findVariantAddress(state: KonteState, variantId: string): string | null {
-  for (const [address, target] of Object.entries(state.assets)) {
-    if (target.variants?.[variantId]) return address;
-  }
-  return null;
 }
 
 /**

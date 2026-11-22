@@ -1,3 +1,4 @@
+import { walkDependents } from "./dependents-walk.js";
 import { acceptedVariant, acceptedVariantId } from "./accepted-variant.js";
 import type { KonteState, VariantState } from "./types/index.js";
 import { variantOwningFile } from "./variant-dir.js";
@@ -705,15 +706,8 @@ export class StalenessView {
    */
   staleDependents(address: string, dependents: ReadonlyMap<string, readonly string[]>): string[] {
     const marked = new Set<string>();
-    const visited = new Set<string>();
     const ctx = this.walk();
-    const queue = [...(dependents.get(address) ?? [])];
-
-    while (queue.length > 0) {
-      const currentAddr = queue.shift() as string;
-      if (visited.has(currentAddr)) continue;
-      visited.add(currentAddr);
-
+    walkDependents(dependents, address, (currentAddr) => {
       // Read through resolution: the accepted take, else — where no take resolves — any take still
       // standing for the address.
       const variants = this.state.assets[currentAddr]?.variants ?? {};
@@ -732,11 +726,8 @@ export class StalenessView {
       ) {
         marked.add(currentAddr);
       }
-
-      for (const next of dependents.get(currentAddr) ?? []) {
-        if (!visited.has(next)) queue.push(next);
-      }
-    }
+      return true;
+    });
 
     return [...marked];
   }

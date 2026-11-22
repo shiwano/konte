@@ -19,7 +19,9 @@ import {
   assetNameOf,
   isMaterializedLeafAddress,
   isHeardStemAddress,
+  formatShotAddress,
 } from "./address.js";
+import { walkDependents } from "./dependents-walk.js";
 import {
   thumbnailCoverAddress,
   listAddresses,
@@ -83,25 +85,10 @@ function collectRefs(value: unknown, refs: string[]): void {
 }
 
 export function extractRefs(entry: AssetDefinition): string[] {
-  switch (entry.kind) {
-    case "comfy": {
-      const refs: string[] = [];
-      collectRefs(entry.inputs, refs);
-      return refs;
-    }
-    case "fal": {
-      const refs: string[] = [];
-      collectRefs(entry.inputs, refs);
-      return refs;
-    }
-    case "local": {
-      const refs: string[] = [];
-      collectRefs(entry.inputs, refs);
-      return refs;
-    }
-    case "file":
-      return [];
-  }
+  if (entry.kind === "file") return [];
+  const refs: string[] = [];
+  collectRefs(entry.inputs, refs);
+  return refs;
 }
 
 // A shot's keyframes in one lane: its own picture's, or the cutin's laid over it.
@@ -471,13 +458,10 @@ export function listUnusedAddresses(
 // is excluded.
 export function collectTransitiveDependents(graph: DependencyGraph, root: string): string[] {
   const reachable = new Set<string>();
-  const stack = [...(graph.dependents.get(root) ?? [])];
-  while (stack.length > 0) {
-    const p = stack.pop();
-    if (p === undefined || reachable.has(p)) continue;
+  walkDependents(graph.dependents, root, (p) => {
     reachable.add(p);
-    for (const d of graph.dependents.get(p) ?? []) stack.push(d);
-  }
+    return true;
+  });
   return graph.topologicalOrder.filter((p) => reachable.has(p));
 }
 
@@ -492,22 +476,19 @@ export function videoDependentsHoldVerdicts(
   address: string,
   verdictOf: (address: string) => "holds" | "rebakes" | "open" | null,
 ): boolean {
-  const seen = new Set<string>();
-  const stack = [...(graph.dependents.get(address) ?? [])];
   let held = false;
-  while (stack.length > 0) {
-    const p = stack.pop();
-    if (p === undefined || seen.has(p)) continue;
-    seen.add(p);
-    if (getStage(p) === "video" && !isMaterializedLeafAddress(p)) {
-      const verdict = verdictOf(p);
-      if (verdict === "open") return false;
-      if (verdict === "holds") held = true;
-      if (verdict !== "rebakes") continue;
+  let open = false;
+  walkDependents(graph.dependents, address, (p) => {
+    if (getStage(p) !== "video" || isMaterializedLeafAddress(p)) return true;
+    const verdict = verdictOf(p);
+    if (verdict === "open") {
+      open = true;
+      return "halt";
     }
-    for (const d of graph.dependents.get(p) ?? []) stack.push(d);
-  }
-  return held;
+    if (verdict === "holds") held = true;
+    return verdict === "rebakes";
+  });
+  return held && !open;
 }
 
 /**
@@ -524,13 +505,11 @@ export function collectRerollCascade(
 ): Array<{ address: string; def: AssetDefinition }> {
   const stage = getStage(address);
   const reachable = new Set<string>();
-  const stack = [...(graph.dependents.get(address) ?? [])];
-  while (stack.length > 0) {
-    const p = stack.pop();
-    if (p === undefined || reachable.has(p) || holdsVerdict(p)) continue;
+  walkDependents(graph.dependents, address, (p) => {
+    if (holdsVerdict(p)) return false;
     reachable.add(p);
-    for (const d of graph.dependents.get(p) ?? []) stack.push(d);
-  }
+    return true;
+  });
   const cascade: Array<{ address: string; def: AssetDefinition }> = [];
   for (const depPath of graph.topologicalOrder.filter((p) => reachable.has(p))) {
     if (getStage(depPath) !== stage || isMaterializedLeafAddress(depPath)) continue;
@@ -620,7 +599,9 @@ export function listBoardlessVideoShots(
     let spends = false;
     // A reference to its own board shot, still a pendingShot, is a board it builds on that has no take
     // yet — `pending-reference` holds what is built on it.
-    const ownBoard = new RegExp(`^animatic:shot\\.${s.id}[.#]`);
+    const boardShot = formatShotAddress("animatic", s.id);
+    const ownBoard = (ref: string) =>
+      ref.startsWith(`${boardShot}.`) || ref.startsWith(`${boardShot}#`);
     while (stack.length > 0) {
       const node = stack.pop()!;
       if (seen.has(node)) continue;
@@ -632,7 +613,7 @@ export function listBoardlessVideoShots(
       if (
         board.has(node) ||
         graph.pendingReferences.some(
-          (r) => r.from === node && ownBoard.test(r.ref) && !isHeardStemAddress(r.ref),
+          (r) => r.from === node && ownBoard(r.ref) && !isHeardStemAddress(r.ref),
         )
       ) {
         consumesBoard = true;

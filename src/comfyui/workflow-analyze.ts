@@ -1,6 +1,11 @@
 import type { SubgraphMeta, TemplateModel } from "./convert.js";
 import { modelTypeForDir } from "./model-destination.js";
-import type { ComfyUINodeDefinition } from "./types.js";
+import {
+  type ComfyUINode,
+  type ComfyUINodeDefinition,
+  type ComfyUIWorkflow,
+  isLink,
+} from "./types.js";
 import { KonteError } from "../core/errors.js";
 
 export interface AnalyzedInput {
@@ -41,14 +46,6 @@ export interface AnalysisResult {
   models: AnalyzedModel[];
 }
 
-interface WorkflowNode {
-  class_type: string;
-  inputs: Record<string, unknown>;
-  _meta?: { title?: string };
-}
-
-type WorkflowData = Record<string, WorkflowNode>;
-
 interface InputCandidate {
   name: string;
   nodeId: string;
@@ -88,15 +85,6 @@ function isApiFormat(data: unknown): boolean {
   );
 }
 
-function isLink(value: unknown): boolean {
-  return (
-    Array.isArray(value) &&
-    value.length === 2 &&
-    typeof value[0] === "string" &&
-    typeof value[1] === "number"
-  );
-}
-
 function asPrimitive(value: unknown): string | number | boolean | undefined {
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
     return value;
@@ -104,7 +92,7 @@ function asPrimitive(value: unknown): string | number | boolean | undefined {
   return undefined;
 }
 
-function buildReverseLinkMap(workflow: WorkflowData): Map<string, LinkTarget[]> {
+function buildReverseLinkMap(workflow: ComfyUIWorkflow): Map<string, LinkTarget[]> {
   const map = new Map<string, LinkTarget[]>();
   for (const [nodeId, node] of Object.entries(workflow)) {
     for (const [field, value] of Object.entries(node.inputs)) {
@@ -120,7 +108,7 @@ function buildReverseLinkMap(workflow: WorkflowData): Map<string, LinkTarget[]> 
 
 function buildNodeComment(
   nodeId: string,
-  node: WorkflowNode,
+  node: ComfyUINode,
   reverseLinkMap: Map<string, LinkTarget[]>,
 ): string {
   let comment = node.class_type;
@@ -280,7 +268,7 @@ function inferModelType(classType: string, field: string): string {
   return "checkpoint";
 }
 
-function detectModels(workflow: WorkflowData): AnalyzedModel[] {
+function detectModels(workflow: ComfyUIWorkflow): AnalyzedModel[] {
   const seen = new Set<string>();
   const results: AnalyzedModel[] = [];
   // Pass 1: precise class+field rules carry an authoritative `type`.
@@ -337,14 +325,14 @@ export function attachTemplateModels(
 // that drives the selector (e.g. a `CustomCombo`) is populated dynamically on the
 // frontend. Comfy-Org's audio templates use this for a prompt-style `category` selector.
 function jsonExtractKeyChoices(
-  workflow: WorkflowData,
+  workflow: ComfyUIWorkflow,
   sourceNodeId: string,
   currentValue: string,
 ): readonly string[] | undefined {
   for (const node of Object.values(workflow)) {
     if (node.class_type !== "JsonExtractString") continue;
     const keyInput = node.inputs.key;
-    if (!isLink(keyInput) || (keyInput as [string, number])[0] !== sourceNodeId) continue;
+    if (!isLink(keyInput) || keyInput[0] !== sourceNodeId) continue;
     const jsonString = node.inputs.json_string;
     if (typeof jsonString !== "string") continue;
     try {
@@ -408,7 +396,7 @@ export function pruneUnreachableNodes(
   objectInfo: Record<string, ComfyUINodeDefinition> | undefined,
 ): unknown {
   if (!objectInfo || !isApiFormat(data)) return data;
-  const workflow = data as WorkflowData;
+  const workflow = data as ComfyUIWorkflow;
   const pending = Object.keys(workflow).filter((id) => {
     const classType = workflow[id]!.class_type;
     return (
@@ -426,7 +414,7 @@ export function pruneUnreachableNodes(
     if (reached.has(id) || !workflow[id]) continue;
     reached.add(id);
     for (const value of Object.values(workflow[id].inputs)) {
-      if (isLink(value)) pending.push((value as [string, number])[0]);
+      if (isLink(value)) pending.push(value[0]);
     }
   }
   if (reached.size === Object.keys(workflow).length) return data;
@@ -462,7 +450,7 @@ export function analyzeWorkflow(
     );
   }
 
-  const workflow = data as WorkflowData;
+  const workflow = data as ComfyUIWorkflow;
   const reverseLinkMap = buildReverseLinkMap(workflow);
   const candidates: InputCandidate[] = [];
   const outputs: Record<string, AnalyzedOutput> = {};

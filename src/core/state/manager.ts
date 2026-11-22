@@ -1,3 +1,4 @@
+import { findVariantAddress } from "../variant-address.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import {
@@ -241,12 +242,7 @@ export class StateManager {
   }
 
   findVariantAddress(variantId: string): string | null {
-    for (const [address, assetState] of Object.entries(this.state.assets)) {
-      if (assetState.variants?.[variantId]) {
-        return address;
-      }
-    }
-    return null;
+    return findVariantAddress(this.state, variantId);
   }
 
   resolveVariantAddress(variantId: string): string {

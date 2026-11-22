@@ -496,6 +496,10 @@ export type ShotStage = "animatic" | "video";
  */
 export type AssetStage = ShotStage | "reference";
 
+// Pipeline order.
+export const ASSET_STAGES: readonly AssetStage[] = ["reference", "animatic", "video"];
+export const STAGES: readonly Stage[] = ["direction", ...ASSET_STAGES];
+
 type StageScope = { stage: Stage };
 
 // A stage-scope names a single stage — the granularity at which reviews and generation operate.

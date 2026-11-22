@@ -6,6 +6,7 @@ import {
   isPatchAddress,
   isPlateAddress,
   parseAddress,
+  ASSET_STAGES,
 } from "./address.js";
 import { isActiveGeneration, JobIndex } from "./job-index.js";
 import { isJobTerminal } from "./job-manager.js";
@@ -757,10 +758,6 @@ export function computeStatusSections(
   return { needsReview, problems, needsRegenerate, stale };
 }
 
-// Pipeline order: the shared pool (reference plates) feeds the board, which feeds the video, so the
-// first unfinished line is the one to work on.
-const STAGE_ORDER: string[] = ["reference", "animatic", "video"] satisfies Stage[];
-
 export function computeExportReadiness(
   infos: AddressInfo[],
   pendingShotsByStage?: Partial<Record<Stage, number>>,
@@ -897,8 +894,9 @@ export function computeExportReadiness(
   // Report in pipeline order — the shared reference pool feeds animatic, which feeds video — so
   // the first unfinished line is the one to work on.
   const stageRank = (label: string) => {
-    const rank = STAGE_ORDER.indexOf(label);
-    return rank < 0 ? STAGE_ORDER.length : rank;
+    // Pipeline order: the first unfinished line is the one to work on.
+    const rank = (ASSET_STAGES as readonly string[]).indexOf(label);
+    return rank < 0 ? ASSET_STAGES.length : rank;
   };
   results.sort((a, b) => stageRank(a.label) - stageRank(b.label) || a.label.localeCompare(b.label));
   return results;

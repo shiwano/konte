@@ -8,6 +8,8 @@
 //
 // Numbers are never zero-padded; a file name is (`chunkFileStems`).
 
+import { VIDEO_EXTENSIONS } from "./media-type.js";
+import { parseTimecode } from "./timecode.js";
 import * as path from "node:path";
 
 export type SourceKind = "text" | "comic" | "clip";
@@ -21,7 +23,6 @@ const CLOCK = "(?:\\d+:)?\\d{1,2}:\\d{2}(?:\\.\\d+)?";
 
 const TEXT_EXTS = new Set([".txt", ".md", ".epub"]);
 const COMIC_EXTS = new Set([".cbz", ".pdf", ".zip"]);
-const CLIP_EXTS = new Set([".mp4", ".mov", ".mkv", ".webm", ".m4v", ".avi"]);
 
 /** The kind a source's original is read as, off its form; null where konte reads no such file. */
 export function sourceKindOfFile(file: string, isDirectory: boolean): SourceKind | null {
@@ -29,7 +30,7 @@ export function sourceKindOfFile(file: string, isDirectory: boolean): SourceKind
   const ext = path.extname(file).toLowerCase();
   if (TEXT_EXTS.has(ext)) return "text";
   if (COMIC_EXTS.has(ext)) return "comic";
-  if (CLIP_EXTS.has(ext)) return "clip";
+  if (VIDEO_EXTENSIONS.has(ext)) return "clip";
   return null;
 }
 
@@ -53,12 +54,6 @@ export function chunkPositionPrefix(chunk: string): string {
   return "";
 }
 
-// `m:ss(.s)` or `h:mm:ss(.s)`, in seconds.
-function parseClock(text: string): number {
-  const parts = text.split(":").map(Number);
-  return parts.reduce((sum, n) => sum * 60 + n, 0);
-}
-
 /** `mm:ss.s`, the clock a clip locator is written on. */
 export function formatClipClock(sec: number): string {
   const tenths = Math.round(sec * 10);
@@ -79,8 +74,8 @@ export function parseAt(kind: SourceKind, at: string): ParsedAt | null {
   if (kind === "clip") {
     const m = new RegExp(`^(${CLOCK})(?:-(${CLOCK}))?$`).exec(at);
     if (!m) return null;
-    const from = parseClock(m[1]!);
-    const to = m[2] ? parseClock(m[2]) : from;
+    const from = parseTimecode(m[1]!);
+    const to = m[2] ? parseTimecode(m[2]) : from;
     return to >= from ? { prefix: "", from, to } : null;
   }
   const prefix = kind === "text" ? TEXT_PREFIX : `v${N}`;

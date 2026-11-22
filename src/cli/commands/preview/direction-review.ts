@@ -11,7 +11,6 @@ import {
 } from "../../../core/direction-acceptance.js";
 import type { Direction } from "../../../core/dsl/direction.js";
 import type { DirectionPreviewState } from "../../../core/types/review-state.js";
-import type { Handoff } from "../../../core/types/index.js";
 import type { ReviewDecisionEntry, ReviewRecord } from "../../../core/review-record.js";
 import type {
   DirectionSubmitBody,
@@ -26,18 +25,13 @@ import {
   staleFlagsBeforeDecisions,
   recordFeedbackFor,
 } from "./feedback-apply.js";
-import { handoffRecordFields, persistReview } from "./review-shared.js";
+import { handoffNotesAt, handoffRecordFields, persistReview } from "./review-shared.js";
 import { directionPreviewState } from "./direction-view.js";
 import { emptyOutcome } from "./review-outcome.js";
 import type { ReviewContext } from "./submit.js";
 import { reviewHeldError, reviewHeldFindings } from "../../finding-gates.js";
 import { loadCheckContext } from "../../../core/check-context.js";
 import { collectFindings, directionCheckOf, waiverCoverageOf } from "../../../core/checks.js";
-
-// A direction part's feedback address is `direction:<part>`, the same form a handoff note carries.
-function handoffNoteForDirection(handoff: Handoff | null, address: string): string | undefined {
-  return (handoff?.notes ?? []).find((n) => n.address === address)?.text;
-}
 
 // The direction as a media-less review view. Feedback attaches to a synthetic address per
 // reviewable part (`direction:<part>`).
@@ -84,7 +78,7 @@ export async function handleGetDirectionState(
         address,
         status: acceptanceView.parts.get(address) ?? "unsigned",
         feedback: buildAddressFeedback(feedbackMgr, state, address, { subjectHashes }),
-        handoffNote: handoffNoteForDirection(handoff, address),
+        handoffNote: handoffNotesAt(handoff, address)[0],
       }),
     })) satisfies DirectionPreviewState,
   );

@@ -1,4 +1,5 @@
-import { formatShotAddress, patchSourceVariantIdOf, THUMBNAIL_TARGET } from "./address.js";
+import { variantAddresses } from "./variant-address.js";
+import { formatShotAddress, patchSourceVariantIdOf, THUMBNAIL_TARGET, STAGES } from "./address.js";
 import {
   listAddresses,
   listCompositionAddresses,
@@ -52,7 +53,7 @@ export function buildOrphanContext(
   for (const s of video.shots) validAddresses.add(formatShotAddress("video", s.id));
   if (video.thumbnail) validAddresses.add(THUMBNAIL_TARGET);
   // A bare stage holds a review's overall comment.
-  for (const stage of ["animatic", "video", "reference", "direction"]) validAddresses.add(stage);
+  for (const stage of STAGES) validAddresses.add(stage);
   for (const part of directionParts ?? []) validAddresses.add(part);
   if (animatic) {
     for (const addr of listAddresses(animatic, "animatic")) validAddresses.add(addr);
@@ -98,12 +99,7 @@ export function buildOrphanContext(
 
   // A patch step lives on its script, but is no take of its own to keep: what counts is whether
   // the take it corrects stands at a declared address.
-  const addressOfVariant = new Map<string, string>();
-  for (const [address, asset] of Object.entries(state?.assets ?? {})) {
-    for (const variantId of Object.keys(asset.variants ?? {})) {
-      addressOfVariant.set(variantId, address);
-    }
-  }
+  const addressOfVariant = state ? variantAddresses(state) : new Map<string, string>();
   const isLiveConsumer = (address: string): boolean => {
     const patchSource = patchSourceVariantIdOf(address);
     if (patchSource === null) return !isUndeclared(address);

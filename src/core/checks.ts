@@ -9,6 +9,7 @@ import {
   getStage,
   isHeardStemAddress,
   isPatchAddress,
+  ASSET_STAGES,
 } from "./address.js";
 import { getAssetEntry, listAddresses } from "./definition-addresses.js";
 import {
@@ -113,8 +114,6 @@ type Check = {
   // The direction check also reports the waivers that cancel nothing.
   staleWaivers?: (ctx: CheckContext) => StaleWaiver[];
 };
-
-const ASSET_STAGES: readonly AssetStage[] = ["reference", "animatic", "video"];
 
 function stageDefinitions(ctx: CheckContext): Array<[AssetStage, AssetStageDefinition]> {
   return ASSET_STAGES.flatMap((stage) => {

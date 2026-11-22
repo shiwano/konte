@@ -50,4 +50,9 @@ describe("parseTimecode", () => {
   it("throws INVALID_TIMECODE for empty string", () => {
     expect(() => parseTimecode("")).toThrow(KonteError);
   });
+
+  it("reads a fractional second exactly", () => {
+    expect(parseTimecode("00:01.64")).toBe(1.64);
+    expect(parseTimecode("1:02:03.7")).toBe(3723.7);
+  });
 });

@@ -1,17 +1,19 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { z } from "zod";
-import { type Stage, DIRECTION_SECTIONS } from "./address.js";
+import { type Stage, DIRECTION_SECTIONS, STAGES } from "./address.js";
 import { writeFileAtomic } from "./atomic-write.js";
 import { KonteError } from "./errors.js";
 import { isWithinRootRealAsync } from "./path-containment.js";
 import { NormalizedCoordSchema } from "./types/feedback.js";
 import { REVIEW_MODES, REVIEW_STAGES } from "./review-mode.js";
 
+export const ReviewAcceptDecisionSchema = z.enum(["accepted", "none"]);
+
 const ReviewDecisionEntrySchema = z.object({
   address: z.string(),
   variantId: z.string().optional(),
-  status: z.enum(["accepted", "none"]).optional(),
+  status: ReviewAcceptDecisionSchema.optional(),
   feedback: z.array(
     z.object({
       id: z.string(),
@@ -40,8 +42,7 @@ export type ReviewDecisionEntry = z.infer<typeof ReviewDecisionEntrySchema>;
 // The video stage's `decisions`: shotId -> accept toggle. Exported so the preview submit handler
 // validates the client payload with the same schema the record is read back through — an unvalidated
 // map would persist and then be silently skipped on read, losing the whole review.
-export const VideoReviewDecisionsSchema = z.record(z.string(), z.enum(["accepted", "none"]));
-export const ReviewAcceptDecisionSchema = z.enum(["accepted", "none"]);
+export const VideoReviewDecisionsSchema = z.record(z.string(), ReviewAcceptDecisionSchema);
 
 // `decisions` is mode-shaped: animatic/reference/direction store an entry array,
 // video stores a per-shot accept map. Validate both so a malformed decision surfaces
@@ -94,18 +95,18 @@ export const ReviewRecordSchema = z.object({
   decisions: ReviewDecisionsSchema,
   // The timeline audio stem (soundtrack beds) accept decision. Per-shot audio is folded into its
   // shot's decision above; the beds are signed off here via `timeline#stem`.
-  timelineStemDecision: z.enum(["accepted", "none"]).optional(),
+  timelineStemDecision: ReviewAcceptDecisionSchema.optional(),
   // The overlay's accept decision at `<stage>:timeline#overlay`: signed off with the last shot
   // accept under it, or on its own once every shot accept stands.
-  overlayDecision: z.enum(["accepted", "none"]).optional(),
+  overlayDecision: ReviewAcceptDecisionSchema.optional(),
   // The video's thumbnail accept decision, at `video:thumbnail#still`.
-  thumbnailDecision: z.enum(["accepted", "none"]).optional(),
+  thumbnailDecision: ReviewAcceptDecisionSchema.optional(),
   // The direction's accept decisions, one per section of the review page the reviewer
   // settled ("none" is an explicit revoke). The direction is variant-less, so unlike every other
   // stage's acceptance these have no `decisions` entry to ride on and are carried here instead. A
   // section the review left untouched is absent, so the record says what was decided, not what the
   // resulting state was. Absent entirely when the review settled nothing (feedback-only).
-  directionDecisions: z.record(z.enum(DIRECTION_SECTIONS), z.enum(["accepted", "none"])).optional(),
+  directionDecisions: z.record(z.enum(DIRECTION_SECTIONS), ReviewAcceptDecisionSchema).optional(),
   // Direction only: where the acceptance gate stood once this review's decisions landed. A
   // snapshot, like `directionParts` — a later edit re-blocks parts this record shows settled, and
   // `konte status` owns the live gate.
@@ -318,7 +319,7 @@ export async function findReviewRecordSince(
 
 export async function reviewTimes(videoRoot: string): Promise<Map<Stage, string[]>> {
   const out = new Map<Stage, string[]>();
-  for (const stage of ["animatic", "video", "reference", "direction"] as const) {
+  for (const stage of STAGES) {
     const times: string[] = [];
     for (const { filePath } of await listReviewFiles(path.join(videoRoot, REVIEW_DIR, stage))) {
       try {

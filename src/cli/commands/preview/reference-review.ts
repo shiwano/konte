@@ -37,7 +37,6 @@ import type {
 } from "../../../core/types/review-state.js";
 import type {
   DirectionAcceptance,
-  Handoff,
   ReferenceDefinition,
   AnimaticDefinition,
   VideoDefinition,
@@ -60,6 +59,7 @@ import { buildAddressFeedback } from "./feedback-apply.js";
 import {
   addressReviewTouchesNothing,
   applyAddressReview,
+  handoffNotesAt,
   handoffRecordFields,
   persistReview,
 } from "./review-shared.js";
@@ -74,12 +74,6 @@ import type { ReviewContext } from "./submit.js";
 import { loadCheckContext } from "../../../core/check-context.js";
 import { collectFindings } from "../../../core/checks.js";
 import { createAssetInfoBuilder } from "./asset-info.js";
-
-// Handoff note (AI -> reviewer) attached to a reference address (`reference:<name>`).
-function handoffNoteForReference(handoff: Handoff | null, assetName: string): string | undefined {
-  const path = `reference:${assetName}`;
-  return (handoff?.notes ?? []).find((n) => n.address === path)?.text;
-}
 
 // The flat reference pool as review cards: each named asset with its variant gallery,
 // feedback, accept state, and staleness. Reference has no shots/compositions, so this is a flat
@@ -212,7 +206,7 @@ export async function handleGetReferenceState(
       feedback: buildAddressFeedback(feedbackMgr, manager.getState(), addr, {
         view: manager.stalenessView(),
       }),
-      handoffNote: handoffNoteForReference(handoff, assetName),
+      handoffNote: handoffNotesAt(handoff, formatReferenceAddress(assetName))[0],
       ...(rosterEntries.has(assetName) ? { directionRoster: rosterEntries.get(assetName) } : {}),
     };
   });

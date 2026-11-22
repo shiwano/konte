@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import { parsePlaceholder } from "../core/dsl/shot-context.js";
 import { KonteError } from "../core/errors.js";
-import type { ComfyUIWorkflow } from "./types.js";
+import { type ComfyUIWorkflow, isLink } from "./types.js";
 
 export async function loadWorkflow(workflowPath: string): Promise<ComfyUIWorkflow> {
   let raw: string;
@@ -73,10 +73,6 @@ export function parameterizeWorkflow(
   }
 
   return result;
-}
-
-function isLink(value: unknown): value is [string, number] {
-  return Array.isArray(value) && value.length === 2 && typeof value[0] === "string";
 }
 
 // Where an edge into a pruned node should land instead. A pass-through node stands for one of its

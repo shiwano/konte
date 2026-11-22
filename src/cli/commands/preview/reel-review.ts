@@ -103,7 +103,7 @@ import {
 } from "./variant-view.js";
 import { shotFactsIndex } from "./shot-facts.js";
 import { buildAddressFeedback } from "./feedback-apply.js";
-import { handoffNotesForShot, unroutedReelHandoffNotes } from "./review-shared.js";
+import { handoffNotesAt, unroutedReelHandoffNotes } from "./review-shared.js";
 import { createAssetInfoBuilder } from "./asset-info.js";
 import { buildKeepGraph } from "./keep-graph.js";
 
@@ -584,7 +584,7 @@ function reelShotStates(
       showingStandIn,
       standInCause: showingStandIn ? standInCause(manager, scope.liveJobs, video, shot) : null,
       notReady,
-      handoffNotes: handoffNotesForShot(ctx.handoff, stage, s.shotId),
+      handoffNotes: handoffNotesAt(ctx.handoff, formatShotAddress(stage, s.shotId)),
     };
     try {
       return {

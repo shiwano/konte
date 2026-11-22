@@ -1,3 +1,4 @@
+import { formatClock } from "./format-duration.js";
 // A clip source is read as an original to adapt: every shot shown, in windows of about three minutes
 // (`w1`, `w2` …) whose locators are the file's clock.
 //
@@ -30,12 +31,11 @@ import {
   sourceChunksDir,
 } from "./source-chunker.js";
 import {
-  type HeardLine,
+  type HeardClipLine,
   SCENE_THRESHOLD,
   SHEET_CELLS,
   clipSha256,
   clipStudyDir,
-  formatClock,
   hearVoice,
   makeProxy,
   probeClip,
@@ -67,7 +67,7 @@ type ClipReading = {
   heard: {
     lang: string;
     from: "subtitles" | "auto-subtitles" | "voice";
-    lines: HeardLine[];
+    lines: HeardClipLine[];
   } | null;
 };
 
@@ -178,15 +178,6 @@ export function windowFrameTimes(shots: readonly Shot[], from: number, to: numbe
   return times;
 }
 
-// `h:mm:ss`, or `m:ss` under an hour.
-function formatLength(sec: number): string {
-  const whole = Math.floor(sec);
-  if (whole < 3600) return formatClock(whole);
-  const h = Math.floor(whole / 3600);
-  const m = Math.floor((whole % 3600) / 60);
-  return `${h}:${String(m).padStart(2, "0")}:${String(whole % 60).padStart(2, "0")}`;
-}
-
 function shotsIn(shots: readonly Shot[], from: number, to: number): number {
   return shots.filter((s) => Math.min(s.endSec, to) > Math.max(s.startSec, from)).length;
 }
@@ -219,7 +210,7 @@ export async function sourceClipFrameAt(
   if (sec < 0 || sec >= probe.videoDuration) {
     throw new KonteError(
       "INVALID_OPTION",
-      `--at ${formatClipClock(sec)} is outside ${src.file}, which runs ${formatLength(probe.videoDuration)}`,
+      `--at ${formatClipClock(sec)} is outside ${src.file}, which runs ${formatClock(probe.videoDuration)}`,
     );
   }
   return { path: await frameAt(src, probe, sec), probe };
@@ -266,7 +257,7 @@ export const CLIP_CHUNKER: SourceChunker = {
       };
     });
     const summary = [
-      formatLength(durationSec),
+      formatClock(durationSec),
       `${windows.length} window${windows.length === 1 ? "" : "s"}`,
       ...(reading ? [`${reading.shots.length.toLocaleString("en-US")} shots`] : []),
       ...(reading?.heard ? [`heard ${reading.heard.lang}`] : []),

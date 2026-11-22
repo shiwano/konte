@@ -1,3 +1,4 @@
+import { carriesPlaceholder } from "../core/redact.js";
 import { z } from "zod";
 import { modelPathSegments } from "../comfyui/model-destination.js";
 import { loadAdapterCatalog } from "../core/adapter-catalog.js";
@@ -79,7 +80,7 @@ export function buildInputs(
   const nodeIds = new Set<string>();
   for (const adapter of adapters) {
     for (const model of adapter.models) {
-      if (model.url.includes("${")) {
+      if (carriesPlaceholder(model.url)) {
         throw new KonteError(
           "COMFY_API_AUTHENTICATED_MODEL",
           `${adapter.workflow} declares ${model.filename} at a URL carrying a credential, which a ` +

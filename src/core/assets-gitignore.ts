@@ -2,7 +2,8 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { writeFileAtomic } from "./atomic-write.js";
 import type { KonteState } from "./types/index.js";
-import { ASSET_STAGES, variantDir } from "./variant-dir.js";
+import { ASSET_STAGES } from "./address.js";
+import { variantDir } from "./variant-dir.js";
 import { acceptedConsumers, isProtectedVariant } from "./variant-lineage.js";
 
 const ASSETS_PREFIX = `assets${path.sep}`;

@@ -1,4 +1,4 @@
-import { format } from "oxfmt";
+import { formatGeneratedDoc } from "./format-doc.js";
 import { formatAddress } from "./address.js";
 import type { DirectionFinding, ShotPanels, VideoShotPins } from "./direction-check.js";
 import { checkDirection, type StagingStageState } from "./direction.js";
@@ -613,7 +613,5 @@ function renderSeamMarkdown(): string {
 }
 
 export async function renderSeamDoc(): Promise<string> {
-  const { code, errors } = await format("docs/SEAMS.md", renderSeamMarkdown());
-  if (errors.length > 0) throw new Error(`oxfmt failed on the seam doc: ${JSON.stringify(errors)}`);
-  return code;
+  return formatGeneratedDoc("docs/SEAMS.md", renderSeamMarkdown());
 }

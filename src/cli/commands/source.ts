@@ -45,6 +45,7 @@ import { prepareClipSource, sourceClipFrameAt } from "../../core/source-chunker-
 import { comicPage } from "../../core/source-chunker-comic.js";
 import { ensureFfmpeg, ensureFfprobe } from "../../core/ffmpeg.js";
 import { parseTimecode } from "../../core/timecode.js";
+import { formatClock } from "../../core/format-duration.js";
 import type { SourceIndex } from "../../core/types/index.js";
 import { getPathSize } from "./clean-utils.js";
 import { confirmDeletion, printAborted, NO_FLAG_DESCRIPTION } from "../confirm.js";
@@ -185,11 +186,7 @@ function printExcerpt(sv: SourceView, excerpt: SourceExcerpt | null, indent: str
 }
 
 function formatRun(sec: number): string {
-  const whole = Math.round(sec);
-  const h = Math.floor(whole / 3600);
-  const m = Math.floor((whole % 3600) / 60);
-  const ss = String(whole % 60).padStart(2, "0");
-  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
+  return formatClock(Math.round(sec));
 }
 
 function measureLine(sv: SourceView): string {

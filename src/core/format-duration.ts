@@ -1,7 +1,12 @@
 // Compact elapsed-time formatter for CLI display: "M:SS" under an hour, else
 // "H:MM:SS". Negative inputs clamp to zero.
 export function formatDuration(ms: number): string {
-  const totalSec = Math.floor(Math.max(0, ms) / 1000);
+  return formatClock(ms / 1000);
+}
+
+// `m:ss`, or `h:mm:ss` from an hour, in whole seconds.
+export function formatClock(sec: number): string {
+  const totalSec = Math.floor(Math.max(0, sec));
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;

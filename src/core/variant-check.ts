@@ -2,7 +2,7 @@
 // what was measured when it landed. A variant with a finding holds its stage's review until it is
 // dismissed or vouched for (`konte vouch`); a reroll draws a take beside it and settles nothing.
 
-import { type AssetStage } from "./address.js";
+import { type AssetStage, ASSET_STAGES } from "./address.js";
 import { listAddresses } from "./definition-addresses.js";
 import type { StageDefinitions } from "./definition-hashes.js";
 import type { Direction } from "./dsl/direction.js";
@@ -64,8 +64,6 @@ export async function checkVariant(opts: {
   );
   return wrong ? [{ type: "line-misheard", detail: wrong }] : [];
 }
-
-const ASSET_STAGES: readonly AssetStage[] = ["reference", "animatic", "video"];
 
 /**
  * The findings on every variant awaiting review that no one vouched for — at the addresses `stage`

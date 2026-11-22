@@ -20,7 +20,7 @@ import { hearWindows, joinHeardWindows } from "./speech-hearing.js";
 import { detectSceneChanges, extractFrameAt, lastSeekableTime } from "./frame-extract.js";
 import { type ClipStudy, ClipStudySchema } from "./types/index.js";
 import { probeHasAudio, probeVideo, type VideoProbeResult } from "./video-probe.js";
-import { formatSeconds } from "./format-duration.js";
+import { formatClock, formatSeconds } from "./format-duration.js";
 
 // Bumped whenever what a study reads, or how, changes: a study of another version is read again.
 const STUDY_VERSION = 2;
@@ -120,12 +120,6 @@ export async function probeClip(
   return probe;
 }
 
-// `m:ss`, the clock a clip is read on.
-export function formatClock(sec: number): string {
-  const whole = Math.floor(sec);
-  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
-}
-
 /** The shots between the cuts at `cuts`, dropping a cut closer than `MIN_SHOT_SEC` to either end. */
 export function shotsBetween(
   cuts: readonly number[],
@@ -159,10 +153,12 @@ export function musicTempo(beats: readonly number[], durationSec: number): SongT
   return songTempo({ beats, firstBeat: 0, beatsPerBar: 4 });
 }
 
-export type HeardLine = { startSec: number; text: string };
+export type HeardClipLine = { startSec: number; text: string };
 
 /** The heard tokens as lines, each with the clock it starts at, broken at each pause. */
-export function heardLineSpans(tokens: readonly { text: string; startSec: number }[]): HeardLine[] {
+export function heardLineSpans(
+  tokens: readonly { text: string; startSec: number }[],
+): HeardClipLine[] {
   const lines: { startSec: number; text: string }[] = [];
   let last = -Infinity;
   for (const token of tokens) {
@@ -176,7 +172,7 @@ export function heardLineSpans(tokens: readonly { text: string; startSec: number
 }
 
 /** A heard line as a reference study's heard.txt writes it, opened by the clock it starts at. */
-export function formatHeardLine(line: HeardLine): string {
+export function formatHeardLine(line: HeardClipLine): string {
   return `[${formatClock(line.startSec)}] ${line.text}`;
 }
 
@@ -250,7 +246,7 @@ export async function hearVoice(
   file: string,
   durationSec: number,
   workDir: string,
-): Promise<{ lang: string; lines: HeardLine[] } | null> {
+): Promise<{ lang: string; lines: HeardClipLine[] } | null> {
   await fs.mkdir(workDir, { recursive: true });
   const stereo = path.join(workDir, "mix.wav");
   await ffmpeg(

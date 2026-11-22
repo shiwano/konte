@@ -14,6 +14,11 @@ const URL_IN_TEXT = /https?:\/\/[^\s"'<>\\]+/gi;
 
 export const PLACEHOLDER_RE = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
 
+// A `${VAR}` placeholder resolves to a credential at use time.
+export function carriesPlaceholder(text: string): boolean {
+  return text.includes("${");
+}
+
 // Cap for an external error body embedded in a persisted error. A backend that answers a bad
 // request with a full HTML page must not push kilobytes into every job file and log.
 const MAX_ERROR_BODY_CHARS = 500;

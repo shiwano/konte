@@ -3,7 +3,7 @@
 // code and in OTHER_TRAITS for the rest. The gates, `status` and FINDINGS.md all read the tables.
 
 import type { BuildFindingCode } from "./types/stage-build.js";
-import { type AssetStage, type Stage, getStage, matchesAddressScope } from "./address.js";
+import { type AssetStage, type Stage, getStage, matchesAddressScope, STAGES } from "./address.js";
 import {
   type DirectionFindingCode,
   type DirectionJudgedCode,
@@ -351,12 +351,11 @@ export function formatFindingGroups(findings: readonly Finding[]): string[] {
 export function groupByFixIn(
   findings: readonly Finding[],
 ): Array<{ file: string; findings: Finding[] }> {
-  const order: Stage[] = ["direction", "reference", "animatic", "video"];
   const byFile = new Map<string, { rank: number; findings: Finding[] }>();
   for (const f of findings) {
     const file = sourceFilePath(f.fixIn);
     const entry = byFile.get(file) ?? {
-      rank: order.indexOf(f.fixIn.stage) * 2 + (f.fixIn.patch ? 1 : 0),
+      rank: STAGES.indexOf(f.fixIn.stage) * 2 + (f.fixIn.patch ? 1 : 0),
       findings: [],
     };
     entry.findings.push(f);
