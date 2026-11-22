@@ -26,6 +26,9 @@ import {
   listReferenceAddresses,
   listShotStems,
   getAssetEntry,
+  exposedPlateIdsOf,
+  platesOf,
+  thumbnailOf,
 } from "./definition-addresses.js";
 import {
   type AssetStageDefinition,
@@ -37,7 +40,6 @@ import {
   type PanelDefinition,
   type PanelLane,
   type StageDefinition,
-  type ThumbnailDefinition,
   type VideoDefinition,
 } from "./types/index.js";
 import { isVendorBackendAsset } from "./vendor-backend.js";
@@ -116,24 +118,6 @@ function allPanels(shot: AnimaticDefinition["shots"][number]): PanelDefinition[]
 }
 
 export const LANES: readonly PanelLane[] = ["main", "cutin"];
-
-// The plates a stage carries. Only the animatic declares any; typed here rather than at each call
-// site so a `StageDefinition` reference stays legal.
-export function platesOf(def: object | null | undefined): Record<string, AssetDefinition> {
-  return (def as { plates?: Record<string, AssetDefinition> } | null)?.plates ?? {};
-}
-
-// The thumbnail a stage carries. Only the video declares one.
-export function thumbnailOf(def: object | null | undefined): ThumbnailDefinition | undefined {
-  return (def as { thumbnail?: ThumbnailDefinition | null } | null)?.thumbnail ?? undefined;
-}
-
-// The plates filed under a setup. A definition that never went through `defineAnimatic` filed all.
-export function exposedPlateIdsOf(def: object | null | undefined): string[] {
-  return (
-    (def as { exposedPlateIds?: string[] } | null)?.exposedPlateIds ?? Object.keys(platesOf(def))
-  );
-}
 
 export function buildDependencyGraph(
   video: StageDefinition | null,

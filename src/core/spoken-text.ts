@@ -2,6 +2,7 @@ import { isNarrationStemAddress, isOffFrameStemAddress, tryParseAddress } from "
 import type { CueKind } from "./audio-level.js";
 import { type DirectionIndex } from "./dsl/direction.js";
 import { framedCharacterIds } from "./dsl/direction-timeline.js";
+import { platesOf } from "./definition-addresses.js";
 import { KonteError } from "./errors.js";
 import { extractRefs } from "./graph.js";
 import type { AssetDefinition, StageDefinition } from "./types/index.js";
@@ -23,14 +24,13 @@ export function spokenTextsUnder(definition: StageDefinition, refs: readonly str
     if (words.length === 0) continue;
     byAddress.set(p.address, [...(byAddress.get(p.address) ?? []), ...words]);
   }
-  const plates = ("plates" in definition ? definition.plates : undefined) as
-    | Record<string, AssetDefinition>
-    | undefined;
+  const plates = platesOf(definition);
   const assetsOf = (address: string): AssetDefinition | undefined => {
     const parsed = tryParseAddress(address);
     if (!parsed || parsed.stage !== definition.stage) return undefined;
     if (parsed.kind === "timeline") return definition.topLevelAssets?.[parsed.assetName];
-    if (parsed.kind === "plate") return plates?.[parsed.assetName];
+    if (parsed.kind === "plate")
+      return Object.hasOwn(plates, parsed.assetName) ? plates[parsed.assetName] : undefined;
     if (parsed.kind === "shot") {
       return definition.shots.find((s) => s.id === parsed.shotId)?.assets[parsed.assetName];
     }

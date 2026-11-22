@@ -25,7 +25,13 @@ import {
 } from "./address.js";
 import { KonteError } from "./errors.js";
 import { shotById } from "./shot-index.js";
-import type { AssetDefinition, AssetStageDefinition, ThumbnailDefinition } from "./types/index.js";
+import type {
+  AnimaticDefinition,
+  AssetDefinition,
+  AssetStageDefinition,
+  ThumbnailDefinition,
+  VideoDefinition,
+} from "./types/index.js";
 
 // The addresses the thumbnail is made of: its frame, its still and its own assets.
 export function thumbnailOwnAddresses(thumbnail: {
@@ -177,16 +183,27 @@ export function validateAddress(address: string, definition: AssetStageDefinitio
   void getAssetEntry(definition, address);
 }
 
-function declaredPlates(
-  definition: AssetStageDefinition,
-): Record<string, AssetDefinition> | undefined {
-  return "plates" in definition ? definition.plates : undefined;
+// Any loaded definition, `StageDefinition` included: only the animatic declares plates, only the
+// video a thumbnail.
+type DefinitionDeclarations = { readonly shots: readonly unknown[] } & Partial<
+  Pick<AnimaticDefinition, "plates" | "exposedPlateIds"> & Pick<VideoDefinition, "thumbnail">
+>;
+
+export function platesOf(
+  definition: DefinitionDeclarations | null | undefined,
+): Record<string, AssetDefinition> {
+  return definition?.plates ?? {};
 }
 
-function declaredThumbnail(
-  definition: AssetStageDefinition,
-): ThumbnailDefinition | null | undefined {
-  return "thumbnail" in definition ? definition.thumbnail : undefined;
+// The plates filed under a setup. A definition that never went through `defineAnimatic` filed all.
+export function exposedPlateIdsOf(definition: DefinitionDeclarations | null | undefined): string[] {
+  return definition?.exposedPlateIds ?? Object.keys(platesOf(definition));
+}
+
+export function thumbnailOf(
+  definition: DefinitionDeclarations | null | undefined,
+): ThumbnailDefinition | undefined {
+  return definition?.thumbnail ?? undefined;
 }
 
 export function listAddresses(definition: AssetStageDefinition, stage: AssetStage): string[] {
@@ -204,12 +221,12 @@ export function listAddresses(definition: AssetStageDefinition, stage: AssetStag
     }
   }
   if (stage === "animatic") {
-    for (const setupId of Object.keys(declaredPlates(definition) ?? {})) {
+    for (const setupId of Object.keys(platesOf(definition))) {
       paths.push(formatPlateAddress(setupId));
     }
   }
   if (stage === "video") {
-    const thumbnail = declaredThumbnail(definition);
+    const thumbnail = thumbnailOf(definition);
     for (const assetName of Object.keys(thumbnail?.assets ?? {})) {
       paths.push(formatThumbnailAddress(assetName));
     }
@@ -272,7 +289,8 @@ export function getAssetEntry(definition: AssetStageDefinition, address: string)
   const parsed = parseAddress(address);
 
   if (parsed.kind === "plate") {
-    const plate = declaredPlates(definition)?.[parsed.assetName];
+    const plates = platesOf(definition);
+    const plate = Object.hasOwn(plates, parsed.assetName) ? plates[parsed.assetName] : undefined;
     if (!plate) {
       throw new KonteError(
         "ADDRESS_NOT_FOUND",
@@ -283,7 +301,7 @@ export function getAssetEntry(definition: AssetStageDefinition, address: string)
   }
 
   if (parsed.kind === "thumbnail") {
-    const thumbnail = declaredThumbnail(definition);
+    const thumbnail = thumbnailOf(definition);
     const asset =
       address === THUMBNAIL_STILL_ADDRESS
         ? thumbnail?.compose?.still

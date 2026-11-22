@@ -21,7 +21,7 @@ import {
   shownShotAssetNames,
   thumbnailOwnAddresses,
 } from "../../../core/definition-addresses.js";
-import { thumbnailOf } from "../../../core/graph.js";
+import { exposedPlateIdsOf, thumbnailOf } from "../../../core/definition-addresses.js";
 import { materializedLeafContentHash } from "../../../core/leaf-review.js";
 import { directionPartHashes } from "../../../core/direction-hash.js";
 import type { Direction } from "../../../core/dsl/direction.js";
@@ -422,9 +422,7 @@ export async function writeHandoff(
       reelStage,
       reel.topLevelAssets,
       reel.timelineSoundtracks,
-      reelStage === "animatic"
-        ? (subject.animatic.exposedPlateIds ?? Object.keys(subject.animatic.plates ?? {}))
-        : undefined,
+      reelStage === "animatic" ? exposedPlateIdsOf(subject.animatic) : undefined,
       !!reel.overlay,
       !!thumbnailOf(reel),
     );

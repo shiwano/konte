@@ -29,7 +29,8 @@ import type { AnimaticSetupState } from "./direction-check.js";
 import { collectShotFrames, setupView } from "./direction-frames.js";
 import { type StagingStageState } from "./direction.js";
 import type { Direction } from "./dsl/direction.js";
-import { extractRefs, exposedPlateIdsOf, LANES, lanePanels, platesOf } from "./graph.js";
+import { exposedPlateIdsOf, platesOf } from "./definition-addresses.js";
+import { extractRefs, LANES, lanePanels } from "./graph.js";
 import { definitionHashForAddress } from "./leaf-hash.js";
 import type { Accepted } from "./sign-off.js";
 import type { StateManager } from "./state/index.js";
@@ -1175,7 +1176,7 @@ export function animaticSetupState(
       typeof s.within === "string" ? [[id, s.within] as const] : [],
     ),
   );
-  const plateIds = animatic.exposedPlateIds ?? Object.keys(animatic.plates ?? {});
+  const plateIds = exposedPlateIdsOf(animatic);
   return {
     plateIds,
     unanchoredPlateIds: gaps.unanchoredPlates,

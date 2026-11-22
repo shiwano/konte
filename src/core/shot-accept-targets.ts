@@ -25,7 +25,8 @@ import {
 import { removedShotStemAddresses } from "./stem-resource.js";
 import { leafSettledAcross, materializedLeafReviewStatus } from "./leaf-review.js";
 import { parsePlaceholder } from "./dsl/shot-context.js";
-import { extractRefs, thumbnailOf } from "./graph.js";
+import { thumbnailOf } from "./definition-addresses.js";
+import { extractRefs } from "./graph.js";
 import { variantMediaKind } from "./media-type.js";
 import { shotById } from "./shot-index.js";
 import type { StateManager } from "./state/index.js";

@@ -8,7 +8,7 @@ import {
   THUMBNAIL_TARGET,
 } from "../address.js";
 import { listShotStems, thumbnailCoverAddress } from "../definition-addresses.js";
-import { thumbnailOf } from "../graph.js";
+import { thumbnailOf } from "../definition-addresses.js";
 import { timelineStemRefs } from "../leaf-hash.js";
 import { shotById } from "../shot-index.js";
 import type { StageDefinition } from "../types/index.js";

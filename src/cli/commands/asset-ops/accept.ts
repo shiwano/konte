@@ -54,7 +54,7 @@ import {
 } from "../../../core/leaf-review.js";
 import { type Finding, formatFindingLine } from "../../../core/finding.js";
 import { shotAcceptTargets } from "../../../core/shot-accept-targets.js";
-import { thumbnailOf } from "../../../core/graph.js";
+import { thumbnailOf } from "../../../core/definition-addresses.js";
 import { shotById } from "../../../core/shot-index.js";
 import { shotAcceptable } from "../../../core/shot-acceptable.js";
 import {

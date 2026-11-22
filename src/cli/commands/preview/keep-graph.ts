@@ -12,7 +12,8 @@ import {
   listExposedReferenceAddresses,
 } from "../../../core/definition-addresses.js";
 import { getBackendKind } from "../../../backends/resolve-backend.js";
-import { type DependencyGraph, thumbnailOf } from "../../../core/graph.js";
+import { platesOf, thumbnailOf } from "../../../core/definition-addresses.js";
+import type { DependencyGraph } from "../../../core/graph.js";
 import type { StateManager } from "../../../core/state/index.js";
 import {
   type AssetStageDefinition,
@@ -55,8 +56,7 @@ export function buildKeepGraph(opts: {
     for (const name of Object.keys(definition?.topLevelAssets ?? {})) {
       units[formatTimelineAddress(stage, name)] = { stage, label: `Timeline: ${name}` };
     }
-    const plates = definition && "plates" in definition ? definition.plates : undefined;
-    for (const setupId of Object.keys(plates ?? {})) {
+    for (const setupId of Object.keys(platesOf(definition))) {
       units[formatPlateAddress(setupId)] = { stage, label: `Plate: ${setupId}` };
     }
   }
